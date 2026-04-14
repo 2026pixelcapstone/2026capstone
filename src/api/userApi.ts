@@ -32,9 +32,13 @@ export const userApi = {
   updateMe: (data: ProfileUpdateRequest) =>
     api.patch<{ success: boolean; data: UserProfileResponse }>('/api/users/me', data),
 
-  // 특정 유저 프로필 조회
+  // 특정 유저 프로필 조회 (userId)
   getUser: (userId: number) =>
     api.get<{ success: boolean; data: UserProfileResponse }>(`/api/users/${userId}`),
+
+  // 닉네임으로 유저 프로필 조회 (프로필 페이지용)
+  getUserByNickname: (nickname: string) =>
+    api.get<{ success: boolean; data: UserProfileResponse }>(`/api/users/by-nickname/${nickname}`),
 
   // 팔로우
   follow: (userId: number) =>

@@ -1,109 +1,244 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 
 const TAGS = ['All', 'Landscape', 'Portrait', 'Isometric', 'Animation', 'Fantasy', 'Cyberpunk', 'Cute']
 
-const ARTWORKS = [
-  { id: 1, title: 'Neon Rain', author: 'pixel_witch', likes: '1.2k', views: '8.4k', bg: 'linear-gradient(135deg, #0a0e1a, #1a2a4a, #2f81f7)' },
-  { id: 2, title: 'Forest Walk', author: 'leaf_draw', likes: '870', views: '5.3k', bg: 'linear-gradient(135deg, #0d2818, #1a5c2a, #3abf6b)' },
-  { id: 3, title: 'Cyber Cat', author: 'neon_art', likes: '760', views: '4.8k', bg: 'linear-gradient(135deg, #1a0a2e, #4a1060, #8b2de0)' },
-  { id: 4, title: 'Space Travel', author: 'cosmos_art', likes: '650', views: '3.9k', bg: 'linear-gradient(135deg, #0a0a1a, #0d0d3a, #1a1a6b)' },
-  { id: 5, title: 'Old Castle', author: 'retro_rpg', likes: '540', views: '3.2k', bg: 'linear-gradient(135deg, #2c1810, #5c3020, #8b4513)' },
-  { id: 6, title: 'Mini Farm', author: 'cute_pixel', likes: '480', views: '2.8k', bg: 'linear-gradient(135deg, #1a3a0a, #3a7020, #6abf30)' },
-  { id: 7, title: 'Fire Dragon', author: 'dungeon_dev', likes: '430', views: '2.6k', bg: 'linear-gradient(135deg, #2c0a00, #6b1a00, #bf3000)' },
-  { id: 8, title: 'Night Market', author: 'sky_art', likes: '390', views: '2.3k', bg: 'linear-gradient(135deg, #0a0a0a, #1a1a2a, #f0883e)' },
-  { id: 9, title: 'Sea Monster', author: 'wave_pixel', likes: '350', views: '2.1k', bg: 'linear-gradient(135deg, #0a1a2a, #0d3a5c, #1a6b8f)' },
-]
-
 export default function FreeGalleryPage() {
   const [activeTag, setActiveTag] = useState('All')
+  const [sort, setSort] = useState('createdAt,desc')
+  const [keyword, setKeyword] = useState('')
+  const [inputValue, setInputValue] = useState('')
+  const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
+  const [featured, setFeatured] = useState<GalleryPostSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setPage(0)
+    setArtworks([])
+  }, [keyword, activeTag, sort])
+
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true)
+      try {
+        let content: GalleryPostSummary[]
+        let last: boolean
+
+        if (keyword.trim()) {
+          const res = await galleryApi.search(keyword.trim(), { page, size: 9 })
+          content = res.data.data.content
+          last = res.data.data.last
+        } else {
+          const res = await galleryApi.getList({ type: 'FREE', page, size: 9, sort })
+          content = res.data.data.content
+          last = res.data.data.last
+        }
+
+        setArtworks(prev => page === 0 ? content : [...prev, ...content])
+        setHasMore(!last)
+        if (page === 0 && content.length > 0 && !keyword) setFeatured(content[0])
+      } catch {
+        // 에러 시 유지
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetch()
+  }, [page, sort, keyword])
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setKeyword(inputValue.trim())
+  }
+
+  const clearSearch = () => {
+    setKeyword('')
+    setInputValue('')
+    inputRef.current?.focus()
+  }
 
   return (
     <div style={{ background: '#0d1117' }}>
-      {/* 히어로 */}
-      <div className="w-full relative mb-16" style={{ height: 600 }}>
-        <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #0a1628 0%, #1a3a5c 40%, #2f81f7 100%)' }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
-        <div className="absolute bottom-12 left-12 max-w-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
-              style={{ background: '#2f81f7', color: '#fff' }}>Featured</span>
-            <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
-              style={{ background: 'rgba(255,255,255,0.1)', color: '#e6edf3' }}>자유 갤러리</span>
-          </div>
-          <h1 className="text-5xl font-bold mb-3 tracking-tight">Neon Rain</h1>
-          <p className="text-base mb-2" style={{ color: '#7d8590' }}>by @pixel_witch</p>
-          <div className="flex items-center gap-4 mb-6 text-sm" style={{ color: '#7d8590' }}>
-            <span className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-base">favorite</span>1,240
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-base">visibility</span>8,420
-            </span>
-          </div>
-          <Link to="/gallery/1"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-opacity hover:opacity-90"
-            style={{ background: '#2f81f7', color: '#fff' }}>
-            작품 보기
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
-          </Link>
+      {/* 히어로 — 검색 중이 아닐 때만 */}
+      {!keyword && (
+        <div className="w-full relative mb-16" style={{ height: 600 }}>
+          {featured?.thumbnailUrl
+            ? <img src={featured.thumbnailUrl} alt={featured.title} className="w-full h-full object-cover" />
+            : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #0a1628 0%, #1a3a5c 40%, #2f81f7 100%)' }} />
+          }
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
+          {featured && (
+            <div className="absolute bottom-12 left-12 max-w-xl">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
+                  style={{ background: '#2f81f7', color: '#fff' }}>Featured</span>
+                <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#e6edf3' }}>자유 갤러리</span>
+              </div>
+              <h1 className="text-5xl font-bold mb-3 tracking-tight">{featured.title}</h1>
+              <p className="text-base mb-2" style={{ color: '#7d8590' }}>by @{featured.authorNickname}</p>
+              <div className="flex items-center gap-4 mb-6 text-sm" style={{ color: '#7d8590' }}>
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-base">favorite</span>
+                  {featured.likeCount.toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-base">visibility</span>
+                  {featured.viewCount.toLocaleString()}
+                </span>
+              </div>
+              <Link to={`/gallery/${featured.postId}`}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-opacity hover:opacity-90"
+                style={{ background: '#2f81f7', color: '#fff' }}>
+                작품 보기
+                <span className="material-symbols-outlined text-base">arrow_forward</span>
+              </Link>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       <div className="max-w-[1440px] mx-auto px-8 pb-16">
-        {/* 필터 바 */}
-        <div className="flex items-center justify-between gap-4 mb-12 flex-wrap">
-          <div className="flex gap-3 flex-wrap">
-            {TAGS.map(tag => (
-              <button key={tag} onClick={() => setActiveTag(tag)}
-                className="px-8 py-3 rounded-full text-sm font-bold transition-colors"
-                style={activeTag === tag
-                  ? { background: '#2f81f7', color: '#fff' }
-                  : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
-                #{tag}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-3">
-            <select className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
-              <option>카테고리</option>
-            </select>
-            <select className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
-              <option>최신순</option>
-              <option>인기순</option>
-            </select>
+
+        {/* 필터 바 + 검색창 (항상 표시) */}
+        <div className="flex items-center gap-4 mb-12 flex-wrap">
+          {/* 왼쪽: 태그 (검색 중이 아닐 때) 또는 검색 결과 카운트 */}
+          {!keyword ? (
+            <div className="flex gap-3 flex-wrap">
+              {TAGS.map(tag => (
+                <button key={tag} onClick={() => setActiveTag(tag)}
+                  className="px-8 py-3 rounded-full text-sm font-bold transition-colors"
+                  style={activeTag === tag
+                    ? { background: '#2f81f7', color: '#fff' }
+                    : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm" style={{ color: '#7d8590' }}>
+              <span style={{ color: '#e6edf3' }}>"{keyword}"</span> 검색 결과&nbsp;
+              {loading ? '...' : `${artworks.length}건`}
+            </p>
+          )}
+
+          {/* 오른쪽: 검색창 + 정렬 */}
+          <div className="ml-auto flex items-center gap-3">
+            <form onSubmit={handleSearch}>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base"
+                  style={{ color: '#7d8590' }}>search</span>
+                <input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                  placeholder="작품 검색..."
+                  className="pl-10 pr-8 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', width: 200 }}
+                />
+                {(inputValue || keyword) && (
+                  <button type="button" onClick={clearSearch}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-white"
+                    style={{ color: '#7d8590' }}>
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
+                )}
+              </div>
+            </form>
+            {!keyword && (
+              <select
+                value={sort}
+                onChange={e => setSort(e.target.value)}
+                className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
+                <option value="createdAt,desc">최신순</option>
+                <option value="likeCount,desc">인기순</option>
+                <option value="viewCount,desc">조회순</option>
+              </select>
+            )}
           </div>
         </div>
 
         {/* 그리드 */}
-        <div className="grid grid-cols-3 gap-12">
-          {ARTWORKS.map(item => (
-            <Link key={item.id} to={`/gallery/${item.id}`} className="group flex flex-col cursor-pointer">
-              <div className="aspect-[4/3] overflow-hidden rounded-2xl mb-6 relative"
-                style={{ background: item.bg }}>
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">View Work</span>
-                </div>
+        {loading && artworks.length === 0 ? (
+          <div className="grid grid-cols-3 gap-12">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-[4/3] rounded-2xl mb-4" style={{ background: '#21262d' }} />
+                <div className="h-4 rounded mb-2" style={{ background: '#21262d', width: '60%' }} />
+                <div className="h-3 rounded" style={{ background: '#21262d', width: '40%' }} />
               </div>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-bold mb-1">{item.title}</h3>
-                  <p className="text-sm font-medium" style={{ color: '#7d8590' }}>by @{item.author}</p>
-                </div>
-                <div className="flex items-center gap-3 text-sm" style={{ color: '#7d8590' }}>
-                  <span className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">favorite</span>{item.likes}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">visibility</span>{item.views}
-                  </span>
-                </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-12">
+              {artworks.map(item => (
+                <Link key={item.postId} to={`/gallery/${item.postId}`} className="group flex flex-col cursor-pointer">
+                  <div className="aspect-[4/3] overflow-hidden rounded-2xl mb-6 relative bg-[#21262d]">
+                    {item.thumbnailUrl
+                      ? <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
+                    }
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                      <span className="text-white font-bold text-sm">View Work</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-bold mb-1">{item.title}</h3>
+                      <p className="text-sm font-medium" style={{ color: '#7d8590' }}>by @{item.authorNickname}</p>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm" style={{ color: '#7d8590' }}>
+                      <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">favorite</span>
+                        {item.likeCount.toLocaleString()}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">visibility</span>
+                        {item.viewCount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {hasMore && (
+              <div className="flex justify-center mt-12">
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={loading}
+                  className="px-10 py-3.5 rounded-xl font-bold transition-colors disabled:opacity-50"
+                  style={{ background: '#21262d', color: '#2f81f7', border: '1px solid #30363d' }}>
+                  {loading ? '불러오는 중...' : '더 보기'}
+                </button>
               </div>
-            </Link>
-          ))}
-        </div>
+            )}
+
+            {!loading && artworks.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-32 gap-4">
+                <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
+                  {keyword ? 'search_off' : 'image_not_supported'}
+                </span>
+                <p style={{ color: '#7d8590' }}>
+                  {keyword ? `"${keyword}"에 대한 검색 결과가 없습니다.` : '작품이 없습니다.'}
+                </p>
+                {keyword && (
+                  <button onClick={clearSearch}
+                    className="text-sm font-bold hover:underline"
+                    style={{ color: '#2f81f7' }}>
+                    전체 작품 보기
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

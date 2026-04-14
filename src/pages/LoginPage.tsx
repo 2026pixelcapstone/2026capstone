@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../api/authApi'
 import { useAuthStore } from '../store/authStore'
 
@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const { setTokens } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as any)?.from ?? '/'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,7 +22,7 @@ export default function LoginPage() {
       const res = await authApi.login({ email, password })
       const { accessToken, refreshToken } = res.data.data
       setTokens(accessToken, refreshToken)
-      navigate('/')
+      navigate(from, { replace: true })
     } catch (err: any) {
       setError(err.response?.data?.message ?? '로그인에 실패했습니다.')
     } finally {
