@@ -4,6 +4,7 @@ import { galleryApi, type GalleryPostResponse, type GalleryCommentResponse } fro
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import Dropdown from '../components/Dropdown';
 
 export default function GalleryDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -18,6 +19,8 @@ export default function GalleryDetailPage() {
   const [submitting, setSubmitting] = useState(false)
   const [zoom, setZoom] = useState(4)
   const [bookmarked, setBookmarked] = useState(false)
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -157,6 +160,17 @@ export default function GalleryDetailPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative">
+                <button onClick = {() => setIsMenuOpen(!isMenuOpen)}
+                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" 
+                  style={{color: '#7d8590'}}>
+                  <span className="material-symbols-outlined">more_horiz</span>
+                </button>
+                {/* 드롭다운 컴포넌트 활용 */}
+                <Dropdown isOpen = {isMenuOpen}
+                  onClose = {() => setIsMenuOpen(false)}
+                />
+            </div>
             <button onClick={() => setBookmarked(v => !v)}
               className="p-2 rounded-xl transition-colors hover:bg-[#1c2128]"
               style={{ color: bookmarked ? '#2f81f7' : '#7d8590' }}>
