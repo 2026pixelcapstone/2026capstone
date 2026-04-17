@@ -1,0 +1,4 @@
+language: ko-KR
+reviews:
+  profile: assertive
+  request_changes_workflow: false
