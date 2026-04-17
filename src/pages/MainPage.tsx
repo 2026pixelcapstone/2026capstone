@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 
@@ -24,7 +24,11 @@ function isBgGradient(post: GalleryPostSummary) {
 function extractAuthors(posts: GalleryPostSummary[]) {
   const seen = new Set<number>()
   return posts
-    .filter(p => { if (seen.has(p.authorId)) return false; seen.add(p.authorId); return true })
+    .filter(p => {
+      if (seen.has(p.authorId)) return false
+      seen.add(p.authorId)
+      return true
+    })
     .slice(0, 5)
     .map(p => ({
       id: p.authorId,
@@ -59,11 +63,14 @@ export default function MainPage() {
         setRecentlyAdded(recentRes.data.data.content)
         setHotArtworks(hotRes.data.data.content)
       })
-      .catch(() => { /* 조용히 실패 — 빈 상태 유지 */ })
+      .catch((err) => { console.error('갤러리 데이터 로드 실패:', err) })
       .finally(() => setLoading(false))
   }, [])
 
-  const popularAuthors = extractAuthors([...trending, ...recentlyAdded])
+  const popularAuthors = useMemo(
+    () => extractAuthors([...trending, ...recentlyAdded]),
+    [trending, recentlyAdded]
+  )
 
   return (
     <div className="pb-16" style={{ background: 'var(--bg-base)' }}>

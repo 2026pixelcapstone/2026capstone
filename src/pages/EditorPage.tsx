@@ -159,17 +159,19 @@ export default function EditorPage() {
       if (firstLayer?.pixelData) {
         const img = new Image()
         img.onload = () => {
-          const ctx = canvasRef.current?.getContext('2d')
-          if (ctx) {
-            ctx.clearRect(0, 0, proj.width, proj.height)
-            ctx.drawImage(img, 0, 0)
-          }
+          requestAnimationFrame(() => {
+            const ctx = canvasRef.current?.getContext('2d')
+            if (ctx) {
+              ctx.clearRect(0, 0, proj.width, proj.height)
+              ctx.drawImage(img, 0, 0)
+            }
+          })
         }
         img.src = firstLayer.pixelData
       }
       setUnsaved(false)
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
-  }, [])
+  }, [searchParams, isLoggedIn])
 
   // ── 저장 ──────────────────────────────────────────
   const handleSave = useCallback(async () => {

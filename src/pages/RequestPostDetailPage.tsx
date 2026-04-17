@@ -346,7 +346,7 @@ export default function RequestPostDetailPage() {
             <button onClick={handleApply} disabled={applying}
               className="flex-1 py-3 rounded-xl text-sm font-bold hover:opacity-90 disabled:opacity-50"
               style={{ background: '#2f81f7', color: '#fff' }}>
-              {applying ? '지원 중...' : '지원 완료'}
+              {applying ? '지원 중...' : '지원하기'}
             </button>
           </div>
         </div>

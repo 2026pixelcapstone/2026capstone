@@ -216,10 +216,8 @@ export const applicationApi = {
     api.delete<{ success: boolean }>(`/api/applications/${applicationId}`),
 }
 
-// ─── 계약 (commissions) ────────────────────────────────────────────────────
-
 export interface CommissionCreateRequest {
-  commissionType: string        // SERVICE_OPTION / SERVICE_QUOTE / REQUEST
+  commissionType: 'SERVICE_OPTION' | 'SERVICE_QUOTE' | 'REQUEST'
   artistId: number
   serviceId?: number
   requestPostId?: number

@@ -78,11 +78,16 @@ export default function ArtistServiceDetailPage() {
 
   const handleOrder = async () => {
     if (!service) return
+    const resolvedPrice = orderPrice
+      ? Number(orderPrice)
+      : service.basePrice ?? service.priceMin ?? null
+    if (resolvedPrice === null || resolvedPrice <= 0) {
+      toast.error('유효한 금액을 입력해주세요.')
+      return
+    }
     setOrdering(true)
     try {
-      const price = orderPrice
-        ? Number(orderPrice)
-        : service.basePrice ?? service.priceMin ?? 0
+      const price = resolvedPrice
       await commissionApi.createCommission({
         commissionType: service.serviceType === 'OPTION' ? 'SERVICE_OPTION' : 'SERVICE_QUOTE',
         artistId: service.artistId,
