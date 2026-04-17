@@ -1,4 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { editorApi } from '../api/editorApi'
+import { useAuthStore } from '../store/authStore'
+import { toast } from '../store/toastStore'
 
 // ── 상수 ──────────────────────────────────────────────
 const DRAW_TOOLS = [
@@ -42,6 +46,8 @@ type MenuItem =
 export default function EditorPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const menuRef   = useRef<HTMLDivElement>(null)
+  const [searchParams] = useSearchParams()
+  const { isLoggedIn } = useAuthStore()
 
   const [activeTool, setActiveTool]   = useState('pencil')
   const [fgColor, setFgColor]         = useState('#2f81f7')
@@ -65,6 +71,12 @@ export default function EditorPage() {
   const [unsaved, setUnsaved]         = useState(false)
   const [openMenu, setOpenMenu]       = useState<string | null>(null)
   const [showGridLines, setShowGridLines] = useState(true)
+
+  // ── 프로젝트 저장 관련 상태 ──────────────────────────
+  const [projectId, setProjectId]       = useState<number | null>(null)
+  const [projectTitle, setProjectTitle] = useState('Untitled Project')
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [saving, setSaving]             = useState(false)
 
   const isDrawing = useRef(false)
   const zoom = ZOOM_LEVELS[zoomIdx]
@@ -128,6 +140,111 @@ export default function EditorPage() {
     setOpenMenu(null)
   }
 
+  // ── URL 파라미터로 프로젝트 불러오기 ──────────────
+  useEffect(() => {
+    const id = searchParams.get('projectId')
+    if (!id || !isLoggedIn) return
+    const numId = Number(id)
+    if (isNaN(numId)) return
+    editorApi.getProject(numId).then(res => {
+      const proj = res.data.data
+      setProjectId(proj.projectId)
+      setProjectTitle(proj.title)
+      setCanvasW(proj.width)
+      setCanvasH(proj.height)
+      setCustomW(proj.width)
+      setCustomH(proj.height)
+      // 첫 번째 레이어의 pixelData로 캔버스 복원
+      const firstLayer = proj.layers?.[0]
+      if (firstLayer?.pixelData) {
+        const img = new Image()
+        img.onload = () => {
+          const ctx = canvasRef.current?.getContext('2d')
+          if (ctx) {
+            ctx.clearRect(0, 0, proj.width, proj.height)
+            ctx.drawImage(img, 0, 0)
+          }
+        }
+        img.src = firstLayer.pixelData
+      }
+      setUnsaved(false)
+    }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
+  }, [])
+
+  // ── 저장 ──────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const pixelData = canvas.toDataURL('image/png')
+    setSaving(true)
+    try {
+      let pid = projectId
+      if (!pid) {
+        // 새 프로젝트 생성
+        const res = await editorApi.createProject({
+          title: projectTitle,
+          width: canvasW,
+          height: canvasH,
+        })
+        pid = res.data.data.projectId
+        setProjectId(pid)
+      } else {
+        // 제목 업데이트
+        await editorApi.updateProject(pid, { title: projectTitle })
+      }
+      // 레이어(캔버스 전체) 저장
+      await editorApi.saveLayers(pid, [{
+        layerId: null,
+        name: 'Layer 1',
+        layerOrder: 0,
+        blendMode: 'NORMAL',
+        isLocked: false,
+        isVisible: true,
+        opacity: 1.0,
+        pixelData,
+      }])
+      setUnsaved(false)
+      toast.success('저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }, [isLoggedIn, projectId, projectTitle, canvasW, canvasH])
+
+  // ── Ctrl+S 단축키 ────────────────────────────────
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        handleSave()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleSave])
+
+  // ── PNG 내보내기 ──────────────────────────────────
+  const handleExportPNG = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const link = document.createElement('a')
+    link.download = `${projectTitle.replace(/\s+/g, '_')}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }, [projectTitle])
+
+  // ── 새 프로젝트 ───────────────────────────────────
+  const handleNewProject = useCallback(() => {
+    if (unsaved && !confirm('저장되지 않은 변경사항이 있습니다. 계속하시겠습니까?')) return
+    const ctx = canvasRef.current?.getContext('2d')
+    if (ctx) { ctx.fillStyle = '#e8e8e8'; ctx.fillRect(0, 0, canvasW, canvasH) }
+    setProjectId(null)
+    setProjectTitle('Untitled Project')
+    setUnsaved(false)
+  }, [unsaved, canvasW, canvasH])
+
   // HEX 입력 → 색상 반영
   const applyHex = () => {
     if (/^#[0-9a-fA-F]{6}$/.test(hexInput)) setFgColor(hexInput)
@@ -152,13 +269,13 @@ export default function EditorPage() {
     {
       id: 'file', label: 'File',
       items: [
-        { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N' },
+        { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
         { label: 'Open Project…',      icon: 'folder_open',   shortcut: 'Ctrl+O' },
         { separator: true },
-        { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S' },
+        { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { handleSave(); setOpenMenu(null) } },
         { label: 'Save As…',           icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },
         { separator: true },
-        { label: 'Export as PNG',      icon: 'image' },
+        { label: 'Export as PNG',      icon: 'image',         action: () => { handleExportPNG(); setOpenMenu(null) } },
         { label: 'Export Spritesheet', icon: 'grid_on' },
         { label: 'Download .pixhub',   icon: 'download' },
         { separator: true },
@@ -288,13 +405,34 @@ export default function EditorPage() {
         <div className="ml-auto flex items-center gap-2 pr-3">
           <div className="flex items-center gap-1.5">
             <span className="material-symbols-outlined text-sm" style={{ color: '#7d8590' }}>description</span>
-            <span className="text-sm font-bold">Untitled Project</span>
+            {editingTitle ? (
+              <input
+                autoFocus
+                type="text"
+                value={projectTitle}
+                onChange={e => setProjectTitle(e.target.value)}
+                onBlur={() => setEditingTitle(false)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTitle(false) }}
+                className="text-sm font-bold rounded px-1 outline-none"
+                style={{ background: '#1c2128', border: '1px solid #2f81f7', color: '#e6edf3', width: 160 }}
+              />
+            ) : (
+              <span
+                className="text-sm font-bold cursor-pointer hover:text-white transition-colors"
+                title="클릭하여 제목 수정"
+                onClick={() => setEditingTitle(true)}
+              >{projectTitle}</span>
+            )}
             {unsaved && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="미저장 변경사항" />}
           </div>
           <div className="w-px h-5 mx-1" style={{ background: '#30363d' }} />
-          <button className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-[#1c2128]"
-            style={{ color: '#7d8590' }}>
-            <span className="material-symbols-outlined text-base">save</span>Save
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-[#1c2128] disabled:opacity-50"
+            style={{ color: saving ? '#2f81f7' : '#7d8590' }}>
+            <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
+            {saving ? 'Saving…' : 'Save'}
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-bold transition-all hover:opacity-90 active:scale-95"
             style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 2px 8px rgba(47,129,247,0.3)' }}>

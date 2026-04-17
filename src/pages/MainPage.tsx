@@ -1,45 +1,70 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 
-/* ── 더미 데이터 ─────────────────────────────────────────── */
-const TRENDING = [
-  { id: 1, title: 'Neon Nocturne', author: 'PixelVisions', liked: true, bg: 'linear-gradient(135deg, #6a0dad, #1a1a2e, #0d4f8c)' },
-  { id: 2, title: 'Silent Snow', author: 'GlitchArtisan', liked: false, bg: 'linear-gradient(135deg, #1a3a5c, #2d6a8f, #e8f4f8)' },
-  { id: 3, title: 'Aether Haven', author: 'CloudRunner', liked: false, bg: 'linear-gradient(135deg, #ff6b35, #f7c59f, #4ecdc4)' },
-  { id: 4, title: 'Cyber Core', author: 'SynthSpirit', liked: false, bg: 'linear-gradient(135deg, #2c1810, #8b4513, #d4a574)' },
-  { id: 5, title: 'Tonal Shift', author: 'ChromaKey', liked: false, bg: 'linear-gradient(135deg, #f0883e, #c0392b, #2c3e50)' },
-  { id: 6, title: 'Dawn Whisper', author: 'NaturePixel', liked: false, bg: 'linear-gradient(135deg, #0d2818, #1a5c2a, #2d8f3e)' },
+// thumbnailUrl 없을 때 postId 기반 그라디언트 placeholder
+const GRADIENTS = [
+  'linear-gradient(135deg, #6a0dad, #1a1a2e, #0d4f8c)',
+  'linear-gradient(135deg, #1a3a5c, #2d6a8f, #e8f4f8)',
+  'linear-gradient(135deg, #ff6b35, #f7c59f, #4ecdc4)',
+  'linear-gradient(135deg, #2c1810, #8b4513, #d4a574)',
+  'linear-gradient(135deg, #f0883e, #c0392b, #2c3e50)',
+  'linear-gradient(135deg, #0d2818, #1a5c2a, #2d8f3e)',
+  'linear-gradient(135deg, #1a0a2e, #4a1060, #8b2de0)',
+  'linear-gradient(135deg, #0a1628, #0d3a6b, #1a6bbf)',
 ]
+function getBg(post: GalleryPostSummary) {
+  return post.thumbnailUrl ?? GRADIENTS[post.postId % GRADIENTS.length]
+}
+function isBgGradient(post: GalleryPostSummary) {
+  return !post.thumbnailUrl
+}
 
-const RECENTLY_ADDED = [
-  { id: 1, bg: 'linear-gradient(135deg, #1a0a2e, #4a1060, #8b2de0)' },
-  { id: 2, bg: 'linear-gradient(135deg, #0d2818, #1a6b3a, #2de06b)' },
-  { id: 3, bg: 'linear-gradient(135deg, #0a1628, #0d3a6b, #1a6bbf)' },
-  { id: 4, bg: 'linear-gradient(135deg, #2c0d0d, #6b1a1a, #bf2d2d)' },
-  { id: 5, bg: 'linear-gradient(135deg, #0d2818, #1a5c3a, #3abf6b)' },
-  { id: 6, bg: 'linear-gradient(135deg, #1a1a0d, #4a4a1a, #8b8b2d)' },
-]
+// 게시물 목록에서 중복 없이 작가 추출
+function extractAuthors(posts: GalleryPostSummary[]) {
+  const seen = new Set<number>()
+  return posts
+    .filter(p => { if (seen.has(p.authorId)) return false; seen.add(p.authorId); return true })
+    .slice(0, 5)
+    .map(p => ({
+      id: p.authorId,
+      nickname: p.authorNickname,
+      profileImageUrl: p.authorProfileImageUrl,
+      gradient: GRADIENTS[p.authorId % GRADIENTS.length],
+    }))
+}
 
-// 좌측 사이드바: 인기 작가
-const POPULAR_AUTHORS = [
-  { id: 1, nickname: 'PixelVisions', works: 142, thumb: 'linear-gradient(135deg, #6a0dad, #1a1a2e)', avatar: 'linear-gradient(135deg, #6a0dad, #8b2de0)' },
-  { id: 2, nickname: 'GlitchArtisan', works: 98, thumb: 'linear-gradient(135deg, #1a3a5c, #2d6a8f)', avatar: 'linear-gradient(135deg, #0d3a6b, #1a6bbf)' },
-  { id: 3, nickname: 'CloudRunner', works: 76, thumb: 'linear-gradient(135deg, #ff6b35, #4ecdc4)', avatar: 'linear-gradient(135deg, #ff6b35, #f7c59f)' },
-  { id: 4, nickname: 'SynthSpirit', works: 65, thumb: 'linear-gradient(135deg, #2c1810, #8b4513)', avatar: 'linear-gradient(135deg, #4a2000, #8b3a00)' },
-  { id: 5, nickname: 'NaturePixel', works: 53, thumb: 'linear-gradient(135deg, #0d2818, #2d8f3e)', avatar: 'linear-gradient(135deg, #0d2818, #1a5c2a)' },
-]
-
-// 우측 사이드바: 핫한 작품
-const HOT_ARTWORKS = [
-  { id: 1, title: 'Neon Streets Alpha', author: '@NightCity', likes: '12.4k', bg: 'linear-gradient(135deg, #0a1628, #1a3a5c)' },
-  { id: 2, title: 'Ethereal Plane', author: '@VoidSpirit', likes: '10.1k', bg: 'linear-gradient(135deg, #1a1a1a, #3a3a3a)' },
-  { id: 3, title: 'Verdant Souls', author: '@MossChild', likes: '8.7k', bg: 'linear-gradient(135deg, #0d2818, #1a5c2a)' },
-  { id: 4, title: 'Circuit Breaker', author: '@Sparky', likes: '7.2k', bg: 'linear-gradient(135deg, #1a0a0a, #3a1a1a)' },
-  { id: 5, title: 'Obsidian Flow', author: '@Gravel', likes: '6.8k', bg: 'linear-gradient(135deg, #0d0d2e, #2d2d6b)' },
-  { id: 6, title: 'Solar Flare', author: '@BurnPixel', likes: '5.9k', bg: 'linear-gradient(135deg, #4a2000, #d45000)' },
-  { id: 7, title: 'Deep Current', author: '@AquaFrame', likes: '5.1k', bg: 'linear-gradient(135deg, #0d2c3a, #1a6b8f)' },
-]
+// 스켈레톤 카드
+function SkeletonCard({ className }: { className?: string }) {
+  return (
+    <div className={`animate-pulse rounded-lg ${className ?? ''}`}
+      style={{ background: '#21262d' }} />
+  )
+}
 
 export default function MainPage() {
+  const [trending, setTrending] = useState<GalleryPostSummary[]>([])
+  const [recentlyAdded, setRecentlyAdded] = useState<GalleryPostSummary[]>([])
+  const [hotArtworks, setHotArtworks] = useState<GalleryPostSummary[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      galleryApi.getList({ page: 0, size: 6, sort: 'viewCount,desc' }),
+      galleryApi.getList({ page: 0, size: 6, sort: 'createdAt,desc' }),
+      galleryApi.getList({ page: 0, size: 7, sort: 'likeCount,desc' }),
+    ])
+      .then(([trendRes, recentRes, hotRes]) => {
+        setTrending(trendRes.data.data.content)
+        setRecentlyAdded(recentRes.data.data.content)
+        setHotArtworks(hotRes.data.data.content)
+      })
+      .catch(() => { /* 조용히 실패 — 빈 상태 유지 */ })
+      .finally(() => setLoading(false))
+  }, [])
+
+  const popularAuthors = extractAuthors([...trending, ...recentlyAdded])
+
   return (
     <div className="pb-16" style={{ background: 'var(--bg-base)' }}>
       <div className="max-w-[1440px] mx-auto px-8 pt-8 flex gap-8 items-start">
@@ -51,23 +76,34 @@ export default function MainPage() {
             Popular Artists
           </h3>
 
-          {POPULAR_AUTHORS.map(author => (
-            <Link key={author.id} to={`/profile/${author.nickname}`}
-              className="flex items-center gap-3 p-2 rounded-xl group transition-colors hover:bg-[#21262d]">
-              {/* 아바타 */}
-              <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden"
-                style={{ background: author.avatar }} />
-              {/* 정보 */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate group-hover:text-[var(--primary)] transition-colors">
-                  {author.nickname}
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  {author.works} works
-                </p>
-              </div>
-            </Link>
-          ))}
+          {loading
+            ? Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2">
+                  <div className="w-10 h-10 rounded-full animate-pulse shrink-0" style={{ background: '#21262d' }} />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 rounded animate-pulse" style={{ background: '#21262d', width: '70%' }} />
+                    <div className="h-2.5 rounded animate-pulse" style={{ background: '#21262d', width: '40%' }} />
+                  </div>
+                </div>
+              ))
+            : popularAuthors.map(author => (
+                <Link key={author.id} to={`/profile/${author.nickname}`}
+                  className="flex items-center gap-3 p-2 rounded-xl group transition-colors hover:bg-[#21262d]">
+                  {author.profileImageUrl ? (
+                    <img src={author.profileImageUrl} alt={author.nickname}
+                      className="w-10 h-10 rounded-full shrink-0 object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full shrink-0"
+                      style={{ background: author.gradient }} />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate group-hover:text-[var(--primary)] transition-colors">
+                      {author.nickname}
+                    </p>
+                  </div>
+                </Link>
+              ))
+          }
 
           <Link to="/gallery/free"
             className="block text-center text-xs font-bold py-2 rounded-lg mt-2 transition-colors hover:text-[var(--primary)]"
@@ -96,32 +132,44 @@ export default function MainPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              {TRENDING.map(item => (
-                <Link key={item.id} to={`/gallery/${item.id}`} className="group cursor-pointer">
-                  <div className="overflow-hidden mb-3 aspect-[4/3]"
-                    style={{
-                      background: item.bg,
-                      clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
-                    }}>
-                    <div className="w-full h-full transition-transform duration-500 group-hover:scale-110" />
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-base font-bold">{item.title}</h3>
-                      <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                        by {item.author}
-                      </p>
+              {loading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i}>
+                      <SkeletonCard className="aspect-[4/3] mb-3" />
+                      <div className="h-4 rounded animate-pulse mb-1.5" style={{ background: '#21262d', width: '60%' }} />
+                      <div className="h-3 rounded animate-pulse" style={{ background: '#21262d', width: '35%' }} />
                     </div>
-                    <span className="material-symbols-outlined text-xl"
-                      style={{
-                        color: item.liked ? 'var(--primary)' : 'var(--border)',
-                        fontVariationSettings: item.liked ? "'FILL' 1" : "'FILL' 0",
-                      }}>
-                      favorite
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                  ))
+                : trending.map(item => (
+                    <Link key={item.postId} to={`/gallery/${item.postId}`} className="group cursor-pointer">
+                      <div className="overflow-hidden mb-3 aspect-[4/3] rounded-lg"
+                        style={{
+                          background: isBgGradient(item) ? getBg(item) : undefined,
+                          clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+                        }}>
+                        {item.thumbnailUrl ? (
+                          <img src={item.thumbnailUrl} alt={item.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            style={{ imageRendering: 'pixelated' }} />
+                        ) : (
+                          <div className="w-full h-full transition-transform duration-500 group-hover:scale-110" />
+                        )}
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-base font-bold line-clamp-1">{item.title}</h3>
+                          <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                            by {item.authorNickname}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          <span className="material-symbols-outlined text-sm">favorite</span>
+                          {item.likeCount.toLocaleString()}
+                        </div>
+                      </div>
+                    </Link>
+                  ))
+              }
             </div>
           </section>
 
@@ -129,36 +177,35 @@ export default function MainPage() {
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">Recently Added</h2>
-              <div className="flex gap-2">
-                {['All', 'Characters', 'Enviro'].map((label, i) => (
-                  <button key={label}
-                    className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter transition-colors"
-                    style={{
-                      background: i === 0 ? 'var(--bg-surface)' : 'transparent',
-                      color: i === 0 ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <Link to="/gallery/free"
+                className="text-xs font-bold hover:underline"
+                style={{ color: 'var(--primary)' }}>
+                View All →
+              </Link>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              {RECENTLY_ADDED.map(item => (
-                <Link key={item.id} to={`/gallery/${item.id}`}
-                  className="aspect-square rounded-lg overflow-hidden relative group"
-                  style={{ background: item.bg }}>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">View Work</span>
-                  </div>
-                </Link>
-              ))}
+              {loading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <SkeletonCard key={i} className="aspect-square" />
+                  ))
+                : recentlyAdded.map(item => (
+                    <Link key={item.postId} to={`/gallery/${item.postId}`}
+                      className="aspect-square rounded-lg overflow-hidden relative group"
+                      style={{ background: isBgGradient(item) ? getBg(item) : undefined }}>
+                      {item.thumbnailUrl && (
+                        <img src={item.thumbnailUrl} alt={item.title}
+                          className="w-full h-full object-cover"
+                          style={{ imageRendering: 'pixelated' }} />
+                      )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-2">
+                        <span className="text-white font-bold text-sm text-center line-clamp-2">{item.title}</span>
+                        <span className="text-xs" style={{ color: '#c9d1d9' }}>by {item.authorNickname}</span>
+                      </div>
+                    </Link>
+                  ))
+              }
             </div>
-
-            <button className="w-full py-3.5 rounded-xl font-bold mt-5 transition-colors"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--primary)' }}>
-              Load More
-            </button>
           </section>
 
         </main>
@@ -171,31 +218,46 @@ export default function MainPage() {
           </h3>
 
           <div className="space-y-3">
-            {HOT_ARTWORKS.map((item, idx) => (
-              <Link key={item.id} to={`/gallery/${item.id}`}
-                className="flex items-center gap-3 group">
-                {/* 순위 */}
-                <span className="text-sm font-bold italic w-4 shrink-0 text-center"
-                  style={{ color: idx === 0 ? 'var(--primary)' : 'var(--text-secondary)' }}>
-                  {idx + 1}
-                </span>
-                {/* 썸네일 */}
-                <div className="w-12 h-12 rounded-lg shrink-0 overflow-hidden"
-                  style={{ background: item.bg }} />
-                {/* 정보 */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold truncate group-hover:text-[var(--primary)] transition-colors leading-tight">
-                    {item.title}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                    {item.author}
-                  </p>
-                  <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--accent)' }}>
-                    ♥ {item.likes}
-                  </p>
-                </div>
-              </Link>
-            ))}
+            {loading
+              ? Array.from({ length: 7 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-4 shrink-0" />
+                    <div className="w-12 h-12 rounded-lg animate-pulse shrink-0" style={{ background: '#21262d' }} />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 rounded animate-pulse" style={{ background: '#21262d' }} />
+                      <div className="h-2.5 rounded animate-pulse" style={{ background: '#21262d', width: '60%' }} />
+                    </div>
+                  </div>
+                ))
+              : hotArtworks.map((item, idx) => (
+                  <Link key={item.postId} to={`/gallery/${item.postId}`}
+                    className="flex items-center gap-3 group">
+                    <span className="text-sm font-bold italic w-4 shrink-0 text-center"
+                      style={{ color: idx === 0 ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                      {idx + 1}
+                    </span>
+                    <div className="w-12 h-12 rounded-lg shrink-0 overflow-hidden"
+                      style={{ background: isBgGradient(item) ? getBg(item) : undefined }}>
+                      {item.thumbnailUrl && (
+                        <img src={item.thumbnailUrl} alt={item.title}
+                          className="w-full h-full object-cover"
+                          style={{ imageRendering: 'pixelated' }} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate group-hover:text-[var(--primary)] transition-colors leading-tight">
+                        {item.title}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        @{item.authorNickname}
+                      </p>
+                      <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--accent)' }}>
+                        ♥ {item.likeCount.toLocaleString()}
+                      </p>
+                    </div>
+                  </Link>
+                ))
+            }
           </div>
 
           <Link to="/gallery/free"

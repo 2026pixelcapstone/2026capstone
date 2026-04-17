@@ -5,9 +5,12 @@ export interface LayerResponse {
   layerId: number
   name: string
   layerOrder: number
-  opacity: number
+  blendMode: string
+  isLocked: boolean
   isVisible: boolean
-  layerData: string
+  opacity: number
+  fileUrl: string | null
+  pixelData: string | null   // canvas base64 데이터
   createdAt: string
   updatedAt: string
 }
@@ -16,40 +19,46 @@ export interface ProjectSummary {
   projectId: number
   title: string
   thumbnailUrl: string | null
-  canvasWidth: number
-  canvasHeight: number
+  width: number
+  height: number
+  backgroundColor: string | null
+  isPublic: boolean
   status: string
   createdAt: string
   updatedAt: string
 }
 
 export interface ProjectResponse extends ProjectSummary {
-  description: string | null
+  fileUrl: string | null
   aiAnalyzed: boolean
   layers: LayerResponse[]
 }
 
 export interface ProjectCreateRequest {
   title: string
-  description?: string
-  canvasWidth: number
-  canvasHeight: number
+  width: number
+  height: number
+  backgroundColor?: string
+  isPublic?: boolean
   thumbnailUrl?: string
 }
 
 export interface ProjectUpdateRequest {
   title?: string
-  description?: string
   thumbnailUrl?: string
+  isPublic?: boolean
 }
 
 export interface LayerSaveRequest {
   layerId?: number | null
   name: string
   layerOrder: number
-  opacity: number
+  blendMode: string
+  isLocked: boolean
   isVisible: boolean
-  layerData: string
+  opacity: number
+  fileUrl?: string | null
+  pixelData?: string | null   // canvas.toDataURL() 결과
 }
 
 export const editorApi = {

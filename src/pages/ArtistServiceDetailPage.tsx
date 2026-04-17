@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { artistServiceApi, type ArtistServiceResponse } from '../api/commissionApi'
+import { artistServiceApi, commissionApi, type ArtistServiceResponse } from '../api/commissionApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
@@ -40,6 +40,13 @@ export default function ArtistServiceDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
+  // 의뢰하기 모달
+  const [showOrderModal, setShowOrderModal] = useState(false)
+  const [orderPrice, setOrderPrice] = useState('')
+  const [orderDeadline, setOrderDeadline] = useState('')
+  const [ordering, setOrdering] = useState(false)
+  const [ordered, setOrdered] = useState(false)
+
   useEffect(() => {
     if (!id) return
     const serviceId = Number(id)
@@ -66,6 +73,30 @@ export default function ArtistServiceDetailPage() {
       toast.error(getErrorMessage(err, '마감 처리에 실패했습니다.'))
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleOrder = async () => {
+    if (!service) return
+    setOrdering(true)
+    try {
+      const price = orderPrice
+        ? Number(orderPrice)
+        : service.basePrice ?? service.priceMin ?? 0
+      await commissionApi.createCommission({
+        commissionType: service.serviceType === 'OPTION' ? 'SERVICE_OPTION' : 'SERVICE_QUOTE',
+        artistId: service.artistId,
+        serviceId: service.serviceId,
+        agreedPrice: price,
+        agreedDeadline: orderDeadline || undefined,
+      })
+      setOrdered(true)
+      setShowOrderModal(false)
+      toast.success('의뢰가 접수되었습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '의뢰 접수에 실패했습니다.'))
+    } finally {
+      setOrdering(false)
     }
   }
 
@@ -112,6 +143,7 @@ export default function ArtistServiceDetailPage() {
   const gradient = getAvatarGradient(service.serviceId)
 
   return (
+    <>
     <div style={{ background: '#0d1117', color: '#e6edf3', minHeight: '100vh' }}>
       <div className="max-w-screen-lg mx-auto px-4 sm:px-6 py-8">
 
@@ -248,12 +280,23 @@ export default function ArtistServiceDetailPage() {
                   </button>
                 </div>
               ) : isOpen ? (
-                <button
-                  onClick={() => { if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return } }}
-                  className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 4px 16px rgba(47,129,247,0.3)' }}>
-                  의뢰하기
-                </button>
+                ordered ? (
+                  <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
+                    style={{ background: 'rgba(63,185,80,0.1)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)' }}>
+                    <span className="material-symbols-outlined text-base">check_circle</span>
+                    의뢰 접수 완료
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
+                      setShowOrderModal(true)
+                    }}
+                    className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90"
+                    style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 4px 16px rgba(47,129,247,0.3)' }}>
+                    의뢰하기
+                  </button>
+                )
               ) : (
                 <div className="flex items-center justify-center py-3 rounded-xl text-sm font-bold"
                   style={{ background: '#21262d', color: '#7d8590' }}>
@@ -270,5 +313,83 @@ export default function ArtistServiceDetailPage() {
         </div>
       </div>
     </div>
+
+    {/* 의뢰하기 모달 */}
+    {showOrderModal && service && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.7)' }}
+        onClick={e => { if (e.target === e.currentTarget) setShowOrderModal(false) }}>
+        <div className="w-full max-w-md rounded-2xl border p-6 space-y-5"
+          style={{ background: '#161b22', borderColor: '#30363d' }}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">의뢰하기</h2>
+            <button onClick={() => setShowOrderModal(false)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
+              style={{ color: '#7d8590' }}>
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+
+          {/* 서비스 정보 요약 */}
+          <div className="px-4 py-3 rounded-xl text-sm" style={{ background: '#0d1117' }}>
+            <div className="font-bold truncate">{service.title}</div>
+            <div className="mt-1" style={{ color: '#7d8590' }}>
+              @{service.artistNickname} · {formatPrice(service)}
+            </div>
+          </div>
+
+          {/* QUOTE형일 때만 가격 입력 */}
+          {service.serviceType === 'QUOTE' && (
+            <div>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>
+                제안 금액 <span style={{ color: '#f85149' }}>*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold"
+                  style={{ color: '#7d8590' }}>₩</span>
+                <input
+                  type="number"
+                  placeholder={service.priceMin ? String(service.priceMin) : '0'}
+                  value={orderPrice}
+                  onChange={e => setOrderPrice(e.target.value)}
+                  className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 희망 마감일 */}
+          <div>
+            <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>
+              희망 마감일 <span className="font-normal">(선택)</span>
+            </label>
+            <input
+              type="date"
+              value={orderDeadline}
+              onChange={e => setOrderDeadline(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => setShowOrderModal(false)}
+              className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors hover:bg-[#21262d]"
+              style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+              취소
+            </button>
+            <button
+              onClick={handleOrder}
+              disabled={ordering || (service.serviceType === 'QUOTE' && !orderPrice)}
+              className="flex-1 py-3 rounded-xl text-sm font-bold hover:opacity-90 disabled:opacity-50"
+              style={{ background: '#2f81f7', color: '#fff' }}>
+              {ordering ? '접수 중...' : '의뢰 접수'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
