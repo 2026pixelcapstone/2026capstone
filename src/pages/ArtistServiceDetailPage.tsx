@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { artistServiceApi, commissionApi, type ArtistServiceResponse } from '../api/commissionApi'
 import { useAuthStore } from '../store/authStore'
@@ -46,6 +46,7 @@ export default function ArtistServiceDetailPage() {
   const [orderDeadline, setOrderDeadline] = useState('')
   const [ordering, setOrdering] = useState(false)
   const [ordered, setOrdered] = useState(false)
+  const orderRequestId = useRef(0)  // race condition 방지용 요청 토큰
 
   // 서비스 ID 변경 시 주문 관련 상태 초기화
   useEffect(() => {
@@ -95,13 +96,15 @@ export default function ArtistServiceDetailPage() {
       return
     }
     if (orderDeadline) {
-      const today = new Date().toISOString().split('T')[0]
-      if (orderDeadline < today) {
+      const now = new Date()
+      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      if (orderDeadline < todayLocal) {
         toast.error('마감일은 오늘 이후로 설정해주세요.')
         return
       }
     }
     setOrdering(true)
+    const token = ++orderRequestId.current
     try {
       const price = resolvedPrice
       await commissionApi.createCommission({
@@ -111,13 +114,15 @@ export default function ArtistServiceDetailPage() {
         agreedPrice: price,
         agreedDeadline: orderDeadline || undefined,
       })
+      if (token !== orderRequestId.current) return  // 다른 서비스로 이동한 경우 무시
       setOrdered(true)
       setShowOrderModal(false)
       toast.success('의뢰가 접수되었습니다.')
     } catch (err) {
+      if (token !== orderRequestId.current) return
       toast.error(getErrorMessage(err, '의뢰 접수에 실패했습니다.'))
     } finally {
-      setOrdering(false)
+      if (token === orderRequestId.current) setOrdering(false)
     }
   }
 
