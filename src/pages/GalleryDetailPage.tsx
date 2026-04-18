@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, data } from 'react-router-dom'
 import { galleryApi, type GalleryPostResponse, type GalleryCommentResponse } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -21,6 +21,7 @@ export default function GalleryDetailPage() {
   const [bookmarked, setBookmarked] = useState(false)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isInternalDraw, setIsInternalDraw] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -30,8 +31,11 @@ export default function GalleryDetailPage() {
           galleryApi.getPost(postId),
           galleryApi.getComments(postId, { size: 20 }),
         ])
-        setPost(postRes.data.data)
-        setComments(commentsRes.data.data.content)
+        const postData = postRes.data.data;
+
+        setPost(postData);
+        setComments(commentsRes.data.data.content);
+        setIsInternalDraw(postData.galleryType === 'DEDICATED');
       } catch (err) {
         const status = getErrorStatus(err)
         if (status === 403) navigate('/403', { replace: true })
@@ -85,6 +89,15 @@ export default function GalleryDetailPage() {
     }
   }
 
+  const handleShowInfo = () => {
+      if (isInternalDraw) {
+          // 전용 갤러리 전용 모달 띄우기 (인증 마크 포함)
+          alert("PixelHub 인증 데이터를 포함한 상세 정보를 띄웁니다.");
+      } else {
+          alert("일반 파일 사양을 띄웁니다.");
+      }
+  };
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
@@ -167,10 +180,13 @@ export default function GalleryDetailPage() {
                   <span className="material-symbols-outlined">more_horiz</span>
                 </button>
                 {/* 드롭다운 컴포넌트 활용 */}
-                <Dropdown isOpen = {isMenuOpen}
+                <Dropdown isOpen = {isMenuOpen} 
+                  isInternal = {isInternalDraw} // 전용 갤러리 여부
                   onClose = {() => setIsMenuOpen(false)}
-                />
+                  onInfoClick={handleShowInfo}>
+                </Dropdown>
             </div>
+
             <button onClick={() => setBookmarked(v => !v)}
               className="p-2 rounded-xl transition-colors hover:bg-[#1c2128]"
               style={{ color: bookmarked ? '#2f81f7' : '#7d8590' }}>
