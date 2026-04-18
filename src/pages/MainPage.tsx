@@ -53,17 +53,19 @@ export default function MainPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       galleryApi.getList({ page: 0, size: 6, sort: 'viewCount,desc' }),
       galleryApi.getList({ page: 0, size: 6, sort: 'createdAt,desc' }),
       galleryApi.getList({ page: 0, size: 7, sort: 'likeCount,desc' }),
     ])
       .then(([trendRes, recentRes, hotRes]) => {
-        setTrending(trendRes.data.data.content)
-        setRecentlyAdded(recentRes.data.data.content)
-        setHotArtworks(hotRes.data.data.content)
+        if (trendRes.status === 'fulfilled') setTrending(trendRes.value.data.data.content)
+        else console.error('트렌딩 로드 실패:', trendRes.reason)
+        if (recentRes.status === 'fulfilled') setRecentlyAdded(recentRes.value.data.data.content)
+        else console.error('최신 로드 실패:', recentRes.reason)
+        if (hotRes.status === 'fulfilled') setHotArtworks(hotRes.value.data.data.content)
+        else console.error('인기 로드 실패:', hotRes.reason)
       })
-      .catch((err) => { console.error('갤러리 데이터 로드 실패:', err) })
       .finally(() => setLoading(false))
   }, [])
 

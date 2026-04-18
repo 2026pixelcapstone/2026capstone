@@ -5,7 +5,7 @@ export interface LayerResponse {
   layerId: number
   name: string
   layerOrder: number
-  blendMode: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | string
+  blendMode: 'NORMAL' | 'MULTIPLY' | 'SCREEN' | 'OVERLAY' | 'DARKEN' | 'LIGHTEN'
   isLocked: boolean
   isVisible: boolean
   opacity: number
@@ -53,7 +53,7 @@ export interface LayerSaveRequest {
   layerId?: number | null
   name: string
   layerOrder: number
-  blendMode: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | string
+  blendMode: 'NORMAL' | 'MULTIPLY' | 'SCREEN' | 'OVERLAY' | 'DARKEN' | 'LIGHTEN'
   isLocked: boolean
   isVisible: boolean
   opacity: number

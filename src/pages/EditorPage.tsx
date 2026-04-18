@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -46,7 +46,8 @@ type MenuItem =
 export default function EditorPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const menuRef   = useRef<HTMLDivElement>(null)
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { isLoggedIn } = useAuthStore()
 
   const [activeTool, setActiveTool]   = useState('pencil')
@@ -154,9 +155,10 @@ export default function EditorPage() {
       setCanvasH(proj.height)
       setCustomW(proj.width)
       setCustomH(proj.height)
-      // 첫 번째 레이어의 pixelData로 캔버스 복원
+      // 첫 번째 레이어의 pixelData 또는 fileUrl로 캔버스 복원
       const firstLayer = proj.layers?.[0]
-      if (firstLayer?.pixelData) {
+      const imageSrc = firstLayer?.pixelData ?? firstLayer?.fileUrl ?? null
+      if (imageSrc) {
         const img = new Image()
         img.onload = () => {
           requestAnimationFrame(() => {
@@ -167,7 +169,7 @@ export default function EditorPage() {
             }
           })
         }
-        img.src = firstLayer.pixelData
+        img.src = imageSrc
       }
       setUnsaved(false)
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
@@ -245,7 +247,9 @@ export default function EditorPage() {
     setProjectId(null)
     setProjectTitle('Untitled Project')
     setUnsaved(false)
-  }, [unsaved, canvasW, canvasH])
+    // URL에 남은 projectId 쿼리 파라미터 제거
+    setSearchParams({}, { replace: true })
+  }, [unsaved, canvasW, canvasH, setSearchParams])
 
   // HEX 입력 → 색상 반영
   const applyHex = () => {

@@ -372,6 +372,7 @@ export default function ArtistServiceDetailPage() {
             <input
               type="date"
               value={orderDeadline}
+              min={new Date().toISOString().split('T')[0]}
               onChange={e => setOrderDeadline(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
               style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}

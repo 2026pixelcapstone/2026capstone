@@ -369,7 +369,7 @@ export default function MyPage() {
                     <div>
                       <div className="font-bold text-sm">{p.title}</div>
                       <div className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
-                        {p.canvasWidth}×{p.canvasHeight} · {new Date(p.updatedAt).toLocaleDateString('ko-KR')}
+                        {p.width}×{p.height} · {new Date(p.updatedAt).toLocaleDateString('ko-KR')}
                       </div>
                     </div>
                     <span className="material-symbols-outlined text-base opacity-0 group-hover:opacity-100 transition-opacity"

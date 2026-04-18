@@ -43,6 +43,18 @@ export default function RequestPostDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
+  // 이미 지원한 게시물인지 마운트 시 확인
+  useEffect(() => {
+    if (!id || !isLoggedIn) return
+    const postId = Number(id)
+    if (isNaN(postId)) return
+    applicationApi.getByPost(postId, { page: 0, size: 1 })
+      .then(res => {
+        if (res.data.data.totalElements > 0) setApplied(true)
+      })
+      .catch(() => { /* 조회 실패 시 버튼 기본 표시 */ })
+  }, [id, isLoggedIn])
+
   const handleClose = async () => {
     if (!post) return
     if (!confirm('의뢰를 마감하시겠습니까?')) return
@@ -315,6 +327,7 @@ export default function RequestPostDetailPage() {
               <input
                 type="number"
                 placeholder="0"
+                min="1"
                 value={applyPrice}
                 onChange={e => setApplyPrice(e.target.value)}
                 className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm outline-none"
