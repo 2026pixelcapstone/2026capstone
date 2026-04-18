@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, data } from 'react-router-dom'
 import { galleryApi, type GalleryPostResponse, type GalleryCommentResponse } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -21,28 +21,55 @@ export default function GalleryDetailPage() {
   const [bookmarked, setBookmarked] = useState(false)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isInternalDraw, setIsInternalDraw] = useState(false);
 
   useEffect(() => {
+    // 취소 플래그 선언
+    let cancelled = false;
+
     const fetchAll = async () => {
       setLoading(true)
       try {
         const [postRes, commentsRes] = await Promise.all([
           galleryApi.getPost(postId),
           galleryApi.getComments(postId, { size: 20 }),
-        ])
-        setPost(postRes.data.data)
-        setComments(commentsRes.data.data.content)
+        ]);
+        
+        // 응답이 왔을 때, 이미 이 useEffect가 클린업(종료)되었는지 확인
+        if (cancelled) return;
+
+        const postData = postRes.data.data;
+
+        setPost(postData);
+        setComments(commentsRes.data.data.content);
+        setIsInternalDraw(postData.galleryType === 'DEDICATED');
       } catch (err) {
+        // 에러 처리 시에도 취소 여부 확인
+        if (cancelled) return;
+        
         const status = getErrorStatus(err)
         if (status === 403) navigate('/403', { replace: true })
         else if (status && status >= 500) navigate('/500', { replace: true })
         else setPost(null)
       } finally {
-        setLoading(false)
+        // 로딩 해제 시에도 취소 여부 확인
+        if (!cancelled) setLoading(false);
       }
+    };
+    // 4. 실행 조건: postId가 유효한 숫자인지 확인 후 단 한 번만 실행
+    if (postId && Number.isFinite(Number(postId)) && Number(postId) > 0) {
+      fetchAll();
+    } else {
+      setPost(null);
+      setLoading(false);
     }
-    if (postId) fetchAll()
-  }, [postId])
+    
+    // 클린업 함수: postId가 바뀌거나 컴포넌트가 사라질 때 실행됨
+    return () => {
+      cancelled = true;
+    };
+      
+  }, [postId, navigate])
 
   const handleLike = async () => {
     if (!isLoggedIn || !post) return
@@ -85,6 +112,15 @@ export default function GalleryDetailPage() {
     }
   }
 
+  const handleShowInfo = () => {
+      if (isInternalDraw) {
+          // 전용 갤러리 전용 모달 띄우기 (인증 마크 포함)
+          alert("PixelHub 인증 데이터를 포함한 상세 정보를 띄웁니다.");
+      } else {
+          alert("일반 파일 사양을 띄웁니다.");
+      }
+  };
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
@@ -167,10 +203,13 @@ export default function GalleryDetailPage() {
                   <span className="material-symbols-outlined">more_horiz</span>
                 </button>
                 {/* 드롭다운 컴포넌트 활용 */}
-                <Dropdown isOpen = {isMenuOpen}
+                <Dropdown isOpen = {isMenuOpen} 
+                  isInternal = {isInternalDraw} // 전용 갤러리 여부
                   onClose = {() => setIsMenuOpen(false)}
-                />
+                  onInfoClick={handleShowInfo}>
+                </Dropdown>
             </div>
+
             <button onClick={() => setBookmarked(v => !v)}
               className="p-2 rounded-xl transition-colors hover:bg-[#1c2128]"
               style={{ color: bookmarked ? '#2f81f7' : '#7d8590' }}>

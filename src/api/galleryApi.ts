@@ -78,7 +78,7 @@ export interface PageResponse<T> {
   totalElements: number
   totalPages: number
   number: number
-  last: boolean
+  last: boolean 
 }
 
 export const galleryApi = {
