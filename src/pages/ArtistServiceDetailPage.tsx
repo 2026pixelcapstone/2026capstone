@@ -81,9 +81,16 @@ export default function ArtistServiceDetailPage() {
     const resolvedPrice = orderPrice
       ? Number(orderPrice)
       : service.basePrice ?? service.priceMin ?? null
-    if (resolvedPrice === null || resolvedPrice <= 0) {
+    if (resolvedPrice === null || !Number.isFinite(resolvedPrice) || resolvedPrice <= 0) {
       toast.error('유효한 금액을 입력해주세요.')
       return
+    }
+    if (orderDeadline) {
+      const today = new Date().toISOString().split('T')[0]
+      if (orderDeadline < today) {
+        toast.error('마감일은 오늘 이후로 설정해주세요.')
+        return
+      }
     }
     setOrdering(true)
     try {

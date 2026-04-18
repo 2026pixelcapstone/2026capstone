@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { requestPostApi, applicationApi, type RequestPostResponse } from '../api/commissionApi'
+import { requestPostApi, applicationApi, type RequestPostResponse, type ApplicationResponse } from '../api/commissionApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
@@ -43,14 +43,17 @@ export default function RequestPostDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  // 이미 지원한 게시물인지 마운트 시 확인
+  // 이미 지원한 게시물인지 마운트 시 확인 (내 지원 목록에서 현재 postId 검색)
   useEffect(() => {
     if (!id || !isLoggedIn) return
     const postId = Number(id)
     if (isNaN(postId)) return
-    applicationApi.getByPost(postId, { page: 0, size: 1 })
+    applicationApi.getMyApplications({ page: 0, size: 50 })
       .then(res => {
-        if (res.data.data.totalElements > 0) setApplied(true)
+        const alreadyApplied = res.data.data.content.some(
+          (app: ApplicationResponse) => app.requestPostId === postId
+        )
+        if (alreadyApplied) setApplied(true)
       })
       .catch(() => { /* 조회 실패 시 버튼 기본 표시 */ })
   }, [id, isLoggedIn])

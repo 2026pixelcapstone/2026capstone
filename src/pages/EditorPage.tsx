@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -47,7 +47,6 @@ export default function EditorPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const menuRef   = useRef<HTMLDivElement>(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
   const { isLoggedIn } = useAuthStore()
 
   const [activeTool, setActiveTool]   = useState('pencil')
