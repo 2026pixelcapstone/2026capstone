@@ -47,6 +47,15 @@ export default function ArtistServiceDetailPage() {
   const [ordering, setOrdering] = useState(false)
   const [ordered, setOrdered] = useState(false)
 
+  // 서비스 ID 변경 시 주문 관련 상태 초기화
+  useEffect(() => {
+    setShowOrderModal(false)
+    setOrderPrice('')
+    setOrderDeadline('')
+    setOrdering(false)
+    setOrdered(false)
+  }, [id])
+
   useEffect(() => {
     if (!id) return
     const serviceId = Number(id)
