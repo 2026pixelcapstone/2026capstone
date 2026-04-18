@@ -22,16 +22,18 @@ const Dropdown = ({ isOpen, isInternal, onClose, onInfoClick, children }: Dropdo
                     <span className="material-symbols-outlined text-sm">download</span>
                     다운로드
                 </button>
-
-                <button onClick ={() => {
-                    if(onInfoClick) onInfoClick();
-                    if(onClose) onClose();
+                {onInfoClick && (
+                    <button onClick ={() => {
+                        onInfoClick();
+                        onClose?.();
                     }} 
                     className="w-full px-4 py-2 text-left text-sm text-[#7d8590] hover:bg-[#30363d] hover:text-white flex items-center gap-2"
-                >
+                    >
                     <span className="material-symbols-outlined text-sm">{isInternal ? 'verified' : 'info'}</span>
-                    파일정보
-                </button>
+                        {isInternal ? '인증 정보' : '파일 정보'}
+                    </button>
+                )}
+                
                 {/* 추가적인 버튼들 */}
                 {children}
             </div>
