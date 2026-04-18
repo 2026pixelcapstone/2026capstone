@@ -39,6 +39,7 @@ export default function GalleryDetailPage() {
         if (cancelled) return;
 
         const postData = postRes.data.data;
+
         setPost(postData);
         setComments(commentsRes.data.data.content);
         setIsInternalDraw(postData.galleryType === 'DEDICATED');
@@ -55,14 +56,20 @@ export default function GalleryDetailPage() {
         if (!cancelled) setLoading(false);
       }
     };
-    if (postId) fetchAll();
+    // 4. 실행 조건: postId가 유효한 숫자인지 확인 후 단 한 번만 실행
+    if (postId && Number.isFinite(Number(postId)) && Number(postId) > 0) {
+      fetchAll();
+    } else {
+      setPost(null);
+      setLoading(false);
+    }
     
     // 클린업 함수: postId가 바뀌거나 컴포넌트가 사라질 때 실행됨
     return () => {
       cancelled = true;
     };
       
-  }, [postId])
+  }, [postId, navigate])
 
   const handleLike = async () => {
     if (!isLoggedIn || !post) return
