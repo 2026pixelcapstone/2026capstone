@@ -24,28 +24,44 @@ export default function GalleryDetailPage() {
   const [isInternalDraw, setIsInternalDraw] = useState(false);
 
   useEffect(() => {
+    // 취소 플래그 선언
+    let cancelled = false;
+
     const fetchAll = async () => {
       setLoading(true)
       try {
         const [postRes, commentsRes] = await Promise.all([
           galleryApi.getPost(postId),
           galleryApi.getComments(postId, { size: 20 }),
-        ])
-        const postData = postRes.data.data;
+        ]);
+        
+        // 응답이 왔을 때, 이미 이 useEffect가 클린업(종료)되었는지 확인
+        if (cancelled) return;
 
+        const postData = postRes.data.data;
         setPost(postData);
         setComments(commentsRes.data.data.content);
         setIsInternalDraw(postData.galleryType === 'DEDICATED');
       } catch (err) {
+        // 에러 처리 시에도 취소 여부 확인
+        if (cancelled) return;
+        
         const status = getErrorStatus(err)
         if (status === 403) navigate('/403', { replace: true })
         else if (status && status >= 500) navigate('/500', { replace: true })
         else setPost(null)
       } finally {
-        setLoading(false)
+        // 로딩 해제 시에도 취소 여부 확인
+        if (!cancelled) setLoading(false);
       }
-    }
-    if (postId) fetchAll()
+    };
+    if (postId) fetchAll();
+    
+    // 클린업 함수: postId가 바뀌거나 컴포넌트가 사라질 때 실행됨
+    return () => {
+      cancelled = true;
+    };
+      
   }, [postId])
 
   const handleLike = async () => {

@@ -23,7 +23,7 @@ const Dropdown = ({ isOpen, isInternal, onClose, onInfoClick, children }: Dropdo
                     다운로드
                 </button>
                 {onInfoClick && (
-                    <button onClick ={() => {
+                    <button type = "button" onClick ={() => {
                         onInfoClick();
                         onClose?.();
                     }} 
