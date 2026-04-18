@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { requestPostApi, type RequestPostResponse } from '../api/commissionApi'
+import { requestPostApi, applicationApi, type RequestPostResponse, type ApplicationResponse } from '../api/commissionApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
@@ -22,6 +22,13 @@ export default function RequestPostDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
+  // 지원하기 모달
+  const [showApplyModal, setShowApplyModal] = useState(false)
+  const [applyMessage, setApplyMessage] = useState('')
+  const [applyPrice, setApplyPrice] = useState('')
+  const [applying, setApplying] = useState(false)
+  const [applied, setApplied] = useState(false)
+
   useEffect(() => {
     if (!id) return
     const postId = Number(id)
@@ -36,6 +43,21 @@ export default function RequestPostDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
+  // 이미 지원한 게시물인지 마운트 시 확인 (내 지원 목록에서 현재 postId 검색)
+  useEffect(() => {
+    if (!id || !isLoggedIn) return
+    const postId = Number(id)
+    if (isNaN(postId)) return
+    applicationApi.getMyApplications({ page: 0, size: 50 })
+      .then(res => {
+        const alreadyApplied = res.data.data.content.some(
+          (app: ApplicationResponse) => app.requestPostId === postId
+        )
+        if (alreadyApplied) setApplied(true)
+      })
+      .catch(() => { /* 조회 실패 시 버튼 기본 표시 */ })
+  }, [id, isLoggedIn])
+
   const handleClose = async () => {
     if (!post) return
     if (!confirm('의뢰를 마감하시겠습니까?')) return
@@ -48,6 +70,25 @@ export default function RequestPostDetailPage() {
       toast.error(getErrorMessage(err, '마감 처리에 실패했습니다.'))
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleApply = async () => {
+    if (!post) return
+    setApplying(true)
+    try {
+      await applicationApi.apply({
+        requestPostId: post.requestPostId,
+        message: applyMessage || undefined,
+        proposedPrice: applyPrice ? Number(applyPrice) : undefined,
+      })
+      setApplied(true)
+      setShowApplyModal(false)
+      toast.success('지원이 완료되었습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '지원에 실패했습니다.'))
+    } finally {
+      setApplying(false)
     }
   }
 
@@ -96,6 +137,7 @@ export default function RequestPostDetailPage() {
     : null
 
   return (
+    <>
     <div style={{ background: '#0d1117', color: '#e6edf3', minHeight: '100vh' }}>
       <div className="max-w-screen-lg mx-auto px-4 sm:px-6 py-8">
 
@@ -228,12 +270,23 @@ export default function RequestPostDetailPage() {
                   </button>
                 </div>
               ) : isOpen ? (
-                <button
-                  onClick={() => { if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return } }}
-                  className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 4px 16px rgba(47,129,247,0.3)' }}>
-                  지원하기
-                </button>
+                applied ? (
+                  <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
+                    style={{ background: 'rgba(63,185,80,0.1)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)' }}>
+                    <span className="material-symbols-outlined text-base">check_circle</span>
+                    지원 완료
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
+                      setShowApplyModal(true)
+                    }}
+                    className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90"
+                    style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 4px 16px rgba(47,129,247,0.3)' }}>
+                    지원하기
+                  </button>
+                )
               ) : (
                 <div className="flex items-center justify-center py-3 rounded-xl text-sm font-bold"
                   style={{ background: '#21262d', color: '#7d8590' }}>
@@ -250,5 +303,71 @@ export default function RequestPostDetailPage() {
         </div>
       </div>
     </div>
+
+    {/* 지원하기 모달 */}
+    {showApplyModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.7)' }}
+        onClick={e => { if (e.target === e.currentTarget) setShowApplyModal(false) }}>
+        <div className="w-full max-w-md rounded-2xl border p-6 space-y-5"
+          style={{ background: '#161b22', borderColor: '#30363d' }}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">지원하기</h2>
+            <button onClick={() => setShowApplyModal(false)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
+              style={{ color: '#7d8590' }}>
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>
+              제안 금액 <span className="font-normal">(선택)</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold"
+                style={{ color: '#7d8590' }}>₩</span>
+              <input
+                type="number"
+                placeholder="0"
+                min="1"
+                value={applyPrice}
+                onChange={e => setApplyPrice(e.target.value)}
+                className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>
+              메시지 <span className="font-normal">(선택)</span>
+            </label>
+            <textarea
+              rows={4}
+              placeholder="의뢰자에게 전달할 메시지를 입력하세요."
+              value={applyMessage}
+              onChange={e => setApplyMessage(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
+              style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => setShowApplyModal(false)}
+              className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors hover:bg-[#21262d]"
+              style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+              취소
+            </button>
+            <button onClick={handleApply} disabled={applying}
+              className="flex-1 py-3 rounded-xl text-sm font-bold hover:opacity-90 disabled:opacity-50"
+              style={{ background: '#2f81f7', color: '#fff' }}>
+              {applying ? '지원 중...' : '지원하기'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

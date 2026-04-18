@@ -171,9 +171,66 @@ export const artistServiceApi = {
     api.delete<{ success: boolean }>(`/api/artist-services/${serviceId}`),
 }
 
-// ─── 계약 (commissions) ────────────────────────────────────────────────────
+// ─── 지원 (commission_applications) ──────────────────────────────────────────
+
+export type ApplicationStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
+
+export interface ApplicationResponse {
+  applicationId: number
+  requestPostId: number
+  requestPostTitle: string
+  artistId: number
+  artistNickname: string | null
+  artistProfileImageUrl: string | null
+  message: string | null
+  proposedPrice: number | null
+  status: ApplicationStatus
+  createdAt: string
+}
+
+export interface ApplicationCreateRequest {
+  requestPostId: number
+  message?: string
+  proposedPrice?: number
+}
+
+export const applicationApi = {
+  // 지원하기 (작가)
+  apply: (data: ApplicationCreateRequest) =>
+    api.post<{ success: boolean; data: ApplicationResponse }>('/api/applications', data),
+
+  // 작가의 내 지원 목록
+  getMyApplications: (params?: { page?: number; size?: number }) =>
+    api.get<{ success: boolean; data: PageResponse<ApplicationResponse> }>('/api/applications/my', { params }),
+
+  // 의뢰자가 특정 의뢰의 지원 목록 조회
+  getByPost: (requestPostId: number, params?: { page?: number; size?: number }) =>
+    api.get<{ success: boolean; data: PageResponse<ApplicationResponse> }>(`/api/applications/by-post/${requestPostId}`, { params }),
+
+  // 지원 수락 (의뢰자) → Commission 자동 생성
+  accept: (applicationId: number) =>
+    api.post<{ success: boolean }>(`/api/applications/${applicationId}/accept`),
+
+  // 지원 취소 (작가, PENDING만)
+  cancel: (applicationId: number) =>
+    api.delete<{ success: boolean }>(`/api/applications/${applicationId}`),
+}
+
+export interface CommissionCreateRequest {
+  commissionType: 'SERVICE_OPTION' | 'SERVICE_QUOTE' | 'REQUEST'
+  artistId: number
+  serviceId?: number
+  requestPostId?: number
+  applicationId?: number
+  agreedPrice: number
+  agreedDeadline?: string       // 'YYYY-MM-DD'
+}
 
 export const commissionApi = {
+  // 의뢰 직접 생성 (작가 서비스에서 의뢰하기)
+  createCommission: (data: CommissionCreateRequest) =>
+    api.post<{ success: boolean; data: CommissionResponse }>('/api/commissions', data),
+
   // 내 계약 목록 (의뢰자)
   getMyListAsClient: (params?: { page?: number; size?: number }) =>
     api.get<{ success: boolean; data: PageResponse<CommissionSummary> }>('/api/commissions/my/client', { params }),
