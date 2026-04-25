@@ -1,9 +1,9 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { data, useSearchParams } from 'react-router-dom'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
-
+import {useAnimation} from '../components/useAnimation'
 // ── 상수 ──────────────────────────────────────────────
 const DRAW_TOOLS = [
   { id: 'pencil',    icon: 'edit',               label: 'Pencil (P)' },
@@ -27,7 +27,7 @@ const VIEW_TOOLS = [
 ]
 
 const PALETTE_COLORS = [
-  '#2f81f7','#818cf8','#c0c1ff','#e9ddff',
+  '#2f81f7','#818cf8','#c0c1ff','#29282b',
   '#191c1e','#494454','#7b7486','#f7f9fb',
   '#ffffff','#ba1a1a','#ffdad6','#16a34a',
   '#d1fae5','#f59e0b','#fef3c7','#06b6d4',
@@ -57,8 +57,16 @@ export default function EditorPage() {
   const [pixelPerfect, setPixelPerfect] = useState(true)
   const [zoomIdx, setZoomIdx]         = useState(6)           // x20
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
+
   const [canvasW, setCanvasW]         = useState(32)
   const [canvasH, setCanvasH]         = useState(32)
+  // --------- 추가 ---------
+  const{frames, currentFrameIdx, setFrames, setCurrentFrameIdx, addFrame, deleteFrame}
+  = useAnimation({width: canvasW, height: canvasH});
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  // --------- 여기까지 ---------
+
   const [customW, setCustomW]         = useState(32)
   const [customH, setCustomH]         = useState(32)
   const [activeLayer, setActiveLayer] = useState(2)
@@ -100,6 +108,40 @@ export default function EditorPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu])
 
+  // ✅현재 프레임의 데이터를 불러옴(currentFrameIdx가 바뀔 때마다 실행)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if(!canvas || !ctx) return;
+
+    const targetFrame = frames[currentFrameIdx];
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if(targetFrame.data){
+      const img = new Image();
+      img.src = targetFrame.data;
+      //onload: 이미지 파일이 브라우저에 로드되었을 때 실행하는 이벤트 리스너
+      img.onload = () => {
+        ctx?.drawImage(img, 0, 0); // 이미지, 캔버스의 x,y좌표
+      };
+    }else{
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, [currentFrameIdx]);
+
+  // 재생 로직
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setCurrentFrameIdx((prev) => (prev + 1) % frames.length);
+      }, 100); // 0.1초마다 다음 프레임으로 (10 FPS)
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, frames.length]);
+  // ----------- 여기까지 -----------
+  
   const getPixel = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return null
@@ -228,6 +270,7 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [handleSave])
 
+
   // ── PNG 내보내기 ──────────────────────────────────
   const handleExportPNG = useCallback(() => {
     const canvas = canvasRef.current
@@ -268,6 +311,36 @@ export default function EditorPage() {
     background: activeTool === id ? 'rgba(47,129,247,0.15)' : 'transparent',
     color: activeTool === id ? '#2f81f7' : '#7d8590',
   })
+
+  //--------- ✅추가한 부분 ---------
+  // 프레임 추가
+  const handleAddFrame = () => {
+    // 1. 현재 캔버스의 그림을 문자열(DataURL)로 추출
+    // 카피할 때와 추가할 때 경우를 나눠야 함
+    const currentImageData = canvasRef.current?.toDataURL();
+    addFrame({width: canvasW, height: canvasH}, currentImageData);
+  }
+  const saveCurrentFrameData = () =>{
+    console.log("saveCurrentFrameData return 단계 전 실행");
+    const canvas = canvasRef.current;
+    if(!canvas) return;
+    console.log("saveCurrentFrameData return 단계 후 실행");
+    //현재 캔버스를 이미지(base64)로 변환
+    const imageData = canvas.toDataURL();
+
+    // frames 배열 중 현재 인덱스의 data만 교체함
+    // 루프하면서 i와 currentFrameIdx 같을 때 데이터 imageData 저장
+    setFrames(prev => prev.map((f, i) => 
+      i === currentFrameIdx ? { ...f, data: imageData } : f
+    ));
+  }
+  
+  const handleSelectFrame = (nextIndex: number) => {
+    console.log("handleSelectFrame 실행");
+    saveCurrentFrameData();
+    setCurrentFrameIdx(nextIndex);
+  }
+  //--------- 여기까지 ---------
 
   // ── 메뉴 정의 (actions can reference state) ──
   const MENU_DEFS: { id: string; label: string; items: MenuItem[] }[] = [
@@ -538,7 +611,10 @@ export default function EditorPage() {
               }}
               onMouseDown={e => { isDrawing.current = true; drawPixel(e) }}
               onMouseMove={handleMouseMove}
-              onMouseUp={() => { isDrawing.current = false }}
+              onMouseUp={() => {
+                isDrawing.current = false
+                saveCurrentFrameData();
+               }}
               onMouseLeave={() => { isDrawing.current = false; setCursorPos({ x: -1, y: -1 }) }}
             />
           </div>
@@ -576,37 +652,90 @@ export default function EditorPage() {
             title="Animation">
             <span className="material-symbols-outlined text-xl">animation</span>
           </button>
+
           {showAnim && (
             <div className="flex flex-col flex-1 overflow-hidden">
-              <div className="px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between"
-                style={{ color: '#7d8590', borderColor: '#30363d' }}>
+              <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
+                style={{ color: '#7d8590', borderColor: '#30363d' }} > 
                 <span>Anim</span>
-                <span className="text-[10px]">1 frame</span>
+                {/* 훅에서 가져온 frames.length 연결 */}
+                <span className='text-[10px]'>{frames.length} frame{frames.length > 1 ? 's' : ''}</span>  
               </div>
+
               {/* 프레임 목록 */}
               <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                <div className="rounded-lg border-2 p-1 cursor-pointer"
-                  style={{ borderColor: '#2f81f7', background: '#1c2128' }}>
-                  <div className="aspect-square checkerboard rounded" style={{ background: '#e8e8e8' }} />
-                  <div className="text-center text-[10px] mt-1 font-bold" style={{ color: '#2f81f7' }}>1</div>
-                </div>
-                <button className="w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-[#21262d]"
+                {frames.map((frame, index) => {
+                    const isActive = currentFrameIdx === index;
+                    return(
+                      <div
+                        key = {frame.id}
+                        onClick={() => handleSelectFrame(index)} // 프레임 선택 기능
+                        className='relative group rounded-lg border-2 p-1 cursor-pointer'
+                        style={{
+                          borderColor: isActive ? '#2f81f7' : '#30363d',
+                          background: isActive ? '#1c2128' : 'transparent'
+                        }}>
+
+                        <button onClick={(e) => {
+                          e.stopPropagation(); // 클릭 이벤트가 부모로 퍼지는 것 방지
+                          deleteFrame(index);
+                        }}
+                          className='absolute top-1 right-1 z-10 w-5 h-5 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
+                          title='Delete Frame'>
+                          <span className='material-symbols-outlined text-[14px]'>close</span>
+                        </button>
+
+                        {/* 미리보기 영역 (Canvas thumbnail  등을 넣을 수 있음)*/}
+                        <div className="aspect-square checkerboard rounded overflow-hidden flex items-center justify-center">
+                          {frame.data && (
+                            <img src = {frame.data} className='max-w-full max-h-full object-contain' alt='preview'/>
+                          )}
+                        </div>
+                      </div>
+                    );
+                })}
+            
+                {/* 프레임 추가 버튼 */}
+                <button
+                  onClick={handleAddFrame}
+                  className='w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-[#21262d] hover:border-[#7d8590]'
                   style={{ borderColor: '#30363d', color: '#7d8590' }}>
                   <span className="material-symbols-outlined text-lg">add</span>
                 </button>
               </div>
+
               {/* 재생 컨트롤 */}
-              <div className="flex items-center justify-center gap-1 p-2 border-t" style={{ borderColor: '#30363d' }}>
-                {['skip_previous','play_arrow','skip_next'].map(icon => (
-                  <button key={icon}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[#21262d]"
+              <div className="flex items-center justify-center gap-4 p-3 border-t" 
+                  style={{ borderColor: '#30363d' }}>
+                
+                  {/* 이전 프레임으로 이동 */}
+                  <button 
+                    onClick={() => setCurrentFrameIdx(prev => (prev > 0 ? prev - 1 : frames.length - 1))}
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
                     style={{ color: '#7d8590' }}>
-                    <span className="material-symbols-outlined text-lg">{icon}</span>
+                    <span className="material-symbols-outlined text-lg">skip_previous</span>
                   </button>
-                ))}
+
+                  {/* 재생 / 일시정지 */}
+                  <button 
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
+                    style={{ color: isPlaying ? '#2f81f7' : '#7d8590' }}>
+                    <span className="material-symbols-outlined text-lg">
+                      {isPlaying ? 'pause' : 'play_arrow'}
+                    </span>
+                  </button>
+                    
+                  {/* 다음 프레임으로 이동 */}
+                  <button 
+                    onClick={() => setCurrentFrameIdx(prev => (prev + 1) % frames.length)}
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
+                    style={{ color: '#7d8590' }}>
+                    <span className="material-symbols-outlined text-lg">skip_next</span>
+                  </button>
               </div>
             </div>
-          )}
+          )};
         </div>
 
         {/* ── 우측 패널 ──────── */}
