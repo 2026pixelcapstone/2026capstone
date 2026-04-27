@@ -87,6 +87,8 @@ export default function EditorPage() {
   const [saving, setSaving]             = useState(false)
 
   const isDrawing = useRef(false)
+  // ✅추가, 최신 프레임 개수를 실시간으로 추적할 Ref 생성
+  const framesCountRef = useRef(frames.length);
   const zoom = ZOOM_LEVELS[zoomIdx]
 
   // 캔버스 초기화
@@ -108,38 +110,52 @@ export default function EditorPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu])
 
-  // ✅현재 프레임의 데이터를 불러옴(currentFrameIdx가 바뀔 때마다 실행)
+  // ✅추가
+  useEffect(() => {
+    framesCountRef.current = frames.length;
+  }, [frames.length]);
+
+  // 현재 프레임의 데이터를 불러옴(그리기 로직)
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if(!canvas || !ctx) return;
-
     const targetFrame = frames[currentFrameIdx];
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(!canvas || !ctx) return;
+
+    if(!targetFrame){
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
 
     if(targetFrame.data){
       const img = new Image();
       img.src = targetFrame.data;
       //onload: 이미지 파일이 브라우저에 로드되었을 때 실행하는 이벤트 리스너
       img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // 옮김
         ctx?.drawImage(img, 0, 0); // 이미지, 캔버스의 x,y좌표
       };
-    }else{
+    }
+    else{
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
     }
-  }, [currentFrameIdx]);
+  }, [currentFrameIdx, frames]);
 
   // 재생 로직
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
     if (isPlaying) {
       interval = setInterval(() => {
-        setCurrentFrameIdx((prev) => (prev + 1) % frames.length);
+        setCurrentFrameIdx((prev) => {
+          const total = framesCountRef.current; // 최신 길이 가져옴
+          if(total <= 1) return 0;
+          // 재생 중 삭제되어 인덱스가 튀는 경우를 대비해 total로 안전하게 나머지 계산
+          return (prev + 1) % total;
+        });
       }, 100); // 0.1초마다 다음 프레임으로 (10 FPS)
     }
     return () => clearInterval(interval);
-  }, [isPlaying, frames.length]);
+  }, [isPlaying]);
   // ----------- 여기까지 -----------
   
   const getPixel = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -270,7 +286,6 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [handleSave])
 
-
   // ── PNG 내보내기 ──────────────────────────────────
   const handleExportPNG = useCallback(() => {
     const canvas = canvasRef.current
@@ -314,18 +329,18 @@ export default function EditorPage() {
 
   //--------- ✅추가한 부분 ---------
   // 프레임 추가
-  const handleAddFrame = () => {
-    // 1. 현재 캔버스의 그림을 문자열(DataURL)로 추출
+  const createNewFrame = () => {
     // 카피할 때와 추가할 때 경우를 나눠야 함
-    const currentImageData = canvasRef.current?.toDataURL();
-    addFrame({width: canvasW, height: canvasH}, currentImageData);
+    addFrame({width: canvasW, height: canvasH});
   }
+
   const saveCurrentFrameData = () =>{
-    console.log("saveCurrentFrameData return 단계 전 실행");
     const canvas = canvasRef.current;
     if(!canvas) return;
-    console.log("saveCurrentFrameData return 단계 후 실행");
-    //현재 캔버스를 이미지(base64)로 변환
+
+    if(!frames[currentFrameIdx]){
+      return;
+    }
     const imageData = canvas.toDataURL();
 
     // frames 배열 중 현재 인덱스의 data만 교체함
@@ -336,7 +351,6 @@ export default function EditorPage() {
   }
   
   const handleSelectFrame = (nextIndex: number) => {
-    console.log("handleSelectFrame 실행");
     saveCurrentFrameData();
     setCurrentFrameIdx(nextIndex);
   }
@@ -692,12 +706,12 @@ export default function EditorPage() {
                           )}
                         </div>
                       </div>
-                    );
+                    )
                 })}
             
                 {/* 프레임 추가 버튼 */}
                 <button
-                  onClick={handleAddFrame}
+                  onClick={createNewFrame}
                   className='w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-[#21262d] hover:border-[#7d8590]'
                   style={{ borderColor: '#30363d', color: '#7d8590' }}>
                   <span className="material-symbols-outlined text-lg">add</span>
@@ -710,7 +724,10 @@ export default function EditorPage() {
                 
                   {/* 이전 프레임으로 이동 */}
                   <button 
-                    onClick={() => setCurrentFrameIdx(prev => (prev > 0 ? prev - 1 : frames.length - 1))}
+                    onClick={() => {
+                      const nextIdx = currentFrameIdx > 0 ? currentFrameIdx - 1 : frames.length - 1;
+                      handleSelectFrame(nextIdx);
+                    }}
                     className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
                     style={{ color: '#7d8590' }}>
                     <span className="material-symbols-outlined text-lg">skip_previous</span>
@@ -728,14 +745,17 @@ export default function EditorPage() {
                     
                   {/* 다음 프레임으로 이동 */}
                   <button 
-                    onClick={() => setCurrentFrameIdx(prev => (prev + 1) % frames.length)}
+                    onClick={() => {
+                      const nextIdx = (currentFrameIdx + 1) % frames.length;
+                      handleSelectFrame(nextIdx); 
+                    }}
                     className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
                     style={{ color: '#7d8590' }}>
                     <span className="material-symbols-outlined text-lg">skip_next</span>
                   </button>
               </div>
             </div>
-          )};
+          )}
         </div>
 
         {/* ── 우측 패널 ──────── */}

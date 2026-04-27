@@ -22,25 +22,23 @@ export function useAnimation(size: {width: number; height: number}){
     const addFrame = (currentSize: {width: number; height: number}, data: string | null = null) => {
         const newFrame: Frame = {
             id: Date.now(),
-            data: null,
+            data: data,
             width: currentSize.width,
             height: currentSize.height
         };
-        setFrames(prev => {
-            const nextFrames = [...prev, newFrame];
-            setCurrentFrameIdx(nextFrames.length - 1);
-            return nextFrames;
-        });
+        setFrames(prev => [...prev, newFrame]); // 기존 배열 복사해서 완전 새로운 배열을 만든다
+        setCurrentFrameIdx(prev => prev + 1); // 새 프레임은 항상 마지막에 유지
     };
     
     const deleteFrame = (index: number) => {
-        if(frames.length <= 1){
-            return;
-        }
-        // _ -> 실제 객체 데이터는 조건 검사 쓰지 않기 때문에 관습적으로 사용하지 않음을 뜻하는 _로 표기
-        const newFrame = frames.filter((_, i) => i !== index);
-        setFrames(newFrame);
-        setCurrentFrameIdx(Math.max(0, index - 1));
+        setFrames(prev => {
+            if(prev.length <= 1){
+                return prev;
+            }
+            const newFrames = prev.filter((_, i) => i !== index);
+            setCurrentFrameIdx(Math.min(index, newFrames.length - 1))
+            return newFrames;
+        });
     };
 
     return {frames, currentFrameIdx, setFrames, setCurrentFrameIdx, addFrame, deleteFrame};
