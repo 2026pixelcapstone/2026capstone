@@ -60,11 +60,15 @@ export default function EditorPage() {
 
   const [canvasW, setCanvasW]         = useState(32)
   const [canvasH, setCanvasH]         = useState(32)
-  // ── ✅애니메이션 컴포넌트 상태 ──────────────────────────
+  // ── ✅애니메이션 컴포넌트 및 상태 ──────────────────────────
   const{frames, currentFrameIdx, setFrames, setCurrentFrameIdx, addFrame, deleteFrame}
   = useAnimation({width: canvasW, height: canvasH});
   const [isPlaying, setIsPlaying] = useState(false);
   const framesCountRef = useRef(frames.length);  // 최신 프레임 개수를 실시간으로 추적할 Ref 생성
+  // ────────────────────────────
+
+  // ── AI 가이드 상태 ──────────────────────────
+  const[showAIGuide, setShowAIGuide] = useState(true);
   // ────────────────────────────
 
   const [customW, setCustomW]         = useState(32)
@@ -428,6 +432,12 @@ export default function EditorPage() {
         { label: 'Flatten',      icon: 'layers_clear' },
       ],
     },
+    {
+      id: 'AI', label: 'AI',
+      items:[
+        {label: 'AI Guide', icon: 'auto_awesome', action: () => setShowAIGuide(!showAIGuide)},
+      ],
+    },
   ]
 
   return (
@@ -760,6 +770,7 @@ export default function EditorPage() {
           )}
         </div>
 
+        
         {/* ── 우측 패널 ──────── */}
         <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"
           style={{ width: 300, background: '#161b22', borderColor: '#30363d',
@@ -897,7 +908,7 @@ export default function EditorPage() {
               </div>
             </div>
           </div>
-
+          
           {/* 레이어 섹션 */}
           <div className="p-4 flex-1">
             <div className="flex items-center justify-between mb-3">
@@ -937,6 +948,45 @@ export default function EditorPage() {
             </div>
           </div>
         </aside>
+
+        {/* ── ✅AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
+        <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
+          style={{ 
+            width: showAIGuide ? 350 : 0, // AI 가이드 온오프 상태에 따라 너비 조절
+            background: '#0d1117',        // 메인 패널보다 살짝 더 어두운 배경 (구분감)
+            borderColor: '#30363d',
+            opacity: showAIGuide ? 1 : 0  // 닫혔을 때 잔상 방지
+          }}>
+          
+          {/* 헤더: VS Code 패널 느낌 */}
+          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#30363d' }}>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#2f81f7] text-lg">auto_awesome</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#e6edf3]">AI Assistant</span>
+            </div>
+            <button onClick={() => setShowAIGuide(false)} className="hover:text-[#e6edf3] text-[#7d8590]">
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+
+          {/* 컨텐츠: 피스킬 광고처럼 큼직한 가이드 영역 */}
+          <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+            {/* 여기에 광고나 AI 분석 결과 렌더링 */}
+            <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-[#30363d] flex items-center justify-center bg-[#161b22]">
+              <p className="text-[11px] text-[#484f58] text-center">
+                캔버스 분석 중...<br/>(광고 또는 AI 가이드 이미지)
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-[#1c2128] border border-[#30363d]">
+                <p className="text-xs leading-relaxed text-[#8b949e]">
+                  <strong className="text-[#2f81f7]">💡 조언:</strong> 현재 캐릭터의 실루엣이 불분명합니다. 외곽선(Outline) 레이어에 좀 더 어두운 색을 사용해 보세요.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── 하단 상태바 ──────────── */}
