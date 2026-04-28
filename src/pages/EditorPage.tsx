@@ -68,7 +68,7 @@ export default function EditorPage() {
   // ────────────────────────────
 
   // ── AI 가이드 상태 ──────────────────────────
-  const[showAIGuide, setShowAIGuide] = useState(true);
+  const[showAIGuide, setShowAIGuide] = useState(false);
   // ────────────────────────────
 
   const [customW, setCustomW]         = useState(32)
