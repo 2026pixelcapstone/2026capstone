@@ -4,6 +4,7 @@ import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
   artistServiceApi, type ArtistServiceSummary,
 } from '../api/commissionApi'
+import { galleryApi } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
 
 const STYLES = ['전체 스타일', '캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화']
@@ -22,7 +23,112 @@ function getAvatarGradient(id: number) {
   return AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length]
 }
 
-function formatServicePrice(service: ArtistServiceSummary) {
+// 작가 카드 — 포트폴리오 lazy fetch 포함
+function ArtistCard({ service }: { service: ArtistServiceSummary }) {
+  const [portfolio, setPortfolio] = useState<string[]>([])
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false)
+
+  useEffect(() => {
+    galleryApi.getList({ authorId: service.artistId, size: 3, sort: 'likeCount,desc' })
+      .then(res => {
+        const urls = res.data.data.content
+          .map(p => p.thumbnailUrl)
+          .filter((u): u is string => !!u)
+        setPortfolio(urls)
+      })
+      .catch(() => {})
+      .finally(() => setPortfolioLoaded(true))
+  }, [service.artistId])
+
+  const isOpen = service.status === 'OPEN'
+  const gradient = getAvatarGradient(service.serviceId)
+
+  return (
+    <div className="rounded-2xl overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-0.5"
+      style={{ background: '#161b22', borderColor: '#30363d' }}>
+
+      {/* 포트폴리오 이미지 영역 */}
+      <div className="relative h-36 overflow-hidden">
+        {portfolioLoaded && portfolio.length > 0 ? (
+          <div className="grid h-full"
+            style={{ gridTemplateColumns: `repeat(${Math.min(portfolio.length, 3)}, 1fr)`, gap: '2px' }}>
+            {portfolio.slice(0, 3).map((url, i) => (
+              <img key={i} src={url} alt=""
+                className="w-full h-full object-cover"
+                style={{ imageRendering: 'pixelated' }} />
+            ))}
+          </div>
+        ) : (
+          <div className="w-full h-full" style={{ background: gradient }} />
+        )}
+        {/* 하단 페이드 */}
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(22,27,34,0.9))' }} />
+        {/* 상태 배지 */}
+        <div className="absolute top-3 right-3">
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold border"
+            style={isOpen
+              ? { background: 'rgba(63,185,80,0.2)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
+              : { background: 'rgba(0,0,0,0.5)', color: '#7d8590', borderColor: '#30363d' }}>
+            {isOpen ? '모집 중' : '마감'}
+          </span>
+        </div>
+        {/* 포트폴리오 카운트 */}
+        {portfolioLoaded && portfolio.length > 0 && (
+          <div className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold"
+            style={{ background: 'rgba(0,0,0,0.6)', color: '#e6edf3' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>photo_library</span>
+            포트폴리오 {portfolio.length}
+          </div>
+        )}
+        {/* 아바타 */}
+        <div className="absolute bottom-0 left-5 translate-y-1/2 z-10">
+          {service.artistProfileImageUrl ? (
+            <img src={service.artistProfileImageUrl} alt={service.artistNickname ?? ''}
+              className="w-12 h-12 rounded-xl object-cover border-2"
+              style={{ borderColor: '#161b22' }} />
+          ) : (
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold border-2"
+              style={{ background: gradient, color: '#fff', borderColor: '#161b22' }}>
+              {(service.artistNickname ?? '?')[0].toUpperCase()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-5 pt-9">
+        {/* 작가명 + 서비스 유형 */}
+        <div className="mb-2">
+          <span className="font-bold">{service.artistNickname ?? '알 수 없음'}</span>
+          <span className="ml-2 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+            {service.serviceType === 'OPTION' ? '가격 고정형' : '가격 협의형'}
+          </span>
+        </div>
+
+        {/* 서비스 제목 */}
+        <h3 className="text-sm font-bold mb-4 line-clamp-2" style={{ color: '#e6edf3' }}>{service.title}</h3>
+
+        {/* 가격 + 기간 + 버튼 */}
+        <div className="flex items-end justify-between pt-4 border-t" style={{ borderColor: '#30363d' }}>
+          <div>
+            <span className="text-xs block mb-0.5" style={{ color: '#7d8590' }}>
+              {service.estimatedDays ? `예상 ${service.estimatedDays}일` : '기간 협의'}
+            </span>
+            <p className="font-bold text-lg" style={{ color: '#2f81f7' }}>{formatServicePriceLabel(service)}</p>
+          </div>
+          <Link to={`/artist-services/${service.serviceId}`}
+            className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
+            style={{ background: '#2f81f7', color: '#fff' }}>
+            서비스 보기
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatServicePriceLabel(service: ArtistServiceSummary) {
   if (service.serviceType === 'OPTION' && service.basePrice != null) {
     return `₩${service.basePrice.toLocaleString()} ~`
   }
@@ -186,7 +292,7 @@ export default function CommissionPage() {
         <div className="max-w-[1440px] mx-auto">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Commission</h1>
+              <h1 className="text-4xl font-bold mb-2">커미션</h1>
               <p style={{ color: '#7d8590' }}>원하는 픽셀아트를 작가에게 의뢰하거나, 서비스를 등록하세요</p>
             </div>
             <div className="flex gap-3">
@@ -278,8 +384,16 @@ export default function CommissionPage() {
           artistLoading && artists.length === 0 ? (
             <div className="grid grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="rounded-2xl border animate-pulse"
-                  style={{ background: '#161b22', borderColor: '#30363d', height: 280 }} />
+                <div key={i} className="rounded-2xl border animate-pulse overflow-hidden"
+                  style={{ background: '#161b22', borderColor: '#30363d' }}>
+                  <div style={{ height: 144, background: '#21262d' }} />
+                  <div className="p-5 pt-9 space-y-3">
+                    <div className="h-4 rounded" style={{ background: '#21262d', width: '55%' }} />
+                    <div className="h-3 rounded" style={{ background: '#21262d', width: '80%' }} />
+                    <div className="h-3 rounded" style={{ background: '#21262d', width: '65%' }} />
+                    <div className="h-8 rounded mt-4" style={{ background: '#21262d' }} />
+                  </div>
+                </div>
               ))}
             </div>
           ) : filteredArtists.length === 0 ? (
@@ -314,62 +428,9 @@ export default function CommissionPage() {
           ) : (
             <>
               <div className="grid grid-cols-3 gap-6">
-                {filteredArtists.map(service => {
-                  const isOpen = service.status === 'OPEN'
-                  const gradient = getAvatarGradient(service.serviceId)
-                  return (
-                    <div key={service.serviceId}
-                      className="rounded-2xl overflow-hidden border transition-shadow hover:shadow-lg"
-                      style={{ background: '#161b22', borderColor: '#30363d' }}>
-                      {/* 상단 배너 */}
-                      <div className="h-28 flex items-center justify-center"
-                        style={{ background: gradient }}>
-                        {service.artistProfileImageUrl ? (
-                          <img src={service.artistProfileImageUrl} alt={service.artistNickname ?? ''}
-                            className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20" />
-                        ) : (
-                          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold"
-                            style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
-                            {(service.artistNickname ?? '?')[0].toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <span className="font-bold block">{service.artistNickname ?? '알 수 없음'}</span>
-                            <span className="text-xs" style={{ color: '#7d8590' }}>
-                              {service.serviceType === 'OPTION' ? '가격 고정형' : '가격 협의형'}
-                            </span>
-                          </div>
-                          <span className="px-3 py-1 rounded-full text-xs font-bold border"
-                            style={isOpen
-                              ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-                              : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
-                            {isOpen ? '모집 중' : '마감'}
-                          </span>
-                        </div>
-
-                        <h3 className="text-sm font-bold mb-4 line-clamp-2">{service.title}</h3>
-
-                        <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: '#30363d' }}>
-                          <div>
-                            <span className="text-xs block" style={{ color: '#7d8590' }}>
-                              {service.estimatedDays ? `예상 ${service.estimatedDays}일` : '기간 협의'}
-                            </span>
-                            <p className="font-bold text-sm">{formatServicePrice(service)}</p>
-                          </div>
-                          <Link to={`/artist-services/${service.serviceId}`}
-                            className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                            style={{ background: '#2f81f7', color: '#fff' }}>
-                            서비스 보기
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                {filteredArtists.map(service => (
+                  <ArtistCard key={service.serviceId} service={service} />
+                ))}
               </div>
 
               {artistHasMore && !searchKeyword && (
