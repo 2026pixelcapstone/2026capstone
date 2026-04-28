@@ -433,7 +433,7 @@ export default function EditorPage() {
       ],
     },
     {
-      id: 'AI', label: 'AI',
+      id: 'AI Assistant', label: 'AI Assistant',
       items:[
         {label: 'AI Guide', icon: 'auto_awesome', action: () => setShowAIGuide(!showAIGuide)},
       ],
