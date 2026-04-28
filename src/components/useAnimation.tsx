@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 interface Frame{
-    id: number;
+    id: string;
     data: string | null
     width: number;
     height: number;
@@ -11,7 +11,7 @@ export function useAnimation(size: {width: number; height: number}){
     // 초기 프레임
     const [frames, setFrames] = useState<Frame[]>([
         {
-            id: Date.now(), 
+            id: crypto.randomUUID(), 
             data: null,
             width: size.width,
             height: size.height
@@ -26,7 +26,7 @@ export function useAnimation(size: {width: number; height: number}){
      */
     const addFrame = (currentSize: {width: number; height: number}, data: string | null = null) => {
         const newFrame: Frame = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             data: data,
             width: currentSize.width,
             height: currentSize.height

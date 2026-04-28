@@ -292,6 +292,7 @@ export default function EditorPage() {
 
     if(!targetFrame){
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      return;
     }
 
     if(targetFrame.data){
@@ -300,7 +301,7 @@ export default function EditorPage() {
       //onload: 이미지 파일이 브라우저에 로드되었을 때 실행하는 이벤트 리스너
       img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height); // 옮김
-        ctx?.drawImage(img, 0, 0); // 이미지, 캔버스의 x,y좌표
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height); // 이미지, 캔버스의 x.y좌표, 가로/세로 넓이
       };
     }
     else{
@@ -626,7 +627,11 @@ export default function EditorPage() {
                 isDrawing.current = false
                 saveCurrentFrameData();
                }}
-              onMouseLeave={() => { isDrawing.current = false; setCursorPos({ x: -1, y: -1 }) }}
+              onMouseLeave={() => { 
+                if(isDrawing.current) saveCurrentFrameData();
+                isDrawing.current = false;
+                setCursorPos({ x: -1, y: -1 }) 
+              }}
             />
           </div>
 
