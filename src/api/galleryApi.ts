@@ -83,7 +83,7 @@ export interface PageResponse<T> {
 
 export const galleryApi = {
   // 목록 조회
-  getList: (params?: { type?: GalleryType; page?: number; size?: number; sort?: string }) =>
+  getList: (params?: { type?: GalleryType; page?: number; size?: number; sort?: string; authorId?: number }) =>
     api.get<{ success: boolean; data: PageResponse<GalleryPostSummary> }>('/api/gallery', { params }),
 
   // 상세 조회
