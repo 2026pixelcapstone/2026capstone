@@ -24,20 +24,29 @@ function getAvatarGradient(id: number) {
 }
 
 // 작가 카드 — 포트폴리오 lazy fetch 포함
+// NOTE: 카드별 개별 API 호출(N+1)은 현재 MVP 구조상 허용.
+//       추후 백엔드에서 포트폴리오 포함 응답 또는 배치 API로 개선 예정.
 function ArtistCard({ service }: { service: ArtistServiceSummary }) {
   const [portfolio, setPortfolio] = useState<string[]>([])
+  const [totalPortfolio, setTotalPortfolio] = useState(0)
   const [portfolioLoaded, setPortfolioLoaded] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     galleryApi.getList({ authorId: service.artistId, size: 3, sort: 'likeCount,desc' })
       .then(res => {
+        if (cancelled) return
         const urls = res.data.data.content
           .map(p => p.thumbnailUrl)
           .filter((u): u is string => !!u)
         setPortfolio(urls)
+        setTotalPortfolio(res.data.data.totalElements)
       })
-      .catch(() => {})
-      .finally(() => setPortfolioLoaded(true))
+      .catch(err => {
+        if (!cancelled) console.error('[ArtistCard] 포트폴리오 로드 실패:', err)
+      })
+      .finally(() => { if (!cancelled) setPortfolioLoaded(true) })
+    return () => { cancelled = true }
   }, [service.artistId])
 
   const isOpen = service.status === 'OPEN'
@@ -73,12 +82,12 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
             {isOpen ? '모집 중' : '마감'}
           </span>
         </div>
-        {/* 포트폴리오 카운트 */}
-        {portfolioLoaded && portfolio.length > 0 && (
+        {/* 포트폴리오 카운트 — totalElements 기준으로 실제 총 개수 표시 */}
+        {portfolioLoaded && totalPortfolio > 0 && (
           <div className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold"
             style={{ background: 'rgba(0,0,0,0.6)', color: '#e6edf3' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>photo_library</span>
-            포트폴리오 {portfolio.length}
+            포트폴리오 {totalPortfolio}
           </div>
         )}
         {/* 아바타 */}
