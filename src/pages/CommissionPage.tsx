@@ -33,19 +33,32 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
 
   useEffect(() => {
     let cancelled = false
-    galleryApi.getList({ authorId: service.artistId, size: 3, sort: 'likeCount,desc' })
-      .then(res => {
-        if (cancelled) return
-        const urls = res.data.data.content
-          .map(p => p.thumbnailUrl)
-          .filter((u): u is string => !!u)
-        setPortfolio(urls)
-        setTotalPortfolio(res.data.data.totalElements)
+    // 인기순 2개 + 최신순 2개 병렬 fetch → 중복 제거 → 최대 3개 표시
+    Promise.allSettled([
+      galleryApi.getList({ authorId: service.artistId, size: 2, sort: 'likeCount,desc' }),
+      galleryApi.getList({ authorId: service.artistId, size: 2, sort: 'createdAt,desc' }),
+    ]).then(([popular, recent]) => {
+      if (cancelled) return
+      const popularItems = popular.status === 'fulfilled' ? popular.value.data.data.content : []
+      const recentItems  = recent.status  === 'fulfilled' ? recent.value.data.data.content  : []
+      const total = popular.status === 'fulfilled'
+        ? popular.value.data.data.totalElements
+        : recent.status === 'fulfilled' ? recent.value.data.data.totalElements : 0
+
+      // 중복 제거: 인기 먼저, 최신 추가
+      const seen = new Set<number>()
+      const merged = [...popularItems, ...recentItems].filter(p => {
+        if (seen.has(p.postId)) return false
+        seen.add(p.postId)
+        return true
       })
-      .catch(err => {
-        if (!cancelled) console.error('[ArtistCard] 포트폴리오 로드 실패:', err)
-      })
-      .finally(() => { if (!cancelled) setPortfolioLoaded(true) })
+
+      const urls = merged.slice(0, 3).map(p => p.thumbnailUrl).filter((u): u is string => !!u)
+      setPortfolio(urls)
+      setTotalPortfolio(total)
+    }).catch(err => {
+      if (!cancelled) console.error('[ArtistCard] 포트폴리오 로드 실패:', err)
+    }).finally(() => { if (!cancelled) setPortfolioLoaded(true) })
     return () => { cancelled = true }
   }, [service.artistId])
 
@@ -99,7 +112,7 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
           ) : (
             <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold border-2"
               style={{ background: gradient, color: '#fff', borderColor: '#161b22' }}>
-              {(service.artistNickname ?? '?')[0].toUpperCase()}
+              {(service.artistNickname?.trim()?.[0] ?? '?').toUpperCase()}
             </div>
           )}
         </div>
