@@ -39,6 +39,10 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
       galleryApi.getList({ authorId: service.artistId, size: 2, sort: 'createdAt,desc' }),
     ]).then(([popular, recent]) => {
       if (cancelled) return
+      // 개별 실패 로깅 (allSettled는 전체 reject 안 함)
+      if (popular.status === 'rejected') console.error('[ArtistCard] 인기순 로드 실패:', popular.reason)
+      if (recent.status  === 'rejected') console.error('[ArtistCard] 최신순 로드 실패:', recent.reason)
+
       const popularItems = popular.status === 'fulfilled' ? popular.value.data.data.content : []
       const recentItems  = recent.status  === 'fulfilled' ? recent.value.data.data.content  : []
       const total = popular.status === 'fulfilled'
@@ -53,11 +57,10 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
         return true
       })
 
-      const urls = merged.slice(0, 3).map(p => p.thumbnailUrl).filter((u): u is string => !!u)
+      // filter 후 slice — thumbnailUrl 없는 항목 제거 후 최대 3개
+      const urls = merged.map(p => p.thumbnailUrl).filter((u): u is string => !!u).slice(0, 3)
       setPortfolio(urls)
       setTotalPortfolio(total)
-    }).catch(err => {
-      if (!cancelled) console.error('[ArtistCard] 포트폴리오 로드 실패:', err)
     }).finally(() => { if (!cancelled) setPortfolioLoaded(true) })
     return () => { cancelled = true }
   }, [service.artistId])
@@ -121,7 +124,7 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
       <div className="p-5 pt-9">
         {/* 작가명 + 서비스 유형 */}
         <div className="mb-2">
-          <span className="font-bold">{service.artistNickname ?? '알 수 없음'}</span>
+          <span className="font-bold">{service.artistNickname?.trim() || '알 수 없음'}</span>
           <span className="ml-2 text-xs px-2 py-0.5 rounded-full"
             style={{ background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
             {service.serviceType === 'OPTION' ? '가격 고정형' : '가격 협의형'}
