@@ -77,7 +77,7 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
         {portfolioLoaded && portfolio.length > 0 ? (
           <div className="grid h-full"
             style={{ gridTemplateColumns: `repeat(${Math.min(portfolio.length, 3)}, 1fr)`, gap: '2px' }}>
-            {portfolio.slice(0, 3).map((url, i) => (
+            {portfolio.map((url, i) => (
               <img key={i} src={url} alt=""
                 className="w-full h-full object-cover"
                 style={{ imageRendering: 'pixelated' }} />
