@@ -60,12 +60,12 @@ export default function EditorPage() {
 
   const [canvasW, setCanvasW]         = useState(32)
   const [canvasH, setCanvasH]         = useState(32)
-  // --------- 추가 ---------
+  // ── ✅애니메이션 컴포넌트 상태 ──────────────────────────
   const{frames, currentFrameIdx, setFrames, setCurrentFrameIdx, addFrame, deleteFrame}
   = useAnimation({width: canvasW, height: canvasH});
-
   const [isPlaying, setIsPlaying] = useState(false);
-  // --------- 여기까지 ---------
+  const framesCountRef = useRef(frames.length);  // 최신 프레임 개수를 실시간으로 추적할 Ref 생성
+  // ────────────────────────────
 
   const [customW, setCustomW]         = useState(32)
   const [customH, setCustomH]         = useState(32)
@@ -87,8 +87,6 @@ export default function EditorPage() {
   const [saving, setSaving]             = useState(false)
 
   const isDrawing = useRef(false)
-  // ✅추가, 최신 프레임 개수를 실시간으로 추적할 Ref 생성
-  const framesCountRef = useRef(frames.length);
   const zoom = ZOOM_LEVELS[zoomIdx]
 
   // 캔버스 초기화
@@ -110,54 +108,6 @@ export default function EditorPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu])
 
-  // ✅추가
-  useEffect(() => {
-    framesCountRef.current = frames.length;
-  }, [frames.length]);
-
-  // 현재 프레임의 데이터를 불러옴(그리기 로직)
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    const targetFrame = frames[currentFrameIdx];
-
-    if(!canvas || !ctx) return;
-
-    if(!targetFrame){
-      ctx?.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    if(targetFrame.data){
-      const img = new Image();
-      img.src = targetFrame.data;
-      //onload: 이미지 파일이 브라우저에 로드되었을 때 실행하는 이벤트 리스너
-      img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // 옮김
-        ctx?.drawImage(img, 0, 0); // 이미지, 캔버스의 x,y좌표
-      };
-    }
-    else{
-      ctx?.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  }, [currentFrameIdx, frames]);
-
-  // 재생 로직
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentFrameIdx((prev) => {
-          const total = framesCountRef.current; // 최신 길이 가져옴
-          if(total <= 1) return 0;
-          // 재생 중 삭제되어 인덱스가 튀는 경우를 대비해 total로 안전하게 나머지 계산
-          return (prev + 1) % total;
-        });
-      }, 100); // 0.1초마다 다음 프레임으로 (10 FPS)
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying]);
-  // ----------- 여기까지 -----------
-  
   const getPixel = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return null
@@ -327,13 +277,62 @@ export default function EditorPage() {
     color: activeTool === id ? '#2f81f7' : '#7d8590',
   })
 
-  //--------- ✅추가한 부분 ---------
-  // 프레임 추가
+  // ──✅ 애니메이션 ───────────────────────────────────
+  useEffect(() => {
+    framesCountRef.current = frames.length;
+  }, [frames.length]);
+
+  // 현재 프레임의 데이터를 불러옴(그리기 로직)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    const targetFrame = frames[currentFrameIdx];
+
+    if(!canvas || !ctx) return;
+
+    if(!targetFrame){
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    if(targetFrame.data){
+      const img = new Image();
+      img.src = targetFrame.data;
+      //onload: 이미지 파일이 브라우저에 로드되었을 때 실행하는 이벤트 리스너
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // 옮김
+        ctx?.drawImage(img, 0, 0); // 이미지, 캔버스의 x,y좌표
+      };
+    }
+    else{
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, [currentFrameIdx, frames]);
+
+  // 재생 로직
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setCurrentFrameIdx((prev) => {
+          const total = framesCountRef.current; // 최신 길이 가져옴
+          if(total <= 1) return 0;
+          // 재생 중 삭제되어 인덱스가 튀는 경우를 대비해 total로 안전하게 나머지 계산
+          return (prev + 1) % total;
+        });
+      }, 100); // 0.1초마다 다음 프레임으로 (10 FPS)
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+
   const createNewFrame = () => {
     // 카피할 때와 추가할 때 경우를 나눠야 함
     addFrame({width: canvasW, height: canvasH});
   }
 
+  /**
+   * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
+   */
   const saveCurrentFrameData = () =>{
     const canvas = canvasRef.current;
     if(!canvas) return;
@@ -343,18 +342,16 @@ export default function EditorPage() {
     }
     const imageData = canvas.toDataURL();
 
-    // frames 배열 중 현재 인덱스의 data만 교체함
-    // 루프하면서 i와 currentFrameIdx 같을 때 데이터 imageData 저장
     setFrames(prev => prev.map((f, i) => 
       i === currentFrameIdx ? { ...f, data: imageData } : f
     ));
   }
   
+  /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
     saveCurrentFrameData();
     setCurrentFrameIdx(nextIndex);
   }
-  //--------- 여기까지 ---------
 
   // ── 메뉴 정의 (actions can reference state) ──
   const MENU_DEFS: { id: string; label: string; items: MenuItem[] }[] = [
@@ -656,7 +653,7 @@ export default function EditorPage() {
           </div>
         </main>
 
-        {/* ── 애니메이션 패널 ── */}
+         {/* ── ✅애니메이션 패널 ─────────────────────────────── */}
         <div className="flex flex-col flex-shrink-0 border-l"
           style={{ width: showAnim ? 160 : 36, background: '#161b22', borderColor: '#30363d', transition: 'width 0.2s' }}>
           {/* 토글 버튼 */}

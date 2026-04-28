@@ -19,6 +19,11 @@ export function useAnimation(size: {width: number; height: number}){
     ]);
     const [currentFrameIdx, setCurrentFrameIdx] = useState(0);
 
+    /**
+     * 새로운 프레임을 생성하고 리스트에 추가합니다.
+     * @param {Object} currentSize - 현재 설정된 캔버스 너비와 높이
+     * @param {string | null} data - 복사할 이미지 데이터 (없으면 빈 프레임)
+     */
     const addFrame = (currentSize: {width: number; height: number}, data: string | null = null) => {
         const newFrame: Frame = {
             id: Date.now(),
@@ -26,10 +31,18 @@ export function useAnimation(size: {width: number; height: number}){
             width: currentSize.width,
             height: currentSize.height
         };
-        setFrames(prev => [...prev, newFrame]); // 기존 배열 복사해서 완전 새로운 배열을 만든다
-        setCurrentFrameIdx(prev => prev + 1); // 새 프레임은 항상 마지막에 유지
+        setFrames(prev => {
+            const nextFrames = [...prev, newFrame];
+            setCurrentFrameIdx(nextFrames.length - 1);
+            return nextFrames;
+        })
     };
     
+    /**
+     * 특정 인덱스의 프레임을 삭제합니다.
+     * 최소 1개의 프레임은 유지되어야 하며, 삭제 후 안전한 인덱스로 이동합니다.
+     * @param {number} index - 삭제할 프레임의 위치 인덱스
+     */
     const deleteFrame = (index: number) => {
         setFrames(prev => {
             if(prev.length <= 1){
