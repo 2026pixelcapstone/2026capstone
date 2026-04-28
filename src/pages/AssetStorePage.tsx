@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { assetApi, type AssetSummary } from '../api/assetApi'
 
-const CATEGORIES = ['All', 'Characters', 'Tilesets', 'Environments', 'UI/Icons', 'Sprites', 'Effects']
+const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아이콘', '스프라이트', '이펙트']
 
 export default function AssetStorePage() {
-  const [activeCategory, setActiveCategory] = useState('All')
+  const [activeCategory, setActiveCategory] = useState('전체')
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
@@ -192,7 +192,7 @@ export default function AssetStorePage() {
                       style={item.isFree
                         ? { background: 'rgba(63,185,80,0.2)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
                         : { background: 'rgba(47,129,247,0.2)', color: '#2f81f7', borderColor: 'rgba(47,129,247,0.3)' }}>
-                      {item.isFree ? 'FREE' : `₩${item.price.toLocaleString()}`}
+                      {item.isFree ? '무료' : `₩${item.price.toLocaleString()}`}
                     </div>
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <span className="px-4 py-2 rounded-lg text-sm font-bold"

@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 
-const TAGS = ['All', 'Landscape', 'Portrait', 'Isometric', 'Animation', 'Fantasy', 'Cyberpunk', 'Cute']
+const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
 
 export default function FreeGalleryPage() {
-  const [activeTag, setActiveTag] = useState('All')
+  const [activeTag, setActiveTag] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
@@ -75,7 +75,7 @@ export default function FreeGalleryPage() {
             <div className="absolute bottom-12 left-12 max-w-xl">
               <div className="flex items-center gap-3 mb-4">
                 <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
-                  style={{ background: '#2f81f7', color: '#fff' }}>Featured</span>
+                  style={{ background: '#2f81f7', color: '#fff' }}>추천</span>
                 <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
                   style={{ background: 'rgba(255,255,255,0.1)', color: '#e6edf3' }}>자유 갤러리</span>
               </div>
@@ -185,7 +185,7 @@ export default function FreeGalleryPage() {
                       : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
                     }
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
-                      <span className="text-white font-bold text-sm">View Work</span>
+                      <span className="text-white font-bold text-sm">작품 보기</span>
                     </div>
                   </div>
                   <div className="flex justify-between items-start">
