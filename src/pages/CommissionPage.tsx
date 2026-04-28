@@ -6,7 +6,7 @@ import {
 } from '../api/commissionApi'
 import { useAuthStore } from '../store/authStore'
 
-const STYLES = ['All Styles', 'Character', 'Environment', 'Animation', 'Game Asset', 'Portrait']
+const STYLES = ['전체 스타일', '캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화']
 
 // 아바타 색상 팔레트 (서비스 ID 기반으로 일관된 색상 선택)
 const AVATAR_GRADIENTS = [
@@ -53,7 +53,7 @@ function formatBudget(min?: number | null, max?: number | null) {
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
   const [tab, setTab] = useState<'artists' | 'requests'>('artists')
-  const [activeStyle, setActiveStyle] = useState('All Styles')
+  const [activeStyle, setActiveStyle] = useState('전체 스타일')
 
   const [searchInput, setSearchInput] = useState('')
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -347,7 +347,7 @@ export default function CommissionPage() {
                             style={isOpen
                               ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
                               : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
-                            {isOpen ? 'Open' : 'Closed'}
+                            {isOpen ? '모집 중' : '마감'}
                           </span>
                         </div>
 

@@ -82,7 +82,7 @@ export default function MainPage() {
         <aside className="w-52 shrink-0 sticky top-24 space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-widest mb-4"
             style={{ color: 'var(--primary)' }}>
-            Popular Artists
+            인기 작가
           </h3>
 
           {loading
@@ -117,7 +117,7 @@ export default function MainPage() {
           <Link to="/gallery/free"
             className="block text-center text-xs font-bold py-2 rounded-lg mt-2 transition-colors hover:text-[var(--primary)]"
             style={{ color: 'var(--text-secondary)', background: 'var(--bg-elevated)' }}>
-            View All Artists →
+            작가 전체 보기 →
           </Link>
         </aside>
 
@@ -129,13 +129,13 @@ export default function MainPage() {
             <div className="flex justify-between items-end mb-7">
               <div>
                 <span className="block text-xs font-bold tracking-widest uppercase mb-1.5"
-                  style={{ color: 'var(--primary)' }}>Curated Selection</span>
-                <h2 className="text-3xl font-bold tracking-tight">Trending Artworks</h2>
+                  style={{ color: 'var(--primary)' }}>큐레이션 작품</span>
+                <h2 className="text-3xl font-bold tracking-tight">인기 작품</h2>
               </div>
               <Link to="/gallery/free"
                 className="flex items-center gap-1.5 font-semibold text-sm hover:underline underline-offset-4"
                 style={{ color: 'var(--primary)' }}>
-                Explore All
+                전체 보기
                 <span className="material-symbols-outlined text-base">arrow_forward</span>
               </Link>
             </div>
@@ -185,11 +185,11 @@ export default function MainPage() {
           {/* Recently Added */}
           <section>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Recently Added</h2>
+              <h2 className="text-2xl font-bold">최근 등록 작품</h2>
               <Link to="/gallery/free"
                 className="text-xs font-bold hover:underline"
                 style={{ color: 'var(--primary)' }}>
-                View All →
+                전체 보기 →
               </Link>
             </div>
 
@@ -223,7 +223,7 @@ export default function MainPage() {
         <aside className="w-56 shrink-0 sticky top-24">
           <h3 className="text-xs font-bold uppercase tracking-widest mb-4"
             style={{ color: 'var(--primary)' }}>
-            🔥 Hot Right Now
+            🔥 지금 인기
           </h3>
 
           <div className="space-y-3">
@@ -272,7 +272,7 @@ export default function MainPage() {
           <Link to="/gallery/free"
             className="block text-center text-xs font-bold py-2 rounded-lg mt-4 transition-colors hover:text-[var(--primary)]"
             style={{ color: 'var(--text-secondary)', background: 'var(--bg-elevated)' }}>
-            View More →
+            더 보기 →
           </Link>
         </aside>
 

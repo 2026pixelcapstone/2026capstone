@@ -48,7 +48,7 @@ export default function Navbar() {
                 borderBottom: isGalleryActive ? '2px solid #2f81f7' : '2px solid transparent',
                 paddingBottom: 3,
               }}>
-              Gallery
+              갤러리
               <span className="material-symbols-outlined text-sm" style={{ fontSize: 16 }}>
                 {galleryOpen ? 'expand_less' : 'expand_more'}
               </span>
@@ -86,9 +86,9 @@ export default function Navbar() {
 
           {/* 나머지 링크 */}
           {[
-            { label: 'Store',      to: '/assets' },
-            { label: 'Editor',     to: '/editor' },
-            { label: 'Commission', to: '/commission' },
+            { label: '에셋 스토어', to: '/assets' },
+            { label: '에디터',     to: '/editor' },
+            { label: '커미션',     to: '/commission' },
           ].map(link => {
             const active = location.pathname.startsWith(link.to)
             return (
@@ -113,7 +113,7 @@ export default function Navbar() {
           <div className="relative hidden lg:block">
             <input
               className="rounded-full py-2.5 pl-11 pr-5 w-72 text-sm outline-none"
-              placeholder="Search curated art..."
+              placeholder="작품 검색..."
               style={{ background: '#21262d', color: '#e6edf3' }}
             />
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-xl"

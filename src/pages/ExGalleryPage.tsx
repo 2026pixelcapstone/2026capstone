@@ -144,7 +144,7 @@ export default function ExGalleryPage() {
         {/* TOP 3 — 검색 중이 아닐 때만 */}
         {!keyword && top3.length > 0 && (
           <section>
-            <h2 className="text-2xl font-bold mb-8">🏆 Top Artworks</h2>
+            <h2 className="text-2xl font-bold mb-8">🏆 인기 작품</h2>
             <div className="grid grid-cols-3 gap-8">
               {top3.map((item, idx) => (
                 <Link key={item.postId} to={`/gallery/${item.postId}`}
@@ -199,7 +199,7 @@ export default function ExGalleryPage() {
                       : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
                     }
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">View Work</span>
+                      <span className="text-white font-bold text-sm">작품 보기</span>
                     </div>
                   </div>
                   <h3 className="font-bold mb-1">{item.title}</h3>
