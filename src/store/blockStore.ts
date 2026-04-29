@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { blockApi } from '../api/blockApi'
+import { useAuthStore } from './authStore'
 
 interface BlockState {
   blockedUserIds: number[]
@@ -29,6 +30,8 @@ export const useBlockStore = create<BlockState>((set, get) => ({
   fetchBlocks: async () => {
     try {
       const res = await blockApi.getMyBlocks()
+      // 응답 도착 시점에 여전히 로그인 상태인지 확인 (로그아웃 후 늦은 응답 방지)
+      if (!useAuthStore.getState().isLoggedIn) return
       set({
         blockedUserIds: res.data.data.blockedUserIds,
         blockedTags: res.data.data.blockedTags,

@@ -42,7 +42,14 @@ export default function FreeGalleryPage() {
 
         setArtworks(prev => page === 0 ? content : [...prev, ...content])
         setHasMore(!last)
-        if (page === 0 && content.length > 0 && !keyword) setFeatured(content[0])
+        if (page === 0 && !keyword) {
+          // 차단된 사용자/태그 제외 후 히어로 선정
+          const visibleContent = content.filter(item =>
+            !blockedUserIds.includes(item.authorId) &&
+            !item.tags?.some(tag => blockedTags.includes(tag))
+          )
+          setFeatured(visibleContent[0] ?? null)
+        }
       } catch {
         // 에러 시 유지
       } finally {

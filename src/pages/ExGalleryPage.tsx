@@ -41,7 +41,12 @@ export default function ExGalleryPage() {
         setArtworks(prev => page === 0 ? content : [...prev, ...content])
         setHasMore(!last)
         if (page === 0 && content.length > 0 && !keyword) {
-          const sorted = [...content].sort((a, b) => b.likeCount - a.likeCount)
+          // 차단된 사용자/태그 제외 후 TOP3 계산
+          const visibleContent = content.filter(item =>
+            !blockedUserIds.includes(item.authorId) &&
+            !item.tags?.some(tag => blockedTags.includes(tag))
+          )
+          const sorted = [...visibleContent].sort((a, b) => b.likeCount - a.likeCount)
           setTop3(sorted.slice(0, 3))
         }
       } catch {
@@ -109,7 +114,7 @@ export default function ExGalleryPage() {
           {keyword && (
             <p className="text-sm" style={{ color: '#7d8590' }}>
               <span style={{ color: '#e6edf3' }}>"{keyword}"</span> 검색 결과&nbsp;
-              {loading ? '...' : `${artworks.length}건`}
+              {loading ? '...' : `${filtered.length}건`}
             </p>
           )}
 

@@ -34,6 +34,7 @@ export default function MyPage() {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [works, setWorks] = useState<GalleryPostSummary[]>([])
   const [worksLoading, setWorksLoading] = useState(false)
+  const [worksTotal, setWorksTotal] = useState<number | null>(null)
   const [assets, setAssets] = useState<AssetSummary[]>([])
   const [assetsLoading, setAssetsLoading] = useState(false)
   const [assetsTotal, setAssetsTotal] = useState<number | null>(null)
@@ -67,27 +68,23 @@ export default function MyPage() {
     editorApi.getProjects({ size: 20 }).then(res => setProjects(res.data.data.content)).catch(() => {})
   }, [])
 
-  // works 탭 진입 시 로드
-  useEffect(() => {
-    if (!profile || tab !== 'works' || works.length > 0) return
-    setWorksLoading(true)
-    const sortParam = sort === 'popular' ? 'likeCount,desc' : 'createdAt,desc'
-    galleryApi.getList({ authorId: profile.userId, size: 20, sort: sortParam })
-      .then(res => setWorks(res.data.data.content))
-      .catch(() => {})
-      .finally(() => setWorksLoading(false))
-  }, [tab, profile])
-
-  // 정렬 변경 시 works 재로드
+  // works 탭 — tab/profile/sort 변경 시 단일 useEffect로 관리 (경합 방지)
   useEffect(() => {
     if (!profile || tab !== 'works') return
+    let cancelled = false
     setWorksLoading(true)
     const sortParam = sort === 'popular' ? 'likeCount,desc' : 'createdAt,desc'
     galleryApi.getList({ authorId: profile.userId, size: 20, sort: sortParam })
-      .then(res => setWorks(res.data.data.content))
+      .then(res => {
+        if (!cancelled) {
+          setWorks(res.data.data.content)
+          setWorksTotal(res.data.data.totalElements)
+        }
+      })
       .catch(() => {})
-      .finally(() => setWorksLoading(false))
-  }, [sort])
+      .finally(() => { if (!cancelled) setWorksLoading(false) })
+    return () => { cancelled = true }
+  }, [tab, profile, sort])
 
   // 에셋 탭
   useEffect(() => {
@@ -165,7 +162,7 @@ export default function MyPage() {
   }
 
   const tabCount: Record<string, string> = {
-    works:      works.length > 0 ? works.length.toString() : '—',
+    works:      worksTotal !== null ? worksTotal.toString() : '—',
     assets:     assetsTotal !== null ? assetsTotal.toString() : '—',
     liked:      likedTotal !== null ? likedTotal.toString() : '—',
     following:  (profile?.followingCount ?? 0).toString(),

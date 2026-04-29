@@ -7,6 +7,8 @@ interface LikeState {
   setGalleryLike: (postId: number, isLiked: boolean) => void
   removeGalleryLike: (postId: number) => void
   getGalleryLike: (postId: number) => boolean | undefined
+  /** 로그아웃 시 캐시 전체 초기화 (다른 사용자 데이터 오염 방지) */
+  clearGalleryLikes: () => void
 }
 
 export const useLikeStore = create<LikeState>()(
@@ -27,6 +29,8 @@ export const useLikeStore = create<LikeState>()(
         }),
 
       getGalleryLike: (postId) => get().galleryLikes[postId],
+
+      clearGalleryLikes: () => set({ galleryLikes: {} }),
     }),
     {
       name: 'like-storage',
