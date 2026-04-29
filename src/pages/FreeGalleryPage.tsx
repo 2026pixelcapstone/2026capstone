@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
+import { useBlockStore } from '../store/blockStore'
 
 const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
 
 export default function FreeGalleryPage() {
+  const { blockedUserIds, blockedTags } = useBlockStore()
   const [activeTag, setActiveTag] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
@@ -60,6 +62,13 @@ export default function FreeGalleryPage() {
     setInputValue('')
     inputRef.current?.focus()
   }
+
+  // 차단된 사용자 및 태그 필터링
+  const filtered = artworks.filter(item => {
+    if (blockedUserIds.includes(item.authorId)) return false
+    if (item.tags?.some(tag => blockedTags.includes(tag))) return false
+    return true
+  })
 
   return (
     <div style={{ background: '#0d1117' }}>
@@ -122,7 +131,7 @@ export default function FreeGalleryPage() {
           ) : (
             <p className="text-sm" style={{ color: '#7d8590' }}>
               <span style={{ color: '#e6edf3' }}>"{keyword}"</span> 검색 결과&nbsp;
-              {loading ? '...' : `${artworks.length}건`}
+              {loading ? '...' : `${filtered.length}건`}
             </p>
           )}
 
@@ -177,7 +186,7 @@ export default function FreeGalleryPage() {
         ) : (
           <>
             <div className="grid grid-cols-3 gap-12">
-              {artworks.map(item => (
+              {filtered.map(item => (
                 <Link key={item.postId} to={`/gallery/${item.postId}`} className="group flex flex-col cursor-pointer">
                   <div className="aspect-[4/3] overflow-hidden rounded-2xl mb-6 relative bg-[#21262d]">
                     {item.thumbnailUrl
@@ -220,7 +229,7 @@ export default function FreeGalleryPage() {
               </div>
             )}
 
-            {!loading && artworks.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
                 <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
                   {keyword ? 'search_off' : 'image_not_supported'}

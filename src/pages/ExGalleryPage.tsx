@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
+import { useBlockStore } from '../store/blockStore'
 
 export default function ExGalleryPage() {
+  const { blockedUserIds, blockedTags } = useBlockStore()
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
   const [top3, setTop3] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,6 +65,13 @@ export default function ExGalleryPage() {
   }
 
   const featured = top3[0]
+
+  // 차단된 사용자 및 태그 필터링
+  const filtered = artworks.filter(item => {
+    if (blockedUserIds.includes(item.authorId)) return false
+    if (item.tags?.some(tag => blockedTags.includes(tag))) return false
+    return true
+  })
 
   return (
     <div style={{ background: '#0d1117' }}>
@@ -190,7 +199,7 @@ export default function ExGalleryPage() {
         ) : (
           <>
             <div className="grid grid-cols-3 gap-12">
-              {artworks.map(item => (
+              {filtered.map(item => (
                 <Link key={item.postId} to={`/gallery/${item.postId}`} className="group flex flex-col cursor-pointer">
                   <div className="aspect-[4/3] overflow-hidden mb-4 relative bg-[#21262d]"
                     style={{ clipPath: 'polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px))' }}>
@@ -222,7 +231,7 @@ export default function ExGalleryPage() {
               </div>
             )}
 
-            {!loading && artworks.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
                 <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
                   {keyword ? 'search_off' : 'image_not_supported'}

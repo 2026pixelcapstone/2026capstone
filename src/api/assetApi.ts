@@ -67,7 +67,7 @@ export interface AssetUpdateRequest {
 
 export const assetApi = {
   // 목록 조회
-  getList: (params?: { isFree?: boolean; page?: number; size?: number; sort?: string }) =>
+  getList: (params?: { isFree?: boolean; page?: number; size?: number; sort?: string; authorId?: number }) =>
     api.get<{ success: boolean; data: PageResponse<AssetSummary> }>('/api/assets', { params }),
 
   // 상세 조회
