@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 
 const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
 
 export default function FreeGalleryPage() {
-  const { blockedUserIds, blockedTags } = useBlockStore()
+  const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
+  const { isLoggedIn } = useAuthStore()
   const [activeTag, setActiveTag] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
@@ -61,14 +63,21 @@ export default function FreeGalleryPage() {
     inputRef.current?.focus()
   }
 
-  // 차단된 사용자/태그 필터링 — 차단 목록 변경 시 자동 재계산
-  const filtered = useMemo(() =>
-    artworks.filter(item =>
-      !blockedUserIds.includes(item.authorId) &&
-      !item.tags?.some(tag => blockedTags.includes(tag))
-    ), [artworks, blockedUserIds, blockedTags])
+  // 차단 필터 + activeTag 필터 — 의존값 변경 시 자동 재계산
+  const filtered = useMemo(() => {
+    return artworks.filter(item => {
+      // 태그 버튼 필터
+      if (activeTag !== '전체' && !item.tags?.includes(activeTag)) return false
+      // 차단 필터: 로그인 상태이고 차단 목록 로드 완료된 경우에만 적용
+      if (isLoggedIn && blocksLoaded) {
+        if (blockedUserIds.includes(item.authorId)) return false
+        if (item.tags?.some(tag => blockedTags.includes(tag))) return false
+      }
+      return true
+    })
+  }, [artworks, activeTag, blockedUserIds, blockedTags, blocksLoaded, isLoggedIn])
 
-  // 히어로 — filtered 기반이므로 차단 변경 즉시 반영
+  // 히어로 — filtered 기반이므로 차단/태그 변경 즉시 반영
   const featured = useMemo(() => filtered[0] ?? null, [filtered])
 
   return (

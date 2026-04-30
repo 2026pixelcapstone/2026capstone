@@ -45,7 +45,7 @@ export default function MyPage() {
   const [followers, setFollowers] = useState<FollowUser[]>([])
   const [socialLoading, setSocialLoading] = useState(false)
 
-  const { blockedUserIds, blockedTags, unblockUser, unblockTag } = useBlockStore()
+  const { blockedUserIds, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
 
   // 프로필 편집 모달
   const [showEditModal, setShowEditModal] = useState(false)
@@ -175,7 +175,7 @@ export default function MyPage() {
     followers:  (profile?.followerCount ?? 0).toString(),
     saved:      projects.length.toString(),
     commission: '—',
-    blocked:    (blockedUserIds.length + blockedTags.length).toString(),
+    blocked:    blocksLoaded ? (blockedUserIds.length + blockedTags.length).toString() : '—',
   }
 
   return (

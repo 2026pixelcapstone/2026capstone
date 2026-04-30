@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 
 export default function ExGalleryPage() {
-  const { blockedUserIds, blockedTags } = useBlockStore()
+  const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
+  const { isLoggedIn } = useAuthStore()
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('createdAt,desc')
@@ -59,12 +61,14 @@ export default function ExGalleryPage() {
     inputRef.current?.focus()
   }
 
-  // 차단된 사용자/태그 필터링 — 차단 목록 변경 시 자동 재계산
-  const filtered = useMemo(() =>
-    artworks.filter(item =>
+  // 차단 필터 — 로그인 상태이고 목록 로드 완료된 경우에만 적용 (로드 전 플래시 방지)
+  const filtered = useMemo(() => {
+    if (!isLoggedIn || !blocksLoaded) return artworks
+    return artworks.filter(item =>
       !blockedUserIds.includes(item.authorId) &&
       !item.tags?.some(tag => blockedTags.includes(tag))
-    ), [artworks, blockedUserIds, blockedTags])
+    )
+  }, [artworks, blockedUserIds, blockedTags, blocksLoaded, isLoggedIn])
 
   // TOP3/히어로 — filtered 기반이므로 차단 변경 즉시 반영
   const top3 = useMemo(() =>

@@ -28,10 +28,13 @@ export const useBlockStore = create<BlockState>((set, get) => ({
   loaded: false,
 
   fetchBlocks: async () => {
+    // 요청 시점의 토큰 캡처 — 응답 도착 시 동일 세션인지 확인
+    const tokenAtRequest = useAuthStore.getState().accessToken
     try {
       const res = await blockApi.getMyBlocks()
-      // 응답 도착 시점에 여전히 로그인 상태인지 확인 (로그아웃 후 늦은 응답 방지)
-      if (!useAuthStore.getState().isLoggedIn) return
+      const { isLoggedIn, accessToken } = useAuthStore.getState()
+      // 로그아웃됐거나 계정이 바뀐 경우 응답 무시
+      if (!isLoggedIn || accessToken !== tokenAtRequest) return
       set({
         blockedUserIds: res.data.data.blockedUserIds,
         blockedTags: res.data.data.blockedTags,
@@ -45,52 +48,62 @@ export const useBlockStore = create<BlockState>((set, get) => ({
   clearBlocks: () => set({ blockedUserIds: [], blockedTags: [], loaded: false }),
 
   blockUser: async (userId) => {
-    // 호출 전 상태 스냅샷 → 실패 시 정확히 이 상태로 복원
-    const prev = get().blockedUserIds
-    set(s => ({
-      blockedUserIds: s.blockedUserIds.includes(userId)
-        ? s.blockedUserIds
-        : [...s.blockedUserIds, userId],
-    }))
+    // 이 항목이 요청 전에 존재했는지만 기록 → 동시 요청 간 충돌 없는 조건부 롤백
+    const wasBlocked = get().blockedUserIds.includes(userId)
+    if (!wasBlocked) {
+      set(s => ({ blockedUserIds: [...s.blockedUserIds, userId] }))
+    }
     try {
       await blockApi.blockUser(userId)
     } catch {
-      set({ blockedUserIds: prev })
+      if (!wasBlocked) {
+        set(s => ({ blockedUserIds: s.blockedUserIds.filter(id => id !== userId) }))
+      }
       throw new Error('차단에 실패했습니다.')
     }
   },
 
   unblockUser: async (userId) => {
-    const prev = get().blockedUserIds
-    set(s => ({ blockedUserIds: s.blockedUserIds.filter(id => id !== userId) }))
+    const wasBlocked = get().blockedUserIds.includes(userId)
+    if (wasBlocked) {
+      set(s => ({ blockedUserIds: s.blockedUserIds.filter(id => id !== userId) }))
+    }
     try {
       await blockApi.unblockUser(userId)
     } catch {
-      set({ blockedUserIds: prev })
+      if (wasBlocked) {
+        set(s => ({ blockedUserIds: [...s.blockedUserIds, userId] }))
+      }
       throw new Error('차단 해제에 실패했습니다.')
     }
   },
 
   blockTag: async (tag) => {
-    const prev = get().blockedTags
-    set(s => ({
-      blockedTags: s.blockedTags.includes(tag) ? s.blockedTags : [...s.blockedTags, tag],
-    }))
+    const wasBlocked = get().blockedTags.includes(tag)
+    if (!wasBlocked) {
+      set(s => ({ blockedTags: [...s.blockedTags, tag] }))
+    }
     try {
       await blockApi.blockTag(tag)
     } catch {
-      set({ blockedTags: prev })
+      if (!wasBlocked) {
+        set(s => ({ blockedTags: s.blockedTags.filter(t => t !== tag) }))
+      }
       throw new Error('태그 차단에 실패했습니다.')
     }
   },
 
   unblockTag: async (tag) => {
-    const prev = get().blockedTags
-    set(s => ({ blockedTags: s.blockedTags.filter(t => t !== tag) }))
+    const wasBlocked = get().blockedTags.includes(tag)
+    if (wasBlocked) {
+      set(s => ({ blockedTags: s.blockedTags.filter(t => t !== tag) }))
+    }
     try {
       await blockApi.unblockTag(tag)
     } catch {
-      set({ blockedTags: prev })
+      if (wasBlocked) {
+        set(s => ({ blockedTags: [...s.blockedTags, tag] }))
+      }
       throw new Error('태그 차단 해제에 실패했습니다.')
     }
   },
