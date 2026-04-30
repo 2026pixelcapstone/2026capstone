@@ -15,6 +15,7 @@ export interface GalleryPostSummary {
   commentCount: number
   galleryType: GalleryType
   visibility: Visibility
+  tags: string[]
   createdAt: string
   updatedAt: string
 }
@@ -83,7 +84,7 @@ export interface PageResponse<T> {
 
 export const galleryApi = {
   // 목록 조회
-  getList: (params?: { type?: GalleryType; page?: number; size?: number; sort?: string; authorId?: number }) =>
+  getList: (params?: { type?: GalleryType; page?: number; size?: number; sort?: string; authorId?: number; likedBy?: number }) =>
     api.get<{ success: boolean; data: PageResponse<GalleryPostSummary> }>('/api/gallery', { params }),
 
   // 상세 조회

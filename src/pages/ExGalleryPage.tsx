@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
+import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 
 export default function ExGalleryPage() {
+  const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
+  const { isLoggedIn } = useAuthStore()
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
-  const [top3, setTop3] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
@@ -38,10 +41,6 @@ export default function ExGalleryPage() {
 
         setArtworks(prev => page === 0 ? content : [...prev, ...content])
         setHasMore(!last)
-        if (page === 0 && content.length > 0 && !keyword) {
-          const sorted = [...content].sort((a, b) => b.likeCount - a.likeCount)
-          setTop3(sorted.slice(0, 3))
-        }
       } catch {
         // 에러 시 유지
       } finally {
@@ -61,6 +60,20 @@ export default function ExGalleryPage() {
     setInputValue('')
     inputRef.current?.focus()
   }
+
+  // 차단 필터 — 로그인 상태이고 목록 로드 완료된 경우에만 적용 (로드 전 플래시 방지)
+  const filtered = useMemo(() => {
+    if (!isLoggedIn || !blocksLoaded) return artworks
+    return artworks.filter(item =>
+      !blockedUserIds.includes(item.authorId) &&
+      !item.tags?.some(tag => blockedTags.includes(tag))
+    )
+  }, [artworks, blockedUserIds, blockedTags, blocksLoaded, isLoggedIn])
+
+  // TOP3/히어로 — filtered 기반이므로 차단 변경 즉시 반영
+  const top3 = useMemo(() =>
+    [...filtered].sort((a, b) => b.likeCount - a.likeCount).slice(0, 3)
+  , [filtered])
 
   const featured = top3[0]
 
@@ -100,7 +113,7 @@ export default function ExGalleryPage() {
           {keyword && (
             <p className="text-sm" style={{ color: '#7d8590' }}>
               <span style={{ color: '#e6edf3' }}>"{keyword}"</span> 검색 결과&nbsp;
-              {loading ? '...' : `${artworks.length}건`}
+              {loading ? '...' : `${filtered.length}건`}
             </p>
           )}
 
@@ -177,7 +190,7 @@ export default function ExGalleryPage() {
         )}
 
         {/* 그리드 */}
-        {loading && artworks.length === 0 ? (
+        {(loading || (isLoggedIn && !blocksLoaded)) && artworks.length === 0 ? (
           <div className="grid grid-cols-3 gap-12">
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="animate-pulse">
@@ -190,7 +203,7 @@ export default function ExGalleryPage() {
         ) : (
           <>
             <div className="grid grid-cols-3 gap-12">
-              {artworks.map(item => (
+              {filtered.map(item => (
                 <Link key={item.postId} to={`/gallery/${item.postId}`} className="group flex flex-col cursor-pointer">
                   <div className="aspect-[4/3] overflow-hidden mb-4 relative bg-[#21262d]"
                     style={{ clipPath: 'polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px))' }}>
@@ -222,7 +235,7 @@ export default function ExGalleryPage() {
               </div>
             )}
 
-            {!loading && artworks.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
                 <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
                   {keyword ? 'search_off' : 'image_not_supported'}
