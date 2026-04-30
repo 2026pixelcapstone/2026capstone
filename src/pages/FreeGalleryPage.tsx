@@ -183,7 +183,7 @@ export default function FreeGalleryPage() {
         </div>
 
         {/* 그리드 */}
-        {loading && artworks.length === 0 ? (
+        {(loading || (isLoggedIn && !blocksLoaded)) && artworks.length === 0 ? (
           <div className="grid grid-cols-3 gap-12">
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="animate-pulse">

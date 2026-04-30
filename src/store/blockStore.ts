@@ -72,7 +72,12 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       await blockApi.unblockUser(userId)
     } catch {
       if (wasBlocked) {
-        set(s => ({ blockedUserIds: [...s.blockedUserIds, userId] }))
+        // 중복 추가 방지: 롤백 전 현재 배열에 없는 경우에만 재추가
+        set(s => ({
+          blockedUserIds: s.blockedUserIds.includes(userId)
+            ? s.blockedUserIds
+            : [...s.blockedUserIds, userId],
+        }))
       }
       throw new Error('차단 해제에 실패했습니다.')
     }
@@ -102,7 +107,12 @@ export const useBlockStore = create<BlockState>((set, get) => ({
       await blockApi.unblockTag(tag)
     } catch {
       if (wasBlocked) {
-        set(s => ({ blockedTags: [...s.blockedTags, tag] }))
+        // 중복 추가 방지: 롤백 전 현재 배열에 없는 경우에만 재추가
+        set(s => ({
+          blockedTags: s.blockedTags.includes(tag)
+            ? s.blockedTags
+            : [...s.blockedTags, tag],
+        }))
       }
       throw new Error('태그 차단 해제에 실패했습니다.')
     }
