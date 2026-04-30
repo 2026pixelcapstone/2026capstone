@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
@@ -12,7 +12,6 @@ export default function FreeGalleryPage() {
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
-  const [featured, setFeatured] = useState<GalleryPostSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -42,14 +41,6 @@ export default function FreeGalleryPage() {
 
         setArtworks(prev => page === 0 ? content : [...prev, ...content])
         setHasMore(!last)
-        if (page === 0 && !keyword) {
-          // 차단된 사용자/태그 제외 후 히어로 선정
-          const visibleContent = content.filter(item =>
-            !blockedUserIds.includes(item.authorId) &&
-            !item.tags?.some(tag => blockedTags.includes(tag))
-          )
-          setFeatured(visibleContent[0] ?? null)
-        }
       } catch {
         // 에러 시 유지
       } finally {
@@ -70,12 +61,15 @@ export default function FreeGalleryPage() {
     inputRef.current?.focus()
   }
 
-  // 차단된 사용자 및 태그 필터링
-  const filtered = artworks.filter(item => {
-    if (blockedUserIds.includes(item.authorId)) return false
-    if (item.tags?.some(tag => blockedTags.includes(tag))) return false
-    return true
-  })
+  // 차단된 사용자/태그 필터링 — 차단 목록 변경 시 자동 재계산
+  const filtered = useMemo(() =>
+    artworks.filter(item =>
+      !blockedUserIds.includes(item.authorId) &&
+      !item.tags?.some(tag => blockedTags.includes(tag))
+    ), [artworks, blockedUserIds, blockedTags])
+
+  // 히어로 — filtered 기반이므로 차단 변경 즉시 반영
+  const featured = useMemo(() => filtered[0] ?? null, [filtered])
 
   return (
     <div style={{ background: '#0d1117' }}>

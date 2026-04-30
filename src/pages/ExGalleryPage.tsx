@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
@@ -6,7 +6,6 @@ import { useBlockStore } from '../store/blockStore'
 export default function ExGalleryPage() {
   const { blockedUserIds, blockedTags } = useBlockStore()
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
-  const [top3, setTop3] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
@@ -40,15 +39,6 @@ export default function ExGalleryPage() {
 
         setArtworks(prev => page === 0 ? content : [...prev, ...content])
         setHasMore(!last)
-        if (page === 0 && content.length > 0 && !keyword) {
-          // 차단된 사용자/태그 제외 후 TOP3 계산
-          const visibleContent = content.filter(item =>
-            !blockedUserIds.includes(item.authorId) &&
-            !item.tags?.some(tag => blockedTags.includes(tag))
-          )
-          const sorted = [...visibleContent].sort((a, b) => b.likeCount - a.likeCount)
-          setTop3(sorted.slice(0, 3))
-        }
       } catch {
         // 에러 시 유지
       } finally {
@@ -69,14 +59,19 @@ export default function ExGalleryPage() {
     inputRef.current?.focus()
   }
 
-  const featured = top3[0]
+  // 차단된 사용자/태그 필터링 — 차단 목록 변경 시 자동 재계산
+  const filtered = useMemo(() =>
+    artworks.filter(item =>
+      !blockedUserIds.includes(item.authorId) &&
+      !item.tags?.some(tag => blockedTags.includes(tag))
+    ), [artworks, blockedUserIds, blockedTags])
 
-  // 차단된 사용자 및 태그 필터링
-  const filtered = artworks.filter(item => {
-    if (blockedUserIds.includes(item.authorId)) return false
-    if (item.tags?.some(tag => blockedTags.includes(tag))) return false
-    return true
-  })
+  // TOP3/히어로 — filtered 기반이므로 차단 변경 즉시 반영
+  const top3 = useMemo(() =>
+    [...filtered].sort((a, b) => b.likeCount - a.likeCount).slice(0, 3)
+  , [filtered])
+
+  const featured = top3[0]
 
   return (
     <div style={{ background: '#0d1117' }}>

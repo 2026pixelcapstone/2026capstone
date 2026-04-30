@@ -91,7 +91,10 @@ export default function MyPage() {
     if (!profile || tab !== 'assets' || assets.length > 0) return
     setAssetsLoading(true)
     assetApi.getList({ authorId: profile.userId, size: 20, sort: 'createdAt,desc' })
-      .then(res => setAssets(res.data.data.content))
+      .then(res => {
+        setAssets(res.data.data.content)
+        setAssetsTotal(res.data.data.totalElements)
+      })
       .catch(() => {})
       .finally(() => setAssetsLoading(false))
   }, [tab, profile])
@@ -101,7 +104,10 @@ export default function MyPage() {
     if (!profile || tab !== 'liked' || liked.length > 0) return
     setLikedLoading(true)
     galleryApi.getList({ likedBy: profile.userId, size: 20, sort: 'createdAt,desc' })
-      .then(res => setLiked(res.data.data.content))
+      .then(res => {
+        setLiked(res.data.data.content)
+        setLikedTotal(res.data.data.totalElements)
+      })
       .catch(() => {})
       .finally(() => setLikedLoading(false))
   }, [tab, profile])
