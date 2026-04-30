@@ -41,7 +41,11 @@ export const useBlockStore = create<BlockState>((set, get) => ({
         loaded: true,
       })
     } catch {
-      // 비로그인 상태 등 에러는 무시
+      // 에러가 발생해도 같은 세션이면 loaded를 true로 설정해 차단 로직이 비활성화되지 않도록 함
+      const { isLoggedIn, accessToken } = useAuthStore.getState()
+      if (isLoggedIn && accessToken === tokenAtRequest) {
+        set({ loaded: true })
+      }
     }
   },
 
@@ -55,11 +59,11 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     }
     try {
       await blockApi.blockUser(userId)
-    } catch {
+    } catch (err) {
       if (!wasBlocked) {
         set(s => ({ blockedUserIds: s.blockedUserIds.filter(id => id !== userId) }))
       }
-      throw new Error('차단에 실패했습니다.')
+      throw err instanceof Error ? err : new Error('차단에 실패했습니다.')
     }
   },
 
@@ -70,7 +74,7 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     }
     try {
       await blockApi.unblockUser(userId)
-    } catch {
+    } catch (err) {
       if (wasBlocked) {
         // 중복 추가 방지: 롤백 전 현재 배열에 없는 경우에만 재추가
         set(s => ({
@@ -79,7 +83,7 @@ export const useBlockStore = create<BlockState>((set, get) => ({
             : [...s.blockedUserIds, userId],
         }))
       }
-      throw new Error('차단 해제에 실패했습니다.')
+      throw err instanceof Error ? err : new Error('차단 해제에 실패했습니다.')
     }
   },
 
@@ -90,11 +94,11 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     }
     try {
       await blockApi.blockTag(tag)
-    } catch {
+    } catch (err) {
       if (!wasBlocked) {
         set(s => ({ blockedTags: s.blockedTags.filter(t => t !== tag) }))
       }
-      throw new Error('태그 차단에 실패했습니다.')
+      throw err instanceof Error ? err : new Error('태그 차단에 실패했습니다.')
     }
   },
 
@@ -105,7 +109,7 @@ export const useBlockStore = create<BlockState>((set, get) => ({
     }
     try {
       await blockApi.unblockTag(tag)
-    } catch {
+    } catch (err) {
       if (wasBlocked) {
         // 중복 추가 방지: 롤백 전 현재 배열에 없는 경우에만 재추가
         set(s => ({
@@ -114,7 +118,7 @@ export const useBlockStore = create<BlockState>((set, get) => ({
             : [...s.blockedTags, tag],
         }))
       }
-      throw new Error('태그 차단 해제에 실패했습니다.')
+      throw err instanceof Error ? err : new Error('태그 차단 해제에 실패했습니다.')
     }
   },
 
