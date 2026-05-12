@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate, data } from 'react-router-dom'
 import { galleryApi, type GalleryPostResponse, type GalleryCommentResponse } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
+import { useLikeStore } from '../store/likeStore'
+import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import Dropdown from '../components/Dropdown';
@@ -9,7 +11,9 @@ import Dropdown from '../components/Dropdown';
 export default function GalleryDetailPage() {
   const { id } = useParams<{ id: string }>()
   const postId = Number(id)
-  const { isLoggedIn } = useAuthStore()
+  const { isLoggedIn, user } = useAuthStore()
+  const { setGalleryLike, getGalleryLike } = useLikeStore()
+  const { blockUser, unblockUser, isUserBlocked, blockTag, unblockTag, isTagBlocked } = useBlockStore()
   const navigate = useNavigate()
 
   const [post, setPost] = useState<GalleryPostResponse | null>(null)
@@ -40,7 +44,9 @@ export default function GalleryDetailPage() {
 
         const postData = postRes.data.data;
 
-        setPost(postData);
+        // 로컬 캐시에 좋아요 상태가 있으면 API 응답보다 우선 적용
+        const cachedLike = getGalleryLike(postData.postId)
+        setPost(cachedLike !== undefined ? { ...postData, isLiked: cachedLike } : postData);
         setComments(commentsRes.data.data.content);
         setIsInternalDraw(postData.galleryType === 'DEDICATED');
       } catch (err) {
@@ -76,6 +82,8 @@ export default function GalleryDetailPage() {
     try {
       const res = await galleryApi.toggleLike(postId)
       const isLiked = res.data.data
+      // 로컬 캐시에 저장하여 페이지 이동 후에도 유지
+      setGalleryLike(postId, isLiked)
       setPost(prev => prev ? {
         ...prev,
         isLiked,
@@ -242,11 +250,34 @@ export default function GalleryDetailPage() {
             {post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {post.tags.map(tag => (
-                  <Link key={tag} to={`/gallery/tags/${tag}`}
-                    className="px-3 py-1 rounded-full text-sm hover:border-[#2f81f7] transition-colors"
-                    style={{ background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
-                    #{tag}
-                  </Link>
+                  <div key={tag} className="flex items-center gap-0.5 rounded-full"
+                    style={isTagBlocked(tag)
+                      ? { background: 'rgba(248,81,73,0.08)', border: '1px solid rgba(248,81,73,0.3)' }
+                      : { background: '#21262d', border: '1px solid #30363d' }}>
+                    <Link to={`/gallery/tags/${tag}`}
+                      className="pl-3 pr-1 py-1 text-sm hover:underline transition-colors"
+                      style={{ color: isTagBlocked(tag) ? '#f85149' : '#7d8590' }}>
+                      #{tag}
+                    </Link>
+                    {isLoggedIn && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (isTagBlocked(tag)) await unblockTag(tag)
+                            else await blockTag(tag)
+                          } catch (err) {
+                            toast.error(getErrorMessage(err, '처리에 실패했습니다.'))
+                          }
+                        }}
+                        title={isTagBlocked(tag) ? '태그 차단 해제' : '태그 차단'}
+                        className="pr-2 py-1 transition-colors hover:text-[#f85149]"
+                        style={{ color: isTagBlocked(tag) ? '#f85149' : '#484f58' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 12 }}>
+                          {isTagBlocked(tag) ? 'close' : 'block'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -345,6 +376,28 @@ export default function GalleryDetailPage() {
                 style={{ background: '#2f81f7', color: '#fff' }}>
                 프로필 보기
               </Link>
+              {isLoggedIn && user?.userId !== post.authorId && (
+                <button
+                  onClick={async () => {
+                    try {
+                      if (isUserBlocked(post.authorId)) {
+                        await unblockUser(post.authorId)
+                        toast.success('차단이 해제되었습니다.')
+                      } else {
+                        await blockUser(post.authorId)
+                        toast.success('사용자를 차단했습니다. 마이페이지 > 차단 관리에서 확인하세요.')
+                      }
+                    } catch (err) {
+                      toast.error(getErrorMessage(err, '처리에 실패했습니다.'))
+                    }
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-bold transition-colors"
+                  style={isUserBlocked(post.authorId)
+                    ? { background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.3)', color: '#f85149' }
+                    : { background: '#1c2128', border: '1px solid #30363d', color: '#7d8590' }}>
+                  {isUserBlocked(post.authorId) ? '차단됨' : '차단'}
+                </button>
+              )}
             </div>
           </div>
 

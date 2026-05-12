@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
+import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 
 const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
 
 export default function FreeGalleryPage() {
+  const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
+  const { isLoggedIn } = useAuthStore()
   const [activeTag, setActiveTag] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
-  const [featured, setFeatured] = useState<GalleryPostSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -40,7 +43,6 @@ export default function FreeGalleryPage() {
 
         setArtworks(prev => page === 0 ? content : [...prev, ...content])
         setHasMore(!last)
-        if (page === 0 && content.length > 0 && !keyword) setFeatured(content[0])
       } catch {
         // 에러 시 유지
       } finally {
@@ -60,6 +62,23 @@ export default function FreeGalleryPage() {
     setInputValue('')
     inputRef.current?.focus()
   }
+
+  // 차단 필터 + activeTag 필터 — 의존값 변경 시 자동 재계산
+  const filtered = useMemo(() => {
+    return artworks.filter(item => {
+      // 태그 버튼 필터
+      if (activeTag !== '전체' && !item.tags?.includes(activeTag)) return false
+      // 차단 필터: 로그인 상태이고 차단 목록 로드 완료된 경우에만 적용
+      if (isLoggedIn && blocksLoaded) {
+        if (blockedUserIds.includes(item.authorId)) return false
+        if (item.tags?.some(tag => blockedTags.includes(tag))) return false
+      }
+      return true
+    })
+  }, [artworks, activeTag, blockedUserIds, blockedTags, blocksLoaded, isLoggedIn])
+
+  // 히어로 — filtered 기반이므로 차단/태그 변경 즉시 반영
+  const featured = useMemo(() => filtered[0] ?? null, [filtered])
 
   return (
     <div style={{ background: '#0d1117' }}>
@@ -122,7 +141,7 @@ export default function FreeGalleryPage() {
           ) : (
             <p className="text-sm" style={{ color: '#7d8590' }}>
               <span style={{ color: '#e6edf3' }}>"{keyword}"</span> 검색 결과&nbsp;
-              {loading ? '...' : `${artworks.length}건`}
+              {loading ? '...' : `${filtered.length}건`}
             </p>
           )}
 
@@ -164,7 +183,7 @@ export default function FreeGalleryPage() {
         </div>
 
         {/* 그리드 */}
-        {loading && artworks.length === 0 ? (
+        {(loading || (isLoggedIn && !blocksLoaded)) && artworks.length === 0 ? (
           <div className="grid grid-cols-3 gap-12">
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="animate-pulse">
@@ -177,7 +196,7 @@ export default function FreeGalleryPage() {
         ) : (
           <>
             <div className="grid grid-cols-3 gap-12">
-              {artworks.map(item => (
+              {filtered.map(item => (
                 <Link key={item.postId} to={`/gallery/${item.postId}`} className="group flex flex-col cursor-pointer">
                   <div className="aspect-[4/3] overflow-hidden rounded-2xl mb-6 relative bg-[#21262d]">
                     {item.thumbnailUrl
@@ -220,7 +239,7 @@ export default function FreeGalleryPage() {
               </div>
             )}
 
-            {!loading && artworks.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
                 <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
                   {keyword ? 'search_off' : 'image_not_supported'}
