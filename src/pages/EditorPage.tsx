@@ -385,6 +385,7 @@ export default function EditorPage() {
         { label: 'Cut',        icon: 'content_cut',  shortcut: 'Ctrl+X' },
         { label: 'Copy',       icon: 'content_copy', shortcut: 'Ctrl+C' },
         { label: 'Paste',      icon: 'content_paste',shortcut: 'Ctrl+V' },
+        { label: 'RESIZE',     icon: 'crop', shortcut: 'Ctrl + Alt + C'},
         { separator: true },
         { label: 'Select All', icon: 'select_all',   shortcut: 'Ctrl+A' },
         { label: 'Deselect',   icon: 'deselect',     shortcut: 'Ctrl+D' },
@@ -393,6 +394,7 @@ export default function EditorPage() {
     {
       id: 'image', label: 'Image',
       items: [
+        /*
         { label: 'Canvas Size…',     icon: 'crop',      action: () => {} },
         ...CANVAS_PRESETS.map(p => ({
           label: p,
@@ -400,7 +402,7 @@ export default function EditorPage() {
             const [w, h] = p.split('×').map(Number)
             applyCanvasSize(w, h)
           },
-        })),
+        })),*/
         { separator: true },
         { label: 'Flip Horizontal',  icon: 'flip' },
         { label: 'Flip Vertical',    icon: 'flip', },
