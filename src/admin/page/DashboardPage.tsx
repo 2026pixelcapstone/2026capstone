@@ -45,7 +45,7 @@ export default function AdminDashboardPage(){
       {/* 2. 중단 그래프 영역 (Placeholder) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-64 flex flex-col items-center justify-center border-dashed border-2">
-          <p className="text-gray-400 font-medium">주간 매출 추이 그래프 (Chart.js / Recharts 영역)</p>
+          <p className="text-gray-400 font-medium">주간 매출 추이 그래프</p>
           <div className="w-full h-32 mt-4 bg-blue-50 rounded-lg flex items-end p-2 space-x-2">
              <div className="bg-blue-200 w-full h-1/2"></div>
              <div className="bg-blue-300 w-full h-3/4"></div>
