@@ -1,7 +1,13 @@
 import api from '../lib/axios'
 
+export interface BlockedUserInfo {
+  userId: number
+  nickname: string
+  profileImageUrl: string | null
+}
+
 export interface BlockResponse {
-  blockedUserIds: number[]
+  blockedUsers: BlockedUserInfo[]
   blockedTags: string[]
 }
 

@@ -4,6 +4,7 @@ import { userApi, type UserProfileResponse, type ProfileUpdateRequest } from '..
 import { editorApi, type ProjectSummary } from '../api/editorApi'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { assetApi, type AssetSummary } from '../api/assetApi'
+import { commissionApi, type CommissionSummary } from '../api/commissionApi'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 
@@ -45,7 +46,13 @@ export default function MyPage() {
   const [followers, setFollowers] = useState<FollowUser[]>([])
   const [socialLoading, setSocialLoading] = useState(false)
 
-  const { blockedUserIds, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
+  const { blockedUserIds, blockedUsers, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
+
+  // 커미션 탭
+  const [commissions, setCommissions] = useState<{ client: CommissionSummary[]; artist: CommissionSummary[] }>({ client: [], artist: [] })
+  const [commissionsLoading, setCommissionsLoading] = useState(false)
+  const [commissionsLoaded, setCommissionsLoaded] = useState(false)
+  const [commissionSubTab, setCommissionSubTab] = useState<'client' | 'artist'>('client')
 
   // 프로필 편집 모달
   const [showEditModal, setShowEditModal] = useState(false)
@@ -131,6 +138,25 @@ export default function MyPage() {
     }
   }, [tab, profile])
 
+  // 커미션 탭 — 탭 진입 시 최초 1회만 로드
+  useEffect(() => {
+    if (tab !== 'commission' || commissionsLoaded) return
+    setCommissionsLoading(true)
+    Promise.all([
+      commissionApi.getMyListAsClient({ size: 50 }),
+      commissionApi.getMyListAsArtist({ size: 50 }),
+    ])
+      .then(([clientRes, artistRes]) => {
+        setCommissions({
+          client: clientRes.data.data.content,
+          artist: artistRes.data.data.content,
+        })
+        setCommissionsLoaded(true)
+      })
+      .catch(() => {})
+      .finally(() => setCommissionsLoading(false))
+  }, [tab, commissionsLoaded])
+
   const handleOpenEdit = () => {
     setEditForm({
       nickname: profile?.nickname ?? '',
@@ -174,7 +200,9 @@ export default function MyPage() {
     following:  (profile?.followingCount ?? 0).toString(),
     followers:  (profile?.followerCount ?? 0).toString(),
     saved:      projects.length.toString(),
-    commission: '—',
+    commission: commissionsLoaded
+      ? (commissions.client.length + commissions.artist.length).toString()
+      : '—',
     blocked:    blocksLoaded ? (blockedUserIds.length + blockedTags.length).toString() : '—',
   }
 
@@ -615,10 +643,95 @@ export default function MyPage() {
 
           {/* 커미션 */}
           {tab === 'commission' && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>payments</span>
-              <p className="font-bold text-lg" style={{ color: '#7d8590' }}>커미션 기능 준비 중</p>
-              <p className="text-sm" style={{ color: '#484f58' }}>커미션 수락 및 진행 현황이 여기에 표시됩니다.</p>
+            <div>
+              {/* 서브탭 */}
+              <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit"
+                style={{ background: '#161b22', border: '1px solid #30363d' }}>
+                {(['client', 'artist'] as const).map(sub => (
+                  <button key={sub}
+                    onClick={() => setCommissionSubTab(sub)}
+                    className="px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                    style={{
+                      background: commissionSubTab === sub ? '#2f81f7' : 'transparent',
+                      color: commissionSubTab === sub ? '#fff' : '#7d8590',
+                    }}>
+                    {sub === 'client' ? '의뢰한 커미션' : '받은 커미션'}
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs"
+                      style={{ background: 'rgba(255,255,255,0.15)' }}>
+                      {sub === 'client' ? commissions.client.length : commissions.artist.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {commissionsLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-20 rounded-xl animate-pulse" style={{ background: '#21262d' }} />
+                  ))}
+                </div>
+              ) : (commissionSubTab === 'client' ? commissions.client : commissions.artist).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>payments</span>
+                  <p className="text-sm" style={{ color: '#7d8590' }}>
+                    {commissionSubTab === 'client' ? '의뢰한 커미션이 없습니다.' : '받은 커미션이 없습니다.'}
+                  </p>
+                  {commissionSubTab === 'client' && (
+                    <Link to="/commission"
+                      className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
+                      style={{ background: '#2f81f7', color: '#fff' }}>
+                      커미션 찾기
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(commissionSubTab === 'client' ? commissions.client : commissions.artist).map(c => {
+                    const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
+                      IN_PROGRESS: { label: '진행 중',  color: '#2f81f7', bg: 'rgba(47,129,247,0.1)'  },
+                      REVIEW:      { label: '검토 중',  color: '#f0883e', bg: 'rgba(240,136,62,0.1)'  },
+                      COMPLETED:   { label: '완료',     color: '#3fb950', bg: 'rgba(63,185,80,0.1)'   },
+                      CANCELLED:   { label: '취소됨',   color: '#7d8590', bg: 'rgba(125,133,144,0.1)' },
+                    }
+                    const TYPE_LABEL: Record<string, string> = {
+                      SERVICE_OPTION: '작가 서비스',
+                      SERVICE_QUOTE:  '작가 서비스',
+                      REQUEST:        '의뢰 게시판',
+                    }
+                    const s = STATUS_LABEL[c.status] ?? STATUS_LABEL['IN_PROGRESS']
+                    const otherNickname = commissionSubTab === 'client' ? c.artistNickname : c.clientNickname
+
+                    return (
+                      <Link key={c.commissionId} to={`/commissions/${c.commissionId}`}
+                        className="flex items-center justify-between px-5 py-4 rounded-xl border transition-all hover:border-[#2f81f7] hover:-translate-y-0.5 hover:shadow-lg"
+                        style={{ background: '#21262d', borderColor: '#30363d' }}>
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs px-2 py-0.5 rounded-full"
+                                style={{ background: 'rgba(47,129,247,0.1)', color: '#2f81f7', border: '1px solid rgba(47,129,247,0.2)' }}>
+                                {TYPE_LABEL[c.commissionType] ?? c.commissionType}
+                              </span>
+                              <span className="text-xs font-bold truncate" style={{ color: '#e6edf3' }}>
+                                {otherNickname ?? '—'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
+                              <span>₩{(c.agreedPrice ?? 0).toLocaleString()}</span>
+                              {c.agreedDeadline && <span>마감 {c.agreedDeadline}</span>}
+                              <span>{new Date(c.createdAt).toLocaleDateString('ko-KR')}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="ml-4 shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
+                          style={{ background: s.bg, color: s.color }}>
+                          {s.label}
+                        </span>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -628,27 +741,34 @@ export default function MyPage() {
               {/* 차단된 사용자 */}
               <div>
                 <h3 className="font-bold text-sm mb-3" style={{ color: '#7d8590' }}>
-                  차단된 사용자 <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#21262d', color: '#484f58' }}>{blockedUserIds.length}</span>
+                  차단된 사용자 <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#21262d', color: '#484f58' }}>{blockedUsers.length}</span>
                 </h3>
-                {blockedUserIds.length === 0 ? (
+                {blockedUsers.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 rounded-xl border" style={{ background: '#21262d', borderColor: '#30363d' }}>
                     <span className="material-symbols-outlined text-3xl" style={{ color: '#30363d' }}>person_off</span>
                     <p className="text-sm" style={{ color: '#484f58' }}>차단된 사용자가 없습니다.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {blockedUserIds.map(uid => (
-                      <div key={uid} className="flex items-center justify-between px-4 py-3 rounded-xl border"
+                    {blockedUsers.map(u => (
+                      <div key={u.userId} className="flex items-center justify-between px-4 py-3 rounded-xl border"
                         style={{ background: '#21262d', borderColor: '#30363d' }}>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold"
-                            style={{ background: 'linear-gradient(135deg,#30363d,#21262d)', color: '#7d8590' }}>
-                            <span className="material-symbols-outlined text-base">person</span>
+                          <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold"
+                            style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,#30363d,#21262d)' }}>
+                            {u.profileImageUrl
+                              ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
+                              : <span className="material-symbols-outlined text-base" style={{ color: '#7d8590' }}>person</span>
+                            }
                           </div>
-                          <span className="text-sm font-medium" style={{ color: '#7d8590' }}>사용자 ID: {uid}</span>
+                          <Link to={`/profile/${u.nickname}`}
+                            className="text-sm font-medium hover:underline"
+                            style={{ color: '#e6edf3' }}>
+                            {u.nickname}
+                          </Link>
                         </div>
                         <button onClick={async () => {
-                            try { await unblockUser(uid); toast.success('차단이 해제되었습니다.') }
+                            try { await unblockUser(u.userId); toast.success('차단이 해제되었습니다.') }
                             catch { toast.error('차단 해제에 실패했습니다.') }
                           }}
                           className="px-3 py-1 rounded-lg text-xs font-bold transition-colors hover:bg-[#f85149]/10"
