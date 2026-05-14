@@ -319,7 +319,6 @@ export default function EditorPage() {
 
   // 재생 로직
   useEffect(() => {
-    //let interval: ReturnType<typeof setInterval> | undefined;
     if(!isPlaying) return;
     const interval = setInterval(() => {
       setState((prev) => {
@@ -331,7 +330,7 @@ export default function EditorPage() {
         return{
           ...prev,
           currentFrameIdx: nextIdx,
-        }
+        };
       });
     }, 100)
     return () => clearInterval(interval);
@@ -354,11 +353,12 @@ export default function EditorPage() {
     if(!state.frames[state.currentFrameIdx]){
       return;
     }
+    const capturedIdx = state.currentFrameIdx; // 현재 인덱스 캡쳐
     const imageData = canvas.toDataURL();
-    console.log("saveCurrentFrameData가 실행되었습니다.");
+
     setWithHistory((prev) => {
       const updatedFrames = prev.frames.map((f, i) =>
-        i === prev.currentFrameIdx ? { ...f, data: imageData } : f
+        i === capturedIdx ? { ...f, data: imageData } : f
       );
      
       return {
@@ -377,7 +377,13 @@ export default function EditorPage() {
     // 1. 현재 캔버스의 스냅샷을 찍습니다.
     const imageData = canvas.toDataURL();
 
-    setWithHistory((prev) => {
+    // 현재 프레임의 저장된 데이터와 비교
+    const currentFrame = state.frames[state.currentFrameIdx];
+    const hasChanges = currentFrame && currentFrame.data !== imageData;
+    
+    const updateFn = hasChanges ? setWithHistory : setState
+
+    updateFn((prev) => {
       const updatedFrames = prev.frames.map((f, i) => 
         i === prev.currentFrameIdx?{...f, data: imageData} : f
       );
@@ -764,7 +770,7 @@ export default function EditorPage() {
                   {/* 이전 프레임으로 이동 */}
                   <button 
                     onClick={() => {
-                      const nextIdx = state.currentFrameIdx > 0 ? state.currentFrameIdx - 1 : frames.length - 1;
+                      const nextIdx = state.currentFrameIdx > 0 ? state.currentFrameIdx - 1 : state.frames.length - 1;
                       handleSelectFrame(nextIdx);
                     }}
                     className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"

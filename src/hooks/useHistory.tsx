@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import {MAX_HISTORY_SIZE} from '../constants/editor'
 
 export function useHistory<T>(initialState: T){
     // 데이터 무결성을 위해 let 대신 const를 씀
@@ -8,11 +9,16 @@ export function useHistory<T>(initialState: T){
 
     // (new 작업이 들어왔을 때)새로운 상태로 업데이트
     const setWithHistory = useCallback((value: T | ((prev: T) => T )) => {
-        const newState = value instanceof Function ? value(state) : value;
-        setUndoStack((prev) => [...prev, state]); // 현재 상태를 Undo 스택에 저장
-        setRedoStack([]); // 새로운 작업이 들어오면 Redo 스택은 초기화 
-        setState(newState); // 다음 리렌더링 때 state를 newState로 바꿔줌
-    }, [state]); // state가 바뀌면 최상위에 있는 useHistory를 리렌더링 함(최신 값 반영)
+        setState(currentState => {
+            const newState = value instanceof Function ? value(currentState) : value;
+            setUndoStack((prev) =>{ 
+                const next = [...prev, currentState];
+                return next.length > MAX_HISTORY_SIZE ? next.slice(1) : next;
+            });
+            setRedoStack([]); 
+            return newState;
+        }) 
+    }, []);
 
     // 뒤로가기
     const undo = useCallback(() => {

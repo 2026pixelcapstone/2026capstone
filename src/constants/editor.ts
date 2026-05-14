@@ -32,3 +32,6 @@ export const PALETTE_COLORS = [
 
 export const ZOOM_LEVELS = [1, 2, 4, 8, 10, 16, 20, 32, 64];
 export const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128'];
+
+export const MAX_HISTORY_SIZE = 50;
+

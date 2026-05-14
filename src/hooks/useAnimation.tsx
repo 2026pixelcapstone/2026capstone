@@ -1,5 +1,4 @@
 // src/components/useAnimation.tsx
-import { useState } from "react";
 import {Frame} from '../constants/type'
 
 interface UseAnimationProps{
@@ -10,19 +9,6 @@ interface UseAnimationProps{
 }
 
 export function useAnimation({frames, currentFrameIdx, onChange}: UseAnimationProps){
-    // 초기 프레임
-    /*
-    const [frames, setFrames] = useState<Frame[]>([
-        {
-            id: crypto.randomUUID(), 
-            data: null,
-            width: size.width,
-            height: size.height
-        }
-    ]);
-    const [currentFrameIdx, setCurrentFrameIdx] = useState(0);
-    */
-
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
      * @param {Object} currentSize - 현재 설정된 캔버스 너비와 높이
@@ -58,15 +44,6 @@ export function useAnimation({frames, currentFrameIdx, onChange}: UseAnimationPr
         const nextIdx = Math.max(0, Math.min(index, nextFrames.length - 1));
 
         onChange(nextFrames, nextIdx);
-        /*
-        setFrames(prev => {
-            if(prev.length <= 1){
-                return prev;
-            }
-            const newFrames = prev.filter((_, i) => i !== index);
-            setCurrentFrameIdx(Math.min(index, newFrames.length - 1))
-            return newFrames;
-        });*/
     };
 
     return {addFrame, deleteFrame};
