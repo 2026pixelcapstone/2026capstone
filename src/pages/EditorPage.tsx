@@ -52,11 +52,11 @@ export default function EditorPage() {
     frames: state.frames,
     currentFrameIdx: state.currentFrameIdx,
     onChange: (newFrames, nextIdx) => {
-      setWithHistory({
-        ...state,
+      setWithHistory((prev) => ({
+        ...prev,
         frames: newFrames,
-        currentFrameIdx: nextIdx !== undefined ? nextIdx : state.currentFrameIdx
-      });
+        currentFrameIdx: nextIdx ?? prev.currentFrameIdx
+      }));
     }
   });
   const [isPlaying, setIsPlaying] = useState(false);
@@ -226,15 +226,16 @@ export default function EditorPage() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isMod = e.ctrlKey || e.metaKey;
-      if (isMod && e.key === 's') {
+      const key = e.key.toLowerCase();
+      if (isMod && key === 's') {
         e.preventDefault();
         handleSave();
       }
-      else if(isMod && !e.shiftKey && e.key === 'z'){
+      else if(isMod && !e.shiftKey && key === 'z'){
         e.preventDefault();
         undo();
       }
-      else if(isMod && (e.key === 'y' || (e.shiftKey && e.key === 'z'))){
+      else if(isMod && (key === 'y' || (e.shiftKey && key === 'z'))){
         e.preventDefault();
         redo();
       }
@@ -334,7 +335,7 @@ export default function EditorPage() {
       });
     }, 100)
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, setState]);
 
 
   const createNewFrame = () => {
@@ -367,35 +368,27 @@ export default function EditorPage() {
       };
     });
   }
-  
 
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // 1. 현재 캔버스의 스냅샷을 찍습니다.
-    const imageData = canvas.toDataURL();
-
-    // 현재 프레임의 저장된 데이터와 비교
-    const currentFrame = state.frames[state.currentFrameIdx];
-    const hasChanges = currentFrame && currentFrame.data !== imageData;
-    
-    const updateFn = hasChanges ? setWithHistory : setState
-
-    updateFn((prev) => {
-      const updatedFrames = prev.frames.map((f, i) => 
-        i === prev.currentFrameIdx?{...f, data: imageData} : f
-      );
-
-      return{
-        ...prev,
-        frames: updatedFrames,
-        currentFrameIdx: nextIndex,
-      };
-    });
+    if (unsaved) {
+        const imageData = canvas.toDataURL();
+        setWithHistory((prev) => ({
+          ...prev,
+          frames: prev.frames.map((f, i) =>
+            i === prev.currentFrameIdx ? { ...f, data: imageData } : f
+          ),
+          currentFrameIdx: nextIndex,
+        }));
+        setUnsaved(false);
+    } 
+    else {
+      setState((prev) => ({ ...prev, currentFrameIdx: nextIndex }));
+    }
   }
-
 
   // ── 메뉴 정의 (actions can reference state) ──
   const MENU_DEFS: { id: string; label: string; items: MenuItem[] }[] = [
@@ -1002,7 +995,7 @@ export default function EditorPage() {
             </button>
           </div>
 
-          {/* 컨텐츠: 피스킬 광고처럼 큼직한 가이드 영역 */}
+          {/* 컨텐츠: 큼직한 가이드 영역 */}
           <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
             {/* 여기에 광고나 AI 분석 결과 렌더링 */}
             <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-[#30363d] flex items-center justify-center bg-[#161b22]">

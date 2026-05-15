@@ -17,7 +17,7 @@ export function useHistory<T>(initialState: T){
             });
             setRedoStack([]); 
             return newState;
-        }) 
+        });
     }, []);
 
     // 뒤로가기
