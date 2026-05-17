@@ -367,6 +367,7 @@ export default function EditorPage() {
         frames: updatedFrames,
       };
     });
+    setUnsaved(false);
   }
 
   /* 프레임 선택 시 실행되는 함수 */
