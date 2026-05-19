@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
@@ -9,6 +9,7 @@ const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이�
 export default function FreeGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const { isLoggedIn } = useAuthStore()
+  const navigate = useNavigate()
   const [activeTag, setActiveTag] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
@@ -35,6 +36,12 @@ export default function FreeGalleryPage() {
           const res = await galleryApi.search(keyword.trim(), { page, size: 9 })
           content = res.data.data.content
           last = res.data.data.last
+        } else if (activeTag !== '전체') {
+          // 특정 태그 선택 시 서버에서 태그별 조회
+          const res = await galleryApi.getByTag(activeTag, { page, size: 9 })
+          // 자유 갤러리 게시글만 필터
+          content = res.data.data.content.filter(p => p.galleryType === 'FREE')
+          last = res.data.data.last
         } else {
           const res = await galleryApi.getList({ type: 'FREE', page, size: 9, sort })
           content = res.data.data.content
@@ -50,7 +57,7 @@ export default function FreeGalleryPage() {
       }
     }
     fetch()
-  }, [page, sort, keyword])
+  }, [page, sort, keyword, activeTag])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,11 +70,9 @@ export default function FreeGalleryPage() {
     inputRef.current?.focus()
   }
 
-  // 차단 필터 + activeTag 필터 — 의존값 변경 시 자동 재계산
+  // 차단 필터 — activeTag 필터는 서버에서 처리되므로 여기서는 차단만 적용
   const filtered = useMemo(() => {
     return artworks.filter(item => {
-      // 태그 버튼 필터
-      if (activeTag !== '전체' && !item.tags?.includes(activeTag)) return false
       // 차단 필터: 로그인 상태이고 차단 목록 로드 완료된 경우에만 적용
       if (isLoggedIn && blocksLoaded) {
         if (blockedUserIds.includes(item.authorId)) return false
@@ -75,7 +80,7 @@ export default function FreeGalleryPage() {
       }
       return true
     })
-  }, [artworks, activeTag, blockedUserIds, blockedTags, blocksLoaded, isLoggedIn])
+  }, [artworks, blockedUserIds, blockedTags, blocksLoaded, isLoggedIn])
 
   // 히어로 — filtered 기반이므로 차단/태그 변경 즉시 반영
   const featured = useMemo(() => filtered[0] ?? null, [filtered])
@@ -145,8 +150,17 @@ export default function FreeGalleryPage() {
             </p>
           )}
 
-          {/* 오른쪽: 검색창 + 정렬 */}
+          {/* 오른쪽: 검색창 + 정렬 + 작성 버튼 */}
           <div className="ml-auto flex items-center gap-3">
+            {isLoggedIn && (
+              <button
+                onClick={() => navigate('/gallery/create')}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+                style={{ background: '#2f81f7', color: '#fff' }}>
+                <span className="material-symbols-outlined text-base">add</span>
+                게시글 등록
+              </button>
+            )}
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base"

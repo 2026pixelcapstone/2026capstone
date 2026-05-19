@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate, data } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { galleryApi, type GalleryPostResponse, type GalleryCommentResponse } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
 import { useLikeStore } from '../store/likeStore'
@@ -26,9 +26,10 @@ export default function GalleryDetailPage() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInternalDraw, setIsInternalDraw] = useState(false);
+  const viewCountedRef = useRef(false)
 
+  // 데이터 조회
   useEffect(() => {
-    // 취소 플래그 선언
     let cancelled = false;
 
     const fetchAll = async () => {
@@ -38,44 +39,53 @@ export default function GalleryDetailPage() {
           galleryApi.getPost(postId),
           galleryApi.getComments(postId, { size: 20 }),
         ]);
-        
-        // 응답이 왔을 때, 이미 이 useEffect가 클린업(종료)되었는지 확인
+
         if (cancelled) return;
 
         const postData = postRes.data.data;
-
-        // 로컬 캐시에 좋아요 상태가 있으면 API 응답보다 우선 적용
         const cachedLike = getGalleryLike(postData.postId)
         setPost(cachedLike !== undefined ? { ...postData, isLiked: cachedLike } : postData);
         setComments(commentsRes.data.data.content);
         setIsInternalDraw(postData.galleryType === 'DEDICATED');
       } catch (err) {
-        // 에러 처리 시에도 취소 여부 확인
         if (cancelled) return;
-        
         const status = getErrorStatus(err)
         if (status === 403) navigate('/403', { replace: true })
         else if (status && status >= 500) navigate('/500', { replace: true })
         else setPost(null)
       } finally {
-        // 로딩 해제 시에도 취소 여부 확인
         if (!cancelled) setLoading(false);
       }
     };
-    // 4. 실행 조건: postId가 유효한 숫자인지 확인 후 단 한 번만 실행
+
     if (postId && Number.isFinite(Number(postId)) && Number(postId) > 0) {
       fetchAll();
     } else {
       setPost(null);
       setLoading(false);
     }
-    
-    // 클린업 함수: postId가 바뀌거나 컴포넌트가 사라질 때 실행됨
-    return () => {
-      cancelled = true;
-    };
-      
+
+    return () => { cancelled = true; };
   }, [postId, navigate])
+
+  // 조회수 증가 — StrictMode 이중 실행 방지: cleanup 시 취소, 실제 마운트에서만 실행
+  useEffect(() => {
+    if (!(postId && Number.isFinite(Number(postId)) && Number(postId) > 0)) return
+    if (viewCountedRef.current) return
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      if (!controller.signal.aborted) {
+        viewCountedRef.current = true
+        galleryApi.incrementView(postId).catch(() => {/* 조회수 실패는 무시 */})
+      }
+    }, 0)
+
+    return () => {
+      controller.abort()
+      clearTimeout(timer)
+    }
+  }, [postId])
 
   const handleLike = async () => {
     if (!isLoggedIn || !post) return
@@ -122,12 +132,23 @@ export default function GalleryDetailPage() {
 
   const handleShowInfo = () => {
       if (isInternalDraw) {
-          // 전용 갤러리 전용 모달 띄우기 (인증 마크 포함)
           alert("PixelHub 인증 데이터를 포함한 상세 정보를 띄웁니다.");
       } else {
           alert("일반 파일 사양을 띄웁니다.");
       }
   };
+
+  const handleDeletePost = async () => {
+    if (!post) return
+    if (!confirm('게시글을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
+    try {
+      await galleryApi.deletePost(post.postId)
+      toast.success('게시글이 삭제되었습니다.')
+      navigate(post.galleryType === 'DEDICATED' ? '/gallery/exclusive' : '/gallery/free', { replace: true })
+    } catch (err) {
+      toast.error(getErrorMessage(err, '게시글 삭제에 실패했습니다.'))
+    }
+  }
   
   if (loading) {
     return (
@@ -230,6 +251,16 @@ export default function GalleryDetailPage() {
             <button className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined">flag</span>
             </button>
+            {/* 작성자 본인만 삭제 버튼 표시 */}
+            {isLoggedIn && user?.userId === post.authorId && (
+              <button
+                onClick={handleDeletePost}
+                className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
+                title="게시글 삭제"
+                style={{ color: '#f85149' }}>
+                <span className="material-symbols-outlined">delete</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

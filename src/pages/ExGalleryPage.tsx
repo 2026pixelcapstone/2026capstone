@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore'
 export default function ExGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const { isLoggedIn } = useAuthStore()
+  const navigate = useNavigate()
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('createdAt,desc')
@@ -117,8 +118,17 @@ export default function ExGalleryPage() {
             </p>
           )}
 
-          {/* 오른쪽: 검색창 + 정렬 */}
+          {/* 오른쪽: 검색창 + 정렬 + 작성 버튼 */}
           <div className="ml-auto flex items-center gap-3">
+            {isLoggedIn && (
+              <button
+                onClick={() => navigate('/gallery/create')}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+                style={{ background: '#2f81f7', color: '#fff' }}>
+                <span className="material-symbols-outlined text-base">add</span>
+                게시글 등록
+              </button>
+            )}
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base"
