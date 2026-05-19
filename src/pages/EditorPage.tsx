@@ -1,42 +1,27 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { data, useSearchParams } from 'react-router-dom'
+import {Frame} from '../constants/type'
+import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
+import {useCanvasView} from '../hooks/useCanvasView'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
-import {useAnimation} from '../components/useAnimation'
-// ── 상수 ──────────────────────────────────────────────
-const DRAW_TOOLS = [
-  { id: 'pencil',    icon: 'edit',               label: 'Pencil (P)' },
-  { id: 'eraser',    icon: 'ink_eraser',          label: 'Eraser (E)' },
-  { id: 'fill',      icon: 'format_color_fill',   label: 'Fill (G)' },
-  { id: 'eyedrop',   icon: 'colorize',            label: 'Eyedropper (I)' },
-]
-const SELECT_TOOLS = [
-  { id: 'marquee',   icon: 'select_all',          label: 'Marquee (M)' },
-  { id: 'lasso',     icon: 'gesture',             label: 'Lasso (L)' },
-  { id: 'move',      icon: 'open_with',           label: 'Move (V)' },
-]
-const SHAPE_TOOLS = [
-  { id: 'line',      icon: 'horizontal_rule',     label: 'Line' },
-  { id: 'rect',      icon: 'rectangle',           label: 'Rectangle (R)' },
-  { id: 'ellipse',   icon: 'circle',              label: 'Ellipse (O)' },
-]
-const VIEW_TOOLS = [
-  { id: 'zoom',      icon: 'search',              label: 'Zoom (Z)' },
-  { id: 'pan',       icon: 'pan_tool',            label: 'Pan (Space)' },
-]
+import {useAnimation} from '../hooks/useAnimation'
+import { useHistory } from '../hooks/useHistory'
 
-const PALETTE_COLORS = [
-  '#2f81f7','#818cf8','#c0c1ff','#29282b',
-  '#191c1e','#494454','#7b7486','#f7f9fb',
-  '#ffffff','#ba1a1a','#ffdad6','#16a34a',
-  '#d1fae5','#f59e0b','#fef3c7','#06b6d4',
-  '#cffafe','#ec4899','#fce7f3','#78350f',
-  '#d97706',
-]
-
-const ZOOM_LEVELS = [1, 2, 4, 8, 10, 16, 20, 32, 64]
-const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128']
+//  ── 인터페이스 ──────────────────────────────────────────────
+interface CanvasData{
+  frames: Frame[];
+  currentFrameIdx: number;
+  width : number;
+  height: number;
+}
+const initialCanvasData: CanvasData = {
+  frames: [{id: crypto.randomUUID(), data: null, width: 32, height: 32}], 
+  currentFrameIdx: 0,
+  width: 32,
+  height: 32,
+};
 
 type MenuItem =
   | { separator: true }
@@ -44,6 +29,7 @@ type MenuItem =
 
 // ── 컴포넌트 ──────────────────────────────────────────
 export default function EditorPage() {
+  
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const menuRef   = useRef<HTMLDivElement>(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -55,17 +41,26 @@ export default function EditorPage() {
   const [brushSize, setBrushSize]     = useState(1)
   const [opacity, setOpacity]         = useState(100)
   const [pixelPerfect, setPixelPerfect] = useState(true)
-  const [zoomIdx, setZoomIdx]         = useState(6)           // x20
+
+  const{canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx, canvasStyle} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
 
-  const [canvasW, setCanvasW]         = useState(32)
-  const [canvasH, setCanvasH]         = useState(32)
+  const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
+  
   // ── ✅애니메이션 컴포넌트 및 상태 ──────────────────────────
-  const{frames, currentFrameIdx, setFrames, setCurrentFrameIdx, addFrame, deleteFrame}
-  = useAnimation({width: canvasW, height: canvasH});
+  const{addFrame, deleteFrame} = useAnimation({
+    frames: state.frames,
+    currentFrameIdx: state.currentFrameIdx,
+    onChange: (newFrames, nextIdx) => {
+      setWithHistory((prev) => ({
+        ...prev,
+        frames: newFrames,
+        currentFrameIdx: nextIdx ?? prev.currentFrameIdx
+      }));
+    }
+  });
   const [isPlaying, setIsPlaying] = useState(false);
   const framesCountRef = useRef(frames.length);  // 최신 프레임 개수를 실시간으로 추적할 Ref 생성
-  // ────────────────────────────
 
   // ── AI 가이드 상태 ──────────────────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
@@ -91,7 +86,6 @@ export default function EditorPage() {
   const [saving, setSaving]             = useState(false)
 
   const isDrawing = useRef(false)
-  const zoom = ZOOM_LEVELS[zoomIdx]
 
   // 캔버스 초기화
   useEffect(() => {
@@ -228,17 +222,27 @@ export default function EditorPage() {
     }
   }, [isLoggedIn, projectId, projectTitle, canvasW, canvasH])
 
-  // ── Ctrl+S 단축키 ────────────────────────────────
+  // ── ✅Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault()
-        handleSave()
+      const isMod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (isMod && key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+      else if(isMod && !e.shiftKey && key === 'z'){
+        e.preventDefault();
+        undo();
+      }
+      else if(isMod && (key === 'y' || (e.shiftKey && key === 'z'))){
+        e.preventDefault();
+        redo();
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleSave])
+  }, [handleSave, undo, redo])
 
   // ── PNG 내보내기 ──────────────────────────────────
   const handleExportPNG = useCallback(() => {
@@ -281,16 +285,16 @@ export default function EditorPage() {
     color: activeTool === id ? '#2f81f7' : '#7d8590',
   })
 
-  // ──✅ 애니메이션 ───────────────────────────────────
+  // ── 애니메이션 ───────────────────────────────────
   useEffect(() => {
-    framesCountRef.current = frames.length;
+    framesCountRef.current = state.frames.length;
   }, [frames.length]);
 
   // 현재 프레임의 데이터를 불러옴(그리기 로직)
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    const targetFrame = frames[currentFrameIdx];
+    const targetFrame = state.frames[state.currentFrameIdx];
 
     if(!canvas || !ctx) return;
 
@@ -311,23 +315,27 @@ export default function EditorPage() {
     else{
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
     }
-  }, [currentFrameIdx, frames]);
+  }, [state.currentFrameIdx, state.frames]);
+
 
   // 재생 로직
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentFrameIdx((prev) => {
-          const total = framesCountRef.current; // 최신 길이 가져옴
-          if(total <= 1) return 0;
-          // 재생 중 삭제되어 인덱스가 튀는 경우를 대비해 total로 안전하게 나머지 계산
-          return (prev + 1) % total;
-        });
-      }, 100); // 0.1초마다 다음 프레임으로 (10 FPS)
-    }
+    if(!isPlaying) return;
+    const interval = setInterval(() => {
+      setState((prev) => {
+        const total = prev.frames.length;
+        if(total <= 1) return prev;
+
+        const nextIdx = (prev.currentFrameIdx + 1) % total;
+
+        return{
+          ...prev,
+          currentFrameIdx: nextIdx,
+        };
+      });
+    }, 100)
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, setState]);
 
 
   const createNewFrame = () => {
@@ -337,25 +345,50 @@ export default function EditorPage() {
 
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
-   */
+   * setWithHistory -> useHistory 기록용
+  */
   const saveCurrentFrameData = () =>{
     const canvas = canvasRef.current;
     if(!canvas) return;
 
-    if(!frames[currentFrameIdx]){
+    if(!state.frames[state.currentFrameIdx]){
       return;
     }
+    const capturedIdx = state.currentFrameIdx; // 현재 인덱스 캡쳐
     const imageData = canvas.toDataURL();
 
-    setFrames(prev => prev.map((f, i) => 
-      i === currentFrameIdx ? { ...f, data: imageData } : f
-    ));
+    setWithHistory((prev) => {
+      const updatedFrames = prev.frames.map((f, i) =>
+        i === capturedIdx ? { ...f, data: imageData } : f
+      );
+     
+      return {
+        ...prev,
+        frames: updatedFrames,
+      };
+    });
+    setUnsaved(false);
   }
-  
+
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
-    saveCurrentFrameData();
-    setCurrentFrameIdx(nextIndex);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    if (unsaved) {
+        const imageData = canvas.toDataURL();
+        setWithHistory((prev) => ({
+          ...prev,
+          frames: prev.frames.map((f, i) =>
+            i === prev.currentFrameIdx ? { ...f, data: imageData } : f
+          ),
+          currentFrameIdx: nextIndex,
+        }));
+        setUnsaved(false);
+    } 
+    else {
+      setState((prev) => ({ ...prev, currentFrameIdx: nextIndex }));
+    }
   }
 
   // ── 메뉴 정의 (actions can reference state) ──
@@ -379,8 +412,8 @@ export default function EditorPage() {
     {
       id: 'edit', label: 'Edit',
       items: [
-        { label: 'Undo',       icon: 'undo',        shortcut: 'Ctrl+Z' },
-        { label: 'Redo',       icon: 'redo',        shortcut: 'Ctrl+Y' },
+        { label: 'Undo',       icon: 'undo',        shortcut: 'Ctrl+Z', action: () => {undo(); setOpenMenu(null)}},
+        { label: 'Redo',       icon: 'redo',        shortcut: 'Ctrl+Y', action: () => {redo(); setOpenMenu(null)}},
         { separator: true },
         { label: 'Cut',        icon: 'content_cut',  shortcut: 'Ctrl+X' },
         { label: 'Copy',       icon: 'content_copy', shortcut: 'Ctrl+C' },
@@ -435,7 +468,7 @@ export default function EditorPage() {
       ],
     },
     {
-      id: 'AI', label: 'AI',
+      id: 'AI Assistant', label: 'AI Assistant',
       items:[
         {label: 'AI Guide', icon: 'auto_awesome', action: () => setShowAIGuide(!showAIGuide)},
       ],
@@ -625,14 +658,7 @@ export default function EditorPage() {
               ref={canvasRef}
               width={canvasW}
               height={canvasH}
-              style={{
-                width: canvasW * zoom,
-                height: canvasH * zoom,
-                imageRendering: 'pixelated',
-                cursor: 'crosshair',
-                display: 'block',
-                backgroundColor: '#e8e8e8',   // 캔버스 배경: 연회색
-              }}
+              style={canvasStyle}
               onMouseDown={e => { isDrawing.current = true; drawPixel(e) }}
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
@@ -686,14 +712,13 @@ export default function EditorPage() {
               <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
                 style={{ color: '#7d8590', borderColor: '#30363d' }} > 
                 <span>Anim</span>
-                {/* 훅에서 가져온 frames.length 연결 */}
-                <span className='text-[10px]'>{frames.length} frame{frames.length > 1 ? 's' : ''}</span>  
+                <span className='text-[10px]'>{state.frames.length} frame{state.frames.length > 1 ? 's' : ''}</span>  
               </div>
 
               {/* 프레임 목록 */}
               <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                {frames.map((frame, index) => {
-                    const isActive = currentFrameIdx === index;
+                {state.frames.map((frame, index) => {
+                    const isActive = state.currentFrameIdx === index;
                     return(
                       <div
                         key = {frame.id}
@@ -739,7 +764,7 @@ export default function EditorPage() {
                   {/* 이전 프레임으로 이동 */}
                   <button 
                     onClick={() => {
-                      const nextIdx = currentFrameIdx > 0 ? currentFrameIdx - 1 : frames.length - 1;
+                      const nextIdx = state.currentFrameIdx > 0 ? state.currentFrameIdx - 1 : state.frames.length - 1;
                       handleSelectFrame(nextIdx);
                     }}
                     className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
@@ -760,7 +785,7 @@ export default function EditorPage() {
                   {/* 다음 프레임으로 이동 */}
                   <button 
                     onClick={() => {
-                      const nextIdx = (currentFrameIdx + 1) % frames.length;
+                      const nextIdx = (state.currentFrameIdx + 1) % state.frames.length;
                       handleSelectFrame(nextIdx); 
                     }}
                     className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
@@ -971,7 +996,7 @@ export default function EditorPage() {
             </button>
           </div>
 
-          {/* 컨텐츠: 피스킬 광고처럼 큼직한 가이드 영역 */}
+          {/* 컨텐츠: 큼직한 가이드 영역 */}
           <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
             {/* 여기에 광고나 AI 분석 결과 렌더링 */}
             <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-[#30363d] flex items-center justify-center bg-[#161b22]">
