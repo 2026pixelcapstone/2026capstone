@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../api/authApi'
+import { userApi } from '../api/userApi'
 import { useAuthStore } from '../store/authStore'
 
 function getPwStrength(pw: string) {
@@ -26,7 +27,7 @@ export default function SignupPage() {
   const [terms, setTerms] = useState([false, false, false])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { setTokens } = useAuthStore()
+  const { setTokens, setUser } = useAuthStore()
   const navigate = useNavigate()
 
   const usernameValid = /^[a-z0-9_]{4,20}$/.test(username)
@@ -55,6 +56,11 @@ export default function SignupPage() {
       const res = await authApi.signup({ email, password, nickname: username })
       const { accessToken, refreshToken } = res.data.data
       setTokens(accessToken, refreshToken)
+      try {
+        const meRes = await userApi.getMe()
+        const { userId, email: userEmail, nickname, role, profileImageUrl } = meRes.data.data
+        setUser({ userId, email: userEmail, nickname, role, profileImageUrl: profileImageUrl ?? undefined })
+      } catch { /* MainLayout에서 재시도 */ }
       navigate('/')
     } catch (err: any) {
       setError(err.response?.data?.message ?? '회원가입에 실패했습니다.')

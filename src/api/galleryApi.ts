@@ -82,6 +82,12 @@ export interface PageResponse<T> {
   last: boolean 
 }
 
+export interface TagResponse {
+  tagId: number
+  tagName: string
+  postCount: number
+}
+
 export const galleryApi = {
   // 목록 조회
   getList: (params?: { type?: GalleryType; page?: number; size?: number; sort?: string; authorId?: number; likedBy?: number }) =>
@@ -123,7 +129,15 @@ export const galleryApi = {
   search: (keyword: string, params?: { page?: number; size?: number }) =>
     api.get<{ success: boolean; data: PageResponse<GalleryPostSummary> }>('/api/gallery/search', { params: { keyword, ...params } }),
 
+  // 조회수 증가 (데이터 조회와 분리)
+  incrementView: (postId: number) =>
+    api.post<{ success: boolean }>(`/api/gallery/${postId}/view`),
+
   // 태그별 조회
-  getByTag: (tagName: string, params?: { page?: number; size?: number }) =>
+  getByTag: (tagName: string, params?: { page?: number; size?: number; sort?: string; type?: GalleryType }) =>
     api.get<{ success: boolean; data: PageResponse<GalleryPostSummary> }>(`/api/gallery/tags/${tagName}`, { params }),
+
+  // 인기 태그 TOP20
+  getTags: () =>
+    api.get<{ success: boolean; data: TagResponse[] }>('/api/tags'),
 }
