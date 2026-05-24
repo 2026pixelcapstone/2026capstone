@@ -37,10 +37,9 @@ export default function FreeGalleryPage() {
           content = res.data.data.content
           last = res.data.data.last
         } else if (activeTag !== '전체') {
-          // 특정 태그 선택 시 서버에서 태그별 조회
-          const res = await galleryApi.getByTag(activeTag, { page, size: 9 })
-          // 자유 갤러리 게시글만 필터
-          content = res.data.data.content.filter(p => p.galleryType === 'FREE')
+          // 특정 태그 선택 시 서버에서 태그별 조회 — type/sort를 서버에 전달해 페이지네이션 정합성 보장
+          const res = await galleryApi.getByTag(activeTag, { page, size: 9, sort, type: 'FREE' })
+          content = res.data.data.content
           last = res.data.data.last
         } else {
           const res = await galleryApi.getList({ type: 'FREE', page, size: 9, sort })

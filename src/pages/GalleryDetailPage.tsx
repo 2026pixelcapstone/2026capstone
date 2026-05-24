@@ -26,7 +26,7 @@ export default function GalleryDetailPage() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInternalDraw, setIsInternalDraw] = useState(false);
-  const viewCountedRef = useRef(false)
+  const viewCountedRef = useRef<number | null>(null)
 
   // 데이터 조회
   useEffect(() => {
@@ -69,15 +69,21 @@ export default function GalleryDetailPage() {
   }, [postId, navigate])
 
   // 조회수 증가 — StrictMode 이중 실행 방지: cleanup 시 취소, 실제 마운트에서만 실행
+  // viewCountedRef에 postId를 저장해 게시글 이동 시 각각 1회씩 정상 증가
   useEffect(() => {
     if (!(postId && Number.isFinite(Number(postId)) && Number(postId) > 0)) return
-    if (viewCountedRef.current) return
+    if (viewCountedRef.current === postId) return
 
     const controller = new AbortController()
     const timer = setTimeout(() => {
       if (!controller.signal.aborted) {
-        viewCountedRef.current = true
-        galleryApi.incrementView(postId).catch(() => {/* 조회수 실패는 무시 */})
+        viewCountedRef.current = postId
+        galleryApi.incrementView(postId)
+          .then(() => {
+            // 증가 성공 시 화면의 viewCount도 즉시 반영 (새로고침 전까지 숫자가 낮게 보이는 문제 방지)
+            setPost(prev => prev ? { ...prev, viewCount: prev.viewCount + 1 } : prev)
+          })
+          .catch(() => {/* 조회수 실패는 무시 */})
       }
     }, 0)
 

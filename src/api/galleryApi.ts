@@ -134,7 +134,7 @@ export const galleryApi = {
     api.post<{ success: boolean }>(`/api/gallery/${postId}/view`),
 
   // 태그별 조회
-  getByTag: (tagName: string, params?: { page?: number; size?: number }) =>
+  getByTag: (tagName: string, params?: { page?: number; size?: number; sort?: string; type?: GalleryType }) =>
     api.get<{ success: boolean; data: PageResponse<GalleryPostSummary> }>(`/api/gallery/tags/${tagName}`, { params }),
 
   // 인기 태그 TOP20
