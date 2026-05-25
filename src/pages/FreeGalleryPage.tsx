@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
@@ -10,15 +10,30 @@ export default function FreeGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const { isLoggedIn } = useAuthStore()
   const navigate = useNavigate()
-  const [activeTag, setActiveTag] = useState('전체')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTag, setActiveTag] = useState(() => searchParams.get('tag') ?? '전체')
+
+  const handleTagSelect = (tag: string) => {
+    setActiveTag(tag)
+    if (tag === '전체') setSearchParams({}, { replace: true })
+    else setSearchParams({ tag }, { replace: true })
+  }
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
+  const [featured, setFeatured] = useState<GalleryPostSummary | null>(null)
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // 추천 작품 — 페이지 최초 마운트 시 1회만 조회, 태그 필터와 무관
+  useEffect(() => {
+    galleryApi.getList({ type: 'FREE', page: 0, size: 1, sort: 'likeCount,desc' })
+      .then(res => setFeatured(res.data.data.content[0] ?? null))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     setPage(0)
@@ -81,8 +96,6 @@ export default function FreeGalleryPage() {
     })
   }, [artworks, blockedUserIds, blockedTags, blocksLoaded, isLoggedIn])
 
-  // 히어로 — filtered 기반이므로 차단/태그 변경 즉시 반영
-  const featured = useMemo(() => filtered[0] ?? null, [filtered])
 
   return (
     <div style={{ background: '#0d1117' }}>
@@ -133,7 +146,7 @@ export default function FreeGalleryPage() {
           {!keyword ? (
             <div className="flex gap-3 flex-wrap">
               {TAGS.map(tag => (
-                <button key={tag} onClick={() => setActiveTag(tag)}
+                <button key={tag} onClick={() => handleTagSelect(tag)}
                   className="px-8 py-3 rounded-full text-sm font-bold transition-colors"
                   style={activeTag === tag
                     ? { background: '#2f81f7', color: '#fff' }
@@ -236,6 +249,17 @@ export default function FreeGalleryPage() {
                       </span>
                     </div>
                   </div>
+                  {item.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {item.tags.slice(0, 5).map(tag => (
+                        <span key={tag} onClick={e => { e.preventDefault(); handleTagSelect(tag) }}
+                          className="px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                          style={{ background: '#21262d', border: '1px solid #30363d', color: '#7d8590' }}>
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </Link>
               ))}
             </div>

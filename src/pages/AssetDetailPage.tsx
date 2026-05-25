@@ -106,7 +106,8 @@ export default function AssetDetailPage() {
   }
 
   const images = asset.imageUrls.length > 0 ? asset.imageUrls : [asset.thumbnailUrl].filter(Boolean) as string[]
-  const canDownload = asset.isFree || asset.isPurchased
+  const isFreeAsset = asset.isFree || asset.price === 0
+  const canDownload = isFreeAsset || asset.isPurchased
 
   return (
     <div style={{ background: '#0d1117', color: '#e6edf3' }}>
@@ -156,7 +157,7 @@ export default function AssetDetailPage() {
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2 py-0.5 rounded-lg text-xs font-bold"
                   style={{ background: 'rgba(63,185,80,0.1)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.2)' }}>
-                  {asset.isFree ? '무료' : '유료'}
+                  {isFreeAsset ? '무료' : '유료'}
                 </span>
                 {asset.licenseTypeName && (
                   <span className="px-2 py-0.5 rounded-lg text-xs font-bold"
@@ -183,8 +184,8 @@ export default function AssetDetailPage() {
               </div>
 
               <div className="py-4 border-y mb-4" style={{ borderColor: '#30363d' }}>
-                <p className="text-4xl font-bold" style={{ color: asset.isFree ? '#3fb950' : '#2f81f7' }}>
-                  {asset.isFree ? '무료' : `₩${asset.price.toLocaleString()}`}
+                <p className="text-4xl font-bold" style={{ color: isFreeAsset ? '#3fb950' : '#2f81f7' }}>
+                  {isFreeAsset ? '무료' : `₩${asset.price.toLocaleString()}`}
                 </p>
               </div>
 
@@ -242,8 +243,11 @@ export default function AssetDetailPage() {
                   {asset.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-4">
                       {asset.tags.map(tag => (
-                        <span key={tag} className="px-3 py-1 rounded-full text-xs"
-                          style={{ background: '#21262d', border: '1px solid #30363d' }}>#{tag}</span>
+                        <Link key={tag} to={`/assets?tag=${encodeURIComponent(tag)}`}
+                          className="px-3 py-1 rounded-full text-xs hover:opacity-80 transition-opacity"
+                          style={{ background: '#21262d', border: '1px solid #30363d', color: '#7d8590' }}>
+                          #{tag}
+                        </Link>
                       ))}
                     </div>
                   )}
