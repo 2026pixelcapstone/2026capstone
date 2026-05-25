@@ -7,15 +7,17 @@ const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아
 export default function AssetStorePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeCategory = searchParams.get('tag') ?? '전체'
-
-  const handleCategorySelect = (tag: string) => {
-    if (tag === '전체') setSearchParams({}, { replace: false })
-    else setSearchParams({ tag }, { replace: false })
-  }
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
+
+  const handleCategorySelect = (tag: string) => {
+    setKeyword('')
+    setInputValue('')
+    if (tag === '전체') setSearchParams({}, { replace: false })
+    else setSearchParams({ tag }, { replace: false })
+  }
   const [assets, setAssets] = useState<AssetSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)

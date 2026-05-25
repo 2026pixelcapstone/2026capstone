@@ -12,14 +12,16 @@ export default function FreeGalleryPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTag = searchParams.get('tag') ?? '전체'
-
-  const handleTagSelect = (tag: string) => {
-    if (tag === '전체') setSearchParams({}, { replace: false })
-    else setSearchParams({ tag }, { replace: false })
-  }
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
+
+  const handleTagSelect = (tag: string) => {
+    setKeyword('')
+    setInputValue('')
+    if (tag === '전체') setSearchParams({}, { replace: false })
+    else setSearchParams({ tag }, { replace: false })
+  }
   const [featured, setFeatured] = useState<GalleryPostSummary | null>(null)
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
