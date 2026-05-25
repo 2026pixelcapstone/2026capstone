@@ -15,6 +15,7 @@ export interface AssetSummary {
   commentCount: number
   status: string
   createdAt: string
+  tags: string[]
 }
 
 export interface AssetResponse extends AssetSummary {
@@ -111,6 +112,6 @@ export const assetApi = {
     api.get<{ success: boolean; data: PageResponse<AssetSummary> }>('/api/assets/search', { params: { keyword, ...params } }),
 
   // 태그별 조회
-  getByTag: (tagName: string, params?: { page?: number; size?: number }) =>
-    api.get<{ success: boolean; data: PageResponse<AssetSummary> }>(`/api/assets/tags/${tagName}`, { params }),
+  getByTag: (tagName: string, params?: { page?: number; size?: number; sort?: string; isFree?: boolean }) =>
+    api.get<{ success: boolean; data: PageResponse<AssetSummary> }>(`/api/assets/tags/${encodeURIComponent(tagName)}`, { params }),
 }

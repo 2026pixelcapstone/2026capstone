@@ -22,7 +22,6 @@ export default function GalleryDetailPage() {
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [zoom, setZoom] = useState(4)
-  const [bookmarked, setBookmarked] = useState(false)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInternalDraw, setIsInternalDraw] = useState(false);
@@ -245,12 +244,6 @@ export default function GalleryDetailPage() {
                 </Dropdown>
             </div>
 
-            <button onClick={() => setBookmarked(v => !v)}
-              className="p-2 rounded-xl transition-colors hover:bg-[#1c2128]"
-              style={{ color: bookmarked ? '#2f81f7' : '#7d8590' }}>
-              <span className="material-symbols-outlined"
-                style={{ fontVariationSettings: bookmarked ? "'FILL' 1" : "'FILL' 0" }}>bookmark</span>
-            </button>
             <button className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined">share</span>
             </button>
@@ -291,7 +284,7 @@ export default function GalleryDetailPage() {
                     style={isTagBlocked(tag)
                       ? { background: 'rgba(248,81,73,0.08)', border: '1px solid rgba(248,81,73,0.3)' }
                       : { background: '#21262d', border: '1px solid #30363d' }}>
-                    <Link to={`/gallery/tags/${tag}`}
+                    <Link to={`/gallery/free?tag=${encodeURIComponent(tag)}`}
                       className="pl-3 pr-1 py-1 text-sm hover:underline transition-colors"
                       style={{ color: isTagBlocked(tag) ? '#f85149' : '#7d8590' }}>
                       #{tag}
