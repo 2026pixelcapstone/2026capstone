@@ -6,12 +6,11 @@ const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아
 
 export default function AssetStorePage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [activeCategory, setActiveCategory] = useState(() => searchParams.get('tag') ?? '전체')
+  const activeCategory = searchParams.get('tag') ?? '전체'
 
   const handleCategorySelect = (tag: string) => {
-    setActiveCategory(tag)
-    if (tag === '전체') setSearchParams({}, { replace: true })
-    else setSearchParams({ tag }, { replace: true })
+    if (tag === '전체') setSearchParams({}, { replace: false })
+    else setSearchParams({ tag }, { replace: false })
   }
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
   const [sort, setSort] = useState('createdAt,desc')
@@ -227,7 +226,10 @@ export default function AssetStorePage() {
                     {item.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-2">
                         {item.tags.slice(0, 3).map(tag => (
-                          <span key={tag} onClick={e => { e.preventDefault(); handleCategorySelect(tag) }}
+                          <span key={tag}
+                            role="button" tabIndex={0}
+                            onClick={e => { e.preventDefault(); handleCategorySelect(tag) }}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCategorySelect(tag) } }}
                             className="px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
                             style={{ background: '#161b22', border: '1px solid #30363d', color: '#7d8590' }}>
                             #{tag}

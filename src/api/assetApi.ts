@@ -113,5 +113,5 @@ export const assetApi = {
 
   // 태그별 조회
   getByTag: (tagName: string, params?: { page?: number; size?: number; sort?: string; isFree?: boolean }) =>
-    api.get<{ success: boolean; data: PageResponse<AssetSummary> }>(`/api/assets/tags/${tagName}`, { params }),
+    api.get<{ success: boolean; data: PageResponse<AssetSummary> }>(`/api/assets/tags/${encodeURIComponent(tagName)}`, { params }),
 }

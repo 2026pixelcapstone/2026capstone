@@ -11,12 +11,11 @@ export default function FreeGalleryPage() {
   const { isLoggedIn } = useAuthStore()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [activeTag, setActiveTag] = useState(() => searchParams.get('tag') ?? '전체')
+  const activeTag = searchParams.get('tag') ?? '전체'
 
   const handleTagSelect = (tag: string) => {
-    setActiveTag(tag)
-    if (tag === '전체') setSearchParams({}, { replace: true })
-    else setSearchParams({ tag }, { replace: true })
+    if (tag === '전체') setSearchParams({}, { replace: false })
+    else setSearchParams({ tag }, { replace: false })
   }
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
@@ -252,7 +251,10 @@ export default function FreeGalleryPage() {
                   {item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {item.tags.slice(0, 5).map(tag => (
-                        <span key={tag} onClick={e => { e.preventDefault(); handleTagSelect(tag) }}
+                        <span key={tag}
+                          role="button" tabIndex={0}
+                          onClick={e => { e.preventDefault(); handleTagSelect(tag) }}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTagSelect(tag) } }}
                           className="px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
                           style={{ background: '#21262d', border: '1px solid #30363d', color: '#7d8590' }}>
                           #{tag}
