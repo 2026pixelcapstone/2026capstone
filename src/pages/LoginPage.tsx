@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../api/authApi'
+import { userApi } from '../api/userApi'
 import { useAuthStore } from '../store/authStore'
 
 export default function LoginPage() {
@@ -9,7 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { setTokens } = useAuthStore()
+  const { setTokens, setUser } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as any)?.from ?? '/'
@@ -22,6 +23,14 @@ export default function LoginPage() {
       const res = await authApi.login({ email, password })
       const { accessToken, refreshToken } = res.data.data
       setTokens(accessToken, refreshToken)
+      // 로그인 직후 유저 정보 즉시 로드 (삭제 버튼 등 본인 확인 로직에 필요)
+      try {
+        const meRes = await userApi.getMe()
+        const { userId, email: userEmail, nickname, role, profileImageUrl } = meRes.data.data
+        setUser({ userId, email: userEmail, nickname, role, profileImageUrl: profileImageUrl ?? undefined })
+      } catch {
+        // 유저 정보 로드 실패해도 로그인 자체는 유지 (MainLayout에서 재시도)
+      }
       navigate(from, { replace: true })
     } catch (err: any) {
       setError(err.response?.data?.message ?? '로그인에 실패했습니다.')
