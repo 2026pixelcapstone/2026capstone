@@ -178,43 +178,66 @@ export default function EditorPage() {
     if (!id || !isLoggedIn) return
     const numId = Number(id)
     if (isNaN(numId)) return
+
     editorApi.getProject(numId).then(res => {
       const proj = res.data.data
       setProjectId(proj.projectId)
       setProjectTitle(proj.title)
+      
+      // 1. 크기 상태를 먼저 세팅 (초기화 useEffect가 먼저 돌 수 있도록 유도)
       setCanvasW(proj.width)
       setCanvasH(proj.height)
       setCustomW(proj.width)
       setCustomH(proj.height)
-      // 첫 번째 레이어의 pixelData 또는 fileUrl로 캔버스 복원
+
       const firstLayer = proj.layers?.[0]
       const savedPixelData = firstLayer?.pixelData ?? null
       const imageSrc = savedPixelData ?? firstLayer?.fileUrl ?? null
 
-      if (savedPixelData?.trim().startsWith('{')) {
-        const savedCanvasData = JSON.parse(savedPixelData) as CanvasData
-
-        setState(savedCanvasData)
-        setCanvasW(savedCanvasData.width)
-        setCanvasH(savedCanvasData.height)
-        setCustomW(savedCanvasData.width)
-        setCustomH(savedCanvasData.height)
-      } else if (imageSrc) {
+      // 화면에 실제 픽셀 주입을 담당할 공통 함수
+      const drawToCanvas = (src: string) => {
         const img = new Image()
         img.onload = () => {
+          // 상태 변경으로 인한 리렌더링 및 초기화 캔버스 작업이 완전히 끝난 후 안전하게 그리기 위해 타이밍 확보
           requestAnimationFrame(() => {
             const ctx = canvasRef.current?.getContext('2d')
             if (ctx) {
+              ctx.imageSmoothingEnabled = false // 픽셀 아트 깨짐 방지
               ctx.clearRect(0, 0, proj.width, proj.height)
               ctx.drawImage(img, 0, 0)
             }
           })
         }
-        img.src = imageSrc
+        img.src = src
       }
+
+      if (savedPixelData?.trim().startsWith('{')) {
+        try {
+          const savedCanvasData = JSON.parse(savedPixelData) as CanvasData
+          
+          // 애니메이션 프레임 전체 상태 복원 (메모리에 주소 주입)
+          setState(savedCanvasData)
+          
+          // 복원된 프레임 리스트 중 "현재 선택된 프레임"의 이미지 주소를 꺼내 진짜 캔버스에 그려줍니다.
+          const currentFrame = savedCanvasData.frames?.[savedCanvasData.currentFrameIdx]
+          if (currentFrame?.data) {
+            drawToCanvas(currentFrame.data)
+          } else if (imageSrc) {
+            drawToCanvas(imageSrc)
+          }
+
+        } catch {
+          // JSON 파싱 실패 시 기존 이미지 복원 경로로 폴백
+          if (imageSrc) drawToCanvas(imageSrc)
+        }
+      } else if (imageSrc) {
+        // 기존 단순 이미지 주소 포맷일 때 복원
+        drawToCanvas(imageSrc)
+      }
+      
       setUnsaved(false)
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
-  }, [searchParams, isLoggedIn])
+  }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
 
   // ── ⏳저장 ──────────────────────────────────────────
   const handleSave = useCallback(async () => {
