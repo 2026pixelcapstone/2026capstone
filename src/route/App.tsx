@@ -15,7 +15,6 @@ import ArtistServiceDetailPage from '../pages/ArtistServiceDetailPage'
 import LoginPage from '../pages/LoginPage'
 import SignupPage from '../pages/SignupPage'
 import MyPage from '../pages/MyPage'
-import GalleryCreatePage from '../pages/GalleryCreatePage'
 import ProfilePage from '../pages/ProfilePage'
 import NotFoundPage from '../pages/NotFoundPage'
 import ForbiddenPage from '../pages/ForbiddenPage'
@@ -69,7 +68,6 @@ export default function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/editor" element={<EditorPage />} />
           <Route path="/mypage" element={<MyPage />} />
-          <Route path="/gallery/create" element={<GalleryCreatePage />} />
         </Route>
       </Route>
 

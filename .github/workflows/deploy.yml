@@ -1,0 +1,36 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: http://192.168.55.229:8080
+
+      - name: Deploy to Nginx
+        run: |
+          rm -rf /var/www/pixelart/*
+          cp -r frontend/dist/* /var/www/pixelart/
+
+      - name: Reload Nginx
+        run: sudo systemctl reload nginx
