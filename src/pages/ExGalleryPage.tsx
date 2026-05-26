@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
+import GalleryCreateModal from '../components/GalleryCreateModal'
 
 export default function ExGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const { isLoggedIn } = useAuthStore()
-  const navigate = useNavigate()
+  const [createModalOpen, setCreateModalOpen] = useState(false)
   const [artworks, setArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('createdAt,desc')
@@ -122,7 +123,7 @@ export default function ExGalleryPage() {
           <div className="ml-auto flex items-center gap-3">
             {isLoggedIn && (
               <button
-                onClick={() => navigate('/gallery/create')}
+                onClick={() => setCreateModalOpen(true)}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
                 style={{ background: '#2f81f7', color: '#fff' }}>
                 <span className="material-symbols-outlined text-base">add</span>
@@ -265,6 +266,12 @@ export default function ExGalleryPage() {
           </>
         )}
       </div>
+
+      <GalleryCreateModal
+        type="DEDICATED"
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+      />
 
       <footer className="border-t py-12 px-6" style={{ background: '#161b22', borderColor: '#30363d' }}>
         <div className="max-w-[1440px] mx-auto flex justify-between items-center">
