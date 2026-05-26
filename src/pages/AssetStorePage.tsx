@@ -1,15 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { assetApi, type AssetSummary } from '../api/assetApi'
 
 const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아이콘', '스프라이트', '이펙트']
 
 export default function AssetStorePage() {
-  const [activeCategory, setActiveCategory] = useState('전체')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeCategory = searchParams.get('tag') ?? '전체'
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
+
+  const handleCategorySelect = (tag: string) => {
+    setKeyword('')
+    setInputValue('')
+    if (tag === '전체') setSearchParams({}, { replace: false })
+    else setSearchParams({ tag }, { replace: false })
+  }
   const [assets, setAssets] = useState<AssetSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
@@ -35,6 +43,12 @@ export default function AssetStorePage() {
           content = res.data.data.content
           last = res.data.data.last
           totalElements = res.data.data.totalElements
+        } else if (activeCategory !== '전체') {
+          const isFree = priceFilter === 'all' ? undefined : priceFilter === 'free'
+          const res = await assetApi.getByTag(activeCategory, { page, size: 8, sort, isFree })
+          content = res.data.data.content
+          last = res.data.data.last
+          totalElements = res.data.data.totalElements
         } else {
           const isFree = priceFilter === 'all' ? undefined : priceFilter === 'free'
           const res = await assetApi.getList({ isFree, page, size: 8, sort })
@@ -53,7 +67,7 @@ export default function AssetStorePage() {
       }
     }
     fetch()
-  }, [page, priceFilter, sort, keyword])
+  }, [page, priceFilter, sort, keyword, activeCategory])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -108,7 +122,7 @@ export default function AssetStorePage() {
               <div className="w-px h-6" style={{ background: '#30363d' }} />
               <div className="flex gap-2 flex-wrap">
                 {CATEGORIES.map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)}
+                  <button key={cat} onClick={() => handleCategorySelect(cat)}
                     className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
                     style={activeCategory === cat
                       ? { background: '#2f81f7', color: '#fff' }
@@ -188,22 +202,43 @@ export default function AssetStorePage() {
                       ? <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
                       : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
                     }
-                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-xs font-bold border"
-                      style={item.isFree
-                        ? { background: 'rgba(63,185,80,0.2)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-                        : { background: 'rgba(47,129,247,0.2)', color: '#2f81f7', borderColor: 'rgba(47,129,247,0.3)' }}>
-                      {item.isFree ? '무료' : `₩${item.price.toLocaleString()}`}
-                    </div>
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="px-4 py-2 rounded-lg text-sm font-bold"
-                        style={{ background: '#2f81f7', color: '#fff' }}>
-                        {item.isFree ? '무료 받기' : '구매하기'}
-                      </span>
-                    </div>
+                    {(() => {
+                      const isFree = item.isFree || item.price === 0
+                      return (
+                        <>
+                          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-xs font-bold border"
+                            style={isFree
+                              ? { background: 'rgba(63,185,80,0.2)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
+                              : { background: 'rgba(47,129,247,0.2)', color: '#2f81f7', borderColor: 'rgba(47,129,247,0.3)' }}>
+                            {isFree ? '무료' : `₩${item.price.toLocaleString()}`}
+                          </div>
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="px-4 py-2 rounded-lg text-sm font-bold"
+                              style={{ background: '#2f81f7', color: '#fff' }}>
+                              {isFree ? '다운로드' : '구매하기'}
+                            </span>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                   <div className="p-4">
                     <h3 className="font-bold text-sm mb-1 truncate">{item.title}</h3>
-                    <p className="text-xs mb-3" style={{ color: '#7d8590' }}>@{item.authorNickname}</p>
+                    <p className="text-xs mb-2" style={{ color: '#7d8590' }}>@{item.authorNickname}</p>
+                    {item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {item.tags.slice(0, 3).map(tag => (
+                          <span key={tag}
+                            role="button" tabIndex={0}
+                            onClick={e => { e.preventDefault(); handleCategorySelect(tag) }}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCategorySelect(tag) } }}
+                            className="px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                            style={{ background: '#161b22', border: '1px solid #30363d', color: '#7d8590' }}>
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
                       <span className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-xs">favorite</span>
