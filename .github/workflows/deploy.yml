@@ -27,17 +27,15 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        working-directory: frontend
         run: npm ci
 
       - name: Build
-        working-directory: frontend
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Deploy to Nginx
-        run: rsync -a --delete frontend/dist/ /var/www/pixelart/
+        run: rsync -a --delete dist/ /var/www/pixelart/
 
       - name: Reload Nginx
         run: sudo systemctl reload nginx
