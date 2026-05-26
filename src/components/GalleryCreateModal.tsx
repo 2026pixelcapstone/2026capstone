@@ -21,12 +21,14 @@ interface PixelFileInfo {
   raw: object
 }
 
+const MAX_CANVAS_SIZE = 1024 // 브라우저 프리징 방지 상한
+
 function renderPixelData(canvas: HTMLCanvasElement, raw: object) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const d = raw as Record<string, unknown>
-  const width = (d.width as number) || (d.canvasWidth as number) || 32
-  const height = (d.height as number) || (d.canvasHeight as number) || 32
+  const width = Math.min((d.width as number) || (d.canvasWidth as number) || 32, MAX_CANVAS_SIZE)
+  const height = Math.min((d.height as number) || (d.canvasHeight as number) || 32, MAX_CANVAS_SIZE)
   const layers = (d.layers as Array<{ pixels?: Record<string, string>; visible?: boolean }>) || []
   const scale = Math.min(Math.floor(400 / Math.max(width, height)), 16) || 1
   canvas.width = width * scale
@@ -90,7 +92,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     if (!isOpen) return
     setTitle(''); setDescription(''); setVisibility('PUBLIC')
     setSelectedTags([]); setTagInput(''); setSubmitting(false)
-    setImages([]); setDraggingImg(false); setActiveIdx(0)
+    // 이미지 ObjectURL revoke 후 초기화 (메모리 누수 방지)
+    setImages(prev => { prev.forEach(img => URL.revokeObjectURL(img.previewUrl)); return [] })
+    setDraggingImg(false); setActiveIdx(0)
     setFileInfo(null); setDraggingFile(false); setParseError(null)
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [isOpen])
