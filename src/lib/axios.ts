@@ -37,7 +37,7 @@ api.interceptors.response.use(
 
     if (isRefreshing) {
       // 이미 refresh 중이면 큐에 대기
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         refreshQueue.push((newToken: string) => {
           original.headers.Authorization = `Bearer ${newToken}`
           resolve(api(original))

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
@@ -10,7 +10,6 @@ const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이�
 export default function FreeGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const { isLoggedIn } = useAuthStore()
-  const navigate = useNavigate()
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTag = searchParams.get('tag') ?? '전체'

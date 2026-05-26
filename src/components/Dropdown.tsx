@@ -1,5 +1,5 @@
 // src/components/Dropdown.tsx
-import { ReactNode, useState } from "react"
+import { ReactNode } from "react"
 
 interface DropdownProps{
     isOpen: boolean;
