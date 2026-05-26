@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { generateUUID } from '../lib/uuid'
 import { GIFEncoder, quantize, applyPalette } from 'gifenc'
 import { useSearchParams } from 'react-router-dom'
 import {Frame} from '../constants/type'
@@ -18,7 +19,7 @@ interface CanvasData{
   height: number;
 }
 const initialCanvasData: CanvasData = {
-  frames: [{id: crypto.randomUUID(), data: null, width: 32, height: 32}], 
+  frames: [{id: generateUUID(), data: null, width: 32, height: 32}], 
   currentFrameIdx: 0,
   width: 32,
   height: 32,
