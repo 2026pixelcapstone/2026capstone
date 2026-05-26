@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   Users, ShoppingCart, AlertCircle, Wallet, 
   ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle 
