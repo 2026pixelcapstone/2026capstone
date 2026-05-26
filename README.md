@@ -10,6 +10,7 @@
 ```bash
 cd frontend
 npm install       # 최초 1회만
+npm install gifenc # 최초 1회만
 npm run dev       # http://localhost:5173
 ```
 

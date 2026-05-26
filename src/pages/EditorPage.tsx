@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { GIFEncoder, quantize, applyPalette } from 'gifenc'
 import { data, useSearchParams } from 'react-router-dom'
 import {Frame} from '../constants/type'
 import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
@@ -91,6 +92,7 @@ export default function EditorPage() {
   useEffect(() => {
     const ctx = canvasRef.current?.getContext('2d')
     if (!ctx) return
+    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#e8e8e8'
     ctx.fillRect(0, 0, canvasW, canvasH)
   }, [canvasW, canvasH])
@@ -146,46 +148,115 @@ export default function EditorPage() {
     setOpenMenu(null)
   }
 
+  // ── ✅마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
+  useEffect(() => {
+    const canvasWrapper = canvasRef.current?.parentElement as HTMLElement | null
+    if (!canvasWrapper) return
+
+    const handleWheelZoom = (e: WheelEvent) => {
+      e.preventDefault()
+
+      setZoomIdx((prev: number) => {
+        const next = e.deltaY > 0
+          ? Math.max(0, prev - 1)
+          : Math.min(ZOOM_LEVELS.length - 1, prev + 1)
+
+        return next === prev ? prev : next
+      })
+    }
+
+    canvasWrapper.addEventListener('wheel', handleWheelZoom, { passive: false })
+
+    return () => {
+      canvasWrapper.removeEventListener('wheel', handleWheelZoom)
+    }
+  }, [setZoomIdx])
+
   // ── URL 파라미터로 프로젝트 불러오기 ──────────────
   useEffect(() => {
     const id = searchParams.get('projectId')
     if (!id || !isLoggedIn) return
     const numId = Number(id)
     if (isNaN(numId)) return
+
     editorApi.getProject(numId).then(res => {
       const proj = res.data.data
       setProjectId(proj.projectId)
       setProjectTitle(proj.title)
+      
+      // 1. 크기 상태를 먼저 세팅 (초기화 useEffect가 먼저 돌 수 있도록 유도)
       setCanvasW(proj.width)
       setCanvasH(proj.height)
       setCustomW(proj.width)
       setCustomH(proj.height)
-      // 첫 번째 레이어의 pixelData 또는 fileUrl로 캔버스 복원
+
       const firstLayer = proj.layers?.[0]
-      const imageSrc = firstLayer?.pixelData ?? firstLayer?.fileUrl ?? null
-      if (imageSrc) {
+      const savedPixelData = firstLayer?.pixelData ?? null
+      const imageSrc = savedPixelData ?? firstLayer?.fileUrl ?? null
+
+      // 화면에 실제 픽셀 주입을 담당할 공통 함수
+      const drawToCanvas = (src: string) => {
         const img = new Image()
         img.onload = () => {
+          // 상태 변경으로 인한 리렌더링 및 초기화 캔버스 작업이 완전히 끝난 후 안전하게 그리기 위해 타이밍 확보
           requestAnimationFrame(() => {
             const ctx = canvasRef.current?.getContext('2d')
             if (ctx) {
+              ctx.imageSmoothingEnabled = false // 픽셀 아트 깨짐 방지
               ctx.clearRect(0, 0, proj.width, proj.height)
               ctx.drawImage(img, 0, 0)
             }
           })
         }
-        img.src = imageSrc
+        img.src = src
       }
+
+      if (savedPixelData?.trim().startsWith('{')) {
+        try {
+          const savedCanvasData = JSON.parse(savedPixelData) as CanvasData
+          
+          // 애니메이션 프레임 전체 상태 복원 (메모리에 주소 주입)
+          setState(savedCanvasData)
+          
+          // 복원된 프레임 리스트 중 "현재 선택된 프레임"의 이미지 주소를 꺼내 진짜 캔버스에 그려줍니다.
+          const currentFrame = savedCanvasData.frames?.[savedCanvasData.currentFrameIdx]
+          if (currentFrame?.data) {
+            drawToCanvas(currentFrame.data)
+          } else if (imageSrc) {
+            drawToCanvas(imageSrc)
+          }
+
+        } catch {
+          // JSON 파싱 실패 시 기존 이미지 복원 경로로 폴백
+          if (imageSrc) drawToCanvas(imageSrc)
+        }
+      } else if (imageSrc) {
+        // 기존 단순 이미지 주소 포맷일 때 복원
+        drawToCanvas(imageSrc)
+      }
+      
       setUnsaved(false)
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
-  }, [searchParams, isLoggedIn])
+  }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
 
-  // ── 저장 ──────────────────────────────────────────
+  // ── ⏳저장 ──────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
     const canvas = canvasRef.current
     if (!canvas) return
-    const pixelData = canvas.toDataURL('image/png')
+    const currentFrameData = canvas.toDataURL('image/png')
+
+    const canvasData: CanvasData = {
+      ...state,
+      width: canvasW,
+      height: canvasH,
+      frames: state.frames.map((frame, index) =>
+        index === state.currentFrameIdx
+          ? { ...frame, data: currentFrameData, width: canvasW, height: canvasH }
+          : frame
+      ),
+    }
+
     setSaving(true)
     try {
       let pid = projectId
@@ -211,7 +282,7 @@ export default function EditorPage() {
         isLocked: false,
         isVisible: true,
         opacity: 1.0,
-        pixelData,
+        pixelData: JSON.stringify(canvasData),
       }])
       setUnsaved(false)
       toast.success('저장되었습니다.')
@@ -220,9 +291,9 @@ export default function EditorPage() {
     } finally {
       setSaving(false)
     }
-  }, [isLoggedIn, projectId, projectTitle, canvasW, canvasH])
+  }, [isLoggedIn, projectId, projectTitle, canvasW, canvasH, state])
 
-  // ── ✅Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
+  // ── Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isMod = e.ctrlKey || e.metaKey;
@@ -244,15 +315,98 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [handleSave, undo, redo])
 
-  // ── PNG 내보내기 ──────────────────────────────────
-  const handleExportPNG = useCallback(() => {
+  // ── ✅PNG/GIF 내보내기 ──────────────────────────────────
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = filename
+    link.click()
+
+    URL.revokeObjectURL(url)
+  }
+
+  const dataUrlToImageData = async (
+    dataUrl: string,
+    width: number,
+    height: number
+  ): Promise<ImageData> => {
+      const img = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'))
+        img.src = dataUrl
+      })
+
+      const exportCanvas = document.createElement('canvas')
+      exportCanvas.width = width
+      exportCanvas.height = height
+
+      const ctx = exportCanvas.getContext('2d')
+      if (!ctx) throw new Error('캔버스 컨텍스트를 생성하지 못했습니다.')
+      
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
+
+      return ctx.getImageData(0, 0, width, height)
+    }
+  
+  const createBlankImageData = (width: number, height: number): ImageData => {
+    const exportCanvas = document.createElement('canvas')
+    exportCanvas.width = width
+    exportCanvas.height = height
+
+    const ctx = exportCanvas.getContext('2d')
+    if (!ctx) throw new Error('캔버스 컨텍스트를 생성하지 못했습니다.')
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, width, height)
+    return ctx.getImageData(0, 0, width, height)
+  }
+
+  const handleExportImage = useCallback(async() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const link = document.createElement('a')
-    link.download = `${projectTitle.replace(/\s+/g, '_')}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
-  }, [projectTitle])
+
+    const safeTitle = projectTitle.replace(/\s+/g, '_')
+    const currentFrameData = canvas.toDataURL('image/png')
+
+    const exportFrames = state.frames.map((frame, index) =>
+      index === state.currentFrameIdx
+        ? { ...frame, data: currentFrameData, width: canvasW, height: canvasH }
+        : frame
+    )
+    if (exportFrames.length <= 1) {
+      const link = document.createElement('a')
+      link.download = `${safeTitle}.png`
+      link.href = currentFrameData
+      link.click()
+      return
+    }
+
+    const gif = GIFEncoder()
+
+    for(const frame of exportFrames){
+      const imageData = frame.data
+        ? await dataUrlToImageData(frame.data, frame.width, frame.height)
+        : createBlankImageData(frame.width, frame.height)
+      
+      const palette = quantize(imageData.data, 256)
+      const indexed = applyPalette(imageData.data, palette)
+      gif.writeFrame(indexed, frame.width, frame.height, {
+        palette,
+        delay: 100,
+        repeat: 0,
+      })
+    }
+    gif.finish()
+
+    const blob = new Blob([gif.bytes()], { type: 'image/gif' })
+    downloadBlob(blob, `${safeTitle}.gif`)
+    
+  }, [projectTitle, state.frames, state.currentFrameIdx, canvasW, canvasH])
 
   // ── 새 프로젝트 ───────────────────────────────────
   const handleNewProject = useCallback(() => {
@@ -402,7 +556,7 @@ export default function EditorPage() {
         { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { handleSave(); setOpenMenu(null) } },
         { label: 'Save As…',           icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },
         { separator: true },
-        { label: 'Export as PNG',      icon: 'image',         action: () => { handleExportPNG(); setOpenMenu(null) } },
+        { label: 'Export Image',      icon: 'image',         action: () => { handleExportImage(); setOpenMenu(null) } },
         { label: 'Export Spritesheet', icon: 'grid_on' },
         { label: 'Download .pixhub',   icon: 'download' },
         { separator: true },
@@ -445,8 +599,6 @@ export default function EditorPage() {
     {
       id: 'view', label: 'View',
       items: [
-        { label: 'Zoom In',    icon: 'zoom_in',   shortcut: '+', action: () => { setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1)); setOpenMenu(null) } },
-        { label: 'Zoom Out',   icon: 'zoom_out',  shortcut: '-', action: () => { setZoomIdx(i => Math.max(0, i-1)); setOpenMenu(null) } },
         { label: 'Fit Screen', icon: 'fit_screen',              action: () => { setZoomIdx(6); setOpenMenu(null) } },
         { label: '100%',       icon: 'crop_free',               action: () => { setZoomIdx(ZOOM_LEVELS.indexOf(1) >= 0 ? ZOOM_LEVELS.indexOf(1) : 0); setOpenMenu(null) } },
         { separator: true },
