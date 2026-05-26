@@ -37,9 +37,7 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Deploy to Nginx
-        run: |
-          rm -rf /var/www/pixelart/*
-          cp -r frontend/dist/* /var/www/pixelart/
+        run: rsync -a --delete frontend/dist/ /var/www/pixelart/
 
       - name: Reload Nginx
         run: sudo systemctl reload nginx
