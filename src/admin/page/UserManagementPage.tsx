@@ -185,7 +185,7 @@ const UserManagementPage: React.FC = () => {
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{...styles.td, textAlign: 'center', padding: '40px 0', color: '#6b7280'}}>
+                      <td colSpan={8} style={{...styles.td, textAlign: 'center', padding: '40px 0', color: '#6b7280'}}>
                         검색 결과와 일치하는 회원이 없습니다.
                       </td>
                     </tr>

@@ -91,25 +91,26 @@ const ContentManagementPage: React.FC = () => {
 
     // [카테고리/태그] 순서 조정 (sort_order) 함수
     const moveOrder = (id: string, direction: 'up' | 'down', type: '카테고리' | '태그') => {
-        // 같은 타입끼리만 묶어서 순서를 바꿉니다.
-        const filtered = metaItems.filter(item => item.type === type).sort((a, b) => a.sortOrder - b.sortOrder);
-        const index = filtered.findIndex(item => item.id === id);
-        
-        if (direction === 'up' && index === 0) return; // 맨 위면 이동 불가
-        if (direction === 'down' && index === filtered.length - 1) return; // 맨 아래면 이동 불가
+        setMetaItems(prev => {
+            const filtered = prev
+                .filter(item => item.type === type)
+                .sort((a, b) => a.sortOrder - b.sortOrder);
 
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        
-        // 두 아이템의 sortOrder를 교체
-        const currentItem = filtered[index];
-        const targetItem = filtered[targetIndex];
-        
-        const tempOrder = currentItem.sortOrder;
-        currentItem.sortOrder = targetItem.sortOrder;
-        targetItem.sortOrder = tempOrder;
+            const index = filtered.findIndex(item => item.id === id);
+            if (index < 0) return prev;
+            if (direction === 'up' && index === 0) return prev;
+            if (direction === 'down' && index === filtered.length - 1) return prev;
 
-        // 전체 상태 갱신하여 리렌더링 유발
-        setMetaItems([...metaItems]);
+            const targetIndex = direction === 'up' ? index - 1 : index + 1;
+            const current = filtered[index];
+            const target = filtered[targetIndex];
+
+            return prev.map(item => {
+                if (item.id === current.id) return { ...item, sortOrder: target.sortOrder };
+                if (item.id === target.id) return { ...item, sortOrder: current.sortOrder };
+                return item;
+            });
+        });
     };
 
     // 필터링된 게시물 목록 계산
