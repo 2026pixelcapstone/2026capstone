@@ -11,6 +11,7 @@
 cd frontend
 npm install       # 최초 1회만
 npm run dev       # http://localhost:5173
+npm install gifenc # GIF 인코딩 라이브러리
 ```
 
 > 백엔드 없이도 UI 확인 가능. 백엔드 API 호출이 필요한 기능은 연결 전까지 동작 안 함.
