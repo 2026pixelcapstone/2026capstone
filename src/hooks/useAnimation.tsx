@@ -1,6 +1,5 @@
 // src/components/useAnimation.tsx
 import {Frame} from '../constants/type'
-import { generateUUID } from '../lib/uuid'
 
 interface UseAnimationProps{
     frames: Frame[];
@@ -18,7 +17,7 @@ export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChang
 
     const addFrame = (currentSize: {width: number; height: number}, data: string | null = null) => {
         const newFrame: Frame = {
-            id: generateUUID(),
+            id: crypto.randomUUID(),
             data: data,
             width: currentSize.width,
             height: currentSize.height
