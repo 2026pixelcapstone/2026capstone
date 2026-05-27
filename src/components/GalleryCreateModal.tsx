@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { galleryApi, type GalleryType, type Visibility, type TagResponse } from '../api/galleryApi'
+import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 
@@ -183,16 +184,31 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   // ── 제출 ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     if (!title.trim()) { toast.error('제목을 입력해주세요.'); return }
+    if (isFree && images.length === 0) { toast.error('이미지를 1장 이상 업로드해주세요.'); return }
     if (!isFree && !fileInfo) { toast.error('픽셀 파일을 업로드해주세요.'); return }
     setSubmitting(true)
     try {
+      // 1단계: 이미지 업로드 (FREE 갤러리만)
+      let imageUrls: string[] = []
+      if (isFree && images.length > 0) {
+        toast.info?.('이미지 업로드 중...')
+        imageUrls = await fileApi.uploadImages(
+          images.map(img => img.file),
+          'gallery/images'
+        )
+      }
+
+      // 2단계: 게시글 생성
       const res = await galleryApi.createPost({
         title: title.trim(),
         description: description.trim() || undefined,
         galleryType: type,
         visibility,
         tags: selectedTags.length > 0 ? selectedTags : undefined,
+        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+        thumbnailUrl: imageUrls[0],
         ...(fileInfo ? { canvasWidth: fileInfo.width, canvasHeight: fileInfo.height } : {}),
       })
       toast.success('게시글이 등록되었습니다.')
