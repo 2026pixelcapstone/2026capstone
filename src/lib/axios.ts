@@ -2,7 +2,6 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
-  headers: { 'Content-Type': 'application/json' },
 })
 
 // 요청 인터셉터 — accessToken 자동 첨부

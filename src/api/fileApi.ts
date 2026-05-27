@@ -11,9 +11,7 @@ export const fileApi = {
     files.forEach(file => formData.append('files', file))
     formData.append('folder', folder)
 
-    const res = await api.post<{ data: string[] }>('/api/files/upload/bulk', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    const res = await api.post<{ data: string[] }>('/api/files/upload/bulk', formData)
     return res.data.data
   },
 
@@ -25,9 +23,7 @@ export const fileApi = {
     formData.append('file', file)
     formData.append('folder', folder)
 
-    const res = await api.post<{ data: string }>('/api/files/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    const res = await api.post<{ data: string }>('/api/files/upload', formData)
     return res.data.data
   },
 }
