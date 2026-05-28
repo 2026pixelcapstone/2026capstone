@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { assetApi, type AssetSummary } from '../api/assetApi'
+import { useAuthStore } from '../store/authStore'
 
 const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아이콘', '스프라이트', '이펙트']
 
 export default function AssetStorePage() {
+  const navigate = useNavigate()
+  const { accessToken } = useAuthStore(state => state)
   const [searchParams, setSearchParams] = useSearchParams()
   const activeCategory = searchParams.get('tag') ?? '전체'
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
@@ -139,8 +142,14 @@ export default function AssetStorePage() {
             </p>
           )}
 
-          {/* 오른쪽: 검색창 + 정렬 */}
+          {/* 오른쪽: 업로드 버튼 + 검색창 + 정렬 */}
           <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={() => accessToken ? navigate('/assets/create') : navigate('/login')}
+              className="px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+              style={{ background: '#2f81f7', color: '#fff' }}>
+              + 에셋 업로드
+            </button>
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base"
