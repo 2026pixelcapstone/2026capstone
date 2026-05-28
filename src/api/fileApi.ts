@@ -26,4 +26,14 @@ export const fileApi = {
     const res = await api.post<{ data: string }>('/api/files/upload', formData)
     return res.data.data
   },
+
+  /**
+   * 파일 삭제 (업로드 후 후속 작업 실패 시 고아 파일 정리용)
+   * @param urls 삭제할 파일 URL 목록
+   */
+  deleteFiles: async (urls: string[]): Promise<void> => {
+    const valid = urls.filter(Boolean)
+    if (valid.length === 0) return
+    await api.post('/api/files/delete', valid)
+  },
 }

@@ -35,6 +35,13 @@ export default function AssetUpdatePage() {
 
   // ── 기존 데이터 로드 ─────────────────────────────────────
   useEffect(() => {
+    // 잘못된 assetId(NaN, 0 이하)면 즉시 리다이렉트 (무한 로딩 방지)
+    if (!Number.isInteger(assetId) || assetId <= 0) {
+      toast.error('잘못된 에셋 주소입니다.')
+      navigate('/assets', { replace: true })
+      return
+    }
+
     const fetchAsset = async () => {
       setLoading(true)
       try {
@@ -53,7 +60,11 @@ export default function AssetUpdatePage() {
         setIsFree(asset.isFree || asset.price === 0)
         setPrice(asset.price > 0 ? String(asset.price) : '')
         setSelectedTags(asset.tags ?? [])
-        setImages((asset.imageUrls ?? []).map(url => ({ kind: 'existing' as const, url })))
+        // 상세 페이지와 동일 계약: imageUrls가 비면 thumbnailUrl로 fallback
+        const existingUrls = asset.imageUrls?.length
+          ? asset.imageUrls
+          : ([asset.thumbnailUrl].filter(Boolean) as string[])
+        setImages(existingUrls.map(url => ({ kind: 'existing' as const, url })))
       } catch (err) {
         toast.error(getErrorMessage(err, '에셋을 불러오지 못했습니다.'))
         navigate('/assets', { replace: true })
@@ -61,7 +72,7 @@ export default function AssetUpdatePage() {
         setLoading(false)
       }
     }
-    if (assetId) fetchAsset()
+    fetchAsset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetId])
 
@@ -124,10 +135,10 @@ export default function AssetUpdatePage() {
     if (!isFree && (!price || Number(price) <= 0)) { toast.error('유료 에셋의 가격을 입력해주세요.'); return }
 
     setSubmitting(true)
+    let uploadedUrls: string[] = []
     try {
       // 새로 추가한 이미지만 업로드
       const newFiles = images.filter((i): i is Extract<ImageItem, { kind: 'new' }> => i.kind === 'new')
-      let uploadedUrls: string[] = []
       if (newFiles.length > 0) {
         uploadedUrls = await fileApi.uploadImages(newFiles.map(i => i.file), 'assets/images')
       }
@@ -148,13 +159,14 @@ export default function AssetUpdatePage() {
         tags: selectedTags,
       })
 
-      images.forEach(i => { if (i.kind === 'new') URL.revokeObjectURL(i.previewUrl) })
-
       toast.success('에셋이 수정되었습니다.')
       navigate(`/assets/${res.data.data.assetId}`)
     } catch (err) {
+      // 신규 이미지는 업로드됐으나 수정 실패 시 R2 고아 파일 정리
+      await fileApi.deleteFiles(uploadedUrls).catch(() => {})
       toast.error(getErrorMessage(err, '에셋 수정에 실패했습니다.'))
     } finally {
+      images.forEach(i => { if (i.kind === 'new') URL.revokeObjectURL(i.previewUrl) })
       setSubmitting(false)
     }
   }
@@ -263,6 +275,10 @@ export default function AssetUpdatePage() {
           </label>
 
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="미리보기 이미지 추가"
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); imageInputRef.current?.click() } }}
             onDragOver={e => { e.preventDefault(); setDragging(true) }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleImageDrop}

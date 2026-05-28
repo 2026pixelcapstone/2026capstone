@@ -34,13 +34,16 @@ export default function AssetCreatePage() {
   // ── 미리보기 이미지 ───────────────────────────────────────
   const addImages = useCallback((files: File[]) => {
     const imageFiles = files.filter(f => f.type.startsWith('image/'))
-    const remaining = MAX_IMAGES - images.length
-    const toAdd = imageFiles.slice(0, remaining).map(file => ({
-      file,
-      previewUrl: URL.createObjectURL(file),
-    }))
-    setImages(prev => [...prev, ...toAdd])
-  }, [images.length])
+    setImages(prev => {
+      const remaining = MAX_IMAGES - prev.length
+      if (remaining <= 0) return prev
+      const toAdd = imageFiles.slice(0, remaining).map(file => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }))
+      return [...prev, ...toAdd]
+    })
+  }, [])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) addImages(Array.from(e.target.files))
@@ -108,15 +111,17 @@ export default function AssetCreatePage() {
     if (!isFree && (!price || Number(price) <= 0)) { toast.error('유료 에셋의 가격을 입력해주세요.'); return }
 
     setSubmitting(true)
+    let uploadedImageUrls: string[] = []
+    let uploadedFileUrl: string | null = null
     try {
       // 1단계: 미리보기 이미지 R2 업로드
-      const imageUrls = await fileApi.uploadImages(
+      uploadedImageUrls = await fileApi.uploadImages(
         images.map(img => img.file),
         'assets/images'
       )
 
       // 2단계: 에셋 파일 R2 업로드
-      const fileUrl = await fileApi.uploadImage(assetFile, 'assets/files')
+      uploadedFileUrl = await fileApi.uploadImage(assetFile, 'assets/files')
 
       // 3단계: 에셋 생성
       const res = await assetApi.createAsset({
@@ -124,20 +129,22 @@ export default function AssetCreatePage() {
         description: description.trim() || undefined,
         isFree,
         price: isFree ? 0 : Number(price),
-        imageUrls,
-        thumbnailUrl: imageUrls[0],
+        imageUrls: uploadedImageUrls,
+        thumbnailUrl: uploadedImageUrls[0],
         tags: selectedTags.length > 0 ? selectedTags : undefined,
-        fileUrl,
+        fileUrl: uploadedFileUrl,
         fileSize: assetFile.size,
       })
-
-      images.forEach(img => URL.revokeObjectURL(img.previewUrl))
 
       toast.success('에셋이 등록되었습니다.')
       navigate(`/assets/${res.data.data.assetId}`)
     } catch {
+      // 업로드는 됐으나 생성 실패 시 R2 고아 파일 정리
+      await fileApi.deleteFiles([...uploadedImageUrls, ...(uploadedFileUrl ? [uploadedFileUrl] : [])])
+        .catch(() => {})
       toast.error('에셋 등록에 실패했습니다.')
     } finally {
+      images.forEach(img => URL.revokeObjectURL(img.previewUrl))
       setSubmitting(false)
     }
   }
@@ -203,6 +210,10 @@ export default function AssetCreatePage() {
               </div>
             ) : (
               <div
+                role="button"
+                tabIndex={0}
+                aria-label="다운로드 파일 업로드"
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
                 onDragOver={e => { e.preventDefault(); setFileDragging(true) }}
                 onDragLeave={() => setFileDragging(false)}
                 onDrop={handleAssetFileDrop}
@@ -313,6 +324,10 @@ export default function AssetCreatePage() {
           </label>
 
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="미리보기 이미지 업로드"
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); imageInputRef.current?.click() } }}
             onDragOver={e => { e.preventDefault(); setDragging(true) }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleImageDrop}
