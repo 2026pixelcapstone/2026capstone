@@ -7,6 +7,8 @@ import ExGalleryPage from '../pages/ExGalleryPage'
 import GalleryDetailPage from '../pages/GalleryDetailPage'
 import AssetStorePage from '../pages/AssetStorePage'
 import AssetDetailPage from '../pages/AssetDetailPage'
+import AssetCreatePage from '../pages/AssetCreatePage'
+import AssetUpdatePage from '../pages/AssetUpdatePage'
 import EditorPage from '../pages/EditorPage'
 import CommissionPage from '../pages/CommissionPage'
 import CommissionDetailPage from '../pages/CommissionDetailPage'
@@ -68,6 +70,8 @@ export default function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/editor" element={<EditorPage />} />
           <Route path="/mypage" element={<MyPage />} />
+          <Route path="/assets/create" element={<AssetCreatePage />} />
+          <Route path="/assets/:id/edit" element={<AssetUpdatePage />} />
         </Route>
       </Route>
 
