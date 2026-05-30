@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { tagApi, type TagResponse } from '../api/tagApi'
 
 interface TagInputProps {
@@ -22,6 +22,7 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
 
   const boxRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const listboxId = useId()
 
   const atMax = tags.length >= max
 
@@ -33,21 +34,25 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
       setOpen(false)
       return
     }
+    let ignore = false
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await tagApi.search(keyword)
+        if (ignore) return  // 늦게 도착한 이전 요청 무시 (race condition 방지)
         // 이미 선택된 태그는 후보에서 제외
         const filtered = res.data.data.filter(t => !tags.includes(t.tagName))
         setSuggestions(filtered)
         setOpen(filtered.length > 0)
         setActiveIdx(-1)
       } catch {
-        setSuggestions([])
-        setOpen(false)
+        if (!ignore) { setSuggestions([]); setOpen(false) }
       }
     }, 200)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+    return () => {
+      ignore = true
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [input, tags, atMax])
 
   // ── 바깥 클릭 시 드롭다운 닫기 ───────────────────────────
@@ -112,17 +117,21 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-activedescendant={open && activeIdx >= 0 ? `${listboxId}-opt-${activeIdx}` : undefined}
       />
 
       {/* 자동완성 드롭다운 */}
       {open && suggestions.length > 0 && (
         <ul
           role="listbox"
+          id={listboxId}
           className="absolute z-20 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-600 bg-[#161b22] shadow-xl"
         >
           {suggestions.map((s, idx) => (
             <li
               key={s.tagId}
+              id={`${listboxId}-opt-${idx}`}
               role="option"
               aria-selected={idx === activeIdx}
               onMouseEnter={() => setActiveIdx(idx)}

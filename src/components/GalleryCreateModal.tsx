@@ -78,6 +78,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const [showSuggest, setShowSuggest] = useState(false)
   const [activeSuggestIdx, setActiveSuggestIdx] = useState(-1)
   const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 드롭다운 열림 상태를 ref로 추적 (window ESC 리스너에서 최신값 참조용)
+  const showSuggestRef = useRef(false)
+  useEffect(() => { showSuggestRef.current = showSuggest }, [showSuggest])
 
   // ── 자유 갤러리: 이미지 ──
   const [images, setImages] = useState<LocalImage[]>([])
@@ -111,7 +114,15 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   // ESC 닫기
   useEffect(() => {
     if (!isOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // 태그 자동완성 드롭다운이 열려 있으면 모달은 닫지 않고 드롭다운만 닫는다
+      if (showSuggestRef.current) {
+        setShowSuggest(false); setActiveSuggestIdx(-1)
+        return
+      }
+      onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
@@ -135,19 +146,24 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
       setTagSuggestions([]); setShowSuggest(false)
       return
     }
+    let ignore = false
     if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current)
     suggestDebounceRef.current = setTimeout(async () => {
       try {
         const res = await tagApi.search(keyword)
+        if (ignore) return  // 늦게 도착한 이전 요청 무시 (race condition 방지)
         const filtered = res.data.data.filter(t => !selectedTags.includes(t.tagName))
         setTagSuggestions(filtered)
         setShowSuggest(filtered.length > 0)
         setActiveSuggestIdx(-1)
       } catch {
-        setTagSuggestions([]); setShowSuggest(false)
+        if (!ignore) { setTagSuggestions([]); setShowSuggest(false) }
       }
     }, 200)
-    return () => { if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current) }
+    return () => {
+      ignore = true
+      if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current)
+    }
   }, [tagInput, selectedTags])
 
   // 캔버스 렌더
