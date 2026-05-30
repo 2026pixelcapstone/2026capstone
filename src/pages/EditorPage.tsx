@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import {useAnimation} from '../hooks/useAnimation'
 import { useHistory } from '../hooks/useHistory'
+import { applyPalette, GIFEncoder, quantize } from 'gifenc'
 
 //  ── 인터페이스 ──────────────────────────────────────────────
 interface CanvasData{
