@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
+import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 
 // thumbnailUrl 없을 때 postId 기반 그라디언트 placeholder
 const GRADIENTS = [
@@ -47,10 +49,21 @@ function SkeletonCard({ className }: { className?: string }) {
 }
 
 export default function MainPage() {
+  const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
+  const { isLoggedIn } = useAuthStore()
   const [trending, setTrending] = useState<GalleryPostSummary[]>([])
   const [recentlyAdded, setRecentlyAdded] = useState<GalleryPostSummary[]>([])
   const [hotArtworks, setHotArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
+
+  // 차단 유저/태그 포함 작품 숨김 (로그인 + 차단목록 로드 완료 시에만)
+  const filterBlocked = (posts: GalleryPostSummary[]) =>
+    (isLoggedIn && blocksLoaded)
+      ? posts.filter(p =>
+          !blockedUserIds.includes(p.authorId) &&
+          !p.tags?.some(tag => blockedTags.includes(tag))
+        )
+      : posts
 
   useEffect(() => {
     Promise.allSettled([
@@ -69,9 +82,14 @@ export default function MainPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  // 차단 필터 적용된 피드
+  const visibleTrending = useMemo(() => filterBlocked(trending), [trending, blockedUserIds, blockedTags, isLoggedIn, blocksLoaded])
+  const visibleRecent = useMemo(() => filterBlocked(recentlyAdded), [recentlyAdded, blockedUserIds, blockedTags, isLoggedIn, blocksLoaded])
+  const visibleHot = useMemo(() => filterBlocked(hotArtworks), [hotArtworks, blockedUserIds, blockedTags, isLoggedIn, blocksLoaded])
+
   const popularAuthors = useMemo(
-    () => extractAuthors([...trending, ...recentlyAdded]),
-    [trending, recentlyAdded]
+    () => extractAuthors([...visibleTrending, ...visibleRecent]),
+    [visibleTrending, visibleRecent]
   )
 
   return (
@@ -149,7 +167,7 @@ export default function MainPage() {
                       <div className="h-3 rounded animate-pulse" style={{ background: '#21262d', width: '35%' }} />
                     </div>
                   ))
-                : trending.map(item => (
+                : visibleTrending.map(item => (
                     <Link key={item.postId} to={`/gallery/${item.postId}`} className="group cursor-pointer">
                       <div className="overflow-hidden mb-3 aspect-[4/3] rounded-lg"
                         style={{
@@ -198,7 +216,7 @@ export default function MainPage() {
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <SkeletonCard key={i} className="aspect-square" />
                   ))
-                : recentlyAdded.map(item => (
+                : visibleRecent.map(item => (
                     <Link key={item.postId} to={`/gallery/${item.postId}`}
                       className="aspect-square rounded-lg overflow-hidden relative group"
                       style={{ background: isBgGradient(item) ? getBg(item) : undefined }}>
@@ -238,7 +256,7 @@ export default function MainPage() {
                     </div>
                   </div>
                 ))
-              : hotArtworks.map((item, idx) => (
+              : visibleHot.map((item, idx) => (
                   <Link key={item.postId} to={`/gallery/${item.postId}`}
                     className="flex items-center gap-3 group">
                     <span className="text-sm font-bold italic w-4 shrink-0 text-center"
