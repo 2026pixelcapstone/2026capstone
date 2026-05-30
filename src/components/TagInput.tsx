@@ -65,7 +65,7 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = 'íƒœê
   }, [])
 
   const addTag = useCallback((raw: string) => {
-    const name = raw.trim()
+    const name = raw.trim().replace(/^#/, '')
     if (!name) return
     if (tags.includes(name) || tags.length >= max) { setInput(''); setOpen(false); return }
     onChange([...tags, name])
