@@ -21,15 +21,26 @@ export default function TagBlockMenu({ tags }: TagBlockMenuProps) {
   const { blockTag, isTagBlocked } = useBlockStore()
   const [open, setOpen] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
-  // 바깥 클릭 시 닫기
+  // 바깥 클릭 / Escape 키로 닫기
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
     }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false)
+        buttonRef.current?.focus()  // 토글 버튼으로 포커스 복귀
+      }
+    }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [open])
 
   if (!tags || tags.length === 0) return null
@@ -61,6 +72,7 @@ export default function TagBlockMenu({ tags }: TagBlockMenuProps) {
     <div ref={boxRef} className="absolute top-2 right-2 z-10" onClick={stop}>
       {/* ... 버튼 */}
       <button
+        ref={buttonRef}
         type="button"
         onClick={handleToggle}
         aria-label="태그 차단 메뉴"

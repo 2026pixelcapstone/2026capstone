@@ -10,7 +10,8 @@ const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아
 export default function AssetStorePage() {
   const navigate = useNavigate()
   const { accessToken } = useAuthStore(state => state)
-  const { blockedUserIds, blockedTags } = useBlockStore()
+  const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
+  const isLoggedIn = !!accessToken
   const [searchParams, setSearchParams] = useSearchParams()
   const activeCategory = searchParams.get('tag') ?? '전체'
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
@@ -32,12 +33,15 @@ export default function AssetStorePage() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   // 차단한 유저/태그가 포함된 에셋은 피드에서 숨김 (갤러리와 동일 정책)
+  // 차단 목록 로드 전(비로그인 또는 미로드)에는 필터를 적용하지 않아 깜빡임 방지
   const visibleAssets = useMemo(
-    () => assets.filter(a =>
-      !blockedUserIds.includes(a.authorId) &&
-      !a.tags?.some(tag => blockedTags.includes(tag))
-    ),
-    [assets, blockedUserIds, blockedTags]
+    () => (isLoggedIn && blocksLoaded)
+      ? assets.filter(a =>
+          !blockedUserIds.includes(a.authorId) &&
+          !a.tags?.some(tag => blockedTags.includes(tag))
+        )
+      : assets,
+    [assets, blockedUserIds, blockedTags, isLoggedIn, blocksLoaded]
   )
 
   useEffect(() => {
