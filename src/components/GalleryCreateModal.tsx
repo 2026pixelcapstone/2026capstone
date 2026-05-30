@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { galleryApi, type GalleryType, type Visibility, type TagResponse } from '../api/galleryApi'
+import { tagApi } from '../api/tagApi'
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
@@ -72,6 +73,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [topTags, setTopTags] = useState<TagResponse[]>([])
 
+  // ── 태그 자동완성 ──
+  const [tagSuggestions, setTagSuggestions] = useState<TagResponse[]>([])
+  const [showSuggest, setShowSuggest] = useState(false)
+  const [activeSuggestIdx, setActiveSuggestIdx] = useState(-1)
+  const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ── 자유 갤러리: 이미지 ──
   const [images, setImages] = useState<LocalImage[]>([])
   const [draggingImg, setDraggingImg] = useState(false)
@@ -93,6 +100,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     if (!isOpen) return
     setTitle(''); setDescription(''); setVisibility('PUBLIC')
     setSelectedTags([]); setTagInput(''); setSubmitting(false)
+    setTagSuggestions([]); setShowSuggest(false); setActiveSuggestIdx(-1)
     // 이미지 ObjectURL revoke 후 초기화 (메모리 누수 방지)
     setImages(prev => { prev.forEach(img => URL.revokeObjectURL(img.previewUrl)); return [] })
     setDraggingImg(false); setActiveIdx(0)
@@ -119,6 +127,28 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     if (!isOpen) return
     galleryApi.getTags().then(res => setTopTags(res.data.data)).catch(() => {})
   }, [isOpen])
+
+  // 태그 자동완성 — 디바운스 서버 검색
+  useEffect(() => {
+    const keyword = tagInput.trim()
+    if (!keyword || selectedTags.length >= MAX_TAGS) {
+      setTagSuggestions([]); setShowSuggest(false)
+      return
+    }
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current)
+    suggestDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await tagApi.search(keyword)
+        const filtered = res.data.data.filter(t => !selectedTags.includes(t.tagName))
+        setTagSuggestions(filtered)
+        setShowSuggest(filtered.length > 0)
+        setActiveSuggestIdx(-1)
+      } catch {
+        setTagSuggestions([]); setShowSuggest(false)
+      }
+    }, 200)
+    return () => { if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current) }
+  }, [tagInput, selectedTags])
 
   // 캔버스 렌더
   useEffect(() => {
@@ -174,11 +204,26 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     const t = name.trim().replace(/^#/, '')
     if (!t || selectedTags.includes(t) || selectedTags.length >= MAX_TAGS) return
     setSelectedTags(prev => [...prev, t]); setTagInput('')
+    setTagSuggestions([]); setShowSuggest(false); setActiveSuggestIdx(-1)
   }
   const removeTag = (name: string) => setSelectedTags(prev => prev.filter(t => t !== name))
   const handleTagKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput) }
-    else if (e.key === 'Backspace' && tagInput === '' && selectedTags.length > 0) removeTag(selectedTags.at(-1)!)
+    if (e.key === 'ArrowDown' && showSuggest) {
+      e.preventDefault(); setActiveSuggestIdx(i => Math.min(i + 1, tagSuggestions.length - 1))
+    } else if (e.key === 'ArrowUp' && showSuggest) {
+      e.preventDefault(); setActiveSuggestIdx(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      if (showSuggest && activeSuggestIdx >= 0 && tagSuggestions[activeSuggestIdx]) {
+        addTag(tagSuggestions[activeSuggestIdx].tagName)
+      } else {
+        addTag(tagInput)
+      }
+    } else if (e.key === 'Escape' && showSuggest) {
+      setShowSuggest(false); setActiveSuggestIdx(-1)
+    } else if (e.key === 'Backspace' && tagInput === '' && selectedTags.length > 0) {
+      removeTag(selectedTags.at(-1)!)
+    }
   }
 
   // ── 제출 ──
@@ -297,32 +342,54 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
               </div>
 
               {/* 선택된 태그 + 인풋 */}
-              <div
-                className="flex flex-wrap gap-1.5 px-3 py-2.5 rounded-xl min-h-[46px] cursor-text transition-colors"
-                style={{ background: '#0d1117', border: '1px solid #30363d' }}
-                onClick={() => tagInputRef.current?.focus()}>
-                {selectedTags.map(tag => (
-                  <span key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
-                    style={{ background: accentBg, color: accentColor, border: `1px solid ${accentBorder}` }}>
-                    #{tag}
-                    <button type="button" onClick={e => { e.stopPropagation(); removeTag(tag) }}
-                      className="hover:text-white transition-colors">
-                      <span className="material-symbols-outlined" style={{ fontSize: 11 }}>close</span>
-                    </button>
-                  </span>
-                ))}
-                {selectedTags.length < MAX_TAGS && (
-                  <input
-                    ref={tagInputRef}
-                    value={tagInput}
-                    onChange={e => setTagInput(e.target.value)}
-                    onKeyDown={handleTagKey}
-                    onBlur={() => tagInput.trim() && addTag(tagInput)}
-                    placeholder={selectedTags.length === 0 ? '예: 픽셀아트, 판타지, 풍경 (Enter로 추가)' : ''}
-                    className="flex-1 min-w-[180px] bg-transparent outline-none text-sm"
-                    style={{ color: '#e6edf3' }}
-                  />
+              <div className="relative">
+                <div
+                  className="flex flex-wrap gap-1.5 px-3 py-2.5 rounded-xl min-h-[46px] cursor-text transition-colors"
+                  style={{ background: '#0d1117', border: '1px solid #30363d' }}
+                  onClick={() => tagInputRef.current?.focus()}>
+                  {selectedTags.map(tag => (
+                    <span key={tag}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+                      style={{ background: accentBg, color: accentColor, border: `1px solid ${accentBorder}` }}>
+                      #{tag}
+                      <button type="button" onClick={e => { e.stopPropagation(); removeTag(tag) }}
+                        className="hover:text-white transition-colors">
+                        <span className="material-symbols-outlined" style={{ fontSize: 11 }}>close</span>
+                      </button>
+                    </span>
+                  ))}
+                  {selectedTags.length < MAX_TAGS && (
+                    <input
+                      ref={tagInputRef}
+                      value={tagInput}
+                      onChange={e => setTagInput(e.target.value)}
+                      onKeyDown={handleTagKey}
+                      onBlur={() => { tagInput.trim() && addTag(tagInput) }}
+                      placeholder={selectedTags.length === 0 ? '예: 픽셀아트, 판타지, 풍경 (Enter로 추가)' : ''}
+                      className="flex-1 min-w-[180px] bg-transparent outline-none text-sm"
+                      style={{ color: '#e6edf3' }}
+                      autoComplete="off"
+                    />
+                  )}
+                </div>
+
+                {/* 자동완성 드롭다운 */}
+                {showSuggest && tagSuggestions.length > 0 && (
+                  <ul role="listbox"
+                    className="absolute z-30 mt-1 w-full max-h-52 overflow-auto rounded-xl shadow-xl"
+                    style={{ background: '#161b22', border: '1px solid #30363d' }}>
+                    {tagSuggestions.map((s, idx) => (
+                      <li key={s.tagId} role="option" aria-selected={idx === activeSuggestIdx}
+                        onMouseEnter={() => setActiveSuggestIdx(idx)}
+                        onMouseDown={e => { e.preventDefault(); addTag(s.tagName) }}
+                        className="px-4 py-2 text-sm cursor-pointer flex items-center gap-1"
+                        style={idx === activeSuggestIdx
+                          ? { background: accentBg, color: accentColor }
+                          : { color: '#e6edf3' }}>
+                        <span style={{ color: '#484f58' }}>#</span>{s.tagName}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
 
