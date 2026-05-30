@@ -56,6 +56,9 @@ export default function MainPage() {
   const [hotArtworks, setHotArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
 
+  // 로그인 사용자는 차단 목록 로드 완료까지 스켈레톤 유지 (차단 항목 flash 방지)
+  const showSkeleton = loading || (isLoggedIn && !blocksLoaded)
+
   // 차단 유저/태그 포함 작품 숨김 (로그인 + 차단목록 로드 완료 시에만)
   const filterBlocked = (posts: GalleryPostSummary[]) =>
     (isLoggedIn && blocksLoaded)
@@ -103,7 +106,7 @@ export default function MainPage() {
             인기 작가
           </h3>
 
-          {loading
+          {showSkeleton
             ? Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-2">
                   <div className="w-10 h-10 rounded-full animate-pulse shrink-0" style={{ background: '#21262d' }} />
@@ -159,7 +162,7 @@ export default function MainPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              {loading
+              {showSkeleton
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <div key={i}>
                       <SkeletonCard className="aspect-[4/3] mb-3" />
@@ -214,7 +217,7 @@ export default function MainPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              {loading
+              {showSkeleton
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <SkeletonCard key={i} className="aspect-square" />
                   ))
@@ -249,7 +252,7 @@ export default function MainPage() {
           </h3>
 
           <div className="space-y-3">
-            {loading
+            {showSkeleton
               ? Array.from({ length: 7 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="w-4 shrink-0" />
