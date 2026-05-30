@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
@@ -60,13 +60,16 @@ export default function MainPage() {
   const showSkeleton = loading || (isLoggedIn && !blocksLoaded)
 
   // 차단 유저/태그 포함 작품 숨김 (로그인 + 차단목록 로드 완료 시에만)
-  const filterBlocked = (posts: GalleryPostSummary[]) =>
-    (isLoggedIn && blocksLoaded)
-      ? posts.filter(p =>
-          !blockedUserIds.includes(p.authorId) &&
-          !p.tags?.some(tag => blockedTags.includes(tag))
-        )
-      : posts
+  const filterBlocked = useCallback(
+    (posts: GalleryPostSummary[]) =>
+      (isLoggedIn && blocksLoaded)
+        ? posts.filter(p =>
+            !blockedUserIds.includes(p.authorId) &&
+            !p.tags?.some(tag => blockedTags.includes(tag))
+          )
+        : posts,
+    [isLoggedIn, blocksLoaded, blockedUserIds, blockedTags]
+  )
 
   useEffect(() => {
     Promise.allSettled([
@@ -86,9 +89,9 @@ export default function MainPage() {
   }, [])
 
   // 차단 필터 적용된 피드
-  const visibleTrending = useMemo(() => filterBlocked(trending), [trending, blockedUserIds, blockedTags, isLoggedIn, blocksLoaded])
-  const visibleRecent = useMemo(() => filterBlocked(recentlyAdded), [recentlyAdded, blockedUserIds, blockedTags, isLoggedIn, blocksLoaded])
-  const visibleHot = useMemo(() => filterBlocked(hotArtworks), [hotArtworks, blockedUserIds, blockedTags, isLoggedIn, blocksLoaded])
+  const visibleTrending = useMemo(() => filterBlocked(trending), [trending, filterBlocked])
+  const visibleRecent = useMemo(() => filterBlocked(recentlyAdded), [recentlyAdded, filterBlocked])
+  const visibleHot = useMemo(() => filterBlocked(hotArtworks), [hotArtworks, filterBlocked])
 
   const popularAuthors = useMemo(
     () => extractAuthors([...visibleTrending, ...visibleRecent]),
