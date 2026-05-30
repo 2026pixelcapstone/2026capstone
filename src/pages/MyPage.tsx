@@ -395,6 +395,14 @@ export default function MyPage() {
                 새 프로젝트
               </Link>
             )}
+            {tab === 'assets' && (
+              <Link to="/assets/create"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold hover:opacity-90 transition-all"
+                style={{ background: '#2f81f7', color: '#fff' }}>
+                <span className="material-symbols-outlined text-base">add</span>
+                에셋 업로드
+              </Link>
+            )}
           </div>
 
           {/* 작품 탭 */}

@@ -21,6 +21,7 @@ export interface AssetSummary {
 export interface AssetResponse extends AssetSummary {
   description: string | null
   imageUrls: string[]
+  fileUrl: string | null
   tags: string[]
   licenseTypeName: string | null
   isLiked: boolean
@@ -52,6 +53,8 @@ export interface AssetCreateRequest {
   licenseTypeId?: number
   imageUrls?: string[]
   tags?: string[]
+  fileUrl?: string
+  fileSize?: number
 }
 
 export interface AssetUpdateRequest {

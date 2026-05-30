@@ -7,6 +7,8 @@ import ExGalleryPage from '../pages/ExGalleryPage'
 import GalleryDetailPage from '../pages/GalleryDetailPage'
 import AssetStorePage from '../pages/AssetStorePage'
 import AssetDetailPage from '../pages/AssetDetailPage'
+import AssetCreatePage from '../pages/AssetCreatePage'
+import AssetUpdatePage from '../pages/AssetUpdatePage'
 import EditorPage from '../pages/EditorPage'
 import CommissionPage from '../pages/CommissionPage'
 import CommissionDetailPage from '../pages/CommissionDetailPage'
@@ -15,7 +17,6 @@ import ArtistServiceDetailPage from '../pages/ArtistServiceDetailPage'
 import LoginPage from '../pages/LoginPage'
 import SignupPage from '../pages/SignupPage'
 import MyPage from '../pages/MyPage'
-import GalleryCreatePage from '../pages/GalleryCreatePage'
 import ProfilePage from '../pages/ProfilePage'
 import NotFoundPage from '../pages/NotFoundPage'
 import ForbiddenPage from '../pages/ForbiddenPage'
@@ -69,7 +70,8 @@ export default function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/editor" element={<EditorPage />} />
           <Route path="/mypage" element={<MyPage />} />
-          <Route path="/gallery/create" element={<GalleryCreatePage />} />
+          <Route path="/assets/create" element={<AssetCreatePage />} />
+          <Route path="/assets/:id/edit" element={<AssetUpdatePage />} />
         </Route>
       </Route>
 

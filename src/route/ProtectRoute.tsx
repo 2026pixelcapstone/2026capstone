@@ -6,8 +6,8 @@ interface ProtectedRouteProps{
     allowedRoles: string[];
 }
 
-const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
-    const {user, isLoggedIn} = useAuthStore();
+const ProtectedRoute = ({ allowedRoles: _allowedRoles }: ProtectedRouteProps) => {
+    const {isLoggedIn} = useAuthStore();
 
     
     // 로그인 상태가 아닐 경우에는 로그인 페이지로

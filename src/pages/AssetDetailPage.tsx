@@ -10,8 +10,9 @@ const RATING_DIST = [78, 15, 5, 1, 1]
 export default function AssetDetailPage() {
   const { id } = useParams<{ id: string }>()
   const assetId = Number(id)
-  const { isLoggedIn } = useAuthStore()
+  const { isLoggedIn, user } = useAuthStore()
   const navigate = useNavigate()
+  const [deleting, setDeleting] = useState(false)
 
   const [asset, setAsset] = useState<AssetResponse | null>(null)
   const [comments, setComments] = useState<AssetCommentResponse[]>([])
@@ -72,6 +73,20 @@ export default function AssetDetailPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!asset || deleting) return
+    if (!window.confirm('정말 이 에셋을 삭제하시겠습니까? 되돌릴 수 없습니다.')) return
+    setDeleting(true)
+    try {
+      await assetApi.deleteAsset(assetId)
+      toast.success('에셋이 삭제되었습니다.')
+      navigate('/assets')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '삭제에 실패했습니다.'))
+      setDeleting(false)
+    }
+  }
+
   const handleComment = async () => {
     if (!commentText.trim() || !isLoggedIn) return
     setSubmitting(true)
@@ -108,6 +123,7 @@ export default function AssetDetailPage() {
   const images = asset.imageUrls.length > 0 ? asset.imageUrls : [asset.thumbnailUrl].filter(Boolean) as string[]
   const isFreeAsset = asset.isFree || asset.price === 0
   const canDownload = isFreeAsset || asset.isPurchased
+  const isAuthor = user?.userId === asset.authorId
 
   return (
     <div style={{ background: '#0d1117', color: '#e6edf3' }}>
@@ -190,7 +206,8 @@ export default function AssetDetailPage() {
               </div>
 
               {canDownload ? (
-                <a href={asset.imageUrls[0] ?? '#'} download
+                <a href={asset.fileUrl ?? '#'} download target="_blank" rel="noopener noreferrer"
+                  onClick={e => { if (!asset.fileUrl) { e.preventDefault(); toast.error('다운로드 파일이 없습니다.') } }}
                   className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity"
                   style={{ background: '#2f81f7', color: '#fff', display: 'flex' }}>
                   <span className="material-symbols-outlined text-base">download</span>
@@ -215,6 +232,27 @@ export default function AssetDetailPage() {
                   style={{ fontVariationSettings: asset.isLiked ? "'FILL' 1" : "'FILL' 0" }}>favorite</span>
                 {asset.isLiked ? '좋아요 취소' : '좋아요'}
               </button>
+
+              {/* 작성자 전용 — 수정 / 삭제 */}
+              {isAuthor && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => navigate(`/assets/${assetId}/edit`)}
+                    className="flex-1 py-2.5 rounded-xl text-sm transition-colors hover:bg-[#21262d] flex items-center justify-center gap-1.5"
+                    style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+                    <span className="material-symbols-outlined text-base">edit</span>
+                    수정
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 py-2.5 rounded-xl text-sm transition-colors hover:bg-[#21262d] flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    style={{ border: '1px solid #e11d48', color: '#e11d48' }}>
+                    <span className="material-symbols-outlined text-base">delete</span>
+                    {deleting ? '삭제 중...' : '삭제'}
+                  </button>
+                </div>
+              )}
 
               <div className="mt-4 space-y-1.5 text-xs" style={{ color: '#7d8590' }}>
                 <p className="flex items-center gap-2">

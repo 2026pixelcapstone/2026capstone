@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
+import GalleryCreateModal from '../components/GalleryCreateModal'
 
 const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
 
 export default function FreeGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const { isLoggedIn } = useAuthStore()
-  const navigate = useNavigate()
+  const [createModalOpen, setCreateModalOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTag = searchParams.get('tag') ?? '전체'
   const [sort, setSort] = useState('createdAt,desc')
@@ -99,6 +100,7 @@ export default function FreeGalleryPage() {
 
 
   return (
+    <>
     <div style={{ background: '#0d1117' }}>
       {/* 히어로 — 검색 중이 아닐 때만 */}
       {!keyword && (
@@ -167,7 +169,7 @@ export default function FreeGalleryPage() {
           <div className="ml-auto flex items-center gap-3">
             {isLoggedIn && (
               <button
-                onClick={() => navigate('/gallery/create')}
+                onClick={() => setCreateModalOpen(true)}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
                 style={{ background: '#2f81f7', color: '#fff' }}>
                 <span className="material-symbols-outlined text-base">add</span>
@@ -301,5 +303,12 @@ export default function FreeGalleryPage() {
         )}
       </div>
     </div>
+
+    <GalleryCreateModal
+      type="FREE"
+      isOpen={createModalOpen}
+      onClose={() => setCreateModalOpen(false)}
+    />
+    </>
   )
 }

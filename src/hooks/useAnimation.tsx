@@ -8,7 +8,7 @@ interface UseAnimationProps{
     onChange: (newFrames: Frame[], nextIdx: number) => void
 }
 
-export function useAnimation({frames, currentFrameIdx, onChange}: UseAnimationProps){
+export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChange}: UseAnimationProps){
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
      * @param {Object} currentSize - 현재 설정된 캔버스 너비와 높이
