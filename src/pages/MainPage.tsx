@@ -167,6 +167,8 @@ export default function MainPage() {
                       <div className="h-3 rounded animate-pulse" style={{ background: '#21262d', width: '35%' }} />
                     </div>
                   ))
+                : visibleTrending.length === 0
+                ? <p className="col-span-2 text-center text-sm py-12" style={{ color: 'var(--text-secondary)' }}>표시할 작품이 없습니다.</p>
                 : visibleTrending.map(item => (
                     <Link key={item.postId} to={`/gallery/${item.postId}`} className="group cursor-pointer">
                       <div className="overflow-hidden mb-3 aspect-[4/3] rounded-lg"
@@ -216,6 +218,8 @@ export default function MainPage() {
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <SkeletonCard key={i} className="aspect-square" />
                   ))
+                : visibleRecent.length === 0
+                ? <p className="col-span-3 text-center text-sm py-12" style={{ color: 'var(--text-secondary)' }}>표시할 작품이 없습니다.</p>
                 : visibleRecent.map(item => (
                     <Link key={item.postId} to={`/gallery/${item.postId}`}
                       className="aspect-square rounded-lg overflow-hidden relative group"
@@ -256,6 +260,8 @@ export default function MainPage() {
                     </div>
                   </div>
                 ))
+              : visibleHot.length === 0
+              ? <p className="text-xs py-4" style={{ color: 'var(--text-secondary)' }}>표시할 작품이 없습니다.</p>
               : visibleHot.map((item, idx) => (
                   <Link key={item.postId} to={`/gallery/${item.postId}`}
                     className="flex items-center gap-3 group">
