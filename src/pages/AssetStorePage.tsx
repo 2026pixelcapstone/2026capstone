@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { assetApi, type AssetSummary } from '../api/assetApi'
 import { useAuthStore } from '../store/authStore'
+import { useBlockStore } from '../store/blockStore'
+import TagBlockMenu from '../components/TagBlockMenu'
 
 const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아이콘', '스프라이트', '이펙트']
 
 export default function AssetStorePage() {
   const navigate = useNavigate()
   const { accessToken } = useAuthStore(state => state)
+  const { blockedUserIds, blockedTags } = useBlockStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeCategory = searchParams.get('tag') ?? '전체'
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
@@ -27,6 +30,15 @@ export default function AssetStorePage() {
   const [hasMore, setHasMore] = useState(false)
   const [totalStats, setTotalStats] = useState({ total: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // 차단한 유저/태그가 포함된 에셋은 피드에서 숨김 (갤러리와 동일 정책)
+  const visibleAssets = useMemo(
+    () => assets.filter(a =>
+      !blockedUserIds.includes(a.authorId) &&
+      !a.tags?.some(tag => blockedTags.includes(tag))
+    ),
+    [assets, blockedUserIds, blockedTags]
+  )
 
   useEffect(() => {
     setPage(0)
@@ -202,9 +214,11 @@ export default function AssetStorePage() {
         ) : (
           <>
             <div className="grid grid-cols-4 gap-5">
-              {assets.map(item => (
-                <Link key={item.assetId} to={`/assets/${item.assetId}`}
-                  className="group rounded-2xl overflow-hidden border transition-all hover:border-[#2f81f7]/50 hover:-translate-y-1"
+              {visibleAssets.map(item => (
+                <div key={item.assetId} className="group relative">
+                  <TagBlockMenu tags={item.tags} />
+                  <Link to={`/assets/${item.assetId}`}
+                  className="block rounded-2xl overflow-hidden border transition-all hover:border-[#2f81f7]/50 hover:-translate-y-1"
                   style={{ background: '#21262d', borderColor: '#30363d' }}>
                   <div className="aspect-square checkerboard relative bg-[#161b22]">
                     {item.thumbnailUrl
@@ -260,6 +274,7 @@ export default function AssetStorePage() {
                     </div>
                   </div>
                 </Link>
+                </div>
               ))}
             </div>
 
@@ -275,7 +290,7 @@ export default function AssetStorePage() {
               </div>
             )}
 
-            {!loading && assets.length === 0 && (
+            {!loading && visibleAssets.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
                 <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
                   {keyword ? 'search_off' : 'inventory_2'}

@@ -4,6 +4,7 @@ import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
 import GalleryCreateModal from '../components/GalleryCreateModal'
+import TagBlockMenu from '../components/TagBlockMenu'
 
 const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
 
@@ -226,7 +227,8 @@ export default function FreeGalleryPage() {
           <>
             <div className="grid grid-cols-3 gap-12">
               {filtered.map(item => (
-                <Link key={item.postId} to={`/gallery/${item.postId}`} className="group flex flex-col cursor-pointer">
+                <Link key={item.postId} to={`/gallery/${item.postId}`} className="group relative flex flex-col cursor-pointer">
+                  <TagBlockMenu tags={item.tags} />
                   <div className="aspect-[4/3] overflow-hidden rounded-2xl mb-6 relative bg-[#21262d]">
                     {item.thumbnailUrl
                       ? <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />

@@ -4,6 +4,7 @@ import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
 import GalleryCreateModal from '../components/GalleryCreateModal'
+import TagBlockMenu from '../components/TagBlockMenu'
 
 export default function ExGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
@@ -215,7 +216,8 @@ export default function ExGalleryPage() {
           <>
             <div className="grid grid-cols-3 gap-12">
               {filtered.map(item => (
-                <Link key={item.postId} to={`/gallery/${item.postId}`} className="group flex flex-col cursor-pointer">
+                <Link key={item.postId} to={`/gallery/${item.postId}`} className="group relative flex flex-col cursor-pointer">
+                  <TagBlockMenu tags={item.tags} />
                   <div className="aspect-[4/3] overflow-hidden mb-4 relative bg-[#21262d]"
                     style={{ clipPath: 'polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px))' }}>
                     {item.thumbnailUrl
