@@ -5,9 +5,9 @@ import { fileApi } from '../api/fileApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
+import TagInput from '../components/TagInput'
 
 const MAX_IMAGES = 5
-const SUGGESTED_TAGS = ['판타지', 'RPG', '캐릭터', '배경', '사이버펑크', '애니메이션', '귀여운', '레트로', '픽셀아트', '무료']
 
 // 기존 이미지(URL) 또는 새로 추가한 이미지(File)
 type ImageItem =
@@ -25,7 +25,6 @@ export default function AssetUpdatePage() {
   const [description, setDescription] = useState('')
   const [isFree, setIsFree] = useState(true)
   const [price, setPrice] = useState('')
-  const [tagInput, setTagInput] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [images, setImages] = useState<ImageItem[]>([])
   const [dragging, setDragging] = useState(false)
@@ -109,20 +108,6 @@ export default function AssetUpdatePage() {
     })
   }
 
-  // ── 태그 ─────────────────────────────────────────────────
-  const addTag = (tag: string) => {
-    const trimmed = tag.trim()
-    if (!trimmed || selectedTags.includes(trimmed) || selectedTags.length >= 10) return
-    setSelectedTags(prev => [...prev, trimmed])
-    setTagInput('')
-  }
-  const removeTag = (tag: string) => setSelectedTags(prev => prev.filter(t => t !== tag))
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      addTag(tagInput)
-    }
-  }
 
   const previewOf = (item: ImageItem) => item.kind === 'existing' ? item.url : item.previewUrl
 
@@ -241,29 +226,9 @@ export default function AssetUpdatePage() {
           {/* 태그 */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              태그 <span className="text-gray-500 text-xs">(최대 10개, Enter 또는 쉼표로 추가)</span>
+              태그 <span className="text-gray-500 text-xs">(최대 10개, 입력 시 자동완성)</span>
             </label>
-            <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleTagKeyDown}
-              placeholder="태그 입력..."
-              className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-2" />
-            <div className="flex flex-wrap gap-2 mb-2">
-              {SUGGESTED_TAGS.filter(t => !selectedTags.includes(t)).map(tag => (
-                <button key={tag} type="button" onClick={() => addTag(tag)}
-                  className="px-2 py-1 text-xs rounded bg-[#1a1a2e] border border-gray-600 text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-colors">
-                  + {tag}
-                </button>
-              ))}
-            </div>
-            {selectedTags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedTags.map(tag => (
-                  <span key={tag} className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-blue-900 text-blue-300">
-                    #{tag}
-                    <button type="button" onClick={() => removeTag(tag)} className="hover:text-white">×</button>
-                  </span>
-                ))}
-              </div>
-            )}
+            <TagInput tags={selectedTags} onChange={setSelectedTags} max={10} />
           </div>
         </div>
 
