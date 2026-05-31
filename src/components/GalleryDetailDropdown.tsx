@@ -1,4 +1,5 @@
 // src/components/Dropdown.tsx
+// GallaryDetailPage에서 사용 중
 import { ReactNode } from "react"
 
 interface DropdownProps{

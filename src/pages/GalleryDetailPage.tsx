@@ -6,7 +6,7 @@ import { useLikeStore } from '../store/likeStore'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
-import Dropdown from '../components/Dropdown';
+import Dropdown from '../components/GalleryDetailDropdown';
 
 export default function GalleryDetailPage() {
   const { id } = useParams<{ id: string }>()
