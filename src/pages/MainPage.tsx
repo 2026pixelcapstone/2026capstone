@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
+import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 
 // thumbnailUrl 없을 때 postId 기반 그라디언트 placeholder
 const GRADIENTS = [
@@ -47,10 +49,27 @@ function SkeletonCard({ className }: { className?: string }) {
 }
 
 export default function MainPage() {
+  const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
+  const { isLoggedIn } = useAuthStore()
   const [trending, setTrending] = useState<GalleryPostSummary[]>([])
   const [recentlyAdded, setRecentlyAdded] = useState<GalleryPostSummary[]>([])
   const [hotArtworks, setHotArtworks] = useState<GalleryPostSummary[]>([])
   const [loading, setLoading] = useState(true)
+
+  // 로그인 사용자는 차단 목록 로드 완료까지 스켈레톤 유지 (차단 항목 flash 방지)
+  const showSkeleton = loading || (isLoggedIn && !blocksLoaded)
+
+  // 차단 유저/태그 포함 작품 숨김 (로그인 + 차단목록 로드 완료 시에만)
+  const filterBlocked = useCallback(
+    (posts: GalleryPostSummary[]) =>
+      (isLoggedIn && blocksLoaded)
+        ? posts.filter(p =>
+            !blockedUserIds.includes(p.authorId) &&
+            !p.tags?.some(tag => blockedTags.includes(tag))
+          )
+        : posts,
+    [isLoggedIn, blocksLoaded, blockedUserIds, blockedTags]
+  )
 
   useEffect(() => {
     Promise.allSettled([
@@ -69,9 +88,14 @@ export default function MainPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  // 차단 필터 적용된 피드
+  const visibleTrending = useMemo(() => filterBlocked(trending), [trending, filterBlocked])
+  const visibleRecent = useMemo(() => filterBlocked(recentlyAdded), [recentlyAdded, filterBlocked])
+  const visibleHot = useMemo(() => filterBlocked(hotArtworks), [hotArtworks, filterBlocked])
+
   const popularAuthors = useMemo(
-    () => extractAuthors([...trending, ...recentlyAdded]),
-    [trending, recentlyAdded]
+    () => extractAuthors([...visibleTrending, ...visibleRecent]),
+    [visibleTrending, visibleRecent]
   )
 
   return (
@@ -85,7 +109,7 @@ export default function MainPage() {
             인기 작가
           </h3>
 
-          {loading
+          {showSkeleton
             ? Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-2">
                   <div className="w-10 h-10 rounded-full animate-pulse shrink-0" style={{ background: '#21262d' }} />
@@ -141,7 +165,7 @@ export default function MainPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              {loading
+              {showSkeleton
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <div key={i}>
                       <SkeletonCard className="aspect-[4/3] mb-3" />
@@ -149,7 +173,9 @@ export default function MainPage() {
                       <div className="h-3 rounded animate-pulse" style={{ background: '#21262d', width: '35%' }} />
                     </div>
                   ))
-                : trending.map(item => (
+                : visibleTrending.length === 0
+                ? <p className="col-span-2 text-center text-sm py-12" style={{ color: 'var(--text-secondary)' }}>표시할 작품이 없습니다.</p>
+                : visibleTrending.map(item => (
                     <Link key={item.postId} to={`/gallery/${item.postId}`} className="group cursor-pointer">
                       <div className="overflow-hidden mb-3 aspect-[4/3] rounded-lg"
                         style={{
@@ -194,11 +220,13 @@ export default function MainPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              {loading
+              {showSkeleton
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <SkeletonCard key={i} className="aspect-square" />
                   ))
-                : recentlyAdded.map(item => (
+                : visibleRecent.length === 0
+                ? <p className="col-span-3 text-center text-sm py-12" style={{ color: 'var(--text-secondary)' }}>표시할 작품이 없습니다.</p>
+                : visibleRecent.map(item => (
                     <Link key={item.postId} to={`/gallery/${item.postId}`}
                       className="aspect-square rounded-lg overflow-hidden relative group"
                       style={{ background: isBgGradient(item) ? getBg(item) : undefined }}>
@@ -227,7 +255,7 @@ export default function MainPage() {
           </h3>
 
           <div className="space-y-3">
-            {loading
+            {showSkeleton
               ? Array.from({ length: 7 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="w-4 shrink-0" />
@@ -238,7 +266,9 @@ export default function MainPage() {
                     </div>
                   </div>
                 ))
-              : hotArtworks.map((item, idx) => (
+              : visibleHot.length === 0
+              ? <p className="text-xs py-4" style={{ color: 'var(--text-secondary)' }}>표시할 작품이 없습니다.</p>
+              : visibleHot.map((item, idx) => (
                   <Link key={item.postId} to={`/gallery/${item.postId}`}
                     className="flex items-center gap-3 group">
                     <span className="text-sm font-bold italic w-4 shrink-0 text-center"
