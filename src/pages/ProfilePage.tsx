@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { userApi, type UserProfileResponse } from '../api/userApi'
+import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
+import { assetApi, type AssetSummary } from '../api/assetApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
@@ -12,6 +14,15 @@ const TABS = [
   { key: 'following', label: '팔로잉', icon: 'person' },
   { key: 'followers', label: '팔로워', icon: 'group' },
 ]
+
+function EmptyTab({ icon, text }: { icon: string; text: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-3">
+      <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>{icon}</span>
+      <p className="text-sm" style={{ color: '#7d8590' }}>{text}</p>
+    </div>
+  )
+}
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
@@ -25,6 +36,14 @@ export default function ProfilePage() {
   const [sort, setSort] = useState<'recent' | 'popular'>('recent')
   const [followed, setFollowed] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+
+  // 탭 콘텐츠
+  const [works, setWorks] = useState<GalleryPostSummary[]>([])
+  const [assets, setAssets] = useState<AssetSummary[]>([])
+  const [liked, setLiked] = useState<GalleryPostSummary[]>([])
+  const [following, setFollowing] = useState<UserProfileResponse[]>([])
+  const [followers, setFollowers] = useState<UserProfileResponse[]>([])
+  const [tabLoading, setTabLoading] = useState(false)
 
   useEffect(() => {
     if (!username) return
@@ -44,6 +63,48 @@ export default function ProfilePage() {
       })
       .finally(() => setLoading(false))
   }, [username])
+
+  // 프로필(유저)이 바뀌면 탭 상태 초기화
+  useEffect(() => {
+    setTab('works')
+    setWorks([]); setAssets([]); setLiked([]); setFollowing([]); setFollowers([])
+  }, [profile?.userId])
+
+  // 활성 탭 데이터 로드
+  useEffect(() => {
+    if (!profile) return
+    const uid = profile.userId
+    let cancelled = false
+    setTabLoading(true)
+
+    const run = async () => {
+      try {
+        if (tab === 'works') {
+          const sortParam = sort === 'popular' ? 'likeCount,desc' : 'createdAt,desc'
+          const res = await galleryApi.getList({ authorId: uid, size: 24, sort: sortParam })
+          if (!cancelled) setWorks(res.data.data.content)
+        } else if (tab === 'assets') {
+          const res = await assetApi.getList({ authorId: uid, size: 24, sort: 'createdAt,desc' })
+          if (!cancelled) setAssets(res.data.data.content)
+        } else if (tab === 'liked') {
+          const res = await galleryApi.getList({ likedBy: uid, size: 24, sort: 'createdAt,desc' })
+          if (!cancelled) setLiked(res.data.data.content)
+        } else if (tab === 'following') {
+          const res = await userApi.getFollowing(uid)
+          if (!cancelled) setFollowing(res.data.data)
+        } else if (tab === 'followers') {
+          const res = await userApi.getFollowers(uid)
+          if (!cancelled) setFollowers(res.data.data)
+        }
+      } catch {
+        // 탭 로드 실패 시 빈 상태 유지
+      } finally {
+        if (!cancelled) setTabLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [profile, tab, sort])
 
   const handleFollow = async () => {
     if (!isLoggedIn || !profile) return
@@ -247,20 +308,122 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* 탭별 콘텐츠 — 현재는 빈 상태 안내 (갤러리 유저별 필터 API 추가 시 교체) */}
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>
-              {TABS.find(t => t.key === tab)?.icon}
-            </span>
-            <p className="text-sm" style={{ color: '#7d8590' }}>
-              {tab === 'works' && `${profile.nickname}님의 작품`}
-              {tab === 'assets' && `${profile.nickname}님의 에셋`}
-              {tab === 'liked' && '좋아요한 작품'}
-              {tab === 'following' && '팔로잉 목록'}
-              {tab === 'followers' && '팔로워 목록'}
-            </p>
-            <p className="text-xs" style={{ color: '#484f58' }}>준비 중입니다.</p>
-          </div>
+          {/* 탭별 콘텐츠 */}
+          {tabLoading ? (
+            <div className="grid grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: '#21262d' }} />
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* 작품 */}
+              {tab === 'works' && (
+                works.length === 0 ? (
+                  <EmptyTab icon="palette" text={`${profile.nickname}님의 작품이 없습니다.`} />
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    {works.map(w => (
+                      <Link key={w.postId} to={`/gallery/${w.postId}`}
+                        className="group aspect-square rounded-xl overflow-hidden relative" style={{ background: '#21262d' }}>
+                        {w.thumbnailUrl
+                          ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
+                          : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-2">
+                          <p className="text-xs font-bold text-white text-center line-clamp-2">{w.title}</p>
+                          <div className="flex items-center gap-2 text-xs" style={{ color: '#ccc' }}>
+                            <span>♥ {w.likeCount}</span><span>👁 {w.viewCount}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* 에셋 */}
+              {tab === 'assets' && (
+                assets.length === 0 ? (
+                  <EmptyTab icon="sell" text={`${profile.nickname}님의 에셋이 없습니다.`} />
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    {assets.map(a => (
+                      <Link key={a.assetId} to={`/assets/${a.assetId}`}
+                        className="group rounded-xl overflow-hidden border transition-all hover:-translate-y-0.5 hover:border-[#2f81f7]"
+                        style={{ background: '#21262d', borderColor: '#30363d' }}>
+                        <div className="aspect-square overflow-hidden">
+                          {a.thumbnailUrl
+                            ? <img src={a.thumbnailUrl} alt={a.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
+                            : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />}
+                        </div>
+                        <div className="p-2">
+                          <p className="text-xs font-bold truncate">{a.title}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs font-bold" style={{ color: a.isFree ? '#3fb950' : '#2f81f7' }}>
+                              {a.isFree ? '무료' : `₩${a.price.toLocaleString()}`}
+                            </span>
+                            <span className="text-xs" style={{ color: '#7d8590' }}>♥ {a.likeCount}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* 좋아요 */}
+              {tab === 'liked' && (
+                liked.length === 0 ? (
+                  <EmptyTab icon="favorite" text="좋아요한 작품이 없습니다." />
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    {liked.map(w => (
+                      <Link key={w.postId} to={`/gallery/${w.postId}`}
+                        className="group aspect-square rounded-xl overflow-hidden relative" style={{ background: '#21262d' }}>
+                        {w.thumbnailUrl
+                          ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
+                          : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-2">
+                          <p className="text-xs font-bold text-white text-center line-clamp-2">{w.title}</p>
+                          <p className="text-xs" style={{ color: '#ccc' }}>by {w.authorNickname}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* 팔로잉 / 팔로워 */}
+              {(tab === 'following' || tab === 'followers') && (
+                (() => {
+                  const users = tab === 'following' ? following : followers
+                  return users.length === 0 ? (
+                    <EmptyTab icon={tab === 'following' ? 'person' : 'group'}
+                      text={tab === 'following' ? '팔로잉 중인 유저가 없습니다.' : '팔로워가 없습니다.'} />
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {users.map(u => (
+                        <Link key={u.userId} to={`/profile/${u.nickname}`}
+                          className="rounded-xl border p-4 text-center hover:shadow-md hover:border-[#2f81f7] transition-all"
+                          style={{ background: '#21262d', borderColor: '#30363d' }}>
+                          <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-2 overflow-hidden"
+                            style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,#2f81f7,#6366f1)' }}>
+                            {u.profileImageUrl
+                              ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
+                              : u.nickname.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="font-bold text-sm truncate">{u.nickname}</div>
+                          <div className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                            팔로워 {u.followerCount.toLocaleString()}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )
+                })()
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
