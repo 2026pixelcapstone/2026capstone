@@ -64,16 +64,17 @@ export default function ProfilePage() {
       .finally(() => setLoading(false))
   }, [username])
 
+  const uid = profile?.userId
+
   // 프로필(유저)이 바뀌면 탭 상태 초기화
   useEffect(() => {
     setTab('works')
     setWorks([]); setAssets([]); setLiked([]); setFollowing([]); setFollowers([])
-  }, [profile?.userId])
+  }, [uid])
 
-  // 활성 탭 데이터 로드
+  // 활성 탭 데이터 로드 — uid만 의존(팔로우/언팔로우로 profile 객체가 새로 만들어져도 재요청 안 함)
   useEffect(() => {
-    if (!profile) return
-    const uid = profile.userId
+    if (!uid) return
     let cancelled = false
     setTabLoading(true)
 
@@ -104,7 +105,7 @@ export default function ProfilePage() {
     }
     run()
     return () => { cancelled = true }
-  }, [profile, tab, sort])
+  }, [uid, tab, sort])
 
   const handleFollow = async () => {
     if (!isLoggedIn || !profile) return
