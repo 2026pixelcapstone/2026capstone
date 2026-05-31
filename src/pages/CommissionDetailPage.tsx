@@ -90,17 +90,20 @@ export default function CommissionDetailPage() {
     e.target.value = ''
     if (!file || !commission) return
     setUploading(true)
+    let uploadedUrl: string | null = null
     try {
-      const url = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
+      uploadedUrl = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
       const res = await commissionApi.uploadFile(commission.commissionId, {
         fileType: 'FINAL',
-        fileUrl: url,
+        fileUrl: uploadedUrl,
         fileName: file.name,
         fileSize: file.size,
       })
       setCommission(res.data.data)
       toast.success('납품 파일이 업로드되었습니다.')
     } catch (err) {
+      // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
+      if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
       toast.error(getErrorMessage(err, '파일 업로드에 실패했습니다.'))
     } finally {
       setUploading(false)
@@ -219,8 +222,8 @@ export default function CommissionDetailPage() {
               ))}
             </div>
 
-            {/* 납품 파일 */}
-            {(commission.fileUrl || canUploadFile) && (
+            {/* 납품 파일 — 진행 중(작업/검토)에는 의뢰자도 안내를 볼 수 있게 카드 유지 */}
+            {(commission.fileUrl || commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW') && (
               <div className="rounded-2xl border p-5" style={{ background: '#161b22', borderColor: '#30363d' }}>
                 <h2 className="font-bold mb-3 flex items-center gap-2">
                   <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>folder_zip</span>
