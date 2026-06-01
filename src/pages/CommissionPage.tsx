@@ -6,6 +6,7 @@ import {
 } from '../api/commissionApi'
 import { galleryApi } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
+import { toast } from '../store/toastStore'
 
 // 서비스 카테고리 — 등록 폼 선택지 (백엔드 저장값과 정확히 일치해야 함)
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
@@ -269,7 +270,7 @@ export default function CommissionPage() {
       setArtistPage(page)
       setArtistHasMore(!d.last)
     } catch {
-      // 무시
+      toast.error('작가 서비스 목록을 불러오지 못했습니다.')
     } finally {
       setArtistLoading(false)
     }
@@ -287,7 +288,7 @@ export default function CommissionPage() {
       setReqPage(page)
       setReqHasMore(!d.last)
     } catch {
-      // 무시
+      toast.error('의뢰 목록을 불러오지 못했습니다.')
     } finally {
       setReqLoading(false)
     }
@@ -663,11 +664,12 @@ export default function CommissionPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)' }}
+          role="dialog" aria-modal="true" aria-labelledby="request-modal-title"
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div className="w-full max-w-lg rounded-2xl border p-6"
             style={{ background: '#161b22', borderColor: '#30363d' }}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold">의뢰 등록하기</h2>
+              <h2 id="request-modal-title" className="text-lg font-bold">의뢰 등록하기</h2>
               <button onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d]"
                 style={{ color: '#7d8590' }}>
@@ -765,11 +767,12 @@ export default function CommissionPage() {
       {showServiceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)' }}
+          role="dialog" aria-modal="true" aria-labelledby="service-modal-title"
           onClick={e => { if (e.target === e.currentTarget) setShowServiceModal(false) }}>
           <div className="w-full max-w-lg rounded-2xl border p-6 max-h-[90vh] overflow-y-auto"
             style={{ background: '#161b22', borderColor: '#30363d' }}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold">서비스 등록하기</h2>
+              <h2 id="service-modal-title" className="text-lg font-bold">서비스 등록하기</h2>
               <button onClick={() => setShowServiceModal(false)}
                 className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d]"
                 style={{ color: '#7d8590' }}>
