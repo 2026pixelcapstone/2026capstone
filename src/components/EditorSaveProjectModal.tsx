@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SaveData } from '@/constants/type';
 // 모달에 관한 함수
 interface SaveProjectModeProps{
@@ -6,6 +6,7 @@ interface SaveProjectModeProps{
     onClose: () => void; // 모달을 닫는 함수
     onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
     initialTitle?:string;
+    initialIsPublic?: boolean;
 }
 
 export default function EditorSaveProjectModal({
@@ -13,11 +14,19 @@ export default function EditorSaveProjectModal({
     onClose,
     onSave,
     initialTitle = '',
+    initialIsPublic = false,
 }: SaveProjectModeProps){
     // 모달 내부 상태 관리
     const [title, setTitle] = useState<string>(initialTitle);
-    const [isPublic, setIsPublic] = useState<boolean>(false);
+    const [isPublic, setIsPublic] = useState<boolean>(initialIsPublic);
 
+    useEffect(() => {
+        if (!isOpen){
+            return;
+        }
+        setTitle(initialTitle);
+        setIsPublic(initialIsPublic);
+    }, [isOpen, initialTitle, initialIsPublic]);
     // 모달이 닫혀있으면 렌더링하지 않음
     if (!isOpen) return null;
 

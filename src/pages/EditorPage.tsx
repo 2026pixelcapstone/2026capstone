@@ -245,7 +245,8 @@ export default function EditorPage() {
     const nextIsPublic = saveData?.isPublic || false;
 
     if(!nextTitle){
-      toast.error('프로젝트 이름을 입력해주세요')
+      toast.error('프로젝트 이름을 입력해주세요');
+      return;
     }
 
     // 현재 캔버스 데이터 저장 로직
@@ -268,7 +269,7 @@ export default function EditorPage() {
       if (!pid) {
         // 새 프로젝트 생성
         const res = await editorApi.createProject({
-          title: projectTitle,
+          title: nextTitle,
           width: canvasW,
           height: canvasH,
           isPublic: nextIsPublic,
@@ -281,7 +282,7 @@ export default function EditorPage() {
       } else {
         // 제목 업데이트
         await editorApi.updateProject(pid, { 
-          title: projectTitle,
+          title: nextTitle,
           isPublic: nextIsPublic,
           thumbnailUrl: currentFrameData,
         })
