@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { commissionApi, type CommissionResponse, type CommissionStatus } from '../api/commissionApi'
+import { commissionApi, type CommissionResponse } from '../api/commissionApi'
+import { fileApi } from '../api/fileApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
@@ -18,15 +19,6 @@ const STATUS_COLOR: Record<string, { bg: string; color: string; border: string }
   CANCELLED:   { bg: 'rgba(248,81,73,0.1)',   color: '#f85149', border: 'rgba(248,81,73,0.3)' },
 }
 
-const NEXT_STATUS: Partial<Record<CommissionStatus, CommissionStatus>> = {
-  IN_PROGRESS: 'REVIEW',
-  REVIEW:      'COMPLETED',
-}
-const NEXT_STATUS_LABEL: Partial<Record<CommissionStatus, string>> = {
-  IN_PROGRESS: '검토 요청',
-  REVIEW:      '완료 처리',
-}
-
 const TYPE_LABEL: Record<string, string> = {
   SERVICE_OPTION: '서비스형 (가격 고정)',
   SERVICE_QUOTE:  '서비스형 (가격 협의)',
@@ -42,6 +34,8 @@ export default function CommissionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!id) return
@@ -58,19 +52,61 @@ export default function CommissionDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  const handleNextStatus = async () => {
+  // 작가: 작업물 전달 완료 → 검토 요청 (IN_PROGRESS → REVIEW)
+  const handleRequestReview = async () => {
     if (!commission) return
-    const next = NEXT_STATUS[commission.status]
-    if (!next) return
+    if (!commission.fileUrl) { toast.error('납품 파일을 먼저 업로드해주세요.'); return }
     setActionLoading(true)
     try {
-      const res = await commissionApi.updateStatus(commission.commissionId, next)
+      const res = await commissionApi.updateStatus(commission.commissionId, 'REVIEW')
       setCommission(res.data.data)
-      toast.success('상태가 업데이트되었습니다.')
+      toast.success('검토 요청을 보냈습니다.')
     } catch (err) {
       toast.error(getErrorMessage(err, '상태 변경에 실패했습니다.'))
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  // 의뢰자: 결과물 확인 → 완료 확정 (REVIEW → COMPLETED)
+  const handleConfirmComplete = async () => {
+    if (!commission) return
+    if (!confirm('작업물을 확인하셨나요? 완료 확정 시 거래가 종료됩니다.')) return
+    setActionLoading(true)
+    try {
+      const res = await commissionApi.updateStatus(commission.commissionId, 'COMPLETED')
+      setCommission(res.data.data)
+      toast.success('거래가 완료되었습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '완료 처리에 실패했습니다.'))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // 작가: 납품 파일 업로드 (R2 → 커미션 파일 등록)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !commission) return
+    setUploading(true)
+    let uploadedUrl: string | null = null
+    try {
+      uploadedUrl = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
+      const res = await commissionApi.uploadFile(commission.commissionId, {
+        fileType: 'FINAL',
+        fileUrl: uploadedUrl,
+        fileName: file.name,
+        fileSize: file.size,
+      })
+      setCommission(res.data.data)
+      toast.success('납품 파일이 업로드되었습니다.')
+    } catch (err) {
+      // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
+      if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
+      toast.error(getErrorMessage(err, '파일 업로드에 실패했습니다.'))
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -114,8 +150,9 @@ export default function CommissionDetailPage() {
   const sc = STATUS_COLOR[commission.status] ?? STATUS_COLOR.IN_PROGRESS
   const isClient = me?.userId === commission.clientId
   const isArtist = me?.userId === commission.artistId
-  const nextLabel = NEXT_STATUS_LABEL[commission.status]
-  const canNextStatus = isArtist && !!nextLabel
+  const canUploadFile = isArtist && (commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW')
+  const canRequestReview = isArtist && commission.status === 'IN_PROGRESS'
+  const canConfirmComplete = isClient && commission.status === 'REVIEW'
   const canCancel = (isClient || isArtist) && commission.status === 'IN_PROGRESS'
   const dDay = commission.agreedDeadline
     ? Math.ceil((new Date(commission.agreedDeadline).getTime() - Date.now()) / 86400000)
@@ -185,19 +222,42 @@ export default function CommissionDetailPage() {
               ))}
             </div>
 
-            {/* 납품 파일 */}
-            {commission.fileUrl && (
+            {/* 납품 파일 — 진행 중(작업/검토)에는 의뢰자도 안내를 볼 수 있게 카드 유지 */}
+            {(commission.fileUrl || commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW') && (
               <div className="rounded-2xl border p-5" style={{ background: '#161b22', borderColor: '#30363d' }}>
                 <h2 className="font-bold mb-3 flex items-center gap-2">
                   <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>folder_zip</span>
                   납품 파일
                 </h2>
-                <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-bold hover:underline"
-                  style={{ color: '#2f81f7' }}>
-                  <span className="material-symbols-outlined text-base">download</span>
-                  파일 다운로드
-                </a>
+
+                {commission.fileUrl ? (
+                  <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm font-bold hover:underline mb-3"
+                    style={{ color: '#2f81f7' }}>
+                    <span className="material-symbols-outlined text-base">download</span>
+                    파일 다운로드
+                  </a>
+                ) : (
+                  <p className="text-sm mb-3" style={{ color: '#7d8590' }}>
+                    {canUploadFile ? '아직 업로드된 납품 파일이 없습니다.' : '작가가 작업물을 전달하면 여기에 표시됩니다.'}
+                  </p>
+                )}
+
+                {/* 작가 전용 업로드 */}
+                {canUploadFile && (
+                  <>
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
+                      style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                      <span className="material-symbols-outlined text-base">upload_file</span>
+                      {uploading ? '업로드 중...' : commission.fileUrl ? '파일 교체' : '납품 파일 업로드'}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
@@ -257,12 +317,25 @@ export default function CommissionDetailPage() {
               {/* 액션 버튼 */}
               {commission.status !== 'CANCELLED' && commission.status !== 'COMPLETED' && (
                 <div className="space-y-2">
-                  {canNextStatus && (
-                    <button onClick={handleNextStatus} disabled={actionLoading}
+                  {canRequestReview && (
+                    <button onClick={handleRequestReview} disabled={actionLoading}
                       className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 disabled:opacity-50"
                       style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 4px 16px rgba(47,129,247,0.3)' }}>
-                      {actionLoading ? '처리 중...' : nextLabel}
+                      {actionLoading ? '처리 중...' : '검토 요청'}
                     </button>
+                  )}
+                  {canConfirmComplete && (
+                    <button onClick={handleConfirmComplete} disabled={actionLoading}
+                      className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 disabled:opacity-50"
+                      style={{ background: '#3fb950', color: '#fff', boxShadow: '0 4px 16px rgba(63,185,80,0.3)' }}>
+                      {actionLoading ? '처리 중...' : '완료 확정'}
+                    </button>
+                  )}
+                  {/* 작가가 검토 요청을 보낸 뒤 의뢰자 확인 대기 안내 */}
+                  {isArtist && commission.status === 'REVIEW' && (
+                    <p className="text-xs text-center py-2" style={{ color: '#7d8590' }}>
+                      의뢰자의 완료 확정을 기다리는 중입니다.
+                    </p>
                   )}
                   {canCancel && (
                     <button onClick={handleCancel} disabled={actionLoading}
