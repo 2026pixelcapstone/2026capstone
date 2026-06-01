@@ -2,12 +2,27 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
-  artistServiceApi, type ArtistServiceSummary,
+  artistServiceApi, type ArtistServiceSummary, type ArtistServiceCreateRequest,
 } from '../api/commissionApi'
 import { galleryApi } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
+import { toast } from '../store/toastStore'
 
-const STYLES = ['전체 스타일', '캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화']
+// 서비스 카테고리 — 등록 폼 선택지 (백엔드 저장값과 정확히 일치해야 함)
+const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
+// 작가 탭 필터 칩 (전체 + 카테고리)
+const CATEGORY_FILTERS = ['전체', ...SERVICE_CATEGORIES]
+
+// 탭별 정렬 옵션 [label, sort파라미터]
+const ARTIST_SORTS: [string, string][] = [
+  ['최신순', 'createdAt,desc'],
+  ['오래된순', 'createdAt,asc'],
+]
+const REQUEST_SORTS: [string, string][] = [
+  ['최신순', 'createdAt,desc'],
+  ['마감 임박순', 'deadline,asc'],
+  ['높은 예산순', 'budgetMax,desc'],
+]
 
 // 아바타 색상 팔레트 (서비스 ID 기반으로 일관된 색상 선택)
 const AVATAR_GRADIENTS = [
@@ -174,6 +189,17 @@ const EMPTY_FORM: RequestPostCreateRequest = {
   deadline: '',
 }
 
+const EMPTY_SERVICE_FORM: ArtistServiceCreateRequest = {
+  title: '',
+  description: '',
+  serviceType: 'OPTION',
+  basePrice: undefined,
+  priceMin: undefined,
+  priceMax: undefined,
+  estimatedDays: undefined,
+  category: '캐릭터',
+}
+
 function formatBudget(min?: number | null, max?: number | null) {
   if (!min && !max) return '협의'
   if (min && max) return `₩${min.toLocaleString()} ~ ₩${max.toLocaleString()}`
@@ -184,7 +210,8 @@ function formatBudget(min?: number | null, max?: number | null) {
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
   const [tab, setTab] = useState<'artists' | 'requests'>('artists')
-  const [activeStyle, setActiveStyle] = useState('전체 스타일')
+  const [activeCategory, setActiveCategory] = useState('전체')
+  const [sort, setSort] = useState('createdAt,desc')
 
   const [searchInput, setSearchInput] = useState('')
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -207,30 +234,43 @@ export default function CommissionPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
+  // 서비스 등록 모달
+  const [showServiceModal, setShowServiceModal] = useState(false)
+  const [serviceForm, setServiceForm] = useState<ArtistServiceCreateRequest>(EMPTY_SERVICE_FORM)
+  const [serviceSubmitting, setServiceSubmitting] = useState(false)
+  const [serviceError, setServiceError] = useState('')
+
+  // 탭/카테고리/정렬/검색어 변경 시 0페이지부터 서버 재조회
   useEffect(() => {
     if (tab === 'artists') fetchArtists(0)
-    if (tab === 'requests') fetchRequests(0)
-  }, [tab])
+    else fetchRequests(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, activeCategory, sort, searchKeyword])
 
-  useEffect(() => {
+  // 탭 전환 시 필터/정렬/검색 초기화
+  const handleTabChange = (next: 'artists' | 'requests') => {
+    if (next === tab) return
+    setTab(next)
+    setActiveCategory('전체')
+    setSort('createdAt,desc')
     setSearchInput('')
     setSearchKeyword('')
-  }, [tab])
+  }
 
   const fetchArtists = async (page: number) => {
     setArtistLoading(true)
     try {
-      const res = await artistServiceApi.getOpenList({ page, size: 9 })
+      const res = await artistServiceApi.getOpenList({
+        page, size: 9, sort,
+        category: activeCategory !== '전체' ? activeCategory : undefined,
+        keyword: searchKeyword || undefined,
+      })
       const d = res.data.data
-      if (page === 0) {
-        setArtists(d.content)
-      } else {
-        setArtists(prev => [...prev, ...d.content])
-      }
+      setArtists(page === 0 ? d.content : prev => [...prev, ...d.content] as ArtistServiceSummary[])
       setArtistPage(page)
       setArtistHasMore(!d.last)
     } catch {
-      // 무시
+      toast.error('작가 서비스 목록을 불러오지 못했습니다.')
     } finally {
       setArtistLoading(false)
     }
@@ -239,17 +279,16 @@ export default function CommissionPage() {
   const fetchRequests = async (page: number) => {
     setReqLoading(true)
     try {
-      const res = await requestPostApi.getOpenList({ page, size: 9 })
+      const res = await requestPostApi.getOpenList({
+        page, size: 9, sort,
+        keyword: searchKeyword || undefined,
+      })
       const d = res.data.data
-      if (page === 0) {
-        setRequests(d.content)
-      } else {
-        setRequests(prev => [...prev, ...d.content])
-      }
+      setRequests(page === 0 ? d.content : prev => [...prev, ...d.content] as RequestPostSummary[])
       setReqPage(page)
       setReqHasMore(!d.last)
     } catch {
-      // 무시
+      toast.error('의뢰 목록을 불러오지 못했습니다.')
     } finally {
       setReqLoading(false)
     }
@@ -290,7 +329,7 @@ export default function CommissionPage() {
       if (tab === 'requests') {
         fetchRequests(0)
       } else {
-        setTab('requests')
+        handleTabChange('requests')
       }
     } catch {
       setFormError('의뢰 등록에 실패했습니다. 다시 시도해주세요.')
@@ -299,16 +338,40 @@ export default function CommissionPage() {
     }
   }
 
-  const filteredArtists = searchKeyword
-    ? artists.filter(a =>
-        a.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-        (a.artistNickname ?? '').toLowerCase().includes(searchKeyword.toLowerCase())
-      )
-    : artists
+  const handleOpenServiceModal = () => {
+    if (!isLoggedIn) { alert('로그인이 필요합니다.'); return }
+    setServiceForm(EMPTY_SERVICE_FORM)
+    setServiceError('')
+    setShowServiceModal(true)
+  }
 
-  const filteredRequests = searchKeyword
-    ? requests.filter(r => r.title.toLowerCase().includes(searchKeyword.toLowerCase()))
-    : requests
+  const handleServiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!serviceForm.title.trim()) { setServiceError('제목을 입력해주세요.'); return }
+    if (serviceForm.serviceType === 'OPTION' && !serviceForm.basePrice) {
+      setServiceError('가격 고정형은 기본 가격을 입력해주세요.'); return
+    }
+    setServiceError('')
+    setServiceSubmitting(true)
+    try {
+      // 유형에 맞지 않는 가격 필드는 비워서 전송
+      const payload: ArtistServiceCreateRequest = serviceForm.serviceType === 'OPTION'
+        ? { ...serviceForm, priceMin: undefined, priceMax: undefined }
+        : { ...serviceForm, basePrice: undefined }
+      await artistServiceApi.create(payload)
+      setShowServiceModal(false)
+      if (tab === 'artists') fetchArtists(0)
+      else handleTabChange('artists')
+    } catch {
+      setServiceError('서비스 등록에 실패했습니다. 다시 시도해주세요.')
+    } finally {
+      setServiceSubmitting(false)
+    }
+  }
+
+  // 검색·필터·정렬은 서버에서 처리하므로 목록을 그대로 사용
+  const filteredArtists = artists
+  const filteredRequests = requests
 
   return (
     <div style={{ background: '#0d1117', color: '#e6edf3' }}>
@@ -327,14 +390,18 @@ export default function CommissionPage() {
                 style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
                 의뢰 등록하기
               </button>
-              <button className="px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
-                style={{ background: '#2f81f7', color: '#fff' }}>서비스 등록하기</button>
+              <button
+                onClick={handleOpenServiceModal}
+                className="px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
+                style={{ background: '#2f81f7', color: '#fff' }}>
+                서비스 등록하기
+              </button>
             </div>
           </div>
           {/* 탭 */}
           <div className="flex gap-1 rounded-xl p-1 w-fit mt-8" style={{ background: '#1c2128' }}>
             {[['artists', '작가 찾기'], ['requests', '의뢰 찾기']].map(([key, label]) => (
-              <button key={key} onClick={() => setTab(key as typeof tab)}
+              <button key={key} onClick={() => handleTabChange(key as typeof tab)}
                 className="px-8 py-2.5 rounded-lg font-bold text-sm transition-colors"
                 style={tab === key
                   ? { background: '#292f38', color: '#2f81f7' }
@@ -350,25 +417,28 @@ export default function CommissionPage() {
 
         {/* 필터 바 + 검색창 */}
         <div className="flex items-center gap-3 mb-8 flex-wrap">
-          {!searchKeyword ? (
-            <div className="flex gap-2 flex-wrap">
-              {STYLES.map(s => (
-                <button key={s} onClick={() => setActiveStyle(s)}
-                  className="px-5 py-2.5 rounded-full font-bold text-sm transition-colors"
-                  style={activeStyle === s
-                    ? { background: '#2f81f7', color: '#fff' }
-                    : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          ) : (
+          {searchKeyword ? (
             <p className="text-sm" style={{ color: '#7d8590' }}>
               <span style={{ color: '#e6edf3' }}>"{searchKeyword}"</span> 검색 결과&nbsp;
               {tab === 'artists'
                 ? `${filteredArtists.length}개`
                 : `${filteredRequests.length}건`}
             </p>
+          ) : tab === 'artists' ? (
+            /* 작가 탭에서만 카테고리 필터 칩 (의뢰글엔 카테고리 없음) */
+            <div className="flex gap-2 flex-wrap">
+              {CATEGORY_FILTERS.map(c => (
+                <button key={c} onClick={() => setActiveCategory(c)}
+                  className="px-5 py-2.5 rounded-full font-bold text-sm transition-colors"
+                  style={activeCategory === c
+                    ? { background: '#2f81f7', color: '#fff' }
+                    : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div />
           )}
 
           <div className="ml-auto flex items-center gap-3">
@@ -394,11 +464,14 @@ export default function CommissionPage() {
               </div>
             </form>
             {!searchKeyword && (
-              <select className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
+              <select
+                value={sort}
+                onChange={e => setSort(e.target.value)}
+                className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
-                <option>최신순</option>
-                <option>낮은 예산순</option>
-                <option>마감 임박순</option>
+                {(tab === 'artists' ? ARTIST_SORTS : REQUEST_SORTS).map(([label, value]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             )}
           </div>
@@ -441,7 +514,7 @@ export default function CommissionPage() {
                     <p className="font-bold mb-1">등록된 작가 서비스가 없습니다</p>
                     <p className="text-sm">첫 번째로 서비스를 등록해보세요</p>
                     <button
-                      onClick={() => { if (!isLoggedIn) { alert('로그인이 필요합니다.'); return } }}
+                      onClick={handleOpenServiceModal}
                       className="mt-4 px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
                       style={{ background: '#2f81f7', color: '#fff' }}>
                       서비스 등록하기
@@ -458,7 +531,7 @@ export default function CommissionPage() {
                 ))}
               </div>
 
-              {artistHasMore && !searchKeyword && (
+              {artistHasMore && (
                 <div className="flex justify-center mt-8">
                   <button
                     onClick={() => fetchArtists(artistPage + 1)}
@@ -570,7 +643,7 @@ export default function CommissionPage() {
                   })}
                 </div>
 
-                {reqHasMore && !searchKeyword && (
+                {reqHasMore && (
                   <div className="flex justify-center mt-8">
                     <button
                       onClick={() => fetchRequests(reqPage + 1)}
@@ -591,11 +664,12 @@ export default function CommissionPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)' }}
+          role="dialog" aria-modal="true" aria-labelledby="request-modal-title"
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div className="w-full max-w-lg rounded-2xl border p-6"
             style={{ background: '#161b22', borderColor: '#30363d' }}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold">의뢰 등록하기</h2>
+              <h2 id="request-modal-title" className="text-lg font-bold">의뢰 등록하기</h2>
               <button onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d]"
                 style={{ color: '#7d8590' }}>
@@ -682,6 +756,158 @@ export default function CommissionPage() {
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
                   style={{ background: '#2f81f7', color: '#fff' }}>
                   {submitting ? '등록 중...' : '의뢰 등록'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 서비스 등록 모달 */}
+      {showServiceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          role="dialog" aria-modal="true" aria-labelledby="service-modal-title"
+          onClick={e => { if (e.target === e.currentTarget) setShowServiceModal(false) }}>
+          <div className="w-full max-w-lg rounded-2xl border p-6 max-h-[90vh] overflow-y-auto"
+            style={{ background: '#161b22', borderColor: '#30363d' }}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 id="service-modal-title" className="text-lg font-bold">서비스 등록하기</h2>
+              <button onClick={() => setShowServiceModal(false)}
+                className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d]"
+                style={{ color: '#7d8590' }}>
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleServiceSubmit} className="space-y-4">
+              {/* 제목 */}
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>제목 *</label>
+                <input
+                  type="text"
+                  value={serviceForm.title}
+                  onChange={e => setServiceForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="예: 16x16 캐릭터 스프라이트 제작"
+                  maxLength={100}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                />
+              </div>
+
+              {/* 카테고리 */}
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>카테고리</label>
+                <select
+                  value={serviceForm.category}
+                  onChange={e => setServiceForm(f => ({ ...f, category: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}>
+                  {SERVICE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              {/* 설명 */}
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>설명</label>
+                <textarea
+                  value={serviceForm.description}
+                  onChange={e => setServiceForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="작업 범위, 스타일, 제공 항목, 유의사항 등을 적어주세요"
+                  rows={4}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                />
+              </div>
+
+              {/* 가격 유형 */}
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>가격 유형</label>
+                <div className="flex gap-2">
+                  {([['OPTION', '가격 고정형'], ['QUOTE', '가격 협의형']] as const).map(([val, label]) => (
+                    <button key={val} type="button"
+                      onClick={() => setServiceForm(f => ({ ...f, serviceType: val }))}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                      style={serviceForm.serviceType === val
+                        ? { background: '#2f81f7', color: '#fff' }
+                        : { background: '#0d1117', border: '1px solid #30363d', color: '#7d8590' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 가격 — 유형별 분기 */}
+              {serviceForm.serviceType === 'OPTION' ? (
+                <div>
+                  <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>기본 가격 (원) *</label>
+                  <input
+                    type="number"
+                    value={serviceForm.basePrice ?? ''}
+                    onChange={e => setServiceForm(f => ({ ...f, basePrice: e.target.value ? Number(e.target.value) : undefined }))}
+                    placeholder="예: 30000"
+                    min={0}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최소 가격 (원)</label>
+                    <input
+                      type="number"
+                      value={serviceForm.priceMin ?? ''}
+                      onChange={e => setServiceForm(f => ({ ...f, priceMin: e.target.value ? Number(e.target.value) : undefined }))}
+                      placeholder="예: 30000"
+                      min={0}
+                      className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                      style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최대 가격 (원)</label>
+                    <input
+                      type="number"
+                      value={serviceForm.priceMax ?? ''}
+                      onChange={e => setServiceForm(f => ({ ...f, priceMax: e.target.value ? Number(e.target.value) : undefined }))}
+                      placeholder="예: 100000"
+                      min={0}
+                      className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                      style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 예상 작업 기간 */}
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>예상 작업 기간 (일)</label>
+                <input
+                  type="number"
+                  value={serviceForm.estimatedDays ?? ''}
+                  onChange={e => setServiceForm(f => ({ ...f, estimatedDays: e.target.value ? Number(e.target.value) : undefined }))}
+                  placeholder="예: 7"
+                  min={1}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                />
+              </div>
+
+              {serviceError && (
+                <p className="text-sm" style={{ color: '#f85149' }}>{serviceError}</p>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowServiceModal(false)}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
+                  style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+                  취소
+                </button>
+                <button type="submit" disabled={serviceSubmitting}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
+                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  {serviceSubmitting ? '등록 중...' : '서비스 등록'}
                 </button>
               </div>
             </form>

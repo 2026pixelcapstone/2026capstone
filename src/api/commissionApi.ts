@@ -40,8 +40,8 @@ export interface RequestPostUpdateRequest {
 }
 
 export const requestPostApi = {
-  // 공개 목록 (비로그인 허용)
-  getOpenList: (params?: { page?: number; size?: number }) =>
+  // 공개 목록 (비로그인 허용) — keyword/sort 선택
+  getOpenList: (params?: { page?: number; size?: number; sort?: string; keyword?: string }) =>
     api.get<{ success: boolean; data: PageResponse<RequestPostSummary> }>('/api/request-posts', { params }),
 
   // 내가 등록한 목록
@@ -112,6 +112,7 @@ export interface ArtistServiceSummary {
   priceMin: number | null
   priceMax: number | null
   estimatedDays: number | null
+  category: string
   status: ArtistServiceStatus
   createdAt: string
 }
@@ -129,6 +130,7 @@ export interface ArtistServiceCreateRequest {
   priceMin?: number
   priceMax?: number
   estimatedDays?: number
+  category?: string
 }
 
 export interface ArtistServiceUpdateRequest {
@@ -139,11 +141,12 @@ export interface ArtistServiceUpdateRequest {
   priceMin?: number
   priceMax?: number
   estimatedDays?: number
+  category?: string
 }
 
 export const artistServiceApi = {
-  // 공개 목록 (비로그인 허용)
-  getOpenList: (params?: { page?: number; size?: number }) =>
+  // 공개 목록 (비로그인 허용) — category/keyword/sort 선택
+  getOpenList: (params?: { page?: number; size?: number; sort?: string; category?: string; keyword?: string }) =>
     api.get<{ success: boolean; data: PageResponse<ArtistServiceSummary> }>('/api/artist-services', { params }),
 
   // 내 서비스 목록
