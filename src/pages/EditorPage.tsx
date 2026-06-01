@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {useSearchParams } from 'react-router-dom'
-import { CanvasData } from '../constants/type'
+import { CanvasData, SaveData } from '../constants/type'
 import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/useCanvasView'
 import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
@@ -236,10 +236,17 @@ export default function EditorPage() {
   }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
 
   // ── ⏳저장 ──────────────────────────────────────────
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (saveData?: SaveData) => {
     if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
     const canvas = canvasRef.current
     if (!canvas) return
+
+    const nextTitle = saveData?.title.trim() || projectTitle.trim();
+    const nextIsPublic = saveData?.isPublic || false;
+
+    if(!nextTitle){
+      toast.error('프로젝트 이름을 입력해주세요')
+    }
 
     // 현재 캔버스 데이터 저장 로직
     const currentFrameData = canvas.toDataURL('image/png')
@@ -264,13 +271,22 @@ export default function EditorPage() {
           title: projectTitle,
           width: canvasW,
           height: canvasH,
+          isPublic: nextIsPublic,
+          thumbnailUrl: currentFrameData,
         })
         pid = res.data.data.projectId
-        setProjectId(pid)
+        setProjectId(pid);
+
+        setSearchParams({ projectId: String(pid) }, { replace: true });
       } else {
         // 제목 업데이트
-        await editorApi.updateProject(pid, { title: projectTitle })
+        await editorApi.updateProject(pid, { 
+          title: projectTitle,
+          isPublic: nextIsPublic,
+          thumbnailUrl: currentFrameData,
+        })
       }
+
       // 레이어(캔버스 전체) 저장
       await editorApi.saveLayers(pid, [{
         layerId: null,
@@ -289,7 +305,7 @@ export default function EditorPage() {
     } finally {
       setSaving(false)
     }
-  }, [isLoggedIn, projectId, projectTitle, canvasW, canvasH, state])
+  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, state, setSearchParams])
 
   const openSaveModal = useCallback(() => {
   if (!isLoggedIn) {
@@ -636,7 +652,6 @@ export default function EditorPage() {
   ]
 
   return (
-    
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
     <div className="fixed inset-0 top-0 flex flex-col" style={{ background: '#0d1117', color: '#e6edf3', zIndex: 60 }}>
       <EditorSaveProjectModal
@@ -729,7 +744,7 @@ export default function EditorPage() {
           </div>
           <div className="w-px h-5 mx-1" style={{ background: '#30363d' }} />
           <button
-            onClick={handleSave}
+            onClick={openSaveModal}
             disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-[#1c2128] disabled:opacity-50"
             style={{ color: saving ? '#2f81f7' : '#7d8590' }}>
