@@ -260,15 +260,21 @@ export default function CommissionPage() {
   useEffect(() => {
     if (tab !== 'mine' || myLoaded) return
     setMyLoading(true)
-    Promise.all([
+    Promise.allSettled([
       commissionApi.getMyListAsClient({ size: 50 }),
       commissionApi.getMyListAsArtist({ size: 50 }),
     ])
       .then(([c, a]) => {
-        setMyCommissions({ client: c.data.data.content, artist: a.data.data.content })
-        setMyLoaded(true)
+        if (c.status === 'rejected' || a.status === 'rejected') {
+          toast.error('내 커미션을 불러오지 못했습니다.')
+        }
+        setMyCommissions({
+          client: c.status === 'fulfilled' ? c.value.data.data.content : [],
+          artist: a.status === 'fulfilled' ? a.value.data.data.content : [],
+        })
+        // 한쪽이라도 성공하면 로드 완료로 처리 (재진입 시 불필요한 재요청 방지)
+        if (c.status === 'fulfilled' || a.status === 'fulfilled') setMyLoaded(true)
       })
-      .catch(() => toast.error('내 커미션을 불러오지 못했습니다.'))
       .finally(() => setMyLoading(false))
   }, [tab, myLoaded])
 

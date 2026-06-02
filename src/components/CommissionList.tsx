@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import type { CommissionSummary } from '../api/commissionApi'
+import type { CommissionSummary, CommissionStatus } from '../api/commissionApi'
 
-const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
+// CommissionStatus 전부를 키로 강제 → 매핑 누락을 컴파일 단계에서 잡음
+const STATUS_LABEL: Record<CommissionStatus, { label: string; color: string; bg: string }> = {
   IN_PROGRESS: { label: '진행 중', color: '#2f81f7', bg: 'rgba(47,129,247,0.1)' },
   REVIEW:      { label: '검토 중', color: '#f0883e', bg: 'rgba(240,136,62,0.1)' },
   COMPLETED:   { label: '완료',    color: '#3fb950', bg: 'rgba(63,185,80,0.1)' },
@@ -57,7 +58,7 @@ export default function CommissionList({ commissions, loading, perspective }: Co
   return (
     <div className="space-y-3">
       {commissions.map(c => {
-        const s = STATUS_LABEL[c.status] ?? STATUS_LABEL.IN_PROGRESS
+        const s = STATUS_LABEL[c.status]
         const otherNickname = perspective === 'client' ? c.artistNickname : c.clientNickname
         return (
           <Link key={c.commissionId} to={`/commission/${c.commissionId}`}
@@ -76,7 +77,7 @@ export default function CommissionList({ commissions, loading, perspective }: Co
                 </div>
                 <div className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
                   <span>₩{(c.agreedPrice ?? 0).toLocaleString()}</span>
-                  {c.agreedDeadline && <span>마감 {c.agreedDeadline}</span>}
+                  {c.agreedDeadline && <span>마감 {new Date(c.agreedDeadline).toLocaleDateString('ko-KR')}</span>}
                   <span>{new Date(c.createdAt).toLocaleDateString('ko-KR')}</span>
                 </div>
               </div>
