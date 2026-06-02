@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
@@ -247,6 +247,7 @@ export default function CommissionPage() {
   const [myCommissions, setMyCommissions] = useState<{ client: CommissionSummary[]; artist: CommissionSummary[] }>({ client: [], artist: [] })
   const [myLoading, setMyLoading] = useState(false)
   const [myLoaded, setMyLoaded] = useState(false)
+  const [myError, setMyError] = useState(false)
 
   // 탭/카테고리/정렬/검색어 변경 시 0페이지부터 서버 재조회 (탐색 탭만)
   useEffect(() => {
@@ -256,27 +257,39 @@ export default function CommissionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, activeCategory, sort, searchKeyword])
 
-  // 내 커미션 탭 — 최초 진입 시 1회 로드
-  useEffect(() => {
-    if (tab !== 'mine' || myLoaded) return
+  // 내 커미션 로드 (재시도 버튼에서도 호출)
+  const loadMyCommissions = useCallback(() => {
     setMyLoading(true)
+    setMyError(false)
     Promise.allSettled([
       commissionApi.getMyListAsClient({ size: 50 }),
       commissionApi.getMyListAsArtist({ size: 50 }),
     ])
       .then(([c, a]) => {
-        if (c.status === 'rejected' || a.status === 'rejected') {
+        const cOk = c.status === 'fulfilled'
+        const aOk = a.status === 'fulfilled'
+        // 둘 다 실패 → 에러 상태 (빈 목록과 구분). 목록/loaded는 건드리지 않아 재시도 가능
+        if (!cOk && !aOk) {
+          setMyError(true)
           toast.error('내 커미션을 불러오지 못했습니다.')
+          return
         }
+        // 부분 실패 → 성공한 쪽만 표시 + 안내
+        if (!cOk || !aOk) toast.error('일부 커미션을 불러오지 못했습니다.')
         setMyCommissions({
-          client: c.status === 'fulfilled' ? c.value.data.data.content : [],
-          artist: a.status === 'fulfilled' ? a.value.data.data.content : [],
+          client: cOk ? c.value.data.data.content : [],
+          artist: aOk ? a.value.data.data.content : [],
         })
-        // 한쪽이라도 성공하면 로드 완료로 처리 (재진입 시 불필요한 재요청 방지)
-        if (c.status === 'fulfilled' || a.status === 'fulfilled') setMyLoaded(true)
+        setMyLoaded(true)
       })
       .finally(() => setMyLoading(false))
-  }, [tab, myLoaded])
+  }, [])
+
+  // 내 커미션 탭 — 진입 시 로드 (아직 성공 로드 전이면)
+  useEffect(() => {
+    if (tab !== 'mine' || myLoaded) return
+    loadMyCommissions()
+  }, [tab, myLoaded, loadMyCommissions])
 
   // 탭 전환 시 필터/정렬/검색 초기화
   const handleTabChange = (next: 'artists' | 'requests' | 'mine') => {
@@ -714,11 +727,23 @@ export default function CommissionPage() {
               ))}
             </div>
 
-            <CommissionList
-              commissions={mySubTab === 'client' ? myCommissions.client : myCommissions.artist}
-              loading={myLoading}
-              perspective={mySubTab}
-            />
+            {myError && !myLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>error</span>
+                <p className="text-sm" style={{ color: '#7d8590' }}>커미션을 불러오지 못했습니다.</p>
+                <button onClick={loadMyCommissions}
+                  className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
+                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              <CommissionList
+                commissions={mySubTab === 'client' ? myCommissions.client : myCommissions.artist}
+                loading={myLoading}
+                perspective={mySubTab}
+              />
+            )}
           </div>
         )}
       </div>
