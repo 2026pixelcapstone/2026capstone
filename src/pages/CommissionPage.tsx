@@ -301,6 +301,12 @@ export default function CommissionPage() {
     setSearchKeyword('')
   }
 
+  // 로그아웃 시 '내 커미션' 탭에 있으면 탐색 탭으로 복귀 (개인 목록 노출/비인증 재요청 방지)
+  useEffect(() => {
+    if (!isLoggedIn && tab === 'mine') handleTabChange('artists')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, tab])
+
   const fetchArtists = async (page: number) => {
     setArtistLoading(true)
     try {
