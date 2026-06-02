@@ -1,22 +1,16 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { GIFEncoder, quantize, applyPalette } from 'gifenc'
-import { useSearchParams } from 'react-router-dom'
-import {Frame} from '../constants/type'
+import {useSearchParams } from 'react-router-dom'
+import { CanvasData, SaveData } from '../constants/type'
 import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/useCanvasView'
+import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import {useAnimation} from '../hooks/useAnimation'
 import { useHistory } from '../hooks/useHistory'
+import { applyPalette, GIFEncoder, quantize } from 'gifenc'
 
-//  ── 인터페이스 ──────────────────────────────────────────────
-interface CanvasData{
-  frames: Frame[];
-  currentFrameIdx: number;
-  width : number;
-  height: number;
-}
 const initialCanvasData: CanvasData = {
   frames: [{id: crypto.randomUUID(), data: null, width: 32, height: 32}],
   currentFrameIdx: 0,
@@ -81,6 +75,8 @@ export default function EditorPage() {
   const [showGridLines, setShowGridLines] = useState(true)
 
   // ── 프로젝트 저장 관련 상태 ──────────────────────────
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
+
   const [projectId, setProjectId]       = useState<number | null>(null)
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
@@ -240,12 +236,21 @@ export default function EditorPage() {
   }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
 
   // ── ⏳저장 ──────────────────────────────────────────
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (saveData?: SaveData) => {
     if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
     const canvas = canvasRef.current
     if (!canvas) return
-    const currentFrameData = canvas.toDataURL('image/png')
 
+    const nextTitle = saveData?.title.trim() || projectTitle.trim();
+    const nextIsPublic = saveData?.isPublic || false;
+
+    if(!nextTitle){
+      toast.error('프로젝트 이름을 입력해주세요');
+      return;
+    }
+
+    // 현재 캔버스 데이터 저장 로직
+    const currentFrameData = canvas.toDataURL('image/png')
     const canvasData: CanvasData = {
       ...state,
       width: canvasW,
@@ -256,23 +261,33 @@ export default function EditorPage() {
           : frame
       ),
     }
-
     setSaving(true)
+    
+    // 새 프로젝트를 생성하여 프로젝트를 저장하는 로직
     try {
       let pid = projectId
       if (!pid) {
         // 새 프로젝트 생성
         const res = await editorApi.createProject({
-          title: projectTitle,
+          title: nextTitle,
           width: canvasW,
           height: canvasH,
+          isPublic: nextIsPublic,
+          thumbnailUrl: currentFrameData,
         })
         pid = res.data.data.projectId
-        setProjectId(pid)
+        setProjectId(pid);
+
+        setSearchParams({ projectId: String(pid) }, { replace: true });
       } else {
         // 제목 업데이트
-        await editorApi.updateProject(pid, { title: projectTitle })
+        await editorApi.updateProject(pid, { 
+          title: nextTitle,
+          isPublic: nextIsPublic,
+          thumbnailUrl: currentFrameData,
+        })
       }
+
       // 레이어(캔버스 전체) 저장
       await editorApi.saveLayers(pid, [{
         layerId: null,
@@ -291,7 +306,16 @@ export default function EditorPage() {
     } finally {
       setSaving(false)
     }
-  }, [isLoggedIn, projectId, projectTitle, canvasW, canvasH, state])
+  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, state, setSearchParams])
+
+  const openSaveModal = useCallback(() => {
+  if (!isLoggedIn) {
+    toast.error('로그인이 필요합니다.')
+    return
+  }
+
+  setIsSaveModalOpen(true)
+}, [isLoggedIn])
 
   // ── Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
   useEffect(() => {
@@ -551,14 +575,15 @@ export default function EditorPage() {
       id: 'file', label: 'File',
       items: [
         { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
-        { label: 'Open Project…',      icon: 'folder_open',   shortcut: 'Ctrl+O' },
+        { label: 'Open Project…',     icon: 'folder_open',   shortcut: 'Ctrl+O' },
         { separator: true },
-        { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { handleSave(); setOpenMenu(null) } },
-        { label: 'Save As…',           icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },
+        { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { openSaveModal(); setOpenMenu(null) } },
+        //{ label: 'Save As…',          icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },
+        { label: 'Browser Save',       icon: 'open_in_browser', shortcut: 'Ctrl + Shift + S'},
         { separator: true },
         { label: 'Export Image',      icon: 'image',         action: () => { handleExportImage(); setOpenMenu(null) } },
-        { label: 'Export Spritesheet', icon: 'grid_on' },
-        { label: 'Download .pixhub',   icon: 'download' },
+        { label: 'Export Spritesheet',      icon: 'grid_on' },
+        { label: 'Download .pixhub',        icon: 'download' },
         { separator: true },
         { label: 'Back to Main',       icon: 'arrow_back', action: () => { window.location.href = '/' } },
       ],
@@ -630,7 +655,13 @@ export default function EditorPage() {
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
     <div className="fixed inset-0 top-0 flex flex-col" style={{ background: '#0d1117', color: '#e6edf3', zIndex: 60 }}>
-
+      <EditorSaveProjectModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        onSave={handleSave}
+        initialTitle={projectTitle}
+      />
+      
       {/* ── TOP BAR (Photoshop 스타일 메뉴 툴바) ─────── */}
       <header className="h-10 flex items-center flex-shrink-0 border-b select-none"
         style={{ background: '#161b22', borderColor: '#30363d' }}>
@@ -714,7 +745,7 @@ export default function EditorPage() {
           </div>
           <div className="w-px h-5 mx-1" style={{ background: '#30363d' }} />
           <button
-            onClick={handleSave}
+            onClick={openSaveModal}
             disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-[#1c2128] disabled:opacity-50"
             style={{ color: saving ? '#2f81f7' : '#7d8590' }}>
@@ -848,7 +879,7 @@ export default function EditorPage() {
           </div>
         </main>
 
-         {/* ── ✅애니메이션 패널 ─────────────────────────────── */}
+         {/* ── 애니메이션 패널 ─────────────────────────────── */}
         <div className="flex flex-col flex-shrink-0 border-l"
           style={{ width: showAnim ? 160 : 36, background: '#161b22', borderColor: '#30363d', transition: 'width 0.2s' }}>
           {/* 토글 버튼 */}
