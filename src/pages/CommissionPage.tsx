@@ -301,9 +301,14 @@ export default function CommissionPage() {
     setSearchKeyword('')
   }
 
-  // 로그아웃 시 '내 커미션' 탭에 있으면 탐색 탭으로 복귀 (개인 목록 노출/비인증 재요청 방지)
+  // 로그아웃 시 개인 커미션 데이터 초기화 + '내 커미션' 탭이면 탐색 탭으로 복귀
+  // (언마운트 없이 다른 사용자가 로그인해도 이전 사용자 데이터가 남지 않도록)
   useEffect(() => {
-    if (!isLoggedIn && tab === 'mine') handleTabChange('artists')
+    if (isLoggedIn) return
+    setMyCommissions({ client: [], artist: [] })
+    setMyLoaded(false)
+    setMyError(false)
+    if (tab === 'mine') handleTabChange('artists')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, tab])
 
