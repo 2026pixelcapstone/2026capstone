@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
   artistServiceApi, type ArtistServiceSummary, type ArtistServiceCreateRequest,
+  commissionApi, type CommissionSummary,
 } from '../api/commissionApi'
 import { galleryApi } from '../api/galleryApi'
+import CommissionList from '../components/CommissionList'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 
@@ -209,7 +211,7 @@ function formatBudget(min?: number | null, max?: number | null) {
 
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
-  const [tab, setTab] = useState<'artists' | 'requests'>('artists')
+  const [tab, setTab] = useState<'artists' | 'requests' | 'mine'>('artists')
   const [activeCategory, setActiveCategory] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
 
@@ -240,15 +242,57 @@ export default function CommissionPage() {
   const [serviceSubmitting, setServiceSubmitting] = useState(false)
   const [serviceError, setServiceError] = useState('')
 
-  // 탭/카테고리/정렬/검색어 변경 시 0페이지부터 서버 재조회
+  // 내 커미션 탭 (로그인 시)
+  const [mySubTab, setMySubTab] = useState<'client' | 'artist'>('client')
+  const [myCommissions, setMyCommissions] = useState<{ client: CommissionSummary[]; artist: CommissionSummary[] }>({ client: [], artist: [] })
+  const [myLoading, setMyLoading] = useState(false)
+  const [myLoaded, setMyLoaded] = useState(false)
+  const [myError, setMyError] = useState(false)
+
+  // 탭/카테고리/정렬/검색어 변경 시 0페이지부터 서버 재조회 (탐색 탭만)
   useEffect(() => {
     if (tab === 'artists') fetchArtists(0)
-    else fetchRequests(0)
+    else if (tab === 'requests') fetchRequests(0)
+    // 'mine' 탭은 아래 별도 effect에서 처리
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, activeCategory, sort, searchKeyword])
 
+  // 내 커미션 로드 (재시도 버튼에서도 호출)
+  const loadMyCommissions = useCallback(() => {
+    setMyLoading(true)
+    setMyError(false)
+    Promise.allSettled([
+      commissionApi.getMyListAsClient({ size: 50 }),
+      commissionApi.getMyListAsArtist({ size: 50 }),
+    ])
+      .then(([c, a]) => {
+        const cOk = c.status === 'fulfilled'
+        const aOk = a.status === 'fulfilled'
+        // 둘 다 실패 → 에러 상태 (빈 목록과 구분). 목록/loaded는 건드리지 않아 재시도 가능
+        if (!cOk && !aOk) {
+          setMyError(true)
+          toast.error('내 커미션을 불러오지 못했습니다.')
+          return
+        }
+        // 부분 실패 → 성공한 쪽만 표시 + 안내
+        if (!cOk || !aOk) toast.error('일부 커미션을 불러오지 못했습니다.')
+        setMyCommissions({
+          client: cOk ? c.value.data.data.content : [],
+          artist: aOk ? a.value.data.data.content : [],
+        })
+        setMyLoaded(true)
+      })
+      .finally(() => setMyLoading(false))
+  }, [])
+
+  // 내 커미션 탭 — 진입 시 로드 (아직 성공 로드 전이면)
+  useEffect(() => {
+    if (tab !== 'mine' || myLoaded) return
+    loadMyCommissions()
+  }, [tab, myLoaded, loadMyCommissions])
+
   // 탭 전환 시 필터/정렬/검색 초기화
-  const handleTabChange = (next: 'artists' | 'requests') => {
+  const handleTabChange = (next: 'artists' | 'requests' | 'mine') => {
     if (next === tab) return
     setTab(next)
     setActiveCategory('전체')
@@ -256,6 +300,17 @@ export default function CommissionPage() {
     setSearchInput('')
     setSearchKeyword('')
   }
+
+  // 로그아웃 시 개인 커미션 데이터 초기화 + '내 커미션' 탭이면 탐색 탭으로 복귀
+  // (언마운트 없이 다른 사용자가 로그인해도 이전 사용자 데이터가 남지 않도록)
+  useEffect(() => {
+    if (isLoggedIn) return
+    setMyCommissions({ client: [], artist: [] })
+    setMyLoaded(false)
+    setMyError(false)
+    if (tab === 'mine') handleTabChange('artists')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, tab])
 
   const fetchArtists = async (page: number) => {
     setArtistLoading(true)
@@ -400,7 +455,8 @@ export default function CommissionPage() {
           </div>
           {/* 탭 */}
           <div className="flex gap-1 rounded-xl p-1 w-fit mt-8" style={{ background: '#1c2128' }}>
-            {[['artists', '작가 찾기'], ['requests', '의뢰 찾기']].map(([key, label]) => (
+            {([['artists', '작가 찾기'], ['requests', '의뢰 찾기'],
+               ...(isLoggedIn ? [['mine', '내 커미션']] : [])] as [string, string][]).map(([key, label]) => (
               <button key={key} onClick={() => handleTabChange(key as typeof tab)}
                 className="px-8 py-2.5 rounded-lg font-bold text-sm transition-colors"
                 style={tab === key
@@ -415,7 +471,8 @@ export default function CommissionPage() {
 
       <div className="max-w-[1440px] mx-auto px-8 py-8 pb-16">
 
-        {/* 필터 바 + 검색창 */}
+        {/* 필터 바 + 검색창 — 탐색 탭에서만 (내 커미션 탭은 개인 목록이라 숨김) */}
+        {tab !== 'mine' && (
         <div className="flex items-center gap-3 mb-8 flex-wrap">
           {searchKeyword ? (
             <p className="text-sm" style={{ color: '#7d8590' }}>
@@ -476,6 +533,7 @@ export default function CommissionPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* 작가 찾기 탭 */}
         {tab === 'artists' && (
@@ -657,6 +715,47 @@ export default function CommissionPage() {
               </>
             )}
           </>
+        )}
+
+        {/* 내 커미션 탭 */}
+        {tab === 'mine' && (
+          <div>
+            {/* 의뢰자/작가 서브탭 */}
+            <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: '#1c2128' }}>
+              {(['client', 'artist'] as const).map(sub => (
+                <button key={sub} onClick={() => setMySubTab(sub)}
+                  className="px-5 py-2 rounded-lg text-sm font-bold transition-colors"
+                  style={{
+                    background: mySubTab === sub ? '#292f38' : 'transparent',
+                    color: mySubTab === sub ? '#2f81f7' : '#7d8590',
+                  }}>
+                  {sub === 'client' ? '의뢰한 커미션' : '받은 커미션'}
+                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs"
+                    style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    {sub === 'client' ? myCommissions.client.length : myCommissions.artist.length}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {myError && !myLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>error</span>
+                <p className="text-sm" style={{ color: '#7d8590' }}>커미션을 불러오지 못했습니다.</p>
+                <button onClick={loadMyCommissions}
+                  className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
+                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              <CommissionList
+                commissions={mySubTab === 'client' ? myCommissions.client : myCommissions.artist}
+                loading={myLoading}
+                perspective={mySubTab}
+              />
+            )}
+          </div>
         )}
       </div>
 
