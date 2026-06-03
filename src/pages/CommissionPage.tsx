@@ -41,48 +41,12 @@ function getAvatarGradient(id: number) {
   return AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length]
 }
 
-// 작가 카드 — 포트폴리오 lazy fetch 포함
-// NOTE: 카드별 개별 API 호출(N+1)은 현재 MVP 구조상 허용.
-//       추후 백엔드에서 포트폴리오 포함 응답 또는 배치 API로 개선 예정.
-function ArtistCard({ service }: { service: ArtistServiceSummary }) {
-  const [portfolio, setPortfolio] = useState<string[]>([])
-  const [totalPortfolio, setTotalPortfolio] = useState(0)
-  const [portfolioLoaded, setPortfolioLoaded] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    // 인기순 2개 + 최신순 2개 병렬 fetch → 중복 제거 → 최대 3개 표시
-    Promise.allSettled([
-      galleryApi.getList({ authorId: service.artistId, size: 2, sort: 'likeCount,desc' }),
-      galleryApi.getList({ authorId: service.artistId, size: 2, sort: 'createdAt,desc' }),
-    ]).then(([popular, recent]) => {
-      if (cancelled) return
-      // 개별 실패 로깅 (allSettled는 전체 reject 안 함)
-      if (popular.status === 'rejected') console.error('[ArtistCard] 인기순 로드 실패:', popular.reason)
-      if (recent.status  === 'rejected') console.error('[ArtistCard] 최신순 로드 실패:', recent.reason)
-
-      const popularItems = popular.status === 'fulfilled' ? popular.value.data.data.content : []
-      const recentItems  = recent.status  === 'fulfilled' ? recent.value.data.data.content  : []
-      const total = popular.status === 'fulfilled'
-        ? popular.value.data.data.totalElements
-        : recent.status === 'fulfilled' ? recent.value.data.data.totalElements : 0
-
-      // 중복 제거: 인기 먼저, 최신 추가
-      const seen = new Set<number>()
-      const merged = [...popularItems, ...recentItems].filter(p => {
-        if (seen.has(p.postId)) return false
-        seen.add(p.postId)
-        return true
-      })
-
-      // filter 후 slice — thumbnailUrl 없는 항목 제거 후 최대 3개
-      const urls = merged.map(p => p.thumbnailUrl).filter((u): u is string => !!u).slice(0, 3)
-      setPortfolio(urls)
-      setTotalPortfolio(total)
-    }).finally(() => { if (!cancelled) setPortfolioLoaded(true) })
-    return () => { cancelled = true }
-  }, [service.artistId])
-
+// 작가 카드 — 표시 전용. 포트폴리오 썸네일은 부모가 배치 조회해 props로 전달 (카드별 N+1 제거)
+function ArtistCard({ service, portfolio, portfolioLoaded }: {
+  service: ArtistServiceSummary
+  portfolio: string[]
+  portfolioLoaded: boolean
+}) {
   const isOpen = service.status === 'OPEN'
   const gradient = getAvatarGradient(service.serviceId)
 
@@ -116,14 +80,6 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
             {isOpen ? '모집 중' : '마감'}
           </span>
         </div>
-        {/* 포트폴리오 카운트 — totalElements 기준으로 실제 총 개수 표시 */}
-        {portfolioLoaded && totalPortfolio > 0 && (
-          <div className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold"
-            style={{ background: 'rgba(0,0,0,0.6)', color: '#e6edf3' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>photo_library</span>
-            포트폴리오 {totalPortfolio}
-          </div>
-        )}
         {/* 아바타 */}
         <div className="absolute bottom-0 left-5 translate-y-1/2 z-10">
           {service.artistProfileImageUrl ? (
@@ -225,6 +181,9 @@ export default function CommissionPage() {
   const [artistLoading, setArtistLoading] = useState(false)
   const [artistPage, setArtistPage] = useState(0)
   const [artistHasMore, setArtistHasMore] = useState(true)
+  // 작가별 포트폴리오 썸네일 (배치 조회 결과) + 로드 완료 여부
+  const [portfolioMap, setPortfolioMap] = useState<Record<number, string[]>>({})
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false)
 
   // 의뢰 찾기 상태
   const [requests, setRequests] = useState<RequestPostSummary[]>([])
@@ -331,6 +290,30 @@ export default function CommissionPage() {
       setArtists(page === 0 ? d.content : prev => [...prev, ...d.content] as ArtistServiceSummary[])
       setArtistPage(page)
       setArtistHasMore(!d.last)
+
+      // 이 페이지 작가들의 포트폴리오를 한 번에 배치 조회 (카드별 N+1 제거)
+      const authorIds = [...new Set(d.content.map(s => s.artistId))]
+      if (authorIds.length > 0) {
+        try {
+          const pRes = await galleryApi.getPortfolios(authorIds, 3)
+          const map = pRes.data.data
+          setPortfolioMap(prev => {
+            const next = page === 0 ? {} : { ...prev }
+            for (const [id, posts] of Object.entries(map)) {
+              next[Number(id)] = posts
+                .map(p => p.thumbnailUrl)
+                .filter((u): u is string => !!u)
+                .slice(0, 3)
+            }
+            return next
+          })
+        } catch (e) {
+          console.error('[CommissionPage] 포트폴리오 배치 로드 실패:', e)
+        }
+      } else if (page === 0) {
+        setPortfolioMap({})
+      }
+      setPortfolioLoaded(true)
     } catch {
       toast.error('작가 서비스 목록을 불러오지 못했습니다.')
     } finally {
@@ -592,7 +575,9 @@ export default function CommissionPage() {
             <>
               <div className="grid grid-cols-3 gap-6">
                 {filteredArtists.map(service => (
-                  <ArtistCard key={service.serviceId} service={service} />
+                  <ArtistCard key={service.serviceId} service={service}
+                    portfolio={portfolioMap[service.artistId] ?? []}
+                    portfolioLoaded={portfolioLoaded} />
                 ))}
               </div>
 
