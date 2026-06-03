@@ -189,6 +189,9 @@ export interface ApplicationResponse {
   proposedPrice: number | null
   status: ApplicationStatus
   createdAt: string
+  // 수락 시 생성된 커미션 (ACCEPTED 지원에만 존재) — 거래룸 바로가기/취소 상태 표시용
+  commissionId: number | null
+  commissionStatus: CommissionStatus | null
 }
 
 export interface ApplicationCreateRequest {
@@ -210,9 +213,9 @@ export const applicationApi = {
   getByPost: (requestPostId: number, params?: { page?: number; size?: number }) =>
     api.get<{ success: boolean; data: PageResponse<ApplicationResponse> }>(`/api/applications/by-post/${requestPostId}`, { params }),
 
-  // 지원 수락 (의뢰자) → Commission 자동 생성
+  // 지원 수락 (의뢰자) → Commission 자동 생성, 생성된 커미션 ID 반환
   accept: (applicationId: number) =>
-    api.post<{ success: boolean }>(`/api/applications/${applicationId}/accept`),
+    api.post<{ success: boolean; data: number }>(`/api/applications/${applicationId}/accept`),
 
   // 지원 취소 (작가, PENDING만)
   cancel: (applicationId: number) =>

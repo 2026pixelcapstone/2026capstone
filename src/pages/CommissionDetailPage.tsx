@@ -169,6 +169,39 @@ export default function CommissionDetailPage() {
           <span style={{ color: '#e6edf3' }}>계약 #{commission.commissionId}</span>
         </div>
 
+        {/* 진행 스텝퍼 */}
+        {commission.status === 'CANCELLED' ? (
+          <div className="mb-8 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold"
+            style={{ background: 'rgba(248,81,73,0.1)', color: '#f85149' }}>
+            <span className="material-symbols-outlined text-base">cancel</span>
+            취소된 계약입니다
+          </div>
+        ) : (
+          <div className="mb-8 flex items-center">
+            {(['IN_PROGRESS', 'REVIEW', 'COMPLETED'] as const).map((key, i, arr) => {
+              const cur = arr.indexOf(commission.status as typeof arr[number])
+              const label = key === 'IN_PROGRESS' ? '작업 중' : key === 'REVIEW' ? '검토' : '완료'
+              const done = cur >= 0 && i <= cur
+              return (
+                <div key={key} className="flex items-center flex-1 last:flex-none">
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                      style={done
+                        ? { background: '#2f81f7', color: '#fff' }
+                        : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                      {done ? '✓' : i + 1}
+                    </div>
+                    <span className="text-xs font-bold" style={{ color: done ? '#e6edf3' : '#7d8590' }}>{label}</span>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div className="flex-1 h-0.5 mx-2" style={{ background: cur > i ? '#2f81f7' : '#30363d' }} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-8 items-start">
 
           {/* ===== 좌측 메인 ===== */}
@@ -222,44 +255,20 @@ export default function CommissionDetailPage() {
               ))}
             </div>
 
-            {/* 납품 파일 — 진행 중(작업/검토)에는 의뢰자도 안내를 볼 수 있게 카드 유지 */}
-            {(commission.fileUrl || commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW') && (
-              <div className="rounded-2xl border p-5" style={{ background: '#161b22', borderColor: '#30363d' }}>
-                <h2 className="font-bold mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>folder_zip</span>
-                  납품 파일
-                </h2>
-
-                {commission.fileUrl ? (
-                  <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm font-bold hover:underline mb-3"
-                    style={{ color: '#2f81f7' }}>
-                    <span className="material-symbols-outlined text-base">download</span>
-                    파일 다운로드
-                  </a>
-                ) : (
-                  <p className="text-sm mb-3" style={{ color: '#7d8590' }}>
-                    {canUploadFile ? '아직 업로드된 납품 파일이 없습니다.' : '작가가 작업물을 전달하면 여기에 표시됩니다.'}
-                  </p>
-                )}
-
-                {/* 작가 전용 업로드 */}
-                {canUploadFile && (
-                  <>
-                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
-                      style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
-                      <span className="material-symbols-outlined text-base">upload_file</span>
-                      {uploading ? '업로드 중...' : commission.fileUrl ? '파일 교체' : '납품 파일 업로드'}
-                    </button>
-                  </>
-                )}
+            {/* 채팅 (준비 중 — Phase 3에서 실시간 채팅 연동) */}
+            <div className="rounded-2xl border flex flex-col" style={{ background: '#161b22', borderColor: '#30363d', minHeight: 360 }}>
+              <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: '#30363d' }}>
+                <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>chat</span>
+                <span className="font-bold text-sm">채팅</span>
               </div>
-            )}
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 px-5 text-center">
+                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>forum</span>
+                <p className="text-sm font-bold" style={{ color: '#7d8590' }}>실시간 채팅 준비 중</p>
+                <p className="text-xs" style={{ color: '#484f58' }}>
+                  작가와 의뢰자가 이 계약에 대해 대화할 수 있는 공간입니다. 곧 제공될 예정입니다.
+                </p>
+              </div>
+            </div>
 
             {/* 완료일 */}
             {commission.completedAt && (
@@ -311,6 +320,39 @@ export default function CommissionDetailPage() {
                   {new Date(commission.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
                 </span>
               </div>
+
+              {/* 납품 파일 (진행 중에는 안내 카드 유지, 작가만 업로드) */}
+              {(commission.fileUrl || commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW') && (
+                <>
+                  <div className="h-px" style={{ background: '#30363d' }} />
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#7d8590' }}>납품 파일</div>
+                    {commission.fileUrl ? (
+                      <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm font-bold hover:underline mb-2"
+                        style={{ color: '#2f81f7' }}>
+                        <span className="material-symbols-outlined text-base">download</span>
+                        파일 다운로드
+                      </a>
+                    ) : (
+                      <p className="text-xs mb-2" style={{ color: '#7d8590' }}>
+                        {canUploadFile ? '아직 업로드된 파일이 없습니다.' : '작가가 작업물을 전달하면 표시됩니다.'}
+                      </p>
+                    )}
+                    {canUploadFile && (
+                      <>
+                        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
+                          style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                          <span className="material-symbols-outlined text-base">upload_file</span>
+                          {uploading ? '업로드 중...' : commission.fileUrl ? '파일 교체' : '납품 파일 업로드'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="h-px" style={{ background: '#30363d' }} />
 

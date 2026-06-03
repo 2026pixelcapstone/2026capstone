@@ -29,6 +29,11 @@ export default function RequestPostDetailPage() {
   const [applying, setApplying] = useState(false)
   const [applied, setApplied] = useState(false)
 
+  // 의뢰자용 지원자 목록
+  const [applications, setApplications] = useState<ApplicationResponse[]>([])
+  const [appsLoading, setAppsLoading] = useState(false)
+  const [accepting, setAccepting] = useState<number | null>(null)
+
   useEffect(() => {
     if (!id) return
     const postId = Number(id)
@@ -58,9 +63,19 @@ export default function RequestPostDetailPage() {
       .catch(() => { /* 조회 실패 시 버튼 기본 표시 */ })
   }, [id, isLoggedIn])
 
+  // 의뢰자 본인이면 지원자 목록 조회
+  useEffect(() => {
+    if (!post || me?.userId !== post.clientId) return
+    setAppsLoading(true)
+    applicationApi.getByPost(post.requestPostId, { size: 50 })
+      .then(res => setApplications(res.data.data.content))
+      .catch(() => toast.error('지원자 목록을 불러오지 못했습니다.'))
+      .finally(() => setAppsLoading(false))
+  }, [post, me?.userId])
+
   const handleClose = async () => {
     if (!post) return
-    if (!confirm('의뢰를 마감하시겠습니까?')) return
+    if (!confirm('의뢰를 마감하시겠습니까?\n남은 대기 중 지원자는 거절되며, 이미 수락한 계약은 그대로 진행됩니다.')) return
     setActionLoading(true)
     try {
       await requestPostApi.close(post.requestPostId)
@@ -89,6 +104,24 @@ export default function RequestPostDetailPage() {
       toast.error(getErrorMessage(err, '지원에 실패했습니다.'))
     } finally {
       setApplying(false)
+    }
+  }
+
+  // 의뢰자: 지원 수락 → 계약 생성 (복수 수락 가능, 의뢰글은 직접 마감 전까지 유지)
+  const handleAccept = async (applicationId: number) => {
+    if (!post) return
+    if (!confirm('이 작가의 지원을 수락하시겠습니까?\n수락하면 이 작가와 계약이 생성됩니다. 여러 작가를 수락할 수 있고, 모집을 끝내려면 "의뢰 마감"을 눌러주세요.')) return
+    setAccepting(applicationId)
+    try {
+      await applicationApi.accept(applicationId)
+      // 수락 상태 + 생성된 커미션(commissionId) 반영을 위해 목록 갱신
+      const listRes = await applicationApi.getByPost(post.requestPostId, { size: 50 })
+      setApplications(listRes.data.data.content)
+      toast.success('지원을 수락했습니다. 계약이 생성되었습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '수락에 실패했습니다.'))
+    } finally {
+      setAccepting(null)
     }
   }
 
@@ -190,7 +223,7 @@ export default function RequestPostDetailPage() {
               ) : (
                 <div className="w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
-                  {(post.clientNickname ?? '?')[0].toUpperCase()}
+                  {(post.clientNickname?.trim()?.[0] ?? '?').toUpperCase()}
                 </div>
               )}
               <div>
@@ -213,6 +246,94 @@ export default function RequestPostDetailPage() {
                 </b></span>
               )}
             </div>
+
+            {/* ===== 지원자 목록 (의뢰자 본인만) ===== */}
+            {isOwner && (
+              <div>
+                <h2 className="font-bold text-lg mb-3">지원자 {applications.length > 0 && `(${applications.length})`}</h2>
+                {appsLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="h-24 rounded-2xl animate-pulse" style={{ background: '#21262d' }} />
+                    ))}
+                  </div>
+                ) : applications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-2 rounded-2xl border"
+                    style={{ background: '#161b22', borderColor: '#30363d' }}>
+                    <span className="material-symbols-outlined text-3xl" style={{ color: '#30363d' }}>group</span>
+                    <p className="text-sm" style={{ color: '#7d8590' }}>아직 지원자가 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {applications.map(app => {
+                      // 지원 상태 배지 — ACCEPTED는 연결된 커미션 상태를 우선 반영
+                      const st = (() => {
+                        if (app.status === 'PENDING')  return { label: '대기 중', color: '#f0883e', bg: 'rgba(240,136,62,0.1)' }
+                        if (app.status === 'REJECTED') return { label: '거절됨',  color: '#7d8590', bg: 'rgba(125,133,144,0.1)' }
+                        switch (app.commissionStatus) {
+                          case 'CANCELLED': return { label: '계약 취소됨', color: '#f85149', bg: 'rgba(248,81,73,0.1)' }
+                          case 'COMPLETED': return { label: '거래 완료',   color: '#2f81f7', bg: 'rgba(47,129,247,0.1)' }
+                          case 'REVIEW':    return { label: '검토 중',     color: '#a371f7', bg: 'rgba(163,113,247,0.1)' }
+                          default:          return { label: '수락됨',      color: '#3fb950', bg: 'rgba(63,185,80,0.1)' }
+                        }
+                      })()
+                      const isCancelled = app.status === 'ACCEPTED' && app.commissionStatus === 'CANCELLED'
+                      return (
+                        <div key={app.applicationId} className="rounded-2xl border p-4"
+                          style={{ background: '#161b22', borderColor: '#30363d' }}>
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {app.artistProfileImageUrl ? (
+                                <img src={app.artistProfileImageUrl} alt={app.artistNickname ?? ''}
+                                  className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0"
+                                  style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
+                                  {(app.artistNickname?.trim()?.[0] ?? '?').toUpperCase()}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <Link to={`/profile/${app.artistNickname}`}
+                                  className="font-bold text-sm hover:text-[#2f81f7] transition-colors">
+                                  @{app.artistNickname ?? '알 수 없음'}
+                                </Link>
+                                <div className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                                  {app.proposedPrice != null ? `제안가 ₩${app.proposedPrice.toLocaleString()}` : '제안가 미입력'}
+                                  {' · '}{new Date(app.createdAt).toLocaleDateString('ko-KR')}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
+                              style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                          </div>
+
+                          {app.message && (
+                            <p className="text-sm whitespace-pre-wrap mb-3" style={{ color: '#c9d1d9' }}>{app.message}</p>
+                          )}
+
+                          {isOpen && app.status === 'PENDING' && (
+                            <button onClick={() => handleAccept(app.applicationId)}
+                              disabled={accepting !== null}
+                              className="w-full py-2.5 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
+                              style={{ background: '#2f81f7', color: '#fff' }}>
+                              {accepting === app.applicationId ? '수락 처리 중...' : '이 작가 수락하기'}
+                            </button>
+                          )}
+                          {app.status === 'ACCEPTED' && app.commissionId && (
+                            <Link to={`/commission/${app.commissionId}`}
+                              className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl font-bold text-sm transition-colors hover:bg-[#1c2128]"
+                              style={{ border: '1px solid #30363d', color: isCancelled ? '#7d8590' : '#2f81f7' }}>
+                              <span className="material-symbols-outlined text-base">forum</span>
+                              {isCancelled ? '취소된 거래 보기' : '거래룸 보기'}
+                            </Link>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
 

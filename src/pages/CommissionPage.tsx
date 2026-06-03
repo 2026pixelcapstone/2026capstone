@@ -7,6 +7,7 @@ import {
 } from '../api/commissionApi'
 import { galleryApi } from '../api/galleryApi'
 import CommissionList from '../components/CommissionList'
+import DateField from '../components/DateField'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 
@@ -245,6 +246,8 @@ export default function CommissionPage() {
   // 내 커미션 탭 (로그인 시)
   const [mySubTab, setMySubTab] = useState<'client' | 'artist'>('client')
   const [myCommissions, setMyCommissions] = useState<{ client: CommissionSummary[]; artist: CommissionSummary[] }>({ client: [], artist: [] })
+  // 내가 올린 의뢰글 (수락 전이라 아직 계약이 없는 것 포함) — 의뢰한 커미션 탭 상단에 표시
+  const [myRequestPosts, setMyRequestPosts] = useState<RequestPostSummary[]>([])
   const [myLoading, setMyLoading] = useState(false)
   const [myLoaded, setMyLoaded] = useState(false)
   const [myError, setMyError] = useState(false)
@@ -264,22 +267,25 @@ export default function CommissionPage() {
     Promise.allSettled([
       commissionApi.getMyListAsClient({ size: 50 }),
       commissionApi.getMyListAsArtist({ size: 50 }),
+      requestPostApi.getMyList({ size: 50 }),
     ])
-      .then(([c, a]) => {
+      .then(([c, a, r]) => {
         const cOk = c.status === 'fulfilled'
         const aOk = a.status === 'fulfilled'
-        // 둘 다 실패 → 에러 상태 (빈 목록과 구분). 목록/loaded는 건드리지 않아 재시도 가능
+        const rOk = r.status === 'fulfilled'
+        // 계약 양쪽 모두 실패 → 에러 상태 (빈 목록과 구분). 목록/loaded는 건드리지 않아 재시도 가능
         if (!cOk && !aOk) {
           setMyError(true)
           toast.error('내 커미션을 불러오지 못했습니다.')
           return
         }
         // 부분 실패 → 성공한 쪽만 표시 + 안내
-        if (!cOk || !aOk) toast.error('일부 커미션을 불러오지 못했습니다.')
+        if (!cOk || !aOk || !rOk) toast.error('일부 항목을 불러오지 못했습니다.')
         setMyCommissions({
           client: cOk ? c.value.data.data.content : [],
           artist: aOk ? a.value.data.data.content : [],
         })
+        setMyRequestPosts(rOk ? r.value.data.data.content : [])
         setMyLoaded(true)
       })
       .finally(() => setMyLoading(false))
@@ -306,6 +312,7 @@ export default function CommissionPage() {
   useEffect(() => {
     if (isLoggedIn) return
     setMyCommissions({ client: [], artist: [] })
+    setMyRequestPosts([])
     setMyLoaded(false)
     setMyError(false)
     if (tab === 'mine') handleTabChange('artists')
@@ -749,11 +756,57 @@ export default function CommissionPage() {
                 </button>
               </div>
             ) : (
-              <CommissionList
-                commissions={mySubTab === 'client' ? myCommissions.client : myCommissions.artist}
-                loading={myLoading}
-                perspective={mySubTab}
-              />
+              <>
+                {/* 의뢰한 커미션 탭: 내가 올린 의뢰글 (수락 전 포함) 먼저 노출 */}
+                {mySubTab === 'client' && (
+                  <div className="mb-8">
+                    <h3 className="font-bold text-sm mb-3">
+                      내 의뢰글
+                      {myRequestPosts.length > 0 && (
+                        <span className="ml-1.5" style={{ color: '#7d8590' }}>({myRequestPosts.length})</span>
+                      )}
+                    </h3>
+                    {myRequestPosts.length === 0 ? (
+                      <p className="text-sm py-6 text-center rounded-xl border"
+                        style={{ borderColor: '#30363d', borderStyle: 'dashed', color: '#7d8590' }}>
+                        아직 올린 의뢰글이 없습니다.
+                      </p>
+                    ) : (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {myRequestPosts.map(rp => {
+                          const open = rp.status === 'OPEN'
+                          return (
+                            <Link key={rp.requestPostId} to={`/request-posts/${rp.requestPostId}`}
+                              className="rounded-xl border p-4 flex items-center justify-between gap-3 transition-colors hover:border-[#58a6ff]"
+                              style={{ background: '#161b22', borderColor: '#30363d' }}>
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm truncate" style={{ color: '#e6edf3' }}>{rp.title}</p>
+                                <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                                  {formatBudget(rp.budgetMin, rp.budgetMax)}
+                                  {rp.deadline && ` · ~${new Date(rp.deadline).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}`}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border"
+                                style={open
+                                  ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
+                                  : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
+                                {open ? '모집 중' : '마감'}
+                              </span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <div className="h-px mt-8" style={{ background: '#30363d' }} />
+                    <h3 className="font-bold text-sm mt-8 mb-3">성사된 계약</h3>
+                  </div>
+                )}
+                <CommissionList
+                  commissions={mySubTab === 'client' ? myCommissions.client : myCommissions.artist}
+                  loading={myLoading}
+                  perspective={mySubTab}
+                />
+              </>
             )}
           </div>
         )}
@@ -831,13 +884,10 @@ export default function CommissionPage() {
 
               <div>
                 <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>마감일</label>
-                <input
-                  type="date"
-                  value={form.deadline}
-                  onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
-                  min={new Date().toISOString().slice(0, 10)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                <DateField
+                  value={form.deadline ?? ''}
+                  onChange={v => setForm(f => ({ ...f, deadline: v }))}
+                  placeholder="마감일 선택 (선택사항)"
                 />
               </div>
 
