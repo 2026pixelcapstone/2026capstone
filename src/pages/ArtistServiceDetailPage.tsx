@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { artistServiceApi, commissionApi, type ArtistServiceResponse } from '../api/commissionApi'
+import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
@@ -40,6 +41,10 @@ export default function ArtistServiceDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
+  // 작가 포트폴리오 (작가의 최신 작품)
+  const [portfolio, setPortfolio] = useState<GalleryPostSummary[]>([])
+  const [portfolioLoading, setPortfolioLoading] = useState(false)
+
   // 의뢰하기 모달
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [orderPrice, setOrderPrice] = useState('')
@@ -70,6 +75,18 @@ export default function ArtistServiceDetailPage() {
       })
       .finally(() => setLoading(false))
   }, [id])
+
+  // 서비스 로드 후 작가 포트폴리오(최신 작품 6개) 단일 조회
+  useEffect(() => {
+    if (!service) return
+    let cancelled = false
+    setPortfolioLoading(true)
+    galleryApi.getList({ authorId: service.artistId, size: 6, sort: 'createdAt,desc' })
+      .then(res => { if (!cancelled) setPortfolio(res.data.data.content) })
+      .catch(() => { if (!cancelled) setPortfolio([]) })
+      .finally(() => { if (!cancelled) setPortfolioLoading(false) })
+    return () => { cancelled = true }
+  }, [service?.artistId])
 
   const handleClose = async () => {
     if (!service) return
@@ -237,6 +254,44 @@ export default function ArtistServiceDetailPage() {
               등록일: <b style={{ color: '#e6edf3' }}>
                 {new Date(service.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
               </b>
+            </div>
+
+            {/* 작가 포트폴리오 */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-bold text-lg">작가 포트폴리오</h2>
+                <Link to={`/profile/${service.artistNickname}`}
+                  className="text-sm font-bold hover:underline" style={{ color: '#2f81f7' }}>
+                  프로필에서 더 보기
+                </Link>
+              </div>
+              {portfolioLoading ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: '#21262d' }} />
+                  ))}
+                </div>
+              ) : portfolio.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl border"
+                  style={{ background: '#161b22', borderColor: '#30363d' }}>
+                  <span className="material-symbols-outlined text-3xl" style={{ color: '#30363d' }}>palette</span>
+                  <p className="text-sm" style={{ color: '#7d8590' }}>아직 등록된 작품이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {portfolio.map(w => (
+                    <Link key={w.postId} to={`/gallery/${w.postId}`}
+                      className="group aspect-square rounded-xl overflow-hidden relative" style={{ background: '#21262d' }}>
+                      {w.thumbnailUrl
+                        ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
+                        : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                        <p className="text-xs font-bold text-white text-center line-clamp-2">{w.title}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
