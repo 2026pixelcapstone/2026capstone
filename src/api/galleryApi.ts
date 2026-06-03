@@ -94,9 +94,11 @@ export const galleryApi = {
     api.get<{ success: boolean; data: PageResponse<GalleryPostSummary> }>('/api/gallery', { params }),
 
   // 여러 작가 포트폴리오 배치 조회 (authorId → 대표작 목록). 카드 목록 N+1 방지용.
-  // Spring List<Long> 바인딩 위해 콤마 조인 문자열로 전송
+  // Spring List<Long> 바인딩 위해 콤마 조인 문자열로 전송.
+  // JSON 객체 키는 항상 문자열이라 Record<string, ...> (호출부에서 Number(id)로 변환).
+  // 빈 배열 방어는 호출부(length>0 가드)에 맡김.
   getPortfolios: (authorIds: number[], perAuthor = 3) =>
-    api.get<{ success: boolean; data: Record<number, GalleryPostSummary[]> }>(
+    api.get<{ success: boolean; data: Record<string, GalleryPostSummary[]> }>(
       '/api/gallery/portfolios',
       { params: { authorIds: authorIds.join(','), perAuthor } },
     ),

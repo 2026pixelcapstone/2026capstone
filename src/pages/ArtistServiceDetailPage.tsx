@@ -79,11 +79,13 @@ export default function ArtistServiceDetailPage() {
   // 서비스 로드 후 작가 포트폴리오(최신 작품 6개) 단일 조회
   useEffect(() => {
     if (!service) return
+    let cancelled = false
     setPortfolioLoading(true)
     galleryApi.getList({ authorId: service.artistId, size: 6, sort: 'createdAt,desc' })
-      .then(res => setPortfolio(res.data.data.content))
-      .catch(() => setPortfolio([]))
-      .finally(() => setPortfolioLoading(false))
+      .then(res => { if (!cancelled) setPortfolio(res.data.data.content) })
+      .catch(() => { if (!cancelled) setPortfolio([]) })
+      .finally(() => { if (!cancelled) setPortfolioLoading(false) })
+    return () => { cancelled = true }
   }, [service?.artistId])
 
   const handleClose = async () => {
@@ -265,7 +267,7 @@ export default function ArtistServiceDetailPage() {
               </div>
               {portfolioLoading ? (
                 <div className="grid grid-cols-3 gap-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
+                  {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: '#21262d' }} />
                   ))}
                 </div>
