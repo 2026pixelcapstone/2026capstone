@@ -14,6 +14,12 @@ function addDays(base: Date, n: number): Date {
   return d
 }
 
+// 'YYYY-MM-DD'를 로컬 타임존 기준 Date로 파싱 (new Date('YYYY-MM-DD')는 UTC로 해석돼 하루 밀릴 수 있음)
+function parseYmd(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, (m || 1) - 1, d || 1)
+}
+
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 interface Props {
@@ -36,14 +42,14 @@ export default function DateField({ value, onChange, placeholder = '날짜 선�
 
   // 달력에 표시 중인 달 (선택값 있으면 그 달, 없으면 이번 달)
   const [viewMonth, setViewMonth] = useState(() => {
-    const base = value ? new Date(value) : today
+    const base = value ? parseYmd(value) : today
     return new Date(base.getFullYear(), base.getMonth(), 1)
   })
 
   // 팝업이 열릴 때 선택값 기준 달로 이동
   useEffect(() => {
     if (!open) return
-    const base = value ? new Date(value) : today
+    const base = value ? parseYmd(value) : today
     setViewMonth(new Date(base.getFullYear(), base.getMonth(), 1))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -90,25 +96,27 @@ export default function DateField({ value, onChange, placeholder = '날짜 선�
         ))}
       </div>
 
-      {/* 선택값 표시 + 달력 토글 */}
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm outline-none transition-colors hover:border-[#58a6ff]"
-        style={{ background: '#0d1117', border: '1px solid #30363d', color: value ? '#e6edf3' : '#7d8590' }}>
-        <span>
+      {/* 선택값 표시 + 달력 토글 (버튼 중첩 방지를 위해 컨테이너는 div, 내부 컨트롤만 button) */}
+      <div className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-colors"
+        style={{ background: '#0d1117', border: '1px solid #30363d' }}>
+        <button type="button" onClick={() => setOpen(o => !o)}
+          className="flex-1 text-left outline-none"
+          style={{ color: value ? '#e6edf3' : '#7d8590' }}>
           {value
-            ? new Date(value).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+            ? parseYmd(value).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
             : placeholder}
-        </span>
-        <span className="flex items-center gap-1">
+        </button>
+        <span className="flex items-center gap-1 shrink-0">
           {value && (
-            <span role="button" tabIndex={0}
-              onClick={e => { e.stopPropagation(); onChange('') }}
+            <button type="button" onClick={() => onChange('')} aria-label="날짜 지우기"
               className="material-symbols-outlined text-base hover:text-white"
-              style={{ color: '#7d8590' }}>close</span>
+              style={{ color: '#7d8590' }}>close</button>
           )}
-          <span className="material-symbols-outlined text-base">calendar_month</span>
+          <button type="button" onClick={() => setOpen(o => !o)} aria-label="달력 열기"
+            className="material-symbols-outlined text-base"
+            style={{ color: '#7d8590' }}>calendar_month</button>
         </span>
-      </button>
+      </div>
 
       {/* 달력 팝업 */}
       {open && (

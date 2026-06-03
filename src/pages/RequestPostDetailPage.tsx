@@ -223,7 +223,7 @@ export default function RequestPostDetailPage() {
               ) : (
                 <div className="w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
-                  {(post.clientNickname ?? '?')[0].toUpperCase()}
+                  {(post.clientNickname?.trim()?.[0] ?? '?').toUpperCase()}
                 </div>
               )}
               <div>
@@ -289,7 +289,7 @@ export default function RequestPostDetailPage() {
                               ) : (
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0"
                                   style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
-                                  {(app.artistNickname ?? '?')[0].toUpperCase()}
+                                  {(app.artistNickname?.trim()?.[0] ?? '?').toUpperCase()}
                                 </div>
                               )}
                               <div className="min-w-0">
