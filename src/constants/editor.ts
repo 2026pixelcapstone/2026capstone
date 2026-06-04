@@ -1,4 +1,25 @@
+import { CanvasData, LayerData } from "./type";
+
 // ── 상수 ──────────────────────────────────────────────
+export const DEFAULT_LAYER: LayerData = {
+  id: crypto.randomUUID(), // 레이어의 고유 ID
+  name: 'Background',      // 첫 레이어 이름
+  layerOrder: 0, // 현재 개수를 순서로 지정
+  blendMode: 'NORMAL',
+  isLocked: false,
+  isVisible: true,           // 기본적으로 보임 상태
+  opacity: 1.0,
+  color: '#818cf8',      // 기본 식별 색상 (원치 않으면 null)
+  pixelData: '',
+};
+
+export const INITIAL_CANVAS_DATA: CanvasData = {
+  frames: [{id: crypto.randomUUID(), data: null, width: 32, height: 32, layers: [DEFAULT_LAYER]}],
+  currentFrameIdx: 0,
+  width: 32,
+  height: 32,
+};
+
 export const DRAW_TOOLS = [
   { id: 'pencil',    icon: 'edit',               label: 'Pencil (P)' },
   { id: 'eraser',    icon: 'ink_eraser',          label: 'Eraser (E)' },

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {useSearchParams } from 'react-router-dom'
 import { CanvasData, SaveData } from '../constants/type'
-import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
+import {INITIAL_CANVAS_DATA, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/useCanvasView'
 import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
 import { editorApi } from '../api/editorApi'
@@ -10,13 +10,8 @@ import { toast } from '../store/toastStore'
 import {useAnimation} from '../hooks/useAnimation'
 import { useHistory } from '../hooks/useHistory'
 import { applyPalette, GIFEncoder, quantize } from 'gifenc'
-
-const initialCanvasData: CanvasData = {
-  frames: [{id: crypto.randomUUID(), data: null, width: 32, height: 32}],
-  currentFrameIdx: 0,
-  width: 32,
-  height: 32,
-};
+import { useLayers } from '../hooks/useLayer'
+//import { Layer } from 'react-konva'
 
 type MenuItem =
   | { separator: true }
@@ -40,9 +35,9 @@ export default function EditorPage() {
   const{canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx, canvasStyle} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
 
-  const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
+  const {state, setState, setWithHistory, undo, redo} = useHistory(INITIAL_CANVAS_DATA);
   
-  // ── ✅애니메이션 컴포넌트 및 상태 ──────────────────────────
+  // ── 애니메이션 컴포넌트 및 상태 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
     frames: state.frames,
     currentFrameIdx: state.currentFrameIdx,
@@ -59,16 +54,16 @@ export default function EditorPage() {
 
   // ── AI 가이드 상태 ──────────────────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
+
+  // ── 레이어 상태──────────────────────────
+  const firstLayer = INITIAL_CANVAS_DATA.frames?.[0]?.layers?.[0];
+  const {layers, activeLayer, setActiveLayer, addLayer, deleteLayer, selectLayer} = useLayers(firstLayer);
   // ────────────────────────────
 
   const [customW, setCustomW]         = useState(32)
   const [customH, setCustomH]         = useState(32)
-  const [activeLayer, setActiveLayer] = useState(2)
-  const [layers, _setLayers]          = useState([
-    { id: 1, name: 'Layer 1', visible: true, color: '#818cf8' },
-    { id: 2, name: 'Layer 2', visible: true, color: '#2f81f7' },
-    { id: 3, name: 'Layer 3', visible: true, color: null },
-  ])
+
+
   const [showAnim, setShowAnim]       = useState(false)
   const [unsaved, setUnsaved]         = useState(false)
   const [openMenu, setOpenMenu]       = useState<string | null>(null)
@@ -144,7 +139,7 @@ export default function EditorPage() {
     setOpenMenu(null)
   }
 
-  // ── ✅마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
+  // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
   useEffect(() => {
     const canvasWrapper = canvasRef.current?.parentElement as HTMLElement | null
     if (!canvasWrapper) return
@@ -235,7 +230,7 @@ export default function EditorPage() {
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
   }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
 
-  // ── ⏳저장 ──────────────────────────────────────────
+  // ── 저장 ──────────────────────────────────────────
   const handleSave = useCallback(async (saveData?: SaveData) => {
     if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
     const canvas = canvasRef.current
@@ -339,7 +334,7 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [handleSave, undo, redo])
 
-  // ── ✅PNG/GIF 내보내기 ──────────────────────────────────
+  // ── PNG/GIF 내보내기 ──────────────────────────────────
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -568,6 +563,12 @@ export default function EditorPage() {
       setState((prev) => ({ ...prev, currentFrameIdx: nextIndex }));
     }
   }
+  
+    // 1. 컴포넌트 내부 상단에 배열을 변수로 분리 (as const 적용)
+  const layerButtons = [
+    ['add', '레이어 추가', addLayer],
+    ['delete', '레이어 삭제', () => deleteLayer(activeLayer)]
+  ] as const;
 
   // ── 메뉴 정의 (actions can reference state) ──
   const MENU_DEFS: { id: string; label: string; items: MenuItem[] }[] = [
@@ -1119,13 +1120,14 @@ export default function EditorPage() {
             </div>
           </div>
           
-          {/* 레이어 섹션 */}
+          {/* ⏳레이어 섹션 */}
           <div className="p-4 flex-1">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>Layers</div>
               <div className="flex gap-1">
-                {[['add','레이어 추가'],['delete','레이어 삭제']].map(([icon,tip]) => (
+                {layerButtons.map(([icon,tip, handler]) => (
                   <button key={icon} title={tip}
+                    onClick={handler}
                     className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#21262d]"
                     style={{ color: '#7d8590' }}>
                     <span className="material-symbols-outlined text-sm">{icon}</span>
@@ -1136,7 +1138,7 @@ export default function EditorPage() {
             <div className="space-y-0.5">
               {[...layers].reverse().map(layer => (
                 <div key={layer.id}
-                  onClick={() => setActiveLayer(layer.id)}
+                  onClick={() => selectLayer(layer.id)}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
                   style={{
                     background: activeLayer === layer.id ? 'rgba(47,129,247,0.1)' : 'transparent',
@@ -1144,7 +1146,7 @@ export default function EditorPage() {
                     fontWeight: activeLayer === layer.id ? 700 : 400,
                   }}>
                   <span className="material-symbols-outlined text-sm"
-                    style={{ opacity: layer.visible ? 1 : 0.4 }}>
+                    style={{ opacity: layer.isVisible ? 1 : 0.4 }}>
                     visibility
                   </span>
                   <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard"
@@ -1159,7 +1161,7 @@ export default function EditorPage() {
           </div>
         </aside>
 
-        {/* ── ✅AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
+        {/* ── ⏳AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
           style={{ 
             width: showAIGuide ? 350 : 0, // AI 가이드 온오프 상태에 따라 너비 조절

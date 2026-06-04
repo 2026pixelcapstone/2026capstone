@@ -11,6 +11,7 @@ export interface Frame{
     data: string | null
     width: number;
     height: number;
+    layers: LayerData[]
 }
 
 export interface SaveData{
@@ -18,3 +19,14 @@ export interface SaveData{
     isPublic: boolean;
 }
 
+export interface LayerData{
+    id: string; // ID는 문자열로 관리하는 것이 확장성에 좋습니다.
+    name: string;
+    layerOrder: number;
+    blendMode: string;
+    isLocked: boolean;
+    isVisible: boolean;
+    opacity: number;
+    color: string | null; // 색상이 없을 수도 있으니 null 허용
+    pixelData: string
+}
