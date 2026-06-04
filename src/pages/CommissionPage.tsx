@@ -7,6 +7,7 @@ import {
 } from '../api/commissionApi'
 import { galleryApi } from '../api/galleryApi'
 import CommissionList from '../components/CommissionList'
+import DateField from '../components/DateField'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 
@@ -40,48 +41,12 @@ function getAvatarGradient(id: number) {
   return AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length]
 }
 
-// 작가 카드 — 포트폴리오 lazy fetch 포함
-// NOTE: 카드별 개별 API 호출(N+1)은 현재 MVP 구조상 허용.
-//       추후 백엔드에서 포트폴리오 포함 응답 또는 배치 API로 개선 예정.
-function ArtistCard({ service }: { service: ArtistServiceSummary }) {
-  const [portfolio, setPortfolio] = useState<string[]>([])
-  const [totalPortfolio, setTotalPortfolio] = useState(0)
-  const [portfolioLoaded, setPortfolioLoaded] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    // 인기순 2개 + 최신순 2개 병렬 fetch → 중복 제거 → 최대 3개 표시
-    Promise.allSettled([
-      galleryApi.getList({ authorId: service.artistId, size: 2, sort: 'likeCount,desc' }),
-      galleryApi.getList({ authorId: service.artistId, size: 2, sort: 'createdAt,desc' }),
-    ]).then(([popular, recent]) => {
-      if (cancelled) return
-      // 개별 실패 로깅 (allSettled는 전체 reject 안 함)
-      if (popular.status === 'rejected') console.error('[ArtistCard] 인기순 로드 실패:', popular.reason)
-      if (recent.status  === 'rejected') console.error('[ArtistCard] 최신순 로드 실패:', recent.reason)
-
-      const popularItems = popular.status === 'fulfilled' ? popular.value.data.data.content : []
-      const recentItems  = recent.status  === 'fulfilled' ? recent.value.data.data.content  : []
-      const total = popular.status === 'fulfilled'
-        ? popular.value.data.data.totalElements
-        : recent.status === 'fulfilled' ? recent.value.data.data.totalElements : 0
-
-      // 중복 제거: 인기 먼저, 최신 추가
-      const seen = new Set<number>()
-      const merged = [...popularItems, ...recentItems].filter(p => {
-        if (seen.has(p.postId)) return false
-        seen.add(p.postId)
-        return true
-      })
-
-      // filter 후 slice — thumbnailUrl 없는 항목 제거 후 최대 3개
-      const urls = merged.map(p => p.thumbnailUrl).filter((u): u is string => !!u).slice(0, 3)
-      setPortfolio(urls)
-      setTotalPortfolio(total)
-    }).finally(() => { if (!cancelled) setPortfolioLoaded(true) })
-    return () => { cancelled = true }
-  }, [service.artistId])
-
+// 작가 카드 — 표시 전용. 포트폴리오 썸네일은 부모가 배치 조회해 props로 전달 (카드별 N+1 제거)
+function ArtistCard({ service, portfolio, portfolioLoaded }: {
+  service: ArtistServiceSummary
+  portfolio: string[]
+  portfolioLoaded: boolean
+}) {
   const isOpen = service.status === 'OPEN'
   const gradient = getAvatarGradient(service.serviceId)
 
@@ -115,14 +80,6 @@ function ArtistCard({ service }: { service: ArtistServiceSummary }) {
             {isOpen ? '모집 중' : '마감'}
           </span>
         </div>
-        {/* 포트폴리오 카운트 — totalElements 기준으로 실제 총 개수 표시 */}
-        {portfolioLoaded && totalPortfolio > 0 && (
-          <div className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold"
-            style={{ background: 'rgba(0,0,0,0.6)', color: '#e6edf3' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>photo_library</span>
-            포트폴리오 {totalPortfolio}
-          </div>
-        )}
         {/* 아바타 */}
         <div className="absolute bottom-0 left-5 translate-y-1/2 z-10">
           {service.artistProfileImageUrl ? (
@@ -224,6 +181,9 @@ export default function CommissionPage() {
   const [artistLoading, setArtistLoading] = useState(false)
   const [artistPage, setArtistPage] = useState(0)
   const [artistHasMore, setArtistHasMore] = useState(true)
+  // 작가별 포트폴리오 썸네일 (배치 조회 결과) + 로드 완료 여부
+  const [portfolioMap, setPortfolioMap] = useState<Record<number, string[]>>({})
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false)
 
   // 의뢰 찾기 상태
   const [requests, setRequests] = useState<RequestPostSummary[]>([])
@@ -245,6 +205,8 @@ export default function CommissionPage() {
   // 내 커미션 탭 (로그인 시)
   const [mySubTab, setMySubTab] = useState<'client' | 'artist'>('client')
   const [myCommissions, setMyCommissions] = useState<{ client: CommissionSummary[]; artist: CommissionSummary[] }>({ client: [], artist: [] })
+  // 내가 올린 의뢰글 (수락 전이라 아직 계약이 없는 것 포함) — 의뢰한 커미션 탭 상단에 표시
+  const [myRequestPosts, setMyRequestPosts] = useState<RequestPostSummary[]>([])
   const [myLoading, setMyLoading] = useState(false)
   const [myLoaded, setMyLoaded] = useState(false)
   const [myError, setMyError] = useState(false)
@@ -264,22 +226,25 @@ export default function CommissionPage() {
     Promise.allSettled([
       commissionApi.getMyListAsClient({ size: 50 }),
       commissionApi.getMyListAsArtist({ size: 50 }),
+      requestPostApi.getMyList({ size: 50 }),
     ])
-      .then(([c, a]) => {
+      .then(([c, a, r]) => {
         const cOk = c.status === 'fulfilled'
         const aOk = a.status === 'fulfilled'
-        // 둘 다 실패 → 에러 상태 (빈 목록과 구분). 목록/loaded는 건드리지 않아 재시도 가능
+        const rOk = r.status === 'fulfilled'
+        // 계약 양쪽 모두 실패 → 에러 상태 (빈 목록과 구분). 목록/loaded는 건드리지 않아 재시도 가능
         if (!cOk && !aOk) {
           setMyError(true)
           toast.error('내 커미션을 불러오지 못했습니다.')
           return
         }
         // 부분 실패 → 성공한 쪽만 표시 + 안내
-        if (!cOk || !aOk) toast.error('일부 커미션을 불러오지 못했습니다.')
+        if (!cOk || !aOk || !rOk) toast.error('일부 항목을 불러오지 못했습니다.')
         setMyCommissions({
           client: cOk ? c.value.data.data.content : [],
           artist: aOk ? a.value.data.data.content : [],
         })
+        setMyRequestPosts(rOk ? r.value.data.data.content : [])
         setMyLoaded(true)
       })
       .finally(() => setMyLoading(false))
@@ -306,6 +271,7 @@ export default function CommissionPage() {
   useEffect(() => {
     if (isLoggedIn) return
     setMyCommissions({ client: [], artist: [] })
+    setMyRequestPosts([])
     setMyLoaded(false)
     setMyError(false)
     if (tab === 'mine') handleTabChange('artists')
@@ -324,6 +290,30 @@ export default function CommissionPage() {
       setArtists(page === 0 ? d.content : prev => [...prev, ...d.content] as ArtistServiceSummary[])
       setArtistPage(page)
       setArtistHasMore(!d.last)
+
+      // 이 페이지 작가들의 포트폴리오를 한 번에 배치 조회 (카드별 N+1 제거)
+      const authorIds = [...new Set(d.content.map(s => s.artistId))]
+      if (authorIds.length > 0) {
+        try {
+          const pRes = await galleryApi.getPortfolios(authorIds, 3)
+          const map = pRes.data.data
+          setPortfolioMap(prev => {
+            const next = page === 0 ? {} : { ...prev }
+            for (const [id, posts] of Object.entries(map)) {
+              next[Number(id)] = posts
+                .map(p => p.thumbnailUrl)
+                .filter((u): u is string => !!u)
+                .slice(0, 3)
+            }
+            return next
+          })
+        } catch (e) {
+          console.error('[CommissionPage] 포트폴리오 배치 로드 실패:', e)
+        }
+      } else if (page === 0) {
+        setPortfolioMap({})
+      }
+      setPortfolioLoaded(true)
     } catch {
       toast.error('작가 서비스 목록을 불러오지 못했습니다.')
     } finally {
@@ -585,7 +575,9 @@ export default function CommissionPage() {
             <>
               <div className="grid grid-cols-3 gap-6">
                 {filteredArtists.map(service => (
-                  <ArtistCard key={service.serviceId} service={service} />
+                  <ArtistCard key={service.serviceId} service={service}
+                    portfolio={portfolioMap[service.artistId] ?? []}
+                    portfolioLoaded={portfolioLoaded} />
                 ))}
               </div>
 
@@ -749,11 +741,57 @@ export default function CommissionPage() {
                 </button>
               </div>
             ) : (
-              <CommissionList
-                commissions={mySubTab === 'client' ? myCommissions.client : myCommissions.artist}
-                loading={myLoading}
-                perspective={mySubTab}
-              />
+              <>
+                {/* 의뢰한 커미션 탭: 내가 올린 의뢰글 (수락 전 포함) 먼저 노출 */}
+                {mySubTab === 'client' && (
+                  <div className="mb-8">
+                    <h3 className="font-bold text-sm mb-3">
+                      내 의뢰글
+                      {myRequestPosts.length > 0 && (
+                        <span className="ml-1.5" style={{ color: '#7d8590' }}>({myRequestPosts.length})</span>
+                      )}
+                    </h3>
+                    {myRequestPosts.length === 0 ? (
+                      <p className="text-sm py-6 text-center rounded-xl border"
+                        style={{ borderColor: '#30363d', borderStyle: 'dashed', color: '#7d8590' }}>
+                        아직 올린 의뢰글이 없습니다.
+                      </p>
+                    ) : (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {myRequestPosts.map(rp => {
+                          const open = rp.status === 'OPEN'
+                          return (
+                            <Link key={rp.requestPostId} to={`/request-posts/${rp.requestPostId}`}
+                              className="rounded-xl border p-4 flex items-center justify-between gap-3 transition-colors hover:border-[#58a6ff]"
+                              style={{ background: '#161b22', borderColor: '#30363d' }}>
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm truncate" style={{ color: '#e6edf3' }}>{rp.title}</p>
+                                <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                                  {formatBudget(rp.budgetMin, rp.budgetMax)}
+                                  {rp.deadline && ` · ~${new Date(rp.deadline).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}`}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border"
+                                style={open
+                                  ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
+                                  : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
+                                {open ? '모집 중' : '마감'}
+                              </span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <div className="h-px mt-8" style={{ background: '#30363d' }} />
+                    <h3 className="font-bold text-sm mt-8 mb-3">성사된 계약</h3>
+                  </div>
+                )}
+                <CommissionList
+                  commissions={mySubTab === 'client' ? myCommissions.client : myCommissions.artist}
+                  loading={myLoading}
+                  perspective={mySubTab}
+                />
+              </>
             )}
           </div>
         )}
@@ -831,13 +869,10 @@ export default function CommissionPage() {
 
               <div>
                 <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>마감일</label>
-                <input
-                  type="date"
-                  value={form.deadline}
-                  onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
-                  min={new Date().toISOString().slice(0, 10)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                <DateField
+                  value={form.deadline ?? ''}
+                  onChange={v => setForm(f => ({ ...f, deadline: v }))}
+                  placeholder="마감일 선택 (선택사항)"
                 />
               </div>
 
