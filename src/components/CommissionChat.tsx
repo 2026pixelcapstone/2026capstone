@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Client } from '@stomp/stompjs'
 import { chatApi, type ChatMessage } from '../api/chatApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
@@ -13,6 +14,19 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
 }
 
+// localStorage(zustand persist)에서 accessToken 추출 — axios 인터셉터와 동일 출처
+function getToken(): string | null {
+  try {
+    const raw = localStorage.getItem('auth-storage')
+    return raw ? (JSON.parse(raw)?.state?.accessToken ?? null) : null
+  } catch {
+    return null
+  }
+}
+
+// http(s)://host → ws(s)://host/ws
+const WS_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/^http/, 'ws') + '/ws'
+
 export default function CommissionChat({ commissionId, meId, readOnly = false }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,16 +34,42 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // 진입 시 메시지 로드 (방은 백엔드에서 지연 생성됨)
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
+  // 중복 방지 append — REST 응답 + WS 브로드캐스트로 같은 메시지가 두 번 올 수 있음
+  const appendMessage = useCallback((msg: ChatMessage) => {
+    setMessages(prev => prev.some(m => m.messageId === msg.messageId) ? prev : [...prev, msg])
+  }, [])
+
+  // 메시지 로드 (showSpinner=false면 재동기화용 조용한 로드)
+  const loadMessages = useCallback((showSpinner: boolean) => {
+    if (showSpinner) setLoading(true)
     chatApi.getMessages(commissionId, { size: 100 })
-      .then(res => { if (!cancelled) setMessages(res.data.data.content) })
-      .catch(() => { if (!cancelled) toast.error('메시지를 불러오지 못했습니다.') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .then(res => setMessages(res.data.data.content))
+      .catch(() => { if (showSpinner) toast.error('메시지를 불러오지 못했습니다.') })
+      .finally(() => { if (showSpinner) setLoading(false) })
   }, [commissionId])
+
+  // 진입 시 초기 로드
+  useEffect(() => { loadMessages(true) }, [loadMessages])
+
+  // WebSocket(STOMP) 실시간 수신 — 연결되면 재동기화 + 토픽 구독
+  useEffect(() => {
+    const token = getToken()
+    const client = new Client({
+      brokerURL: WS_URL,
+      connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+      reconnectDelay: 4000,
+      onConnect: () => {
+        loadMessages(false)   // 재연결 시 놓친 메시지 동기화 (스피너 없이)
+        client.subscribe(`/topic/commissions/${commissionId}`, frame => {
+          try {
+            appendMessage(JSON.parse(frame.body) as ChatMessage)
+          } catch { /* 파싱 실패 무시 */ }
+        })
+      },
+    })
+    client.activate()
+    return () => { client.deactivate() }
+  }, [commissionId, loadMessages, appendMessage])
 
   // 메시지 갱신 시 맨 아래로 스크롤
   useEffect(() => {
@@ -43,7 +83,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
     setSending(true)
     try {
       const res = await chatApi.sendMessage(commissionId, content)
-      setMessages(prev => [...prev, res.data.data])
+      appendMessage(res.data.data)
       setInput('')
     } catch (err) {
       toast.error(getErrorMessage(err, '메시지 전송에 실패했습니다.'))
