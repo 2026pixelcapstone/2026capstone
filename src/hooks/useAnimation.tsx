@@ -1,5 +1,5 @@
 // src/components/useAnimation.tsx
-import { DEFAULT_LAYER } from '../constants/editor';
+import { createDefaultLayer} from '../constants/editor';
 import {Frame} from '../constants/type'
 
 interface UseAnimationProps{
@@ -22,7 +22,7 @@ export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChang
             data: data,
             width: currentSize.width,
             height: currentSize.height,
-            layers: [DEFAULT_LAYER],
+            layers: [createDefaultLayer()],
         };
         const nextFrames = [...frames, newFrame];
         onChange(nextFrames, nextFrames.length - 1)

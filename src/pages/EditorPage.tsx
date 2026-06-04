@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {useSearchParams } from 'react-router-dom'
 import { CanvasData, SaveData } from '../constants/type'
-import {INITIAL_CANVAS_DATA, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
+import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/useCanvasView'
 import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
 import { editorApi } from '../api/editorApi'
@@ -35,7 +35,7 @@ export default function EditorPage() {
   const{canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx, canvasStyle} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
 
-  const {state, setState, setWithHistory, undo, redo} = useHistory(INITIAL_CANVAS_DATA);
+  const {state, setState, setWithHistory, undo, redo} = useHistory(createInitialCanvasData());
   
   // ── 애니메이션 컴포넌트 및 상태 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
@@ -56,7 +56,7 @@ export default function EditorPage() {
   const[showAIGuide, setShowAIGuide] = useState(false);
 
   // ── 레이어 상태──────────────────────────
-  const firstLayer = INITIAL_CANVAS_DATA.frames?.[0]?.layers?.[0];
+  const firstLayer = createInitialCanvasData().frames?.[0]?.layers?.[0];
   const {layers, activeLayer, setActiveLayer, addLayer, deleteLayer, selectLayer} = useLayers(firstLayer);
   // ────────────────────────────
 
@@ -246,16 +246,6 @@ export default function EditorPage() {
 
     // 현재 캔버스 데이터 저장 로직
     const currentFrameData = canvas.toDataURL('image/png')
-    const canvasData: CanvasData = {
-      ...state,
-      width: canvasW,
-      height: canvasH,
-      frames: state.frames.map((frame, index) =>
-        index === state.currentFrameIdx
-          ? { ...frame, data: currentFrameData, width: canvasW, height: canvasH }
-          : frame
-      ),
-    }
     setSaving(true)
     
     // 새 프로젝트를 생성하여 프로젝트를 저장하는 로직
@@ -284,16 +274,19 @@ export default function EditorPage() {
       }
 
       // 레이어(캔버스 전체) 저장
-      await editorApi.saveLayers(pid, [{
-        layerId: null,
-        name: 'Layer 1',
-        layerOrder: 0,
-        blendMode: 'NORMAL',
-        isLocked: false,
-        isVisible: true,
-        opacity: 1.0,
-        pixelData: JSON.stringify(canvasData),
-      }])
+      const layersToSave = layers.map((layer) => ({
+        layerId: layer.id.startsWith('layer-') ? null : Number(layer.id),
+        name: layer.name,
+        layerOrder: layer.layerOrder,
+        blendMode: layer.blendMode,
+        isLocked: layer.isLocked,
+        isVisible: layer.isVisible,
+        opacity: layer.opacity,
+        pixelData: layer.pixelData,
+      }));
+
+      await editorApi.saveLayers(pid, layersToSave)
+
       setUnsaved(false)
       toast.success('저장되었습니다.')
     } catch {
@@ -301,7 +294,7 @@ export default function EditorPage() {
     } finally {
       setSaving(false)
     }
-  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, state, setSearchParams])
+  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, layers, state, setSearchParams])
 
   const openSaveModal = useCallback(() => {
   if (!isLoggedIn) {

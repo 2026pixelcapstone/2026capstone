@@ -1,30 +1,38 @@
+import { createDefaultLayer } from "../constants/editor";
 import { LayerData } from "../constants/type";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 export const useLayers = (initialLayer?: LayerData) => {
 
-    const [layers, setLayers] = useState<LayerData[]>(initialLayer ? [initialLayer] : []);
-    const [activeLayer, setActiveLayer] = useState<string | null>(initialLayer?.id || null);
+    const defaultLayer = initialLayer ?? createDefaultLayer();
+    const [layers, setLayers] = useState<LayerData[]>([defaultLayer]);
+    const [activeLayer, setActiveLayer] = useState<string | null>(defaultLayer.id);
+    const layerCounter = useRef(1);
     
     // ── 레이어 추가/삭제/선택 ───────────────────────────────────
-    const addLayer = () => {
-        const newLayerId = `layer-${Date.now()}`;
-        const newLayer: LayerData = {
-            id: newLayerId,
-            name: `Layer ${layers.length + 1}`,
-            layerOrder: layers.length,
-            blendMode: 'NORMAL',
-            isLocked: false,
-            isVisible: true,
-            opacity: 1.0,
-            color: '#818cf8',
-            pixelData: '',
-        };
-        setLayers([...layers, newLayer]);
-        setActiveLayer(newLayerId);
-    }
-    const deleteLayer = (layerIdToDelete: string | null) => {
+    const addLayer = useCallback(() => {
+        const newLayerId = crypto.randomUUID(); // 또는 `layer-${++layerCounter}`
         
+        layerCounter.current += 1;
+        setLayers((prevLayers) => {
+                const newLayer: LayerData = {
+                id: newLayerId,
+                name: `Layer ${layerCounter.current}`,
+                layerOrder: layers.length,
+                blendMode: 'NORMAL',
+                isLocked: false,
+                isVisible: true,
+                opacity: 1.0,
+                color: '#818cf8',
+                pixelData: '',
+            };
+            return [...prevLayers, newLayer]
+        });
+
+        setActiveLayer(newLayerId);
+    }, []);
+
+    const deleteLayer = useCallback((layerIdToDelete: string | null) => {
         if(!layerIdToDelete) return;
 
         if(layers.length <= 1){
@@ -38,10 +46,20 @@ export const useLayers = (initialLayer?: LayerData) => {
             const nextActiveId = remainingLayers[remainingLayers.length - 1].id;
             setActiveLayer(nextActiveId);
         }
-    }
+    }, [layers, activeLayer]);
 
-    const selectLayer = (layerId : string) => {
+    const selectLayer = useCallback((layerId : string) => {
         setActiveLayer(layerId);
-    }
+    }, []);
+
+    // ── 레이어 눈 켜기/끄기 (추가해두면 UI와 바로 연결 가능!) ──
+    const toggleVisibility = useCallback((layerId: string) => {
+        setLayers((prevLayers) =>
+            prevLayers.map((layer) =>
+                layer.id === layerId ? { ...layer, isVisible: !layer.isVisible } : layer
+            )
+        );
+    }, []);
+
     return {layers, activeLayer, setActiveLayer, addLayer, deleteLayer, selectLayer};
 }
