@@ -64,7 +64,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full w-6 h-6 border-2 border-t-transparent" style={{ borderColor: '#2f81f7' }} />
+            <div className="animate-spin rounded-full w-6 h-6 border-2" style={{ borderColor: '#2f81f7', borderTopColor: 'transparent' }} />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
