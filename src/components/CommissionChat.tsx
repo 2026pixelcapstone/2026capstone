@@ -40,10 +40,20 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
   }, [])
 
   // 메시지 로드 (showSpinner=false면 재동기화용 조용한 로드)
+  // 통째 교체가 아니라 병합 — 재동기화 fetch가 진행되는 사이 WS로 도착한 메시지가 유실되지 않도록
   const loadMessages = useCallback((showSpinner: boolean) => {
     if (showSpinner) setLoading(true)
     chatApi.getMessages(commissionId, { size: 100 })
-      .then(res => setMessages(res.data.data.content))
+      .then(res => {
+        const fetched = res.data.data.content
+        setMessages(prev => {
+          const fetchedIds = new Set(fetched.map(m => m.messageId))
+          const newFromWs = prev.filter(m => !fetchedIds.has(m.messageId))
+          return [...fetched, ...newFromWs].sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          )
+        })
+      })
       .catch(() => { if (showSpinner) toast.error('메시지를 불러오지 못했습니다.') })
       .finally(() => { if (showSpinner) setLoading(false) })
   }, [commissionId])
@@ -65,6 +75,14 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
             appendMessage(JSON.parse(frame.body) as ChatMessage)
           } catch { /* 파싱 실패 무시 */ }
         })
+      },
+      onStompError: frame => {
+        // 서버가 거부(인증·구독 권한 등) 시 STOMP ERROR 프레임
+        console.error('[chat] STOMP error:', frame.headers['message'], frame.body)
+      },
+      onWebSocketError: err => {
+        // 연결 자체 실패 (핸드셰이크·네트워크)
+        console.error('[chat] WebSocket error:', err)
       },
     })
     client.activate()
