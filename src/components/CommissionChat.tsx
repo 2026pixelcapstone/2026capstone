@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Client } from '@stomp/stompjs'
-import { chatApi, type ChatMessage } from '../api/chatApi'
+import { chatApi, type ChatMessage, type ChatEvent } from '../api/chatApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 
@@ -39,6 +39,16 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
     setMessages(prev => prev.some(m => m.messageId === msg.messageId) ? prev : [...prev, msg])
   }, [])
 
+  // 상대 메시지를 읽음 처리(서버) — 내가 보고 있을 때 호출. 서버가 READ 이벤트를 상대에게 브로드캐스트
+  const markRead = useCallback(() => {
+    chatApi.markRead(commissionId).catch(() => { /* 읽음 처리 실패는 조용히 무시 */ })
+  }, [commissionId])
+
+  // 상대가 내 메시지를 읽음(READ 이벤트 수신) → 내가 보낸 메시지를 읽음 표시로 갱신
+  const markMineRead = useCallback(() => {
+    setMessages(prev => prev.map(m => (m.senderId === meId && !m.isRead ? { ...m, isRead: true } : m)))
+  }, [meId])
+
   // 메시지 로드 (showSpinner=false면 재동기화용 조용한 로드)
   // 통째 교체가 아니라 병합 — 재동기화 fetch가 진행되는 사이 WS로 도착한 메시지가 유실되지 않도록
   const loadMessages = useCallback((showSpinner: boolean) => {
@@ -58,8 +68,11 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       .finally(() => { if (showSpinner) setLoading(false) })
   }, [commissionId])
 
-  // 진입 시 초기 로드
-  useEffect(() => { loadMessages(true) }, [loadMessages])
+  // 진입 시 초기 로드 + 상대 메시지 읽음 처리
+  useEffect(() => {
+    loadMessages(true)
+    markRead()
+  }, [loadMessages, markRead])
 
   // WebSocket(STOMP) 실시간 수신 — 연결되면 재동기화 + 토픽 구독
   useEffect(() => {
@@ -70,9 +83,18 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       reconnectDelay: 4000,
       onConnect: () => {
         loadMessages(false)   // 재연결 시 놓친 메시지 동기화 (스피너 없이)
+        markRead()            // 끊긴 사이 온 메시지도 읽음 처리
         client.subscribe(`/topic/commissions/${commissionId}`, frame => {
           try {
-            appendMessage(JSON.parse(frame.body) as ChatMessage)
+            const event = JSON.parse(frame.body) as ChatEvent
+            if (event.type === 'MESSAGE' && event.message) {
+              appendMessage(event.message)
+              // 내가 보고 있는 중 상대 메시지가 오면 즉시 읽음 처리 → 상대에게 "읽음" 전파
+              if (event.message.senderId !== meId) markRead()
+            } else if (event.type === 'READ') {
+              // 상대가 내 메시지를 읽음
+              if (event.readerId !== meId) markMineRead()
+            }
           } catch { /* 파싱 실패 무시 */ }
         })
       },
@@ -87,7 +109,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
     })
     client.activate()
     return () => { client.deactivate() }
-  }, [commissionId, loadMessages, appendMessage])
+  }, [commissionId, loadMessages, appendMessage, markRead, markMineRead, meId])
 
   // 메시지 갱신 시 맨 아래로 스크롤
   useEffect(() => {
@@ -147,7 +169,10 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
                       : { background: '#21262d', color: '#e6edf3', borderTopLeftRadius: 4 }}>
                     {m.content}
                   </div>
-                  <span className="text-xs mt-0.5" style={{ color: '#484f58' }}>{formatTime(m.createdAt)}</span>
+                  <span className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#484f58' }}>
+                    {mine && m.isRead && <span style={{ color: '#2f81f7' }}>읽음</span>}
+                    {formatTime(m.createdAt)}
+                  </span>
                 </div>
               </div>
             )
