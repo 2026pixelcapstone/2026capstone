@@ -14,8 +14,9 @@ export interface ChatMessage {
 // WebSocket 토픽으로 오는 이벤트 봉투 (type으로 분기). PRESENCE는 추후 추가.
 export interface ChatEvent {
   type: 'MESSAGE' | 'READ' | 'PRESENCE'
-  message?: ChatMessage   // type=MESSAGE
-  readerId?: number       // type=READ — 상대 메시지를 읽은 사용자
+  message?: ChatMessage      // type=MESSAGE
+  readerId?: number          // type=READ — 상대 메시지를 읽은 사용자
+  lastReadMessageId?: number // type=READ — 이 messageId 이하만 읽음으로 간주
 }
 
 export const chatApi = {

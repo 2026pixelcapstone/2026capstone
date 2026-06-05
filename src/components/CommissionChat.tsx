@@ -44,9 +44,11 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
     chatApi.markRead(commissionId).catch(() => { /* 읽음 처리 실패는 조용히 무시 */ })
   }, [commissionId])
 
-  // 상대가 내 메시지를 읽음(READ 이벤트 수신) → 내가 보낸 메시지를 읽음 표시로 갱신
-  const markMineRead = useCallback(() => {
-    setMessages(prev => prev.map(m => (m.senderId === meId && !m.isRead ? { ...m, isRead: true } : m)))
+  // 상대가 내 메시지를 읽음(READ 이벤트 수신) → 커서(lastId) 이하의 내 메시지만 읽음 표시
+  // (전체를 읽음 처리하면, 읽음 처리 직후 보낸 메시지까지 오표시되는 동시성 문제 발생)
+  const markMineReadUpTo = useCallback((lastId: number) => {
+    setMessages(prev => prev.map(m =>
+      (m.senderId === meId && m.messageId <= lastId && !m.isRead ? { ...m, isRead: true } : m)))
   }, [meId])
 
   // 메시지 로드 (showSpinner=false면 재동기화용 조용한 로드)
@@ -92,8 +94,10 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
               // 내가 보고 있는 중 상대 메시지가 오면 즉시 읽음 처리 → 상대에게 "읽음" 전파
               if (event.message.senderId !== meId) markRead()
             } else if (event.type === 'READ') {
-              // 상대가 내 메시지를 읽음
-              if (event.readerId !== meId) markMineRead()
+              // 상대가 내 메시지를 (커서 이하까지) 읽음
+              if (event.readerId !== meId && event.lastReadMessageId != null) {
+                markMineReadUpTo(event.lastReadMessageId)
+              }
             }
           } catch { /* 파싱 실패 무시 */ }
         })
@@ -109,7 +113,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
     })
     client.activate()
     return () => { client.deactivate() }
-  }, [commissionId, loadMessages, appendMessage, markRead, markMineRead, meId])
+  }, [commissionId, loadMessages, appendMessage, markRead, markMineReadUpTo, meId])
 
   // 메시지 갱신 시 맨 아래로 스크롤
   useEffect(() => {
