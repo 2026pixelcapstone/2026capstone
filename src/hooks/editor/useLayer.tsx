@@ -33,7 +33,7 @@ export const useLayers = (
                     pixelData: '', // 새 레이어니까 도화지는 깨끗하게 빈 값
                 };
 
-                return{...frame, layers: [frame.layers, newLayer]};
+                return{...frame, layers: [...frame.layers, newLayer]};
             });
             return { ...prev, frames: updatedFrames };
         })
@@ -45,14 +45,15 @@ export const useLayers = (
         if(!layerIdToDelete) return;
 
         const targetFrame = state.frames[frameIdx];
-        if(!targetFrame) return;
+        if(!targetFrame || !targetFrame.layers) return;
 
-        if(targetFrame.layer.length <= 1){
+        if(targetFrame.layers.length <= 1){
             alert("최소 하나의 레이어는 존재해야 합니다");
+            return;
         }
 
         setWithHistory((prev: any) => {
-            const updatedFrames = prev.frame.map((frame: any, fIdx: number) => {
+            const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
                 if(fIdx !== frameIdx) return frame;
 
                 // 해당 프레임 내부에서 지정된 레이어만 필터링

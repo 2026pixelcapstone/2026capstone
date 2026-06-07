@@ -39,7 +39,8 @@ export default function EditorPage() {
   const {canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
 
-  const {state, setState, setWithHistory, undo, redo} = useHistory(createInitialCanvasData());
+  const initialCanvasData = createInitialCanvasData();
+  const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
   
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
@@ -60,9 +61,10 @@ export default function EditorPage() {
   const[showAIGuide, setShowAIGuide] = useState(false);
 
   // ── 레이어 상태 및 훅 ──────────────────────────
-  const firstLayer = createInitialCanvasData().frames?.[0]?.layers?.[0];
-  const [layers, setLayers] = useState<LayerData[]>([firstLayer]);
-  const [activeLayer, setActiveLayer] = useState<string | null>(firstLayer.id);
+  const [layers, setLayers] = useState<LayerData[]>([initialCanvasData.frames[0]?.layers[0]]);
+  const [activeLayer, setActiveLayer] = useState<string | null>(
+    initialCanvasData.frames[0]?.layers[0].id || null
+  );
   const { addLayer, deleteLayer, toggleVisibility, layerCounter} = useLayers(
     state, 
     setWithHistory, 
@@ -158,17 +160,22 @@ export default function EditorPage() {
     return nextCanvas;
   }, [canvasW, canvasH])
 
-
+  //-------- 캐시 캔버스 유실을 막는 역할을 함(청소부) -----------
   useEffect(() => {
-    const liveLayerIds = new Set(layers.map((layer) => layer.id))
-    layers.forEach((layer) => getLayerCanvas(layer.id))
+    const liveCacheKeys = new Set<string>();
 
-    Object.keys(layerCanvasRefs.current).forEach((layerId) => {
-      if (!liveLayerIds.has(layerId)) {
-        delete layerCanvasRefs.current[layerId]
+    state.frames.forEach((frame, fIdx) => {
+      frame.layers.forEach((layer: any) => {
+        liveCacheKeys.add(`frame-${fIdx}_layer-${layer.id}`);
+      });
+    });
+
+    Object.keys(layerCanvasRefs.current).forEach((cacheKey) => {
+      if (!liveCacheKeys.has(cacheKey)) {
+        delete layerCanvasRefs.current[cacheKey]
       }
     })
-  }, [layers, getLayerCanvas])
+  }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
   const drawPixel = useCallback((e:KonvaEventObject<MouseEvent>) => {
@@ -551,19 +558,33 @@ export default function EditorPage() {
     const canvas = stageRef.current;
     if (!canvas) return;
 
+    const nextFrame = state.frames[nextIndex];
+    const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
+
     if (unsaved) {
-        const imageData = canvas.toDataURL();
-        setWithHistory((prev) => ({
-          ...prev,
-          frames: prev.frames.map((f, i) =>
-            i === prev.currentFrameIdx ? { ...f, data: imageData } : f
-          ),
-          currentFrameIdx: nextIndex,
-        }));
-        setUnsaved(false);
+        const cacheKey = `frame-${state.currentFrameIdx}_layer-${activeLayer}`;
+        const cachedCanvas = layerCanvasRefs.current[cacheKey];
+        if(cachedCanvas){
+          const layerImageData = cachedCanvas.toDataURL();
+          setWithHistory((prev) => ({
+            ...prev,
+            frames: prev.frames.map((f, i) =>
+              i === prev.currentFrameIdx 
+                ? { ...f, layers: f.layers.map(l => l.id === activeLayer ? {...l, pixelData: layerImageData}: l) }
+                : f
+            ),
+            currentFrameIdx: nextIndex,
+          }));
+          setActiveLayer(nextActiveLayerId);
+          setUnsaved(false);
+        } 
     } 
     else {
-      setState((prev) => ({ ...prev, currentFrameIdx: nextIndex }));
+      setWithHistory((prev) => ({
+        ...prev,
+        currentFrameIdx: nextIndex,
+      }));
+      setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     }
   }
    // ── 레이어 ───────────────────────────────────

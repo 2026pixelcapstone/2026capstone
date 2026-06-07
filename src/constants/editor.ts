@@ -8,7 +8,7 @@ export const createDefaultLayer = (): LayerData => ({
   blendMode: 'NORMAL',
   isLocked: false,
   isVisible: true,           // 기본적으로 보임 상태
-  opacity: 1.0,
+  opacity: 100,
   color: '#818cf8',      // 기본 식별 색상 (원치 않으면 null)
   pixelData: '',
 });
