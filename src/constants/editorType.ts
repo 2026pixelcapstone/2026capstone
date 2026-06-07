@@ -29,7 +29,7 @@ export interface LayerData{
     isVisible: boolean;
     opacity: number;
     color: string | null; // 색상이 없을 수도 있으니 null 허용
-    pixelData: string | null;
+    pixelData: string;
 }
 
 export interface useEditorProps{

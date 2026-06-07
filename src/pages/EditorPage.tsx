@@ -363,60 +363,65 @@ export default function EditorPage() {
     if (!stage) return
 
     const safeTitle = projectTitle.replace(/\s+/g, '_')
-    // 단일 프레임 처리: 햔재 보이는 Stage 전체를 PNG로 내보내기
+
+    // 단일 프레임 처리
     if(state.frames.length <= 1){
-      const currentFullImage = stage.toDataURL({pixelRatio: 1}) // 원본 크기 유지
-      const link = document.createElement('a')
-      link.download = `${safeTitle}.png`
-      link.href = currentFullImage
-      link.click()
+      const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
+      const link = document.createElement('a');
+      link.download = `${safeTitle}.png`;
+      link.href = currentFullImage;
+      link.click();
       return;
     }
+    
     // 멀티 프레임 일 때
     const gif = GIFEncoder()
 
+    // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
     for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
+      const currentFrame = state.frames[fIdx];
+      if (!currentFrame) continue;
+      
+      // 가상 도화지(가상 캔버스) 생성 및 안전장치
       const frameCanvas = document.createElement('canvas')
       frameCanvas.width = canvasW
       frameCanvas.height = canvasH
       const fCtx = frameCanvas.getContext('2d')
-      if(!fCtx) continue // 질문: continue를 쓰는 이유는? 로딩이 안되었을 까봐 그런건가
-
+      if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
+      
       fCtx.imageSmoothingEnabled = false
       fCtx.clearRect(0, 0, canvasW, canvasH)
 
-      for(const layer of layers){
+      const currentFrameLayers = currentFrame.layers ?? [];
+      
+      for(const layer of currentFrameLayers){
         if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
+        
+        const cacheKey = `frame-${fIdx}_layer-${layer.id}`;
+        const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
-        let layerFrameSrc: string | null = null
-        if(layer.pixelData){
-          try{
-            const frameImages = JSON.parse(layer.pixelData) // [ {frameIdx: 0, image: '...'}, ... ]
-            const match = frameImages.find((img: any) => img.frameIdx === fIdx) // 질문
-            if(match) layerFrameSrc = match.image
-          }
-          catch(e){
-            console.error("레이어 프레임 파싱 실패", e)
-          }
-        }
-        // 해당 레이어에 이 프레임 장수의 그림이 존재한다면 가상 도화지에 덧칠합니다.
-        if(layerFrameSrc){
-          const img = new Image()
+        fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+
+        if(cachedCanvas){
+          fCtx.drawImage(cachedCanvas, 0, 0, canvasW, canvasH);
+        }else if(layer.pixelData && layer.pixelData.trim() !== ''){
+          // 만약 메모리 캐시는 날아갔지만 백업용 pixelData 문자열이 살아있다면 이미지 객체로 복구
+          const img = new Image();
           await new Promise<void>((resolve) => {
             img.onload = () => {
-              fCtx.globalAlpha = layer.opacity
-              fCtx.drawImage(img, 0, 0, canvasW, canvasH)
-              fCtx.globalAlpha = 1.0
-              resolve()
-            }
-            img.onerror = () => resolve() // 에러 시 스킵하고 다음 레이어로 진행
-            img.src = layerFrameSrc! // ! -> null이나 ubdefined일 리가 없다는 표시
-          })
+              fCtx.drawImage(img, 0, 0, canvasW, canvasH);
+              resolve();
+            };
+            img.onerror = () => resolve(); // 에러 나더라도 막히지 않게 세이프 가드
+            img.src = layer.pixelData;
+          });
         }
+        fCtx.globalAlpha = 1.0; // 투명도 원상복구
       }
-      // 모든 레이어가 이쁘게 겹쳐진 최종 캔버스에서 ImageData를 추출합니다.
+      // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
       const imageData = fCtx.getImageData(0, 0, canvasW, canvasH)
-      // 기존 픽셀 양자화 및 인코딩 로직 실행
+      
+      // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
       const palette = quantize(imageData.data, 256)
       const indexed = applyPalette(imageData.data, palette)
 
