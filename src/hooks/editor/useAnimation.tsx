@@ -22,7 +22,7 @@ export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChang
             layers: [createDefaultLayer()],
         };
         const nextFrames = [...frames, newFrame];
-        onChange(nextFrames, nextFrames.length - 1)
+        onChange(nextFrames, nextFrames.length - 1) // 등록해둔 onChange 함수를 호출하면서 매게변수를 줌
     };
     
     /**

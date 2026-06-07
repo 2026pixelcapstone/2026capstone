@@ -47,11 +47,18 @@ export default function EditorPage() {
     frames: state.frames,
     currentFrameIdx: state.currentFrameIdx,
     onChange: (newFrames, nextIdx) => {
+      const targetIdx = nextIdx ?? state.currentFrameIdx;
+      const targetFrame = newFrames[targetIdx];
+      const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
+      
       setWithHistory((prev) => ({
         ...prev,
         frames: newFrames,
-        currentFrameIdx: nextIdx ?? prev.currentFrameIdx
+        currentFrameIdx: targetIdx
       }));
+
+      setActiveLayer(targetActiveLayerId)
+      setUnsaved(false);
     }
   });
   const [isPlaying, setIsPlaying] = useState(false);
