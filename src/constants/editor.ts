@@ -1,4 +1,4 @@
-import { CanvasData, LayerData } from "./type";
+import { CanvasData, LayerData } from "./editorType";
 
 
 export const createDefaultLayer = (): LayerData => ({
@@ -14,7 +14,7 @@ export const createDefaultLayer = (): LayerData => ({
 });
 
 export const createInitialCanvasData = (): CanvasData => ({
-  frames: [{id: crypto.randomUUID(), data: null, width: 32, height: 32, layers: [createDefaultLayer()]}],
+  frames: [{id: crypto.randomUUID(), layers: [createDefaultLayer()]}],
   currentFrameIdx: 0,
   width: 32,
   height: 32,

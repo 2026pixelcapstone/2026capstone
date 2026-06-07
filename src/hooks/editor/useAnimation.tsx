@@ -1,6 +1,6 @@
 // src/components/useAnimation.tsx
-import { createDefaultLayer} from '../constants/editor';
-import {Frame} from '../constants/type'
+import { createDefaultLayer} from '../../constants/editor';
+import {Frame} from '../../constants/editorType'
 
 interface UseAnimationProps{
     frames: Frame[];
@@ -16,12 +16,9 @@ export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChang
      * data - 복사할 이미지 데이터 (없으면 빈 프레임)
      */
 
-    const addFrame = (currentSize: {width: number; height: number}, data: string | null = null) => {
+    const addFrame = () => {
         const newFrame: Frame = {
             id: crypto.randomUUID(),
-            data: data,
-            width: currentSize.width,
-            height: currentSize.height,
             layers: [createDefaultLayer()],
         };
         const nextFrames = [...frames, newFrame];
