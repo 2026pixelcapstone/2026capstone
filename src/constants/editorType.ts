@@ -1,3 +1,5 @@
+import Konva from "konva";
+
 //  ── Editor ──────────────────────────────────────────────
 export interface CanvasData{
   frames: Frame[];
@@ -8,9 +10,6 @@ export interface CanvasData{
 
 export interface Frame{
     id: string;
-    data: string | null
-    width: number;
-    height: number;
     layers: LayerData[]
 }
 
@@ -31,4 +30,15 @@ export interface LayerData{
     opacity: number;
     color: string | null; // 색상이 없을 수도 있으니 null 허용
     pixelData: string | null;
+}
+
+export interface useEditorProps{
+    stageRef: React.RefObject<Konva.Stage | null>;
+    canvasW: number;
+    canvasH: number;
+    zoom: number;
+    isLoggedIn: boolean;
+    layers: LayerData[];
+    setUnsaved: (unsaved: boolean) => void;
+    setSearchParams: any;
 }

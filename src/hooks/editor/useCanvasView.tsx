@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import {ZOOM_LEVELS} from "../constants/editor"
+import {ZOOM_LEVELS} from "../../constants/editor"
 
 
 export function useCanvasView(initialW: number, initialH: number) {
