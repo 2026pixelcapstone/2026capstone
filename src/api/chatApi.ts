@@ -33,4 +33,8 @@ export const chatApi = {
   // 읽음 처리 (상대 메시지를 읽음으로)
   markRead: (commissionId: number) =>
     api.post<{ success: boolean }>(`/api/commissions/${commissionId}/messages/read`),
+
+  // 현재 거래룸 접속자 스냅샷 (입장 직후 초기 presence)
+  getPresence: (commissionId: number) =>
+    api.get<{ success: boolean; data: number[] }>(`/api/commissions/${commissionId}/presence`),
 }
