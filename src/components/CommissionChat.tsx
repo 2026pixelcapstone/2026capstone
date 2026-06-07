@@ -32,7 +32,14 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [otherPresent, setOtherPresent] = useState(false)  // 상대가 지금 거래룸을 보고 있는지
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // presence 목록(현재 방 접속자)에서 "나 말고 누가 있는지" 계산
+  const applyPresence = useCallback((ids: number[]) => {
+    if (meId == null) { setOtherPresent(false); return }  // meId 없으면 오탐지 방지
+    setOtherPresent(ids.some(id => id !== meId))
+  }, [meId])
 
   // 중복 방지 append — REST 응답 + WS 브로드캐스트로 같은 메시지가 두 번 올 수 있음
   const appendMessage = useCallback((msg: ChatMessage) => {
@@ -86,6 +93,8 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       onConnect: () => {
         loadMessages(false)   // 재연결 시 놓친 메시지 동기화 (스피너 없이)
         markRead()            // 끊긴 사이 온 메시지도 읽음 처리
+        // 입장 직후 현재 접속자 스냅샷 (입장 브로드캐스트를 놓칠 수 있는 race 대비)
+        chatApi.getPresence(commissionId).then(res => applyPresence(res.data.data)).catch(() => {})
         client.subscribe(`/topic/commissions/${commissionId}`, frame => {
           try {
             const event = JSON.parse(frame.body) as ChatEvent
@@ -98,6 +107,9 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
               if (event.readerId !== meId && event.lastReadMessageId != null) {
                 markMineReadUpTo(event.lastReadMessageId)
               }
+            } else if (event.type === 'PRESENCE') {
+              // 입퇴장 → 현재 접속자 갱신
+              applyPresence(event.presentUserIds ?? [])
             }
           } catch { /* 파싱 실패 무시 */ }
         })
@@ -113,7 +125,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
     })
     client.activate()
     return () => { client.deactivate() }
-  }, [commissionId, loadMessages, appendMessage, markRead, markMineReadUpTo, meId])
+  }, [commissionId, loadMessages, appendMessage, markRead, markMineReadUpTo, applyPresence, meId])
 
   // 메시지 갱신 시 맨 아래로 스크롤
   useEffect(() => {
@@ -142,6 +154,11 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       <div className="px-5 py-3 border-b flex items-center gap-2 flex-shrink-0" style={{ borderColor: '#30363d' }}>
         <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>chat</span>
         <span className="font-bold text-sm">채팅</span>
+        {otherPresent && (
+          <span className="ml-auto flex items-center gap-1 text-xs font-bold" style={{ color: '#3fb950' }}>
+            <span style={{ fontSize: 8 }}>●</span> 대화 중
+          </span>
+        )}
       </div>
 
       {/* 메시지 목록 */}

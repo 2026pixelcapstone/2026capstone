@@ -11,12 +11,13 @@ export interface ChatMessage {
   createdAt: string
 }
 
-// WebSocket 토픽으로 오는 이벤트 봉투 (type으로 분기). PRESENCE는 추후 추가.
+// WebSocket 토픽으로 오는 이벤트 봉투 (type으로 분기)
 export interface ChatEvent {
   type: 'MESSAGE' | 'READ' | 'PRESENCE'
   message?: ChatMessage      // type=MESSAGE
   readerId?: number          // type=READ — 상대 메시지를 읽은 사용자
   lastReadMessageId?: number // type=READ — 이 messageId 이하만 읽음으로 간주
+  presentUserIds?: number[]  // type=PRESENCE — 현재 거래룸에 있는 사용자들
 }
 
 export const chatApi = {
@@ -33,4 +34,8 @@ export const chatApi = {
   // 읽음 처리 (상대 메시지를 읽음으로)
   markRead: (commissionId: number) =>
     api.post<{ success: boolean }>(`/api/commissions/${commissionId}/messages/read`),
+
+  // 현재 거래룸 접속자 스냅샷 (입장 직후 초기 presence)
+  getPresence: (commissionId: number) =>
+    api.get<{ success: boolean; data: number[] }>(`/api/commissions/${commissionId}/presence`),
 }
