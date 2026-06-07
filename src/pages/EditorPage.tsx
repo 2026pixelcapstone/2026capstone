@@ -72,7 +72,7 @@ export default function EditorPage() {
   const [activeLayer, setActiveLayer] = useState<string | null>(
     initialCanvasData.frames[0]?.layers[0].id || null
   );
-  const { addLayer, deleteLayer, toggleVisibility, layerCounter} = useLayers(
+  const { addLayer, deleteLayer, toggleVisibility, layerCountersRef} = useLayers(
     state, 
     setWithHistory, 
     activeLayer, 
@@ -438,7 +438,7 @@ export default function EditorPage() {
   const handleNewProject = useCallback(() => {
     if (unsaved && !confirm('저장되지 않은 변경사항이 있습니다. 계속하시겠습니까?')) return
     
-    const defaultLayerId = `layer-${Date.now()}` // 고유 Id
+    const defaultLayerId = `layer-${crypto.randomUUID().slice(0, 8)}`;
     
     const defaultLayer: LayerData = {
       id: defaultLayerId, // ID는 문자열로 관리하는 것이 확장성에 좋습니다.
@@ -449,32 +449,40 @@ export default function EditorPage() {
       isVisible: true,
       opacity: 100,
       color: '#818cf8',
-      pixelData: JSON.stringify([{frameIdx: 0, image: ''}])
+      pixelData: ''
     }
-
-    setLayers([defaultLayer])
-    setActiveLayer(defaultLayerId)
-    if(layerCounter){
-      layerCounter.current = 1 // 1로 초기화
-    }
-
-    setState({
+    // 히스토리 초기화
+    setWithHistory({
       frames: [
         {
-          id: `frame-${Date.now()}`, // 프레임 고유 ID 부여
-          layers: [defaultLayer] // 새 프레임에도 이 기본 레이어 정보 주입
+          id: `frame-${crypto.randomUUID().slice(0, 8)}`,
+          layers: [defaultLayer] // 진짜 원본 프레임 내부에 레이어 안착
         }
       ],
       currentFrameIdx: 0,
       width: canvasW,
       height: canvasH
-    })
+    });
+
+    setActiveLayer(defaultLayerId);
+    
+    if (layerCountersRef && layerCountersRef.current) {
+      layerCountersRef.current = { 0: 2 }; 
+    }
+
+    // 메모리 상에 남아있던 이전 프로젝트의 캔버스 이미지 버퍼 캐시를 전부 청소함
+    if (layerCanvasRefs && layerCanvasRefs.current) {
+      layerCanvasRefs.current = {};
+    }
+
+    // 기타 메타데이터 및 URL 초기화
     setProjectId(null)
     setProjectTitle('Untitled Project')
     setUnsaved(false)
+
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
-  }, [unsaved, canvasW, canvasH, setSearchParams, setLayers, setActiveLayer, setState])
+  }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, setWithHistory])
 
   // HEX 입력 → 색상 반영
   const applyHex = () => {
@@ -530,12 +538,12 @@ export default function EditorPage() {
     const capturedFrameIdx = state.currentFrameIdx;
     if(!state.frames[capturedFrameIdx]) return;
     
-    // 💡 [핵심 수정]: 마우스를 뗄 때도 현재 지목된 고유한 프레임_레이어 상자에서 그림을 도려냅니다.
+    // [핵심 수정]: 마우스를 뗄 때도 현재 지목된 고유한 프레임_레이어 상자에서 그림을 도려냅니다.
     const cacheKey = `frame-${capturedFrameIdx}_layer-${activeLayer}`;
     const cachedCanvas = layerCanvasRefs.current[cacheKey];
     if (!cachedCanvas) return;
 
-    // 🔥 최적화 수정: 무겁고 잔상이 남을 수 있는 Node.toCanvas() 대신 
+    // 최적화 수정: 무겁고 잔상이 남을 수 있는 Node.toCanvas() 대신 
     // 우리가 실시간으로 낙서하던 진짜 가상 오프스크린 캔버스 캐시에서 직접 순수 PNG 소스를 주출합니다.
     const layerImageData = cachedCanvas.toDataURL('image/png');
 
@@ -898,6 +906,7 @@ export default function EditorPage() {
             ].join(','),
             backgroundSize: '16px 16px',
             backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
+            imageRendering: 'pixelated',
           }}>
 
           {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}

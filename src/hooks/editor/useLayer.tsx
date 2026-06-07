@@ -1,4 +1,3 @@
-import { createDefaultLayer } from "../../constants/editor";
 import { LayerData } from "../../constants/editorType";
 import { useCallback, useRef, useState } from "react";
 
@@ -8,14 +7,20 @@ export const useLayers = (
     activeLayer: string | null,
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>
 ) => {
-   
-    const layerCounter = useRef(2);
+    
+    // 프레임별 카운터를 맵 형태로 저장
+    const layerCountersRef = useRef<Record<number, number>>({});
     
     // ── 레이어 추가 ───────────────────────────────────
     const addLayer = useCallback((frameIdx: number) => {
         const newLayerId = `layer-${crypto.randomUUID().slice(0, 8)}`;
-        const currentLayerCount = layerCounter.current;
-        layerCounter.current += 1;
+        
+        if(!layerCountersRef.current[frameIdx]){
+            layerCountersRef.current[frameIdx] = 2;
+        }
+
+        const currentLayerCount = layerCountersRef.current[frameIdx];
+        layerCountersRef.current[frameIdx] += 1;
 
         setWithHistory((prev: any) => {
             const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
@@ -52,6 +57,16 @@ export const useLayers = (
             return;
         }
 
+        const layerToSubtract = targetFrame.layers.find((l: any) => l.id === layerIdToDelete);
+        if(layerToSubtract && layerToSubtract.name.startsWith("Layer ")){
+            const layerNum = parseInt(layerToSubtract.name.replace("Layer ", ""), 10); // 10: 10진수로 읽으라고 지정
+            const currentCounter = layerCountersRef.current[frameIdx] || 2;
+            
+            if (layerNum === currentCounter - 1) {
+                // 카운터를 1 줄여서, 다음에 레이어를 만들 때 이 번호를 다시 재활용하게 만듭니다.
+                layerCountersRef.current[frameIdx] = Math.max(2, currentCounter - 1);
+            }
+        }
         setWithHistory((prev: any) => {
             const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
                 if(fIdx !== frameIdx) return frame;
@@ -92,5 +107,5 @@ export const useLayers = (
         });
     }, [setWithHistory]);
 
-    return { addLayer, deleteLayer, toggleVisibility, layerCounter};
+    return { addLayer, deleteLayer, toggleVisibility, layerCountersRef};
 }
