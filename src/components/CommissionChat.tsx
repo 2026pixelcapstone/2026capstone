@@ -37,6 +37,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
 
   // presence 목록(현재 방 접속자)에서 "나 말고 누가 있는지" 계산
   const applyPresence = useCallback((ids: number[]) => {
+    if (meId == null) { setOtherPresent(false); return }  // meId 없으면 오탐지 방지
     setOtherPresent(ids.some(id => id !== meId))
   }, [meId])
 
