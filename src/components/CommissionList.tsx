@@ -82,10 +82,19 @@ export default function CommissionList({ commissions, loading, perspective }: Co
                 </div>
               </div>
             </div>
-            <span className="ml-4 shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
-              style={{ background: s.bg, color: s.color }}>
-              {s.label}
-            </span>
+            <div className="ml-4 shrink-0 flex items-center gap-2">
+              {c.unreadCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full text-xs font-bold"
+                  style={{ background: '#f85149', color: '#fff' }}
+                  title={`안 읽은 메시지 ${c.unreadCount}개`}>
+                  {c.unreadCount > 99 ? '99+' : c.unreadCount}
+                </span>
+              )}
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                style={{ background: s.bg, color: s.color }}>
+                {s.label}
+              </span>
+            </div>
           </Link>
         )
       })}
