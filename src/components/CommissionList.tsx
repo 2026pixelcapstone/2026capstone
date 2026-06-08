@@ -86,7 +86,8 @@ export default function CommissionList({ commissions, loading, perspective }: Co
               {c.unreadCount > 0 && (
                 <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full text-xs font-bold"
                   style={{ background: '#f85149', color: '#fff' }}
-                  title={`안 읽은 메시지 ${c.unreadCount}개`}>
+                  title={`안 읽은 메시지 ${c.unreadCount}개`}
+                  aria-label={`안 읽은 메시지 ${c.unreadCount}개`}>
                   {c.unreadCount > 99 ? '99+' : c.unreadCount}
                 </span>
               )}
