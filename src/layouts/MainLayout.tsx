@@ -13,9 +13,10 @@ export default function MainLayout() {
   const { fetchBlocks, clearBlocks, loaded } = useBlockStore()
   const { clearGalleryLikes } = useLikeStore()
 
-  // 로그인 상태인데 user 정보가 없으면 서버에서 복구 (새로고침 / 첫 로그인 후)
+  // 로그인 상태인데 user 정보가 없거나(새로고침/첫 로그인) emailVerified 정보가 없으면
+  // (이 기능 이전에 로그인해 둔 레거시 세션) 서버에서 복구
   useEffect(() => {
-    if (isLoggedIn && !user) {
+    if (isLoggedIn && (!user || user.emailVerified === undefined)) {
       userApi.getMe()
         .then(res => {
           const { userId, email, nickname, role, profileImageUrl, emailVerified } = res.data.data
