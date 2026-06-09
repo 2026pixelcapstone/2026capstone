@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { Client } from '@stomp/stompjs'
 import { chatApi, type ChatMessage, type ChatEvent } from '../api/chatApi'
 import { toast } from '../store/toastStore'
@@ -13,6 +13,8 @@ interface Props {
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
 }
+
+const PAGE_SIZE = 30  // 한 번에 로드할 메시지 수 (백엔드 기본값과 일치)
 
 // localStorage(zustand persist)에서 accessToken 추출 — axios 인터셉터와 동일 출처
 function getToken(): string | null {
@@ -30,10 +32,15 @@ const WS_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace
 export default function CommissionChat({ commissionId, meId, readOnly = false }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)  // "위로 더보기" 진행 중
+  const [hasMore, setHasMore] = useState(false)          // 더 이전 메시지 존재 여부
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [otherPresent, setOtherPresent] = useState(false)  // 상대가 지금 거래룸을 보고 있는지
   const bottomRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)             // 스크롤 컨테이너
+  const lastIdRef = useRef<number | null>(null)            // 마지막 메시지 id (바닥 스크롤 판정용)
+  const pendingPrependRef = useRef<number | null>(null)    // prepend 직전 scrollHeight (위치 보존용)
 
   // presence 목록(현재 방 접속자)에서 "나 말고 누가 있는지" 계산
   const applyPresence = useCallback((ids: number[]) => {
@@ -58,30 +65,51 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       (m.senderId === meId && m.messageId <= lastId && !m.isRead ? { ...m, isRead: true } : m)))
   }, [meId])
 
-  // 메시지 로드 (showSpinner=false면 재동기화용 조용한 로드)
-  // 통째 교체가 아니라 병합 — 재동기화 fetch가 진행되는 사이 WS로 도착한 메시지가 유실되지 않도록
-  const loadMessages = useCallback((showSpinner: boolean) => {
+  // 최신 PAGE_SIZE개 로드 (showSpinner=false면 재동기화용 조용한 로드)
+  // 통째 교체가 아니라 병합 — 이미 로드한 이전 메시지 + 재동기화 중 WS로 도착한 메시지가 유실되지 않도록.
+  // updateHasMore=true(초기)일 때만 hasMore 반영(재동기화는 기존 로드분을 깎지 않도록 유지).
+  const loadLatest = useCallback((showSpinner: boolean, updateHasMore: boolean) => {
     if (showSpinner) setLoading(true)
-    chatApi.getMessages(commissionId, { size: 100 })
+    chatApi.getMessages(commissionId, { size: PAGE_SIZE })
       .then(res => {
-        const fetched = res.data.data.content
+        const { messages: fetched, hasMore: more } = res.data.data
+        if (updateHasMore) setHasMore(more)
         setMessages(prev => {
           const fetchedIds = new Set(fetched.map(m => m.messageId))
-          const newFromWs = prev.filter(m => !fetchedIds.has(m.messageId))
-          return [...fetched, ...newFromWs].sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          )
+          const kept = prev.filter(m => !fetchedIds.has(m.messageId))
+          return [...kept, ...fetched].sort((a, b) => a.messageId - b.messageId)
         })
       })
       .catch(() => { if (showSpinner) toast.error('메시지를 불러오지 못했습니다.') })
       .finally(() => { if (showSpinner) setLoading(false) })
   }, [commissionId])
 
-  // 진입 시 초기 로드 + 상대 메시지 읽음 처리
+  // "위로 더보기" — 현재 가장 오래된 메시지보다 이전 PAGE_SIZE개를 앞에 붙임(prepend).
+  // prepend 직전 scrollHeight를 기록해 두면 useLayoutEffect가 스크롤 위치를 보존(화면 점프 방지).
+  const loadMore = useCallback(() => {
+    if (loadingMore || messages.length === 0) return
+    setLoadingMore(true)
+    const before = messages[0].messageId
+    pendingPrependRef.current = listRef.current?.scrollHeight ?? 0
+    chatApi.getMessages(commissionId, { before, size: PAGE_SIZE })
+      .then(res => {
+        const { messages: older, hasMore: more } = res.data.data
+        setHasMore(more)
+        setMessages(prev => {
+          const ids = new Set(prev.map(m => m.messageId))
+          return [...older.filter(m => !ids.has(m.messageId)), ...prev]
+            .sort((a, b) => a.messageId - b.messageId)
+        })
+      })
+      .catch(() => { pendingPrependRef.current = null; toast.error('이전 메시지를 불러오지 못했습니다.') })
+      .finally(() => setLoadingMore(false))
+  }, [commissionId, loadingMore, messages])
+
+  // 진입 시 초기 로드(최신 PAGE_SIZE개) + 상대 메시지 읽음 처리
   useEffect(() => {
-    loadMessages(true)
+    loadLatest(true, true)
     markRead()
-  }, [loadMessages, markRead])
+  }, [loadLatest, markRead])
 
   // WebSocket(STOMP) 실시간 수신 — 연결되면 재동기화 + 토픽 구독
   useEffect(() => {
@@ -91,7 +119,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 4000,
       onConnect: () => {
-        loadMessages(false)   // 재연결 시 놓친 메시지 동기화 (스피너 없이)
+        loadLatest(false, false)   // 재연결 시 놓친 최신 메시지 동기화 (스피너 없이, 기존 로드분 유지)
         markRead()            // 끊긴 사이 온 메시지도 읽음 처리
         // 입장 직후 현재 접속자 스냅샷 (입장 브로드캐스트를 놓칠 수 있는 race 대비)
         chatApi.getPresence(commissionId).then(res => applyPresence(res.data.data)).catch(() => {})
@@ -125,11 +153,25 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
     })
     client.activate()
     return () => { client.deactivate() }
-  }, [commissionId, loadMessages, appendMessage, markRead, markMineReadUpTo, applyPresence, meId])
+  }, [commissionId, loadLatest, appendMessage, markRead, markMineReadUpTo, applyPresence, meId])
 
-  // 메시지 갱신 시 맨 아래로 스크롤
+  // prepend(위로 더보기) 직후 스크롤 위치 보존 — 페인트 전에 보정해 점프 방지
+  useLayoutEffect(() => {
+    if (pendingPrependRef.current != null && listRef.current) {
+      const el = listRef.current
+      el.scrollTop += el.scrollHeight - pendingPrependRef.current
+      pendingPrependRef.current = null
+    }
+  }, [messages])
+
+  // 마지막 메시지가 바뀔 때(새 메시지 추가/초기 로드)만 맨 아래로 스크롤.
+  // 위로 더보기(prepend)는 마지막 메시지가 그대로라 바닥으로 튕기지 않음.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const lastId = messages.length ? messages[messages.length - 1].messageId : null
+    if (lastId !== lastIdRef.current) {
+      lastIdRef.current = lastId
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
 
   const handleSend = async (e: React.FormEvent) => {
@@ -162,7 +204,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       </div>
 
       {/* 메시지 목록 */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full w-6 h-6 border-2" style={{ borderColor: '#2f81f7', borderTopColor: 'transparent' }} />
@@ -174,7 +216,17 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
             <p className="text-xs" style={{ color: '#484f58' }}>먼저 인사를 건네보세요.</p>
           </div>
         ) : (
-          messages.map(m => {
+          <>
+            {hasMore && (
+              <div className="flex justify-center pb-1">
+                <button type="button" onClick={loadMore} disabled={loadingMore}
+                  className="text-xs px-3 py-1 rounded-full hover:opacity-90 disabled:opacity-50"
+                  style={{ background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                  {loadingMore ? '불러오는 중…' : '이전 메시지 더보기'}
+                </button>
+              </div>
+            )}
+            {messages.map(m => {
             const mine = m.senderId === meId
             return (
               <div key={m.messageId} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -197,7 +249,8 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
                 </div>
               </div>
             )
-          })
+          })}
+          </>
         )}
         <div ref={bottomRef} />
       </div>
