@@ -1,5 +1,4 @@
 import api from '../lib/axios'
-import type { PageResponse } from './galleryApi'
 
 export interface ChatMessage {
   messageId: number
@@ -9,6 +8,12 @@ export interface ChatMessage {
   content: string
   isRead: boolean
   createdAt: string
+}
+
+// 커서 페이지네이션 응답 — messages는 오름차순(오래된→최신), hasMore=더 이전 메시지 존재 여부
+export interface ChatMessagePage {
+  messages: ChatMessage[]
+  hasMore: boolean
 }
 
 // WebSocket 토픽으로 오는 이벤트 봉투 (type으로 분기)
@@ -21,9 +26,10 @@ export interface ChatEvent {
 }
 
 export const chatApi = {
-  // 커미션 거래룸 메시지 목록 (시간 오름차순, 로그인·당사자 전용)
-  getMessages: (commissionId: number, params?: { page?: number; size?: number }) =>
-    api.get<{ success: boolean; data: PageResponse<ChatMessage> }>(
+  // 커미션 거래룸 메시지 목록 (커서 페이지네이션, 로그인·당사자 전용)
+  // before 없으면 최신 size개, before=messageId면 그보다 이전 size개("위로 더보기")
+  getMessages: (commissionId: number, params?: { before?: number; size?: number }) =>
+    api.get<{ success: boolean; data: ChatMessagePage }>(
       `/api/commissions/${commissionId}/messages`, { params }),
 
   // 메시지 전송
