@@ -30,4 +30,12 @@ export const authApi = {
 
   logout: () =>
     api.post<{ success: boolean; message: string }>('/api/auth/logout'),
+
+  // 이메일 인증 링크의 토큰으로 인증 완료 (비로그인 상태도 가능)
+  verifyEmail: (token: string) =>
+    api.post<{ success: boolean; message: string }>('/api/auth/email/verify', { token }),
+
+  // 인증 메일 재발송 (로그인 필수)
+  resendVerification: () =>
+    api.post<{ success: boolean; message: string }>('/api/auth/email/resend'),
 }

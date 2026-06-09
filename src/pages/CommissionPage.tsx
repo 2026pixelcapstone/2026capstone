@@ -10,6 +10,7 @@ import CommissionList from '../components/CommissionList'
 import DateField from '../components/DateField'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
+import { getErrorMessage } from '../lib/errorUtils'
 
 // 서비스 카테고리 — 등록 폼 선택지 (백엔드 저장값과 정확히 일치해야 함)
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
@@ -376,8 +377,8 @@ export default function CommissionPage() {
       } else {
         handleTabChange('requests')
       }
-    } catch {
-      setFormError('의뢰 등록에 실패했습니다. 다시 시도해주세요.')
+    } catch (err) {
+      setFormError(getErrorMessage(err, '의뢰 등록에 실패했습니다. 다시 시도해주세요.'))
     } finally {
       setSubmitting(false)
     }
@@ -407,8 +408,8 @@ export default function CommissionPage() {
       setShowServiceModal(false)
       if (tab === 'artists') fetchArtists(0)
       else handleTabChange('artists')
-    } catch {
-      setServiceError('서비스 등록에 실패했습니다. 다시 시도해주세요.')
+    } catch (err) {
+      setServiceError(getErrorMessage(err, '서비스 등록에 실패했습니다. 다시 시도해주세요.'))
     } finally {
       setServiceSubmitting(false)
     }
