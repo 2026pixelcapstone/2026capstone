@@ -34,8 +34,10 @@ export interface LayerData{
 
 export interface useEditorProps{
     stageRef: React.RefObject<Konva.Stage | null>;
+    layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
     canvasW: number;
     canvasH: number;
+    state: CanvasData;
     zoom: number;
     isLoggedIn: boolean;
     layers: LayerData[];

@@ -98,8 +98,10 @@ export default function EditorPage() {
 
   const {handleSave, setProjectId, saving} = useEditor({
     stageRef,
+    layerCanvasRefs,
     canvasW,
     canvasH,
+    state,
     zoom,
     isLoggedIn,
     layers,
