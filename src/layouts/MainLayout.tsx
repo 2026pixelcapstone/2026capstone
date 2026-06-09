@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Toast from '../components/Toast'
+import EmailVerificationBanner from '../components/EmailVerificationBanner'
 import { useAuthStore } from '../store/authStore'
 import { useBlockStore } from '../store/blockStore'
 import { useLikeStore } from '../store/likeStore'
@@ -17,8 +18,8 @@ export default function MainLayout() {
     if (isLoggedIn && !user) {
       userApi.getMe()
         .then(res => {
-          const { userId, email, nickname, role, profileImageUrl } = res.data.data
-          setUser({ userId, email, nickname, role, profileImageUrl: profileImageUrl ?? undefined })
+          const { userId, email, nickname, role, profileImageUrl, emailVerified } = res.data.data
+          setUser({ userId, email, nickname, role, profileImageUrl: profileImageUrl ?? undefined, emailVerified })
         })
         .catch(() => {/* 토큰 만료 등 — 인터셉터가 처리 */})
     }
@@ -39,6 +40,7 @@ export default function MainLayout() {
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
       <Navbar />
       <main className="pt-20">
+        <EmailVerificationBanner />
         <Outlet />
       </main>
       <Toast />

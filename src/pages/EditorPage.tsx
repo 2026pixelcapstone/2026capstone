@@ -7,6 +7,7 @@ import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
+import { getErrorMessage } from '../lib/errorUtils'
 import {useAnimation} from '../hooks/useAnimation'
 import { useHistory } from '../hooks/useHistory'
 import { applyPalette, GIFEncoder, quantize } from 'gifenc'
@@ -301,8 +302,8 @@ export default function EditorPage() {
       }])
       setUnsaved(false)
       toast.success('저장되었습니다.')
-    } catch {
-      toast.error('저장에 실패했습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '저장에 실패했습니다.'))
     } finally {
       setSaving(false)
     }

@@ -26,8 +26,8 @@ export default function LoginPage() {
       // 로그인 직후 유저 정보 즉시 로드 (삭제 버튼 등 본인 확인 로직에 필요)
       try {
         const meRes = await userApi.getMe()
-        const { userId, email: userEmail, nickname, role, profileImageUrl } = meRes.data.data
-        setUser({ userId, email: userEmail, nickname, role, profileImageUrl: profileImageUrl ?? undefined })
+        const { userId, email: userEmail, nickname, role, profileImageUrl, emailVerified } = meRes.data.data
+        setUser({ userId, email: userEmail, nickname, role, profileImageUrl: profileImageUrl ?? undefined, emailVerified })
       } catch {
         // 유저 정보 로드 실패해도 로그인 자체는 유지 (MainLayout에서 재시도)
       }
