@@ -86,7 +86,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
 
   // "위로 더보기" — 현재 가장 오래된 메시지보다 이전 PAGE_SIZE개를 앞에 붙임(prepend).
   // prepend 직전 scrollHeight를 기록해 두면 useLayoutEffect가 스크롤 위치를 보존(화면 점프 방지).
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
     if (loadingMore || messages.length === 0) return
     setLoadingMore(true)
     const before = messages[0].messageId
@@ -103,7 +103,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
       })
       .catch(() => { pendingPrependRef.current = null; toast.error('이전 메시지를 불러오지 못했습니다.') })
       .finally(() => setLoadingMore(false))
-  }
+  }, [commissionId, loadingMore, messages])
 
   // 진입 시 초기 로드(최신 PAGE_SIZE개) + 상대 메시지 읽음 처리
   useEffect(() => {
