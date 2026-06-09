@@ -1,14 +1,20 @@
 import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { authApi } from '../api/authApi'
 import { userApi } from '../api/userApi'
 import { useAuthStore } from '../store/authStore'
 
 export default function LoginPage() {
+  const [searchParams] = useSearchParams()
   const [showPw, setShowPw] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  // 소셜 로그인 실패로 리다이렉트된 경우(?error=oauth) 안내 메시지 초기 표시
+  const [error, setError] = useState(
+    searchParams.get('error') === 'oauth'
+      ? 'Google 로그인에 실패했습니다. 다시 시도해 주세요.'
+      : ''
+  )
   const [loading, setLoading] = useState(false)
   const { setTokens, setUser } = useAuthStore()
   const navigate = useNavigate()
