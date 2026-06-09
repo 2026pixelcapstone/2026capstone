@@ -20,7 +20,8 @@ export default function MainLayout() {
       userApi.getMe()
         .then(res => {
           const { userId, email, nickname, role, profileImageUrl, emailVerified } = res.data.data
-          setUser({ userId, email, nickname, role, profileImageUrl: profileImageUrl ?? undefined, emailVerified })
+          // emailVerified가 응답에서 누락돼도 boolean으로 확정 → 위 조건 재충족 방지(무한 재호출 차단)
+          setUser({ userId, email, nickname, role, profileImageUrl: profileImageUrl ?? undefined, emailVerified: emailVerified ?? false })
         })
         .catch(() => {/* 토큰 만료 등 — 인터셉터가 처리 */})
     }

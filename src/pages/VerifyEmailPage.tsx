@@ -17,11 +17,13 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState<Status>('loading')
   const [message, setMessage] = useState('')
   const { isLoggedIn, setUser } = useAuthStore()
-  const ranRef = useRef(false)   // StrictMode 이중 실행 가드 (토큰은 1회용)
+  // 처리한 토큰을 기억 — StrictMode 이중 실행은 막되, 토큰이 바뀌면 재검증 허용.
+  // 초기값 undefined: token이 null이어도 첫 실행이 막히지 않도록(string|null과 구분)
+  const processedTokenRef = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
-    if (ranRef.current) return
-    ranRef.current = true
+    if (processedTokenRef.current === token) return
+    processedTokenRef.current = token
 
     if (!token) {
       setStatus('error')
@@ -29,6 +31,7 @@ export default function VerifyEmailPage() {
       return
     }
 
+    setStatus('loading')   // 새 토큰 처리 시작 — 이전 결과 초기화
     authApi.verifyEmail(token)
       .then(async () => {
         setStatus('success')
