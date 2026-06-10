@@ -29,14 +29,16 @@ export interface LayerData{
     isVisible: boolean;
     opacity: number;
     color: string | null; // 색상이 없을 수도 있으니 null 허용
-    pixelData: string | null;
+    pixelData: string;
 }
 
 export interface useEditorProps{
     stageRef: React.RefObject<Konva.Stage | null>;
+    layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
     canvasW: number;
     canvasH: number;
-    zoom: number;
+    state: CanvasData;
+    //zoom: number;
     isLoggedIn: boolean;
     layers: LayerData[];
     setUnsaved: (unsaved: boolean) => void;

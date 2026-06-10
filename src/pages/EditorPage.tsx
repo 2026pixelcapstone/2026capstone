@@ -39,18 +39,26 @@ export default function EditorPage() {
   const {canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
 
-  const {state, setState, setWithHistory, undo, redo} = useHistory(createInitialCanvasData());
+  const initialCanvasData = createInitialCanvasData();
+  const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
   
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
     frames: state.frames,
     currentFrameIdx: state.currentFrameIdx,
     onChange: (newFrames, nextIdx) => {
+      const targetIdx = nextIdx ?? state.currentFrameIdx;
+      const targetFrame = newFrames[targetIdx];
+      const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
+      
       setWithHistory((prev) => ({
         ...prev,
         frames: newFrames,
-        currentFrameIdx: nextIdx ?? prev.currentFrameIdx
+        currentFrameIdx: targetIdx
       }));
+
+      setActiveLayer(targetActiveLayerId)
+      setUnsaved(false);
     }
   });
   const [isPlaying, setIsPlaying] = useState(false);
@@ -60,10 +68,11 @@ export default function EditorPage() {
   const[showAIGuide, setShowAIGuide] = useState(false);
 
   // ── 레이어 상태 및 훅 ──────────────────────────
-  const firstLayer = createInitialCanvasData().frames?.[0]?.layers?.[0];
-  const [layers, setLayers] = useState<LayerData[]>([firstLayer]);
-  const [activeLayer, setActiveLayer] = useState<string | null>(firstLayer.id);
-  const { addLayer, deleteLayer, toggleVisibility, layerCounter} = useLayers(
+  const [layers, setLayers] = useState<LayerData[]>([initialCanvasData.frames[0]?.layers[0]]);
+  const [activeLayer, setActiveLayer] = useState<string | null>(
+    initialCanvasData.frames[0]?.layers[0].id || null
+  );
+  const { addLayer, deleteLayer, toggleVisibility, layerCountersRef} = useLayers(
     state, 
     setWithHistory, 
     activeLayer, 
@@ -89,9 +98,10 @@ export default function EditorPage() {
 
   const {handleSave, setProjectId, saving} = useEditor({
     stageRef,
+    layerCanvasRefs,
     canvasW,
     canvasH,
-    zoom,
+    state,
     isLoggedIn,
     layers,
     setUnsaved,
@@ -158,17 +168,22 @@ export default function EditorPage() {
     return nextCanvas;
   }, [canvasW, canvasH])
 
-
+  //-------- 캐시 캔버스 유실을 막는 역할을 함(청소부) -----------
   useEffect(() => {
-    const liveLayerIds = new Set(layers.map((layer) => layer.id))
-    layers.forEach((layer) => getLayerCanvas(layer.id))
+    const liveCacheKeys = new Set<string>();
 
-    Object.keys(layerCanvasRefs.current).forEach((layerId) => {
-      if (!liveLayerIds.has(layerId)) {
-        delete layerCanvasRefs.current[layerId]
+    state.frames.forEach((frame, fIdx) => {
+      frame.layers.forEach((layer: any) => {
+        liveCacheKeys.add(`frame-${fIdx}_layer-${layer.id}`);
+      });
+    });
+
+    Object.keys(layerCanvasRefs.current).forEach((cacheKey) => {
+      if (!liveCacheKeys.has(cacheKey)) {
+        delete layerCanvasRefs.current[cacheKey]
       }
     })
-  }, [layers, getLayerCanvas])
+  }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
   const drawPixel = useCallback((e:KonvaEventObject<MouseEvent>) => {
@@ -349,60 +364,66 @@ export default function EditorPage() {
     if (!stage) return
 
     const safeTitle = projectTitle.replace(/\s+/g, '_')
-    // 단일 프레임 처리: 햔재 보이는 Stage 전체를 PNG로 내보내기
+
+    // 단일 프레임 처리
     if(state.frames.length <= 1){
-      const currentFullImage = stage.toDataURL({pixelRatio: 1}) // 원본 크기 유지
-      const link = document.createElement('a')
-      link.download = `${safeTitle}.png`
-      link.href = currentFullImage
-      link.click()
+      const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
+      const link = document.createElement('a');
+      link.download = `${safeTitle}.png`;
+      link.href = currentFullImage;
+      link.click();
       return;
     }
+    
     // 멀티 프레임 일 때
     const gif = GIFEncoder()
 
+    // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
     for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
+      const currentFrame = state.frames[fIdx];
+      if (!currentFrame) continue;
+      
+      // 가상 도화지(가상 캔버스) 생성 및 안전장치
       const frameCanvas = document.createElement('canvas')
       frameCanvas.width = canvasW
       frameCanvas.height = canvasH
       const fCtx = frameCanvas.getContext('2d')
-      if(!fCtx) continue // 질문: continue를 쓰는 이유는? 로딩이 안되었을 까봐 그런건가
-
+      
+      if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
+      
       fCtx.imageSmoothingEnabled = false
       fCtx.clearRect(0, 0, canvasW, canvasH)
 
-      for(const layer of layers){
+      const currentFrameLayers = currentFrame.layers ?? [];
+      
+      for(const layer of currentFrameLayers){
         if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
+        
+        const cacheKey = `frame-${fIdx}_layer-${layer.id}`;
+        const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
-        let layerFrameSrc: string | null = null
-        if(layer.pixelData){
-          try{
-            const frameImages = JSON.parse(layer.pixelData) // [ {frameIdx: 0, image: '...'}, ... ]
-            const match = frameImages.find((img: any) => img.frameIdx === fIdx) // 질문
-            if(match) layerFrameSrc = match.image
-          }
-          catch(e){
-            console.error("레이어 프레임 파싱 실패", e)
-          }
-        }
-        // 해당 레이어에 이 프레임 장수의 그림이 존재한다면 가상 도화지에 덧칠합니다.
-        if(layerFrameSrc){
-          const img = new Image()
+        fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+
+        if(cachedCanvas){
+          fCtx.drawImage(cachedCanvas, 0, 0, canvasW, canvasH);
+        }else if(layer.pixelData && layer.pixelData.trim() !== ''){
+          // 만약 메모리 캐시는 날아갔지만 백업용 pixelData 문자열이 살아있다면 이미지 객체로 복구
+          const img = new Image();
           await new Promise<void>((resolve) => {
             img.onload = () => {
-              fCtx.globalAlpha = layer.opacity
-              fCtx.drawImage(img, 0, 0, canvasW, canvasH)
-              fCtx.globalAlpha = 1.0
-              resolve()
-            }
-            img.onerror = () => resolve() // 에러 시 스킵하고 다음 레이어로 진행
-            img.src = layerFrameSrc! // ! -> null이나 ubdefined일 리가 없다는 표시
-          })
+              fCtx.drawImage(img, 0, 0, canvasW, canvasH);
+              resolve();
+            };
+            img.onerror = () => resolve(); // 에러 나더라도 막히지 않게 세이프 가드
+            img.src = layer.pixelData;
+          });
         }
+        fCtx.globalAlpha = 1.0; // 투명도 원상복구
       }
-      // 모든 레이어가 이쁘게 겹쳐진 최종 캔버스에서 ImageData를 추출합니다.
+      // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
       const imageData = fCtx.getImageData(0, 0, canvasW, canvasH)
-      // 기존 픽셀 양자화 및 인코딩 로직 실행
+      
+      // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
       const palette = quantize(imageData.data, 256)
       const indexed = applyPalette(imageData.data, palette)
 
@@ -424,7 +445,7 @@ export default function EditorPage() {
   const handleNewProject = useCallback(() => {
     if (unsaved && !confirm('저장되지 않은 변경사항이 있습니다. 계속하시겠습니까?')) return
     
-    const defaultLayerId = `layer-${Date.now()}` // 고유 Id
+    const defaultLayerId = `layer-${crypto.randomUUID().slice(0, 8)}`;
     
     const defaultLayer: LayerData = {
       id: defaultLayerId, // ID는 문자열로 관리하는 것이 확장성에 좋습니다.
@@ -435,32 +456,40 @@ export default function EditorPage() {
       isVisible: true,
       opacity: 100,
       color: '#818cf8',
-      pixelData: JSON.stringify([{frameIdx: 0, image: ''}])
+      pixelData: ''
     }
-
-    setLayers([defaultLayer])
-    setActiveLayer(defaultLayerId)
-    if(layerCounter){
-      layerCounter.current = 1 // 1로 초기화
-    }
-
-    setState({
+    // 히스토리 초기화
+    setWithHistory({
       frames: [
         {
-          id: `frame-${Date.now()}`, // 프레임 고유 ID 부여
-          layers: [defaultLayer] // 새 프레임에도 이 기본 레이어 정보 주입
+          id: `frame-${crypto.randomUUID().slice(0, 8)}`,
+          layers: [defaultLayer] // 진짜 원본 프레임 내부에 레이어 안착
         }
       ],
       currentFrameIdx: 0,
       width: canvasW,
       height: canvasH
-    })
+    });
+
+    setActiveLayer(defaultLayerId);
+    
+    if (layerCountersRef && layerCountersRef.current) {
+      layerCountersRef.current = { 0: 2 }; 
+    }
+
+    // 메모리 상에 남아있던 이전 프로젝트의 캔버스 이미지 버퍼 캐시를 전부 청소함
+    if (layerCanvasRefs && layerCanvasRefs.current) {
+      layerCanvasRefs.current = {};
+    }
+
+    // 기타 메타데이터 및 URL 초기화
     setProjectId(null)
     setProjectTitle('Untitled Project')
     setUnsaved(false)
+
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
-  }, [unsaved, canvasW, canvasH, setSearchParams, setLayers, setActiveLayer, setState])
+  }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, setWithHistory])
 
   // HEX 입력 → 색상 반영
   const applyHex = () => {
@@ -516,12 +545,12 @@ export default function EditorPage() {
     const capturedFrameIdx = state.currentFrameIdx;
     if(!state.frames[capturedFrameIdx]) return;
     
-    // 💡 [핵심 수정]: 마우스를 뗄 때도 현재 지목된 고유한 프레임_레이어 상자에서 그림을 도려냅니다.
+    // [핵심 수정]: 마우스를 뗄 때도 현재 지목된 고유한 프레임_레이어 상자에서 그림을 도려냅니다.
     const cacheKey = `frame-${capturedFrameIdx}_layer-${activeLayer}`;
     const cachedCanvas = layerCanvasRefs.current[cacheKey];
     if (!cachedCanvas) return;
 
-    // 🔥 최적화 수정: 무겁고 잔상이 남을 수 있는 Node.toCanvas() 대신 
+    // 최적화 수정: 무겁고 잔상이 남을 수 있는 Node.toCanvas() 대신 
     // 우리가 실시간으로 낙서하던 진짜 가상 오프스크린 캔버스 캐시에서 직접 순수 PNG 소스를 주출합니다.
     const layerImageData = cachedCanvas.toDataURL('image/png');
 
@@ -551,19 +580,33 @@ export default function EditorPage() {
     const canvas = stageRef.current;
     if (!canvas) return;
 
+    const nextFrame = state.frames[nextIndex];
+    const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
+
     if (unsaved) {
-        const imageData = canvas.toDataURL();
-        setWithHistory((prev) => ({
-          ...prev,
-          frames: prev.frames.map((f, i) =>
-            i === prev.currentFrameIdx ? { ...f, data: imageData } : f
-          ),
-          currentFrameIdx: nextIndex,
-        }));
-        setUnsaved(false);
+        const cacheKey = `frame-${state.currentFrameIdx}_layer-${activeLayer}`;
+        const cachedCanvas = layerCanvasRefs.current[cacheKey];
+        if(cachedCanvas){
+          const layerImageData = cachedCanvas.toDataURL();
+          setWithHistory((prev) => ({
+            ...prev,
+            frames: prev.frames.map((f, i) =>
+              i === prev.currentFrameIdx 
+                ? { ...f, layers: f.layers.map(l => l.id === activeLayer ? {...l, pixelData: layerImageData}: l) }
+                : f
+            ),
+            currentFrameIdx: nextIndex,
+          }));
+          setActiveLayer(nextActiveLayerId);
+          setUnsaved(false);
+        } 
     } 
     else {
-      setState((prev) => ({ ...prev, currentFrameIdx: nextIndex }));
+      setWithHistory((prev) => ({
+        ...prev,
+        currentFrameIdx: nextIndex,
+      }));
+      setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     }
   }
    // ── 레이어 ───────────────────────────────────
@@ -870,6 +913,7 @@ export default function EditorPage() {
             ].join(','),
             backgroundSize: '16px 16px',
             backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
+            imageRendering: 'pixelated',
           }}>
 
           {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
@@ -996,9 +1040,8 @@ export default function EditorPage() {
                                 let src: string | null = null;
                                 if(layer.pixelData){
                                   try{
-                                    const frameImages = JSON.parse(layer.pixelData);
-                                    const match = frameImages.find((img: any) => img.frameIdx === index)
-                                    if (match) src = match.image;
+                                    const frameImages = layer.pixelData;
+                                    if(frameImages) src = frameImages;
                                   } catch (e){
                                     console.error("레이어 썸네일 파싱 에러", e);
                                   }
