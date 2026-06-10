@@ -7,7 +7,7 @@ export const useLayers = (
     activeLayer: string | null,
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>
 ) => {
-    
+
     // 프레임별 카운터를 맵 형태로 저장
     const layerCountersRef = useRef<Record<number, number>>({});
     
@@ -37,7 +37,6 @@ export const useLayers = (
                     color: '#818cf8',
                     pixelData: '', // 새 레이어니까 도화지는 깨끗하게 빈 값
                 };
-
                 return{...frame, layers: [...frame.layers, newLayer]};
             });
             return { ...prev, frames: updatedFrames };
@@ -106,6 +105,6 @@ export const useLayers = (
             return { ...prev, frames: updatedFrames };
         });
     }, [setWithHistory]);
-
+    
     return { addLayer, deleteLayer, toggleVisibility, layerCountersRef};
 }

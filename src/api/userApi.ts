@@ -11,6 +11,7 @@ export interface UserProfileResponse {
   followingCount: number
   isPublic: boolean
   isFollowing: boolean
+  emailVerified: boolean
   role: string
   createdAt: string
 }

@@ -7,6 +7,7 @@ interface AuthUser {
   nickname: string
   role: string
   profileImageUrl?: string;
+  emailVerified?: boolean;   // 이메일 인증 여부 (소프트 게이트 배너 제어)
 }
 
 interface AuthState {

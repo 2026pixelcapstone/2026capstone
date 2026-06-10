@@ -16,6 +16,8 @@ import RequestPostDetailPage from '../pages/RequestPostDetailPage'
 import ArtistServiceDetailPage from '../pages/ArtistServiceDetailPage'
 import LoginPage from '../pages/LoginPage'
 import SignupPage from '../pages/SignupPage'
+import VerifyEmailPage from '../pages/VerifyEmailPage'
+import OAuthCallbackPage from '../pages/OAuthCallbackPage'
 import MyPage from '../pages/MyPage'
 import ProfilePage from '../pages/ProfilePage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -43,6 +45,8 @@ export default function App() {
       {/* 인증 페이지 — 레이아웃 없음 */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/oauth2/callback" element={<OAuthCallbackPage />} />
 
       {/* 에러 페이지 — 레이아웃 없음 */}
       <Route path="/403" element={<ForbiddenPage />} />

@@ -388,6 +388,7 @@ export default function EditorPage() {
       frameCanvas.width = canvasW
       frameCanvas.height = canvasH
       const fCtx = frameCanvas.getContext('2d')
+      
       if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
       
       fCtx.imageSmoothingEnabled = false

@@ -59,7 +59,8 @@ export const LayerImageRenderer = ({
     }, [layerId, pixelData, canvasW, canvasH, layerCanvasRefs])
     
     const myCanvas = layerCanvasRefs.current[cacheKey];
-     return (
+
+    return (
         <KonvaImage
             ref={imageRef}
             image={myCanvas}

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Toast from '../components/Toast'
+import EmailVerificationBanner from '../components/EmailVerificationBanner'
 import { useAuthStore } from '../store/authStore'
 import { useBlockStore } from '../store/blockStore'
 import { useLikeStore } from '../store/likeStore'
@@ -12,13 +13,15 @@ export default function MainLayout() {
   const { fetchBlocks, clearBlocks, loaded } = useBlockStore()
   const { clearGalleryLikes } = useLikeStore()
 
-  // 로그인 상태인데 user 정보가 없으면 서버에서 복구 (새로고침 / 첫 로그인 후)
+  // 로그인 상태인데 user 정보가 없거나(새로고침/첫 로그인) emailVerified 정보가 없으면
+  // (이 기능 이전에 로그인해 둔 레거시 세션) 서버에서 복구
   useEffect(() => {
-    if (isLoggedIn && !user) {
+    if (isLoggedIn && (!user || user.emailVerified === undefined)) {
       userApi.getMe()
         .then(res => {
-          const { userId, email, nickname, role, profileImageUrl } = res.data.data
-          setUser({ userId, email, nickname, role, profileImageUrl: profileImageUrl ?? undefined })
+          const { userId, email, nickname, role, profileImageUrl, emailVerified } = res.data.data
+          // emailVerified가 응답에서 누락돼도 boolean으로 확정 → 위 조건 재충족 방지(무한 재호출 차단)
+          setUser({ userId, email, nickname, role, profileImageUrl: profileImageUrl ?? undefined, emailVerified: emailVerified ?? false })
         })
         .catch(() => {/* 토큰 만료 등 — 인터셉터가 처리 */})
     }
@@ -39,6 +42,7 @@ export default function MainLayout() {
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
       <Navbar />
       <main className="pt-20">
+        <EmailVerificationBanner />
         <Outlet />
       </main>
       <Toast />

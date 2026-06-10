@@ -21,9 +21,7 @@ export const useEditor = ({
     const [editingTitle, setEditingTitle] = useState(false)
     const [saving, setSaving]             = useState(false)
 
-
     // ── 프로젝트 서버 저장 로직 ──────────────────────────────────────────
-    
     const handleSave = useCallback(async (saveData?: SaveData) => {
         if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
         if(saving) return;
