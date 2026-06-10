@@ -38,7 +38,7 @@ export interface useEditorProps{
     canvasW: number;
     canvasH: number;
     state: CanvasData;
-    zoom: number;
+    //zoom: number;
     isLoggedIn: boolean;
     layers: LayerData[];
     setUnsaved: (unsaved: boolean) => void;

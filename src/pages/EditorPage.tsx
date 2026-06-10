@@ -102,7 +102,6 @@ export default function EditorPage() {
     canvasW,
     canvasH,
     state,
-    zoom,
     isLoggedIn,
     layers,
     setUnsaved,
@@ -1040,9 +1039,8 @@ export default function EditorPage() {
                                 let src: string | null = null;
                                 if(layer.pixelData){
                                   try{
-                                    const frameImages = JSON.parse(layer.pixelData);
-                                    const match = frameImages.find((img: any) => img.frameIdx === index)
-                                    if (match) src = match.image;
+                                    const frameImages = layer.pixelData;
+                                    if(frameImages) src = frameImages;
                                   } catch (e){
                                     console.error("레이어 썸네일 파싱 에러", e);
                                   }

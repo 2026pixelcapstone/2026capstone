@@ -42,7 +42,7 @@ export const useLayers = (
             });
             return { ...prev, frames: updatedFrames };
         })
-        setActiveLayer(newLayerId);
+        setActiveLayer(newLayerId); // 사용 이유: 
     }, [setWithHistory, setActiveLayer]);
 
     // ── 레이어 삭제 ───────────────────────────────────

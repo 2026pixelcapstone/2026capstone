@@ -1,5 +1,6 @@
+import { Layer } from "konva/lib/Layer";
 import { editorApi } from "../../api/editorApi";
-import { SaveData, useEditorProps } from "../../constants/editorType";
+import { LayerData, SaveData, useEditorProps } from "../../constants/editorType";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
 
@@ -9,8 +10,6 @@ export const useEditor = ({
     canvasW,
     canvasH,
     state,
-    // 💡 훅 작동에 필요한 외부 도메인 상태 및 함수들을 주입받습니다.
-    zoom,
     isLoggedIn,
     layers,
     setUnsaved,
@@ -24,6 +23,7 @@ export const useEditor = ({
 
 
     // ── 프로젝트 서버 저장 로직 ──────────────────────────────────────────
+    
     const handleSave = useCallback(async (saveData?: SaveData) => {
         if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
         if(saving) return;
@@ -71,7 +71,7 @@ export const useEditor = ({
             }
 
             const layersToSave = state.frames.flatMap((frame, fIdx) => 
-                frame.layers.map((layer: any) => ({
+                frame.layers.map((layer: LayerData) => ({
                     // 임시 UUID 형태(`layer-`)면 서버에서 신규 PK를 따도록 null 처리, 기존 정수 ID면 유지
                     layerId: String(layer.id).startsWith('layer-') ? null : Number(layer.id),
                     name: layer.name,
