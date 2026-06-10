@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import {MAX_HISTORY_SIZE} from '../constants/editor'
+import {MAX_HISTORY_SIZE} from '../../constants/editor'
 
 export function useHistory<T>(initialState: T){
     // 데이터 무결성을 위해 let 대신 const를 씀

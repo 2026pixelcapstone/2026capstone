@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SaveData } from '@/constants/type';
+import { SaveData } from '../constants/editorType';
 // 모달에 관한 함수
 interface SaveProjectModeProps{
     isOpen: boolean; // 모달이 열려있는지 여부
