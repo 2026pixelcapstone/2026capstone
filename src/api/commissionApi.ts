@@ -84,6 +84,7 @@ export interface CommissionSummary {
   agreedDeadline: string | null
   status: CommissionStatus
   createdAt: string
+  unreadCount: number   // 내가 안 읽은 채팅 메시지 수 (목록 배지용)
 }
 
 export interface CommissionResponse extends CommissionSummary {

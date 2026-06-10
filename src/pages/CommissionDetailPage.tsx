@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { commissionApi, type CommissionResponse } from '../api/commissionApi'
 import { fileApi } from '../api/fileApi'
+import CommissionChat from '../components/CommissionChat'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
@@ -255,20 +256,12 @@ export default function CommissionDetailPage() {
               ))}
             </div>
 
-            {/* 채팅 (준비 중 — Phase 3에서 실시간 채팅 연동) */}
-            <div className="rounded-2xl border flex flex-col" style={{ background: '#161b22', borderColor: '#30363d', minHeight: 360 }}>
-              <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: '#30363d' }}>
-                <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>chat</span>
-                <span className="font-bold text-sm">채팅</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 px-5 text-center">
-                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>forum</span>
-                <p className="text-sm font-bold" style={{ color: '#7d8590' }}>실시간 채팅 준비 중</p>
-                <p className="text-xs" style={{ color: '#484f58' }}>
-                  작가와 의뢰자가 이 계약에 대해 대화할 수 있는 공간입니다. 곧 제공될 예정입니다.
-                </p>
-              </div>
-            </div>
+            {/* 채팅 (Phase 3-a: REST 기반. 실시간 푸시는 3-b WebSocket 예정) */}
+            <CommissionChat
+              commissionId={commission.commissionId}
+              meId={me?.userId}
+              readOnly={commission.status === 'COMPLETED' || commission.status === 'CANCELLED'}
+            />
 
             {/* 완료일 */}
             {commission.completedAt && (

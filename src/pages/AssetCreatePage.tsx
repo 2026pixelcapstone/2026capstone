@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { assetApi } from '../api/assetApi'
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
+import { getErrorMessage } from '../lib/errorUtils'
 import TagInput from '../components/TagInput'
 
 const MAX_IMAGES = 5
@@ -120,11 +121,11 @@ export default function AssetCreatePage() {
 
       toast.success('에셋이 등록되었습니다.')
       navigate(`/assets/${res.data.data.assetId}`)
-    } catch {
+    } catch (err) {
       // 업로드는 됐으나 생성 실패 시 R2 고아 파일 정리
       await fileApi.deleteFiles([...uploadedImageUrls, ...(uploadedFileUrl ? [uploadedFileUrl] : [])])
         .catch(() => {})
-      toast.error('에셋 등록에 실패했습니다.')
+      toast.error(getErrorMessage(err, '에셋 등록에 실패했습니다.'))
     } finally {
       images.forEach(img => URL.revokeObjectURL(img.previewUrl))
       setSubmitting(false)
