@@ -746,7 +746,7 @@ export default function CommissionPage() {
               <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>info</span>
               <span style={{ color: '#7d8590' }}>
                 {mySubTab === 'client'
-                  ? '내가 다른 작가에게 맡긴 커미션이에요. 모집 글과 성사된 계약을 나눠서 보여줍니다.'
+                  ? '내가 다른 작가에게 맡긴 커미션이에요. 의뢰글과 성사된 계약을 나눠서 보여줍니다.'
                   : '다른 사람이 나에게 맡긴 작업이에요.'}
               </span>
             </div>
@@ -767,9 +767,9 @@ export default function CommissionPage() {
                 {mySubTab === 'client' && (
                   <div className="mb-8">
                     <div className="flex items-baseline gap-2 mb-3">
-                      <h3 className="font-bold text-sm">모집 중인 의뢰글</h3>
+                      <h3 className="font-bold text-sm">내 의뢰글</h3>
                       <span className="text-xs" style={{ color: '#7d8590' }}>
-                        아직 작가를 구하는 중{myRequestPosts.length > 0 ? ` · ${myRequestPosts.length}` : ''}
+                        게시판에 올린 의뢰{myRequestPosts.length > 0 ? ` · ${myRequestPosts.length}` : ''}
                       </span>
                     </div>
                     {myRequestPosts.length === 0 ? (
