@@ -1,4 +1,4 @@
-import { Layer } from "konva/lib/Layer";
+//import { Layer } from "konva/lib/Layer";
 import { editorApi } from "../../api/editorApi";
 import { LayerData, SaveData, useEditorProps } from "../../constants/editorType";
 import { toast } from "../../store/toastStore";

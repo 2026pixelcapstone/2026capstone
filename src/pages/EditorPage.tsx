@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {useSearchParams } from 'react-router-dom'
 import { LayerData } from '../constants/editorType'
-import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS, createDefaultLayer} from '../constants/editor'
+import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
 import { editorApi } from '../api/editorApi'
@@ -13,7 +13,6 @@ import { applyPalette, GIFEncoder, quantize } from 'gifenc'
 import { useLayers } from '../hooks/editor/useLayer'
 import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
-import { KonvaEventObject } from 'konva/lib/Node'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
 
@@ -186,7 +185,7 @@ export default function EditorPage() {
   }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const drawPixel = useCallback((e:KonvaEventObject<MouseEvent>) => {
+  const drawPixel = useCallback(() => {
     const stage = stageRef.current;
     const currentFrameIdx = state.currentFrameIdx;
     if(!stage || !activeLayer) return;
@@ -217,10 +216,10 @@ export default function EditorPage() {
     setUnsaved(true)
   }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas])
 
-  const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+  const handleMouseMove = () => {
     const pos = getPixel()
     if (pos) setCursorPos(pos)
-    if (isDrawing.current) drawPixel(e)
+    if (isDrawing.current) drawPixel()
   }
 
   const applyCanvasSize = (w: number, h: number) => {
@@ -933,7 +932,7 @@ export default function EditorPage() {
               height={canvasH * zoom}
               scaleX={zoom}
               scaleY={zoom}
-              onMouseDown={e => { isDrawing.current = true; drawPixel(e) }}
+              onMouseDown={() => { isDrawing.current = true; drawPixel() }}
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
                 isDrawing.current = false
