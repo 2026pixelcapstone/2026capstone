@@ -1,5 +1,5 @@
 import { LayerData } from "../../constants/editorType";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 
 export const useLayers = (
     state: { frames: any[]; currentFrameIdx: number },
