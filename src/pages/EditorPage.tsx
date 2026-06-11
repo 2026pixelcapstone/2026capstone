@@ -102,7 +102,6 @@ export default function EditorPage() {
     canvasH,
     state,
     isLoggedIn,
-    layers,
     setUnsaved,
     setSearchParams
   });
@@ -214,7 +213,7 @@ export default function EditorPage() {
       activeLayerNode.getLayer()?.batchDraw();
     }
     setUnsaved(true)
-  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas])
+  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas, state.currentFrameIdx])
 
   const handleMouseMove = () => {
     const pos = getPixel()
@@ -322,7 +321,7 @@ export default function EditorPage() {
       const key = e.key.toLowerCase();
       if (isMod && key === 's') {
         e.preventDefault();
-        handleSave();
+        openSaveModal();
       }
       else if(isMod && !e.shiftKey && key === 'z'){
         e.preventDefault();

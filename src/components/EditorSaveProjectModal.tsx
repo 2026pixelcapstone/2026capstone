@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SaveData } from '../constants/editorType';
-// 모달에 관한 함수
-interface SaveProjectModeProps{
-    isOpen: boolean; // 모달이 열려있는지 여부
-    onClose: () => void; // 모달을 닫는 함수
-    onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
-    initialTitle?:string;
-    initialIsPublic?: boolean;
-}
+import {SaveProjectModeProps } from '../constants/editorType';
 
 export default function EditorSaveProjectModal({
     isOpen,

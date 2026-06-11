@@ -11,7 +11,6 @@ export const useEditor = ({
     canvasH,
     state,
     isLoggedIn,
-    layers,
     setUnsaved,
     setSearchParams,
 }: useEditorProps) => {
@@ -26,7 +25,7 @@ export const useEditor = ({
         if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
         if(saving) return;
 
-        const canvas = stageRef.current
+        const canvas = stageRef.current;
         if (!canvas) return;
 
         const nextTitle = saveData?.title.trim() || projectTitle.trim();
@@ -97,7 +96,7 @@ export const useEditor = ({
             setSaving(false)
         }
 
-  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, layers, stageRef, setSearchParams])
+  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, stageRef, setSearchParams, state.frames])
 
   const openSaveModal = useCallback(() => {
     if (!isLoggedIn) {
