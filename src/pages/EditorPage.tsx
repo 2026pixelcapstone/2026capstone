@@ -172,7 +172,7 @@ export default function EditorPage() {
 
     state.frames.forEach((frame, fIdx) => {
       frame.layers.forEach((layer: any) => {
-        liveCacheKeys.add(`${fIdx}_${layer.id}`);
+        liveCacheKeys.add(getCacheKey(fIdx, layer.id));
       });
     });
 
@@ -270,14 +270,13 @@ export default function EditorPage() {
       setCustomH(proj.height)
 
       if(proj.layers && proj.layers.length > 0){
-        // layerOrder 순서대로 오름차순 정렬 (0, 1, 2...)
-        const sortedLayers = [...proj.layers].sort((a, b) => a.layerOrder - b.layerOrder)
-        
+        const rawLayers = proj.layers;
         const restoredFrames: any[] = [];
         let currentFrameLayers: LayerData[] = [];
         let frameCounter = 0;
 
-        sortedLayers.forEach((serverLayer) => {
+        rawLayers.forEach((serverLayer: any) => {
+          // layerOrder가 0을 만났고, 이미 모아둔 레이어가 주머니에 있다면 ➔ 이전 프레임 완성 처리 후 쪼개기
           if(serverLayer.layerOrder === 0 && currentFrameLayers.length > 0){
              restoredFrames.push({
               id: `frame-${crypto.randomUUID().slice(0, 8)}`,
@@ -287,7 +286,7 @@ export default function EditorPage() {
             currentFrameLayers = []; // 다음 프레임을 위해 주머니 비우기
             frameCounter++;
           }
-         // 레이어 데이터를 우리 프론트엔드 표준 규격(LayerData)에 맞게 정제
+          // 프론트엔드 표준 규격으로 매핑
           currentFrameLayers.push({
             id: String(serverLayer.layerId),
             name: serverLayer.name,
@@ -309,12 +308,12 @@ export default function EditorPage() {
           });
         }
 
-        // 조립 완료된 타임라인 데이터를 히스토리(State)에 통째로 이식!
+        // 히스토리 상태 업데이트
         if (restoredFrames.length > 0) {
           setWithHistory((prev) => ({
             ...prev,
             frames: restoredFrames,
-            currentFrameIdx: 0 // 언제나 기분 좋게 1번 프레임부터 감상 시작
+            currentFrameIdx: 0
           }));
           
           // 현재 첫 화면에 활성화될 레이어 지정 (0번 프레임의 첫 레이어)

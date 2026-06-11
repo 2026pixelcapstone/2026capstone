@@ -57,7 +57,7 @@ export const LayerImageRenderer = ({
             }
         };
         img.src = pixelData;
-    }, [layerId, pixelData, canvasW, canvasH, layerCanvasRefs])
+    }, [cacheKey, pixelData, canvasW, canvasH, layerCanvasRefs])
     
     const myCanvas = layerCanvasRefs.current[cacheKey];
 
