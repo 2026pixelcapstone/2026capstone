@@ -58,7 +58,7 @@ export interface LayerSaveRequest {
   isVisible: boolean
   opacity: number
   fileUrl?: string | null
-  pixelData?: string | null   // canvas.toDataURL() 결과
+  pixelData: string
 }
 
 export const editorApi = {

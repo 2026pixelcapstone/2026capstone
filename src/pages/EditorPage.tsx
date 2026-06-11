@@ -313,7 +313,16 @@ export default function EditorPage() {
       setUnsaved(false)
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
   }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
-
+  
+  //  ── 저장 모달 함수 ──────────────────────────────────
+  const openSaveModal = useCallback(() => {
+    if (!isLoggedIn) {
+      toast.error('로그인이 필요합니다.')
+      return
+    }
+    setIsSaveModalOpen(true)
+  }, [isLoggedIn])
+  
   // ── Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -334,17 +343,9 @@ export default function EditorPage() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleSave, undo, redo])
+  }, [openSaveModal, undo, redo])
 
-  //  ── 저장 모달 함수 ──────────────────────────────────
-  const openSaveModal = useCallback(() => {
-    if (!isLoggedIn) {
-      toast.error('로그인이 필요합니다.')
-      return
-    }
-    setIsSaveModalOpen(true)
-  }, [isLoggedIn])
-  
+
   // ── PNG/GIF 내보내기 ──────────────────────────────────
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
