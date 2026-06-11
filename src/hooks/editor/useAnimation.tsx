@@ -18,7 +18,7 @@ export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChang
 
     const addFrame = () => {
         const newFrame: Frame = {
-            id: crypto.randomUUID(),
+            id: `frame-${crypto.randomUUID()}`,
             layers: [createDefaultLayer()],
         };
         const nextFrames = [...frames, newFrame];

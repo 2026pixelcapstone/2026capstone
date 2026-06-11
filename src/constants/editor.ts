@@ -1,8 +1,7 @@
 import { CanvasData, LayerData } from "./editorType";
 
-
 export const createDefaultLayer = (): LayerData => ({
-  id: crypto.randomUUID(), // 레이어의 고유 ID
+  id: `layer-${crypto.randomUUID().slice(0, 8)}`, // 레이어의 고유 ID
   name: 'Background',      // 첫 레이어 이름
   layerOrder: 0, // 현재 개수를 순서로 지정
   blendMode: 'NORMAL',
@@ -14,7 +13,7 @@ export const createDefaultLayer = (): LayerData => ({
 });
 
 export const createInitialCanvasData = (): CanvasData => ({
-  frames: [{id: crypto.randomUUID(), layers: [createDefaultLayer()]}],
+  frames: [{id: `frame-${crypto.randomUUID()}`, layers: [createDefaultLayer()]}],
   currentFrameIdx: 0,
   width: 32,
   height: 32,

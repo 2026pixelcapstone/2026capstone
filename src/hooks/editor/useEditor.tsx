@@ -1,3 +1,4 @@
+//import { Layer } from "konva/lib/Layer";
 import { editorApi } from "../../api/editorApi";
 import { LayerData, SaveData, useEditorProps } from "../../constants/editorType";
 import { toast } from "../../store/toastStore";
@@ -10,7 +11,6 @@ export const useEditor = ({
     canvasH,
     state,
     isLoggedIn,
-    layers,
     setUnsaved,
     setSearchParams,
 }: useEditorProps) => {
@@ -25,7 +25,7 @@ export const useEditor = ({
         if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
         if(saving) return;
 
-        const canvas = stageRef.current
+        const canvas = stageRef.current;
         if (!canvas) return;
 
         const nextTitle = saveData?.title.trim() || projectTitle.trim();
@@ -66,21 +66,20 @@ export const useEditor = ({
                     thumbnailUrl: currentFrameData,
                 })
             }
-
+            /* flatMap의 효과 -> 각 프레임 당으로 분리되어 있는 레이어를 1치원 배열로 오름차순 정렬시켜줌
+            (layerOrder의 수가 리셋되는 부분을 찾아 프레임 구별) */
             const layersToSave = state.frames.flatMap((frame, fIdx) => 
                 frame.layers.map((layer: LayerData) => ({
                     // 임시 UUID 형태(`layer-`)면 서버에서 신규 PK를 따도록 null 처리, 기존 정수 ID면 유지
                     layerId: String(layer.id).startsWith('layer-') ? null : Number(layer.id),
                     name: layer.name,
-                    layerOrder: layer.layerOrder,
+                    layerOrder: layer.layerOrder, // 위에 flatMap + layerOder 조합으로 프레임 순서와 레이어 순서를 구별
                     blendMode: layer.blendMode,
                     isLocked: layer.isLocked,
                     isVisible: layer.isVisible,
                     opacity: layer.opacity,
                     
-                    // 💡 [중요]: 백엔드 DB 저장 규격에 맞춰 현재 프레임 인덱스(fIdx) 정보와 
-                    // 해당 프레임-레이어 버퍼 캔버스의 최신 스냅샷 이미지 주소를 동적으로 바인딩합니다!
-                    frameIdx: fIdx, 
+                    // 키 저장은 안됨
                     pixelData: layerCanvasRefs.current[`frame-${fIdx}_layer-${layer.id}`]?.toDataURL('image/png') || layer.pixelData || ''
                 }))
             );
@@ -96,7 +95,7 @@ export const useEditor = ({
             setSaving(false)
         }
 
-  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, layers, stageRef, setSearchParams])
+  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, stageRef, setSearchParams, state.frames])
 
   const openSaveModal = useCallback(() => {
     if (!isLoggedIn) {

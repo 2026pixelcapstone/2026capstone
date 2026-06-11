@@ -1,3 +1,4 @@
+import { getCacheKey } from "../utils/editorUtils";
 import { useEffect, useRef } from "react";
 import { Image as KonvaImage } from 'react-konva';
 
@@ -19,7 +20,7 @@ export const LayerImageRenderer = ({
   layerCanvasRefs
 }: LayerRendererProps) => {
     const imageRef = useRef<any>(null);
-    const cacheKey = `frame-${currentFrameIdx}_layer-${layerId}`;
+    const cacheKey = getCacheKey(currentFrameIdx, layerId);
     
     // 💡 [구조적 안정성 강화]: useEffect를 기다리지 않고, 렌더링 로직이 시작되자마자 
     // 메모리에 내 상자가 없다면 "동기적"으로 즉시 캔버스를 만들어 버립니다
@@ -56,7 +57,7 @@ export const LayerImageRenderer = ({
             }
         };
         img.src = pixelData;
-    }, [layerId, pixelData, canvasW, canvasH, layerCanvasRefs])
+    }, [cacheKey, pixelData, canvasW, canvasH, layerCanvasRefs])
     
     const myCanvas = layerCanvasRefs.current[cacheKey];
 

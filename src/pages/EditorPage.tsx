@@ -13,9 +13,9 @@ import { applyPalette, GIFEncoder, quantize } from 'gifenc'
 import { useLayers } from '../hooks/editor/useLayer'
 import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
-import { KonvaEventObject } from 'konva/lib/Node'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
+import { getCacheKey } from '../utils/editorUtils'
 
 type MenuItem =
   | { separator: true }
@@ -68,7 +68,6 @@ export default function EditorPage() {
   const[showAIGuide, setShowAIGuide] = useState(false);
 
   // ── 레이어 상태 및 훅 ──────────────────────────
-  const [layers, setLayers] = useState<LayerData[]>([initialCanvasData.frames[0]?.layers[0]]);
   const [activeLayer, setActiveLayer] = useState<string | null>(
     initialCanvasData.frames[0]?.layers[0].id || null
   );
@@ -103,7 +102,6 @@ export default function EditorPage() {
     canvasH,
     state,
     isLoggedIn,
-    layers,
     setUnsaved,
     setSearchParams
   });
@@ -174,7 +172,7 @@ export default function EditorPage() {
 
     state.frames.forEach((frame, fIdx) => {
       frame.layers.forEach((layer: any) => {
-        liveCacheKeys.add(`frame-${fIdx}_layer-${layer.id}`);
+        liveCacheKeys.add(getCacheKey(fIdx, layer.id));
       });
     });
 
@@ -186,12 +184,12 @@ export default function EditorPage() {
   }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const drawPixel = useCallback((_e:KonvaEventObject<MouseEvent>) => {
+  const drawPixel = useCallback(() => {
     const stage = stageRef.current;
     const currentFrameIdx = state.currentFrameIdx;
     if(!stage || !activeLayer) return;
     
-    const cacheKey = `frame-${currentFrameIdx}_layer-${activeLayer}`
+    const cacheKey = getCacheKey(currentFrameIdx, activeLayer)
     const nativeCanvas = getLayerCanvas(cacheKey);
     if(!nativeCanvas) return;
 
@@ -210,17 +208,18 @@ export default function EditorPage() {
       ctx.clearRect(x, y, brushSize, brushSize)
     }
 
+    // 💡 캐시 키(cacheKey)와 달리, Konva 노드는 순수 레이어 고유 ID로 등록되어 있으므로 activeLayer로 찾습니다.
     const activeLayerNode = stage.findOne(`#${activeLayer}`);
     if(activeLayerNode){
       activeLayerNode.getLayer()?.batchDraw();
     }
     setUnsaved(true)
-  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas])
+  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas, state.currentFrameIdx])
 
-  const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+  const handleMouseMove = () => {
     const pos = getPixel()
     if (pos) setCursorPos(pos)
-    if (isDrawing.current) drawPixel(e)
+    if (isDrawing.current) drawPixel()
   }
 
   const applyCanvasSize = (w: number, h: number) => {
@@ -264,58 +263,79 @@ export default function EditorPage() {
       setProjectId(proj.projectId)
       setProjectTitle(proj.title)
       
-      // 1. 크기 상태를 먼저 세팅 (초기화 useEffect가 먼저 돌 수 있도록 유도)
+      // 크기 상태를 먼저 세팅 (초기화 useEffect가 먼저 돌 수 있도록 유도)
       setCanvasW(proj.width)
       setCanvasH(proj.height)
       setCustomW(proj.width)
       setCustomH(proj.height)
 
       if(proj.layers && proj.layers.length > 0){
-        // layerOrder 순서대로 오름차순 정렬 (0, 1, 2...)
-        const sortedLayers = [...proj.layers].sort((a, b) => a.layerOrder - b.layerOrder)
+        const rawLayers = proj.layers;
+        const restoredFrames: any[] = [];
+        let currentFrameLayers: LayerData[] = [];
+        let frameCounter = 0;
 
-        const loadedLayers: LayerData[] = sortedLayers.map((serverLayer) => ({
-          id: String(serverLayer.layerId),
-          name: serverLayer.name,
-          layerOrder: serverLayer.layerOrder,
-          blendMode: serverLayer.blendMode,
-          isLocked: serverLayer.isLocked,
-          isVisible: serverLayer.isVisible,
-          opacity: serverLayer.opacity,
-          color: '#818cf8',
-          pixelData: serverLayer.pixelData || '',
-        }));
-        setLayers(loadedLayers);
-        const firstLayer = loadedLayers[0];
+        rawLayers.forEach((serverLayer: any) => {
+          // layerOrder가 0을 만났고, 이미 모아둔 레이어가 주머니에 있다면 ➔ 이전 프레임 완성 처리 후 쪼개기
+          if(serverLayer.layerOrder === 0 && currentFrameLayers.length > 0){
+             restoredFrames.push({
+              id: `frame-${crypto.randomUUID().slice(0, 8)}`,
+              name: `Frame ${frameCounter + 1}`,
+              layers: currentFrameLayers
+            })
+            currentFrameLayers = []; // 다음 프레임을 위해 주머니 비우기
+            frameCounter++;
+          }
+          // 프론트엔드 표준 규격으로 매핑
+          currentFrameLayers.push({
+            id: String(serverLayer.layerId),
+            name: serverLayer.name,
+            layerOrder: serverLayer.layerOrder,
+            blendMode: serverLayer.blendMode || 'NORMAL',
+            isLocked: serverLayer.isLocked || false,
+            isVisible: serverLayer.isVisible !== false, // 기본값 true 보장
+            opacity: serverLayer.opacity ?? 100,
+            color: '#818cf8',
+            pixelData: serverLayer.pixelData || '', // JSON.parse 없이 순수 Base64 문자열 그대로 매핑!
+          });
+        });
 
-        if(firstLayer && firstLayer.pixelData?.trim().startsWith('[')){ // 공백을 없앤 후 첫 글자가 [로 시작한는지 검사
-          try{
-            const parsedFrameImages = JSON.parse(firstLayer.pixelData);
+        if (currentFrameLayers.length > 0) {
+          restoredFrames.push({
+            id: `frame-${crypto.randomUUID().slice(0, 8)}`,
+            name: `Frame ${frameCounter + 1}`,
+            layers: currentFrameLayers
+          });
+        }
 
-            setWithHistory((prev) => {
-              const restoredFrames = parsedFrameImages.map((imgObj: any) => {
-                return {
-                  id: `frame-${imgObj.frameIdx}`,
-                  name: `Frame ${imgObj.frameIdx + 1}`,
-                  // 각 프레임 객체는 위에서 파싱한 레이어 묶음들을 알맹이로 이식받습니다.
-                  layers: loadedLayers
-                };
-              });
-              return {
-                ...prev,
-                frames: restoredFrames.length > 0 ? restoredFrames : prev.frames,
-                currentFrameIdx: 0 // 항상 첫 번째 프레임부터 감상 시작
-              };
-            });
-          }catch(e){
-            console.error("프로젝트 히스토리 데이터 복원 실패:", e);
+        // 히스토리 상태 업데이트
+        if (restoredFrames.length > 0) {
+          setWithHistory((prev) => ({
+            ...prev,
+            frames: restoredFrames,
+            currentFrameIdx: 0
+          }));
+          
+          // 현재 첫 화면에 활성화될 레이어 지정 (0번 프레임의 첫 레이어)
+          const firstLayerId = restoredFrames[0]?.layers[0]?.id;
+          if (firstLayerId) {
+            setActiveLayer(firstLayerId);
           }
         }
       }
       setUnsaved(false)
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
   }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
-
+  
+  //  ── 저장 모달 함수 ──────────────────────────────────
+  const openSaveModal = useCallback(() => {
+    if (!isLoggedIn) {
+      toast.error('로그인이 필요합니다.')
+      return
+    }
+    setIsSaveModalOpen(true)
+  }, [isLoggedIn])
+  
   // ── Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -323,7 +343,7 @@ export default function EditorPage() {
       const key = e.key.toLowerCase();
       if (isMod && key === 's') {
         e.preventDefault();
-        handleSave();
+        openSaveModal();
       }
       else if(isMod && !e.shiftKey && key === 'z'){
         e.preventDefault();
@@ -336,17 +356,9 @@ export default function EditorPage() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleSave, undo, redo])
+  }, [openSaveModal, undo, redo])
 
-  //  ── 저장 모달 함수 ──────────────────────────────────
-  const openSaveModal = useCallback(() => {
-    if (!isLoggedIn) {
-      toast.error('로그인이 필요합니다.')
-      return
-    }
-    setIsSaveModalOpen(true)
-  }, [isLoggedIn])
-  
+
   // ── PNG/GIF 내보내기 ──────────────────────────────────
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
@@ -399,7 +411,7 @@ export default function EditorPage() {
       for(const layer of currentFrameLayers){
         if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
         
-        const cacheKey = `frame-${fIdx}_layer-${layer.id}`;
+        const cacheKey = getCacheKey(fIdx, layer.id);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
         fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
@@ -439,7 +451,7 @@ export default function EditorPage() {
     const blob = new Blob([gif.bytes()], { type: 'image/gif' })
     downloadBlob(blob, `${safeTitle}.gif`)
     
-  }, [projectTitle, state.frames, state.currentFrameIdx, canvasW, canvasH, layers])
+  }, [projectTitle, state.frames, state.currentFrameIdx, canvasW, canvasH])
 
   // ── 새 프로젝트 ───────────────────────────────────
   const handleNewProject = useCallback(() => {
@@ -546,7 +558,7 @@ export default function EditorPage() {
     if(!state.frames[capturedFrameIdx]) return;
     
     // [핵심 수정]: 마우스를 뗄 때도 현재 지목된 고유한 프레임_레이어 상자에서 그림을 도려냅니다.
-    const cacheKey = `frame-${capturedFrameIdx}_layer-${activeLayer}`;
+    const cacheKey = getCacheKey(capturedFrameIdx, activeLayer);
     const cachedCanvas = layerCanvasRefs.current[cacheKey];
     if (!cachedCanvas) return;
 
@@ -578,13 +590,13 @@ export default function EditorPage() {
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
     const canvas = stageRef.current;
-    if (!canvas) return;
+    if (!canvas || !activeLayer) return;
 
     const nextFrame = state.frames[nextIndex];
     const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
 
     if (unsaved) {
-        const cacheKey = `frame-${state.currentFrameIdx}_layer-${activeLayer}`;
+        const cacheKey = getCacheKey(state.currentFrameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
           const layerImageData = cachedCanvas.toDataURL();
@@ -620,7 +632,7 @@ export default function EditorPage() {
 
     if(unsaved){
       // 현재 작업 중이던 고유한 프레임_레이어 전용 캔버스 캐시를 타깃으로 잡습니다.
-      const cacheKey = `frame-${frameIdx}_layer-${activeLayer}`;
+      const cacheKey = getCacheKey(frameIdx, activeLayer);
       const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
      if (cachedCanvas) {
@@ -933,7 +945,7 @@ export default function EditorPage() {
               height={canvasH * zoom}
               scaleX={zoom}
               scaleY={zoom}
-              onMouseDown={e => { isDrawing.current = true; drawPixel(e) }}
+              onMouseDown={() => { isDrawing.current = true; drawPixel() }}
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
                 isDrawing.current = false
@@ -1380,9 +1392,9 @@ export default function EditorPage() {
         <span className="w-px h-4" style={{ background: '#30363d' }} />
         <span>Tool: {activeTool.charAt(0).toUpperCase() + activeTool.slice(1)}</span>
         <span className="w-px h-4" style={{ background: '#30363d' }} />
-        <span>Active: {layers.find(l => l.id === activeLayer)?.name}</span>
+        <span>Active: {state.frames[state.currentFrameIdx].layers.find(l => String(l.id) === String(activeLayer))?.name || '-'}</span>
         <div className="ml-auto flex items-center gap-4">
-          <span>{layers.length} layers</span>
+          <span>{state.frames[state.currentFrameIdx].layers.length} layers</span>
           <span className="w-px h-4" style={{ background: '#30363d' }} />
           {unsaved
             ? <span style={{ color: '#f59e0b' }}>● Unsaved</span>
