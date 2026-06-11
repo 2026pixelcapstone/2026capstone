@@ -16,4 +16,21 @@ export default defineConfig({
       },
     },
   },
+
+  // 대형 라이브러리 쪼개기 최적화 설정
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id){
+          if(id.includes('node_modules')){
+            if(id.includes('konva')){
+              return 'vendor-canvas';
+            }
+
+            return 'vendor';
+          }
+        }
+      }
+    }
+  }
 })

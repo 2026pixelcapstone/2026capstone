@@ -713,22 +713,42 @@ export default function CommissionPage() {
         {/* 내 커미션 탭 */}
         {tab === 'mine' && (
           <div>
-            {/* 의뢰자/작가 서브탭 */}
-            <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: '#1c2128' }}>
-              {(['client', 'artist'] as const).map(sub => (
-                <button key={sub} onClick={() => setMySubTab(sub)}
-                  className="px-5 py-2 rounded-lg text-sm font-bold transition-colors"
-                  style={{
-                    background: mySubTab === sub ? '#292f38' : 'transparent',
-                    color: mySubTab === sub ? '#2f81f7' : '#7d8590',
-                  }}>
-                  {sub === 'client' ? '의뢰한 커미션' : '받은 커미션'}
-                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs"
-                    style={{ background: 'rgba(255,255,255,0.1)' }}>
-                    {sub === 'client' ? myCommissions.client.length : myCommissions.artist.length}
-                  </span>
-                </button>
-              ))}
+            {/* 의뢰자/작가 서브탭 — 역할을 라벨에 명시 */}
+            <div className="flex gap-1.5 mb-4 p-1 rounded-xl w-fit" style={{ background: '#1c2128' }}>
+              {(['client', 'artist'] as const).map(sub => {
+                const active = mySubTab === sub
+                const count = sub === 'client' ? myCommissions.client.length : myCommissions.artist.length
+                return (
+                  <button key={sub} onClick={() => setMySubTab(sub)}
+                    className="flex items-center gap-2.5 px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: active ? '#292f38' : 'transparent' }}>
+                    <span className="material-symbols-outlined text-lg"
+                      style={{ color: active ? '#2f81f7' : '#7d8590' }}>
+                      {sub === 'client' ? 'shopping_bag' : 'brush'}
+                    </span>
+                    <span className="text-left leading-tight">
+                      <span className="block text-sm font-bold" style={{ color: active ? '#e6edf3' : '#7d8590' }}>
+                        {sub === 'client' ? '내가 맡긴' : '내가 맡은'}
+                        <span className="ml-1.5" style={{ color: active ? '#2f81f7' : '#7d8590' }}>{count}</span>
+                      </span>
+                      <span className="block text-xs" style={{ color: '#7d8590' }}>
+                        {sub === 'client' ? '의뢰자' : '작가'}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 현재 서브탭이 무엇인지 한 줄 안내 */}
+            <div className="flex items-center gap-2 mb-6 px-3.5 py-2.5 rounded-xl text-sm"
+              style={{ background: 'rgba(47,129,247,0.08)', border: '1px solid rgba(47,129,247,0.2)' }}>
+              <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>info</span>
+              <span style={{ color: '#7d8590' }}>
+                {mySubTab === 'client'
+                  ? '내가 다른 작가에게 맡긴 커미션이에요. 의뢰글과 성사된 계약을 나눠서 보여줍니다.'
+                  : '다른 사람이 나에게 맡긴 작업이에요.'}
+              </span>
             </div>
 
             {myError && !myLoading ? (
@@ -746,12 +766,12 @@ export default function CommissionPage() {
                 {/* 의뢰한 커미션 탭: 내가 올린 의뢰글 (수락 전 포함) 먼저 노출 */}
                 {mySubTab === 'client' && (
                   <div className="mb-8">
-                    <h3 className="font-bold text-sm mb-3">
-                      내 의뢰글
-                      {myRequestPosts.length > 0 && (
-                        <span className="ml-1.5" style={{ color: '#7d8590' }}>({myRequestPosts.length})</span>
-                      )}
-                    </h3>
+                    <div className="flex items-baseline gap-2 mb-3">
+                      <h3 className="font-bold text-sm">내 의뢰글</h3>
+                      <span className="text-xs" style={{ color: '#7d8590' }}>
+                        게시판에 올린 의뢰{myRequestPosts.length > 0 ? ` · ${myRequestPosts.length}` : ''}
+                      </span>
+                    </div>
                     {myRequestPosts.length === 0 ? (
                       <p className="text-sm py-6 text-center rounded-xl border"
                         style={{ borderColor: '#30363d', borderStyle: 'dashed', color: '#7d8590' }}>
@@ -784,7 +804,10 @@ export default function CommissionPage() {
                       </div>
                     )}
                     <div className="h-px mt-8" style={{ background: '#30363d' }} />
-                    <h3 className="font-bold text-sm mt-8 mb-3">성사된 계약</h3>
+                    <div className="flex items-baseline gap-2 mt-8 mb-3">
+                      <h3 className="font-bold text-sm">성사된 계약</h3>
+                      <span className="text-xs" style={{ color: '#7d8590' }}>작가가 정해진 거래 · 진행/완료 포함</span>
+                    </div>
                   </div>
                 )}
                 <CommissionList
