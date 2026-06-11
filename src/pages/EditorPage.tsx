@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {useSearchParams } from 'react-router-dom'
 import { LayerData } from '../constants/editorType'
-import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS, createDefaultLayer} from '../constants/editor'
+import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
 import { editorApi } from '../api/editorApi'
@@ -186,7 +186,7 @@ export default function EditorPage() {
   }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const drawPixel = useCallback((e:KonvaEventObject<MouseEvent>) => {
+  const drawPixel = useCallback((_e:KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
     const currentFrameIdx = state.currentFrameIdx;
     if(!stage || !activeLayer) return;
