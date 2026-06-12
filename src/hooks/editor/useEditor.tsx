@@ -1,5 +1,6 @@
 //import { Layer } from "konva/lib/Layer";
-import { editorApi } from "../../api/editorApi";
+import { getCacheKey } from "../../utils/editorUtils";
+import { editorApi, LayerSaveRequest } from "../../api/editorApi";
 import { LayerData, SaveData, useEditorProps } from "../../constants/editorType";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
@@ -36,13 +37,15 @@ export const useEditor = ({
             return;
         }
 
-        // 현재 캔버스 데이터 저장 로직
+        // 현재 캔버스 데이터 저장 로직(⭐ 서버 문제가 해결되면 currentFrameData함수 다시 사용할거임 ⭐)
+        /*
         const currentFrameData = canvas.toDataURL(({
             mimeType: 'image/png',
             pixelRatio: 4 // 숫자를 올릴수록 선명하고 큼직한 썸네일 PNG 파일이 추출됨
         }));
         setSaving(true);
-        
+        */
+       
         // 새 프로젝트를 생성하여 프로젝트를 저장하는 로직
         try {
             let pid = projectId
@@ -52,8 +55,9 @@ export const useEditor = ({
                     title: nextTitle,
                     width: canvasW,
                     height: canvasH,
+                    //backgroundColor: '',
                     isPublic: nextIsPublic,
-                    thumbnailUrl: currentFrameData,
+                    thumbnailUrl: "", // ⭐ 백엔드에서 거부를 하여 "" 로 초기화 해놓음 ***
                 })
                 pid = res.data.data.projectId;
                 setProjectId(pid);
@@ -63,29 +67,33 @@ export const useEditor = ({
                 await editorApi.updateProject(pid, { 
                     title: nextTitle,
                     isPublic: nextIsPublic,
-                    thumbnailUrl: currentFrameData,
+                    thumbnailUrl: "", // ⭐ 백엔드에서 거부를 하여 "" 로 초기화 해놓음 ***
                 })
             }
             /* flatMap의 효과 -> 각 프레임 당으로 분리되어 있는 레이어를 1치원 배열로 오름차순 정렬시켜줌
             (layerOrder의 수가 리셋되는 부분을 찾아 프레임 구별) */
-            const layersToSave = state.frames.flatMap((frame, fIdx) => 
-                frame.layers.map((layer: LayerData) => ({
-                    // 임시 UUID 형태(`layer-`)면 서버에서 신규 PK를 따도록 null 처리, 기존 정수 ID면 유지
-                    layerId: String(layer.id).startsWith('layer-') ? null : Number(layer.id),
-                    name: layer.name,
-                    layerOrder: layer.layerOrder, // 위에 flatMap + layerOder 조합으로 프레임 순서와 레이어 순서를 구별
-                    blendMode: layer.blendMode,
-                    isLocked: layer.isLocked,
-                    isVisible: layer.isVisible,
-                    opacity: layer.opacity,
-                    
-                    // 키 저장은 안됨
-                    pixelData: layerCanvasRefs.current[`frame-${fIdx}_layer-${layer.id}`]?.toDataURL('image/png') || layer.pixelData || ''
-                }))
+            const layersToSave: LayerSaveRequest[] = state.frames.flatMap((frame, fIdx) => 
+                frame.layers.map((layer:LayerData): LayerSaveRequest => {
+                    // 1. 혹시 모를 공백 제거 및 문자열화
+                    const cleanId = String(layer.id).trim();      
+                    // 2. 신규 임시 ID('layer-')이거나, 유령 문자열("null", "undefined")이거나, 빈 값인 경우를 체크
+                    const isNewLayer = cleanId.startsWith('layer-') || cleanId === 'null' || cleanId === 'undefined' || !cleanId;
+                    return{
+                        // 임시 UUID 형태(`layer-`)면 서버에서 신규 PK를 따도록 null 처리, 기존 정수 ID면 유지
+                        layerId: isNewLayer ? null : Number(cleanId),
+                        name: layer.name,
+                        layerOrder: layer.layerOrder, // 위에 flatMap + layerOder 조합으로 프레임 순서와 레이어 순서를 구별
+                        blendMode: layer.blendMode,
+                        isLocked: layer.isLocked,
+                        isVisible: layer.isVisible,
+                        opacity: layer.opacity,
+                        // 키 저장은 안됨
+                        pixelData: layerCanvasRefs.current[getCacheKey(fIdx, layer.id)]?.toDataURL('image/png') || layer.pixelData || ''
+                    }
+                })
             );
-
             await editorApi.saveLayers(pid, layersToSave);
-
+            
             setUnsaved(false);
             toast.success('저장되었습니다.');
         } catch(error) {
