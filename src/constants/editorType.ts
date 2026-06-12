@@ -29,16 +29,26 @@ export interface LayerData{
     isVisible: boolean;
     opacity: number;
     color: string | null; // 색상이 없을 수도 있으니 null 허용
-    pixelData: string | null;
+    pixelData: string;
 }
 
 export interface useEditorProps{
     stageRef: React.RefObject<Konva.Stage | null>;
+    layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
     canvasW: number;
     canvasH: number;
-    zoom: number;
+    state: CanvasData;
+    //zoom: number;
     isLoggedIn: boolean;
-    layers: LayerData[];
     setUnsaved: (unsaved: boolean) => void;
     setSearchParams: any;
+}
+
+// 모달에 관한 함수
+export interface SaveProjectModeProps{
+    isOpen: boolean; // 모달이 열려있는지 여부
+    onClose: () => void; // 모달을 닫는 함수
+    onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
+    initialTitle?:string;
+    initialIsPublic?: boolean;
 }

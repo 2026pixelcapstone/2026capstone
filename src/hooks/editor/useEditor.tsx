@@ -1,18 +1,18 @@
+//import { Layer } from "konva/lib/Layer";
 import { editorApi } from "../../api/editorApi";
-import { SaveData, useEditorProps } from "../../constants/editorType";
+import { LayerData, SaveData, useEditorProps } from "../../constants/editorType";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
 
 export const useEditor = ({
     stageRef,
+    layerCanvasRefs,
     canvasW,
     canvasH,
-    //zoom,
-    // 💡 훅 작동에 필요한 외부 도메인 상태 및 함수들을 주입받습니다.
+    state,
     isLoggedIn,
-    layers,
     setUnsaved,
-    setSearchParams
+    setSearchParams,
 }: useEditorProps) => {
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
     const [projectId, setProjectId]       = useState<number | null>(null)
@@ -20,11 +20,12 @@ export const useEditor = ({
     const [editingTitle, setEditingTitle] = useState(false)
     const [saving, setSaving]             = useState(false)
 
-
-    // ── 저장 ──────────────────────────────────────────
+    // ── 프로젝트 서버 저장 로직 ──────────────────────────────────────────
     const handleSave = useCallback(async (saveData?: SaveData) => {
         if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
-        const canvas = stageRef.current
+        if(saving) return;
+
+        const canvas = stageRef.current;
         if (!canvas) return;
 
         const nextTitle = saveData?.title.trim() || projectTitle.trim();
@@ -38,9 +39,9 @@ export const useEditor = ({
         // 현재 캔버스 데이터 저장 로직
         const currentFrameData = canvas.toDataURL(({
             mimeType: 'image/png',
-            pixelRatio: 8 // 숫자를 올릴수록 선명하고 큼직한 썸네일 PNG 파일이 추출됨
-        }))
-        setSaving(true)
+            pixelRatio: 4 // 숫자를 올릴수록 선명하고 큼직한 썸네일 PNG 파일이 추출됨
+        }));
+        setSaving(true);
         
         // 새 프로젝트를 생성하여 프로젝트를 저장하는 로직
         try {
@@ -54,30 +55,34 @@ export const useEditor = ({
                     isPublic: nextIsPublic,
                     thumbnailUrl: currentFrameData,
                 })
-                pid = res.data.data.projectId
+                pid = res.data.data.projectId;
                 setProjectId(pid);
-
                 setSearchParams({ projectId: String(pid) }, { replace: true });
             } else {
-                // 제목 업데이트
+                // 기존 프로젝트 덮어쓰기
                 await editorApi.updateProject(pid, { 
                     title: nextTitle,
                     isPublic: nextIsPublic,
                     thumbnailUrl: currentFrameData,
                 })
             }
-
-            // 레이어(캔버스 전체) 저장
-            const layersToSave = layers.map((layer) => ({
-                layerId: layer.id.startsWith('layer-') ? null : Number(layer.id),
-                name: layer.name,
-                layerOrder: layer.layerOrder,
-                blendMode: layer.blendMode,
-                isLocked: layer.isLocked,
-                isVisible: layer.isVisible,
-                opacity: layer.opacity,
-                pixelData: layer.pixelData,
-            }));
+            /* flatMap의 효과 -> 각 프레임 당으로 분리되어 있는 레이어를 1치원 배열로 오름차순 정렬시켜줌
+            (layerOrder의 수가 리셋되는 부분을 찾아 프레임 구별) */
+            const layersToSave = state.frames.flatMap((frame, fIdx) => 
+                frame.layers.map((layer: LayerData) => ({
+                    // 임시 UUID 형태(`layer-`)면 서버에서 신규 PK를 따도록 null 처리, 기존 정수 ID면 유지
+                    layerId: String(layer.id).startsWith('layer-') ? null : Number(layer.id),
+                    name: layer.name,
+                    layerOrder: layer.layerOrder, // 위에 flatMap + layerOder 조합으로 프레임 순서와 레이어 순서를 구별
+                    blendMode: layer.blendMode,
+                    isLocked: layer.isLocked,
+                    isVisible: layer.isVisible,
+                    opacity: layer.opacity,
+                    
+                    // 키 저장은 안됨
+                    pixelData: layerCanvasRefs.current[`frame-${fIdx}_layer-${layer.id}`]?.toDataURL('image/png') || layer.pixelData || ''
+                }))
+            );
 
             await editorApi.saveLayers(pid, layersToSave);
 
@@ -90,7 +95,7 @@ export const useEditor = ({
             setSaving(false)
         }
 
-  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, layers, stageRef, setSearchParams])
+  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, stageRef, setSearchParams, state.frames])
 
   const openSaveModal = useCallback(() => {
     if (!isLoggedIn) {
@@ -112,6 +117,7 @@ export const useEditor = ({
         setEditingTitle,
         saving,
         handleSave,
-        openSaveModal
+        openSaveModal,
+        layerCanvasRefs
     };
 }

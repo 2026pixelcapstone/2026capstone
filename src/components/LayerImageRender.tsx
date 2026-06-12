@@ -1,3 +1,4 @@
+import { getCacheKey } from "../utils/editorUtils";
 import { useEffect, useRef } from "react";
 import { Image as KonvaImage } from 'react-konva';
 
@@ -19,31 +20,32 @@ export const LayerImageRenderer = ({
   layerCanvasRefs
 }: LayerRendererProps) => {
     const imageRef = useRef<any>(null);
-    const cacheKey = `frame-${currentFrameIdx}_layer-${layerId}`;
+    const cacheKey = getCacheKey(currentFrameIdx, layerId);
     
-    // 💡 [핵심 라이프사이클 격리]: 레이어가 처음 생겨나거나 서버에서 데이터가 로드될 때 
-    // 내 메모리 도화지에 옛날 그림을 복원하는 책임을 이 컴포넌트가 온전히 짊어집니다.
+    // 💡 [구조적 안정성 강화]: useEffect를 기다리지 않고, 렌더링 로직이 시작되자마자 
+    // 메모리에 내 상자가 없다면 "동기적"으로 즉시 캔버스를 만들어 버립니다
+    if (!layerCanvasRefs.current[cacheKey]) {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.imageSmoothingEnabled = false;
+        layerCanvasRefs.current[cacheKey] = canvas;
+    }
+
+    // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.
     useEffect(() => {
-        // 1. 메모리에 나만의 고유한 프레임_레이어 전용 캔버스가 없다면 생성
-        if (!layerCanvasRefs.current[cacheKey]) {
-            const canvas = document.createElement('canvas');
-            canvas.width = canvasW;
-            canvas.height = canvasH;
-            const ctx = canvas.getContext('2d');
-            if (ctx) ctx.imageSmoothingEnabled = false;
-            layerCanvasRefs.current[cacheKey] = canvas;
-        }
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         
-        // 2. 만약 옛날 그림 데이터(pixelData)가 없다면 빈 도화지로 초기화
-        if (!pixelData || !pixelData.trim()) {
+        // 만약 옛날 그림 데이터(pixelData)가 없다면 빈 도화지로 초기화
+        if (!cachedCanvas || !pixelData || !pixelData.trim()) {
             const ctx = cachedCanvas.getContext('2d');
             ctx?.clearRect(0, 0, canvasW, canvasH);
             imageRef.current?.getLayer()?.batchDraw();
             return;
         }
 
-        // 3. 💡 순수한 Base64 문자열이므로 복잡한 JSON 파싱 없이 다이렉트로 복원 진행!
+        // 순수한 Base64 문자열이므로 복잡한 JSON 파싱 없이 다이렉트로 복원 진행
         const img = new Image();
         img.onload = () => {
             const ctx = cachedCanvas.getContext('2d');
@@ -55,11 +57,11 @@ export const LayerImageRenderer = ({
             }
         };
         img.src = pixelData;
-    }, [layerId, pixelData, canvasW, canvasH, layerCanvasRefs])
+    }, [cacheKey, pixelData, canvasW, canvasH, layerCanvasRefs])
     
     const myCanvas = layerCanvasRefs.current[cacheKey];
-    if (!myCanvas) return null;
-     return (
+
+    return (
         <KonvaImage
             ref={imageRef}
             image={myCanvas}

@@ -1,6 +1,5 @@
-import { createDefaultLayer } from "../../constants/editor";
 import { LayerData } from "../../constants/editorType";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 
 export const useLayers = (
     state: { frames: any[]; currentFrameIdx: number },
@@ -8,14 +7,20 @@ export const useLayers = (
     activeLayer: string | null,
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>
 ) => {
-   
-    const layerCounter = useRef(2);
+
+    // 프레임별 카운터를 맵 형태로 저장
+    const layerCountersRef = useRef<Record<number, number>>({});
     
     // ── 레이어 추가 ───────────────────────────────────
     const addLayer = useCallback((frameIdx: number) => {
         const newLayerId = `layer-${crypto.randomUUID().slice(0, 8)}`;
-        const currentLayerCount = layerCounter.current;
-        layerCounter.current += 1;
+        
+        if(!layerCountersRef.current[frameIdx]){
+            layerCountersRef.current[frameIdx] = 2;
+        }
+
+        const currentLayerCount = layerCountersRef.current[frameIdx];
+        layerCountersRef.current[frameIdx] += 1;
 
         setWithHistory((prev: any) => {
             const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
@@ -32,12 +37,11 @@ export const useLayers = (
                     color: '#818cf8',
                     pixelData: '', // 새 레이어니까 도화지는 깨끗하게 빈 값
                 };
-
-                return{...frame, layers: [frame.layers, newLayer]};
+                return{...frame, layers: [...frame.layers, newLayer]};
             });
             return { ...prev, frames: updatedFrames };
         })
-        setActiveLayer(newLayerId);
+        setActiveLayer(newLayerId); // 사용 이유: 
     }, [setWithHistory, setActiveLayer]);
 
     // ── 레이어 삭제 ───────────────────────────────────
@@ -45,14 +49,25 @@ export const useLayers = (
         if(!layerIdToDelete) return;
 
         const targetFrame = state.frames[frameIdx];
-        if(!targetFrame) return;
+        if(!targetFrame || !targetFrame.layers) return;
 
-        if(targetFrame.layer.length <= 1){
+        if(targetFrame.layers.length <= 1){
             alert("최소 하나의 레이어는 존재해야 합니다");
+            return;
         }
 
+        const layerToSubtract = targetFrame.layers.find((l: any) => l.id === layerIdToDelete);
+        if(layerToSubtract && layerToSubtract.name.startsWith("Layer ")){
+            const layerNum = parseInt(layerToSubtract.name.replace("Layer ", ""), 10); // 10: 10진수로 읽으라고 지정
+            const currentCounter = layerCountersRef.current[frameIdx] || 2;
+            
+            if (layerNum === currentCounter - 1) {
+                // 카운터를 1 줄여서, 다음에 레이어를 만들 때 이 번호를 다시 재활용하게 만듭니다.
+                layerCountersRef.current[frameIdx] = Math.max(2, currentCounter - 1);
+            }
+        }
         setWithHistory((prev: any) => {
-            const updatedFrames = prev.frame.map((frame: any, fIdx: number) => {
+            const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
                 if(fIdx !== frameIdx) return frame;
 
                 // 해당 프레임 내부에서 지정된 레이어만 필터링
@@ -90,6 +105,6 @@ export const useLayers = (
             return { ...prev, frames: updatedFrames };
         });
     }, [setWithHistory]);
-
-    return { addLayer, deleteLayer, toggleVisibility, layerCounter};
+    
+    return { addLayer, deleteLayer, toggleVisibility, layerCountersRef};
 }

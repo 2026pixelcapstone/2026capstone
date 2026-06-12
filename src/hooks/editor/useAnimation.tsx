@@ -18,11 +18,12 @@ export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChang
 
     const addFrame = () => {
         const newFrame: Frame = {
-            id: crypto.randomUUID(),
+            id: `frame-${crypto.randomUUID()}`,
             layers: [createDefaultLayer()],
         };
         const nextFrames = [...frames, newFrame];
-        onChange(nextFrames, nextFrames.length - 1)
+
+        onChange(nextFrames, nextFrames.length - 1) // 등록해둔 onChange 함수를 호출하면서 매게변수를 줌
     };
     
     /**
