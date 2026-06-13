@@ -119,6 +119,23 @@ export default function EditorPage() {
 
   // ── 캔버스 그리기 로직 ──────────────
 
+  // -------- Stage 컨텍스트 튜닝 훅 추가 -----------
+  useEffect(() => {
+    if (!stageRef.current) return;
+    // Konva Stage 내부에 생성된 모든 실제 Canvas 엘리먼트들을 싹 긁어옵니다.
+    const layers = stageRef.current.getLayers();
+    layers.forEach((konvaLayer) => {
+      const canvasInstance = konvaLayer.getCanvas();
+      if (canvasInstance) {
+        const ctx = canvasInstance.getContext();
+        if (ctx) {
+          // Konva 내부 캔버스 엔진의 스무딩을 차단합니다
+          ctx.imageSmoothingEnabled = false;
+        }
+      }
+    });
+  }, [state.frames, state.currentFrameIdx, zoom]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
+  
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
   const getPixel = useCallback(() => {
     const stage = stageRef.current;
@@ -925,12 +942,17 @@ export default function EditorPage() {
             ].join(','),
             backgroundSize: '16px 16px',
             backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
-            imageRendering: 'pixelated',
+            
           }}>
 
           {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
           <div className="relative shadow-2xl"
-            style={{ width: canvasW * zoom, height: canvasH * zoom, backgroundColor: '#e8e8e8' }}>
+              style={{ width: canvasW * zoom, 
+              height: canvasH * zoom, 
+              backgroundColor: '#e8e8e8' ,
+              imageRendering: 'pixelated'
+            }}
+          >
             {/* 픽셀 그리드 오버레이 */}
             {showGridLines && zoom >= 8 && (
               <div className="absolute inset-0 pointer-events-none z-20"
@@ -945,6 +967,7 @@ export default function EditorPage() {
               height={canvasH * zoom}
               scaleX={zoom}
               scaleY={zoom}
+              style={{imageRendering: 'pixelated'}}
               onMouseDown={() => { isDrawing.current = true; drawPixel() }}
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
