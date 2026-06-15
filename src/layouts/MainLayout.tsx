@@ -1,17 +1,20 @@
 import { useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Toast from '../components/Toast'
 import EmailVerificationBanner from '../components/EmailVerificationBanner'
 import { useAuthStore } from '../store/authStore'
 import { useBlockStore } from '../store/blockStore'
 import { useLikeStore } from '../store/likeStore'
+import { useNotificationStore } from '../store/notificationStore'
 import { userApi } from '../api/userApi'
 
 export default function MainLayout() {
   const { isLoggedIn, user, setUser } = useAuthStore()
   const { fetchBlocks, clearBlocks, loaded } = useBlockStore()
   const { clearGalleryLikes } = useLikeStore()
+  const { startPolling, stopPolling, clear: clearNotifications, fetchUnread } = useNotificationStore()
+  const location = useLocation()
 
   // 로그인 상태인데 user 정보가 없거나(새로고침/첫 로그인) emailVerified 정보가 없으면
   // (이 기능 이전에 로그인해 둔 레거시 세션) 서버에서 복구
@@ -37,6 +40,22 @@ export default function MainLayout() {
       clearGalleryLikes()   // 다른 사용자 좋아요 캐시 오염 방지
     }
   }, [isLoggedIn])
+
+  // 알림 안읽음 폴링: 로그인 시 60초 주기 시작, 로그아웃 시 중지 + 초기화
+  useEffect(() => {
+    if (isLoggedIn) {
+      startPolling()
+    } else {
+      stopPolling()
+      clearNotifications()
+    }
+    return () => stopPolling()
+  }, [isLoggedIn])
+
+  // 페이지 이동 시 안읽음 즉시 갱신(폴링 주기를 기다리지 않고 빠르게 반영)
+  useEffect(() => {
+    if (isLoggedIn) fetchUnread()
+  }, [location.pathname])
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
