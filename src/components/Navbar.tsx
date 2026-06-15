@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authApi } from '../api/authApi'
 import FontSelector from './FontSelector'
+import NotificationBell from './NotificationBell'
 
 export default function Navbar() {
   const location = useLocation()
@@ -122,10 +123,7 @@ export default function Navbar() {
 
           {isLoggedIn ? (
             <div className="flex items-center space-x-1">
-              <button className="p-2.5 rounded-lg transition-all hover:bg-[#1c2128]"
-                style={{ color: '#7d8590' }}>
-                <span className="material-symbols-outlined text-2xl">notifications</span>
-              </button>
+              <NotificationBell />
               <Link to="/mypage"
                 className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:bg-[#1c2128]"
                 style={{ color: '#e6edf3' }}>
