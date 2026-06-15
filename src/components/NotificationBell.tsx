@@ -15,14 +15,16 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  // 드롭다운 열 때 최근 알림 로드
+  // 드롭다운 열 때 최근 알림 로드 (재오픈 시 이전 요청의 늦은 응답이 덮어쓰지 않도록 가드)
   useEffect(() => {
     if (!open) return
+    let cancelled = false
     setLoading(true)
     notificationApi.getList({ size: DROPDOWN_SIZE })
-      .then(res => setItems(res.data.data.notifications))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false))
+      .then(res => { if (!cancelled) setItems(res.data.data.notifications) })
+      .catch(() => { if (!cancelled) setItems([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [open])
 
   // 바깥 클릭 시 닫기

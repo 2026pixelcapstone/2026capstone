@@ -62,5 +62,12 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     }
   },
 
-  clear: () => set({ unreadNotifications: 0, unreadChat: 0, unreadTotal: 0 }),
+  clear: () => {
+    // 오용으로 인한 폴링 잔존 방지 — 초기화 시 타이머도 함께 정리
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+    set({ unreadNotifications: 0, unreadChat: 0, unreadTotal: 0 })
+  },
 }))

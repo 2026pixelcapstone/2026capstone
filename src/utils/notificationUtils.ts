@@ -45,6 +45,7 @@ export function notificationIcon(type: NotificationItem['type']): string {
 /** "방금 전 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD" 상대 시간 */
 export function timeAgo(iso: string): string {
   const then = new Date(iso).getTime()
+  if (!Number.isFinite(then)) return '방금 전'
   const diffSec = Math.floor((Date.now() - then) / 1000)
 
   if (diffSec < 60) return '방금 전'

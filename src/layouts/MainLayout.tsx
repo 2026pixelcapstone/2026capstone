@@ -55,7 +55,7 @@ export default function MainLayout() {
   // 페이지 이동 시 안읽음 즉시 갱신(폴링 주기를 기다리지 않고 빠르게 반영)
   useEffect(() => {
     if (isLoggedIn) fetchUnread()
-  }, [location.pathname])
+  }, [location.pathname, isLoggedIn])
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
