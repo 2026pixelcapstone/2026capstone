@@ -3,6 +3,7 @@ import { Client } from '@stomp/stompjs'
 import { chatApi, type ChatMessage, type ChatEvent } from '../api/chatApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
+import { useNotificationStore } from '../store/notificationStore'
 
 interface Props {
   commissionId: number
@@ -54,8 +55,11 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
   }, [])
 
   // 상대 메시지를 읽음 처리(서버) — 내가 보고 있을 때 호출. 서버가 READ 이벤트를 상대에게 브로드캐스트
+  // 읽음 처리 후 알림 종 배지(안읽은 채팅 포함)도 즉시 갱신 (폴링 60초를 기다리지 않도록)
   const markRead = useCallback(() => {
-    chatApi.markRead(commissionId).catch(() => { /* 읽음 처리 실패는 조용히 무시 */ })
+    chatApi.markRead(commissionId)
+      .then(() => useNotificationStore.getState().fetchUnread())
+      .catch(() => { /* 읽음 처리 실패는 조용히 무시 */ })
   }, [commissionId])
 
   // 상대가 내 메시지를 읽음(READ 이벤트 수신) → 커서(lastId) 이하의 내 메시지만 읽음 표시

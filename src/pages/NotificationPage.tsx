@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { notificationApi, type NotificationItem } from '../api/notificationApi'
+import { chatApi, type UnreadConversation } from '../api/chatApi'
 import { useNotificationStore } from '../store/notificationStore'
 import { notificationTargetPath, notificationIcon, timeAgo } from '../utils/notificationUtils'
+import ChatPreviewRow from '../components/ChatPreviewRow'
 
 const PAGE_SIZE = 20
 
@@ -10,6 +12,7 @@ export default function NotificationPage() {
   const navigate = useNavigate()
   const { fetchUnread } = useNotificationStore()
 
+  const [convs, setConvs] = useState<UnreadConversation[]>([])
   const [items, setItems] = useState<NotificationItem[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -19,12 +22,17 @@ export default function NotificationPage() {
   const loadInitial = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await notificationApi.getList({ size: PAGE_SIZE })
-      setItems(res.data.data.notifications)
-      setHasMore(res.data.data.hasMore)
+      const [notiRes, convRes] = await Promise.all([
+        notificationApi.getList({ size: PAGE_SIZE }),
+        chatApi.getUnreadConversations(),
+      ])
+      setItems(notiRes.data.data.notifications)
+      setHasMore(notiRes.data.data.hasMore)
+      setConvs(convRes.data.data)
     } catch {
       setItems([])
       setHasMore(false)
+      setConvs([])
     } finally {
       setLoading(false)
     }
@@ -84,15 +92,28 @@ export default function NotificationPage() {
         )}
       </div>
 
+      {/* 안읽은 대화방 미리보기 (최신 메시지순) → 클릭 시 해당 거래룸으로 */}
+      {convs.length > 0 && (
+        <div className="rounded-xl border overflow-hidden mb-4" style={{ borderColor: '#21262d' }}>
+          {convs.map(c => (
+            <ChatPreviewRow key={c.commissionId} conv={c}
+              onClick={() => navigate(`/commission/${c.commissionId}`)} />
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="py-20 text-center text-sm" style={{ color: '#7d8590' }}>불러오는 중…</div>
       ) : items.length === 0 ? (
-        <div className="py-20 text-center" style={{ color: '#7d8590' }}>
-          <span className="material-symbols-outlined text-5xl block mb-3" style={{ color: '#30363d' }}>
-            notifications_off
-          </span>
-          <p className="text-sm">아직 알림이 없습니다.</p>
-        </div>
+        // 안읽은 대화방만 있고 알림 row가 없으면 위 미리보기만 보이고 큰 일러스트는 생략
+        convs.length > 0 ? null : (
+          <div className="py-20 text-center" style={{ color: '#7d8590' }}>
+            <span className="material-symbols-outlined text-5xl block mb-3" style={{ color: '#30363d' }}>
+              notifications_off
+            </span>
+            <p className="text-sm">아직 알림이 없습니다.</p>
+          </div>
+        )
       ) : (
         <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#21262d' }}>
           {items.map(n => (
