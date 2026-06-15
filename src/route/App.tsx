@@ -20,6 +20,7 @@ import VerifyEmailPage from '../pages/VerifyEmailPage'
 import OAuthCallbackPage from '../pages/OAuthCallbackPage'
 import MyPage from '../pages/MyPage'
 import ProfilePage from '../pages/ProfilePage'
+import NotificationPage from '../pages/NotificationPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import ForbiddenPage from '../pages/ForbiddenPage'
 import ServerErrorPage from '../pages/ServerErrorPage'
@@ -74,6 +75,7 @@ export default function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/editor" element={<EditorPage />} />
           <Route path="/mypage" element={<MyPage />} />
+          <Route path="/notifications" element={<NotificationPage />} />
           <Route path="/assets/create" element={<AssetCreatePage />} />
           <Route path="/assets/:id/edit" element={<AssetUpdatePage />} />
         </Route>
