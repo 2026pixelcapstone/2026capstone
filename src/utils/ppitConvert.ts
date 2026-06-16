@@ -9,9 +9,13 @@ function clamp01(n: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1
 }
 
-// 서버에서 온 레이어는 prefix 없는 순수 base64일 수 있어 보정
+// 1x1 투명 PNG — 빈 레이어용 (parsePpit는 data:image/ 접두사를 요구하므로 round-trip 보장)
+const TRANSPARENT_PNG_1X1 =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC'
+
+// 서버에서 온 레이어는 prefix 없는 순수 base64일 수 있어 보정. 빈 레이어는 투명 PNG로.
 function ensureDataUrl(pixelData: string): string {
-  if (!pixelData) return pixelData
+  if (!pixelData) return TRANSPARENT_PNG_1X1
   return pixelData.startsWith('data:') ? pixelData : `data:image/png;base64,${pixelData}`
 }
 

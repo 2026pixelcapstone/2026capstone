@@ -492,25 +492,66 @@ export default function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, projectTitle])
 
+  // .ppit 텍스트를 에디터 상태로 로드 (파일/URL 공통)
+  const loadPpitText = useCallback((text: string, title: string) => {
+    const ppit = parsePpit(text)
+    const cd = ppitToCanvasData(ppit)
+    setCanvasW(cd.width); setCanvasH(cd.height)
+    setCustomW(cd.width); setCustomH(cd.height)
+    setWithHistory(() => cd)
+    setActiveLayer(cd.frames[0]?.layers[0]?.id ?? null)
+    setProjectId(null)   // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
+    setProjectTitle(title || 'Untitled Project')
+    setUnsaved(true)
+    // 새 작업이므로 URL의 projectId 제거 (새로고침 시 옛 서버 프로젝트 재로드 방지)
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev)
+      p.delete('projectId')
+      return p
+    }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setCanvasW, setCanvasH, setWithHistory, setActiveLayer, setProjectId, setSearchParams])
+
   const handleImportPpit = useCallback(async (file: File) => {
+    // 미저장 변경 확인 (New Project와 동일)
+    if (unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) return
     try {
-      const text = await file.text()
-      const ppit = parsePpit(text)
-      const cd = ppitToCanvasData(ppit)
-      // 캔버스 크기 먼저 반영
-      setCanvasW(cd.width); setCanvasH(cd.height)
-      setCustomW(cd.width); setCustomH(cd.height)
-      setWithHistory(() => cd)
-      setActiveLayer(cd.frames[0]?.layers[0]?.id ?? null)
-      setProjectId(null)   // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
-      setProjectTitle(file.name.replace(/\.(ppit|json)$/i, '') || 'Untitled Project')
-      setUnsaved(true)
+      loadPpitText(await file.text(), file.name.replace(/\.(ppit|json)$/i, ''))
       toast.success('.ppit을 불러왔습니다.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '.ppit을 불러오지 못했습니다.')
     }
+  }, [loadPpitText, unsaved])
+
+  // ── 갤러리에서 진입(편집/리믹스): ?import=<.ppit URL> 자동 로드 ──
+  useEffect(() => {
+    const url = searchParams.get('import')
+    if (!url) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('fetch failed')
+        const text = await res.text()
+        if (cancelled) return
+        loadPpitText(text, searchParams.get('remixOf') ? '리믹스 작업' : '불러온 작업')
+        toast.success('작품을 에디터로 불러왔습니다.')
+      } catch {
+        if (!cancelled) toast.error('작품을 불러오지 못했습니다.')
+      } finally {
+        // import 파라미터 제거(새로고침 시 재로드 방지). remixOf는 추후 출처 추적용으로 유지
+        if (!cancelled) {
+          setSearchParams(prev => {
+            const p = new URLSearchParams(prev)
+            p.delete('import')
+            return p
+          }, { replace: true })
+        }
+      }
+    })()
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCanvasW, setCanvasH, setWithHistory, setActiveLayer, setProjectId])
+  }, [searchParams, loadPpitText])
 
   const handleExportImage = useCallback(async() => {
     const stage = stageRef.current
@@ -849,7 +890,7 @@ export default function EditorPage() {
       id: 'file', label: 'File',
       items: [
         { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
-        { label: 'Open .ppit…',       icon: 'folder_open',   shortcut: 'Ctrl+O', action: () => { ppitInputRef.current?.click(); setOpenMenu(null) } },
+        { label: 'Open .ppit…',       icon: 'folder_open',   action: () => { ppitInputRef.current?.click(); setOpenMenu(null) } },
         { separator: true },
         { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { openSaveModal(); setOpenMenu(null) } },
         //{ label: 'Save As…',          icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },

@@ -173,6 +173,14 @@ export default function GalleryDetailPage() {
       .catch(() => {})
   }
 
+  // 에디터에서 열기 — 내 작품=편집, 타인 작품=리믹스(원본 출처 전달)
+  const openInEditor = (remixOf?: number) => {
+    if (!post?.fileUrl) return
+    const params = new URLSearchParams({ import: post.fileUrl })
+    if (remixOf) params.set('remixOf', String(remixOf))
+    navigate(`/editor?${params.toString()}`)
+  }
+
   const handleDeletePost = async () => {
     if (!post) return
     if (!confirm('게시글을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
@@ -204,6 +212,7 @@ export default function GalleryDetailPage() {
   }
 
   // ── 전용 갤러리(.ppit) 파생값 ──
+  const isOwner = isLoggedIn && user?.userId === post.authorId
   const isDedicated = post.galleryType === 'DEDICATED'
   const vis = post.dedicatedVisibility ?? {}
   const showCanvasInfo = !isDedicated || vis.canvas !== false           // 캔버스 정보 노출 여부
@@ -521,17 +530,32 @@ export default function GalleryDetailPage() {
             <div className="rounded-2xl border p-5" style={{ background: '#21262d', borderColor: '#30363d' }}>
               <p className="font-bold mb-3">원본 파일</p>
               {post.fileUrl ? (
-                <button
-                  type="button"
-                  onClick={handleDownloadPpit}
-                  disabled={downloading}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-60"
-                  style={{ background: '#f0883e', color: '#fff' }}>
-                  <span className={`material-symbols-outlined text-base${downloading ? ' animate-spin' : ''}`}>
-                    {downloading ? 'progress_activity' : 'download'}
-                  </span>
-                  {downloading ? '내려받는 중...' : '.ppit 다운로드'}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadPpit}
+                    disabled={downloading}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-60"
+                    style={{ background: '#f0883e', color: '#fff' }}>
+                    <span className={`material-symbols-outlined text-base${downloading ? ' animate-spin' : ''}`}>
+                      {downloading ? 'progress_activity' : 'download'}
+                    </span>
+                    {downloading ? '내려받는 중...' : '.ppit 다운로드'}
+                  </button>
+                  {/* 에디터에서 열기 — 내 작품=편집 / 타인 작품=리믹스 */}
+                  {isLoggedIn && (
+                    <button
+                      type="button"
+                      onClick={() => openInEditor(isOwner ? undefined : post.postId)}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors"
+                      style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}>
+                      <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>
+                        {isOwner ? 'edit' : 'fork_right'}
+                      </span>
+                      {isOwner ? '에디터에서 편집' : '리믹스'}
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="flex items-center gap-2 text-sm" style={{ color: '#7d8590' }}>
                   <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
