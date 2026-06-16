@@ -13,6 +13,8 @@ export interface AssetSummary {
   downloadCount: number
   likeCount: number
   commentCount: number
+  averageRating: number
+  reviewCount: number
   status: string
   createdAt: string
   tags: string[]
@@ -26,6 +28,7 @@ export interface AssetResponse extends AssetSummary {
   licenseTypeName: string | null
   isLiked: boolean
   isPurchased: boolean
+  myRating: number | null   // 현재 유저가 남긴 별점(없으면 null)
   updatedAt: string
 }
 
@@ -37,10 +40,18 @@ export interface AssetCommentResponse {
   authorNickname: string
   authorProfileImageUrl: string | null
   content: string
+  rating: number | null     // 리뷰 별점(1~5), 일반 댓글이면 null
   isDeleted: boolean
   replyCount: number
   createdAt: string
   updatedAt: string
+}
+
+// 평점 요약 — distribution은 [5★,4★,3★,2★,1★] 개수
+export interface AssetRatingSummary {
+  average: number
+  count: number
+  distribution: number[]
 }
 
 export interface AssetCreateRequest {
@@ -102,9 +113,13 @@ export const assetApi = {
   getComments: (assetId: number, params?: { page?: number; size?: number }) =>
     api.get<{ success: boolean; data: PageResponse<AssetCommentResponse> }>(`/api/assets/${assetId}/comments`, { params }),
 
-  // 댓글 작성
-  createComment: (assetId: number, data: { content: string; parentId?: number | null }) =>
+  // 댓글/리뷰 작성 (rating 있으면 리뷰, 최상위에만 유효)
+  createComment: (assetId: number, data: { content: string; parentId?: number | null; rating?: number | null }) =>
     api.post<{ success: boolean; data: AssetCommentResponse }>(`/api/assets/${assetId}/comments`, data),
+
+  // 평점 요약(평균/개수/분포)
+  getRatingSummary: (assetId: number) =>
+    api.get<{ success: boolean; data: AssetRatingSummary }>(`/api/assets/${assetId}/rating-summary`),
 
   // 댓글 삭제
   deleteComment: (assetId: number, commentId: number) =>
