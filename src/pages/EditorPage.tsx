@@ -253,8 +253,22 @@ export default function EditorPage() {
 
   // -------- 캔버스 크기 변경 -----------
   const applyCanvasSize = (w: number, h: number) => {
+    if(canvasW === w && canvasH === h){
+      setOpenMenu(null);
+      return;
+    }
     setCanvasW(w); setCanvasH(h)
-    setOpenMenu(null)
+
+    setWithHistory((prev) => {
+      return {
+        ...prev,
+        width: w,
+        height: h,
+        frames: state.frames
+      };
+    })
+    setUnsaved(true);
+    setOpenMenu(null);
   }
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
@@ -612,10 +626,12 @@ export default function EditorPage() {
       return {
         ...prev,
         frames: updatedFrames,
+        width: canvasW,
+        height: canvasH
       };
     });
     setUnsaved(true);
-  }, [state.currentFrameIdx, activeLayer, setWithHistory]);
+  }, [state.currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
@@ -998,7 +1014,7 @@ export default function EditorPage() {
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .filter((layer) => layer.isVisible)
                 .map((layer) => (
-                  <KonvaLayer key={layer.id} id={layer.id} opacity={layer.opacity / 100}>
+                  <KonvaLayer key={`${layer.id}-${canvasW}-${canvasH}`} id={layer.id} opacity={layer.opacity / 100}>
                     
                     {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
                     <LayerImageRenderer 
