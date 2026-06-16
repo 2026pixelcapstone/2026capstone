@@ -135,7 +135,8 @@ export default function AssetDetailPage() {
 
   const images = asset.imageUrls.length > 0 ? asset.imageUrls : [asset.thumbnailUrl].filter(Boolean) as string[]
   const isFreeAsset = asset.isFree || asset.price === 0
-  const canDownload = isFreeAsset || asset.isPurchased
+  // 다운로드는 로그인 필수 (비로그인은 fileUrl이 내려오지 않음)
+  const canDownload = isLoggedIn && (isFreeAsset || asset.isPurchased)
   const isAuthor = user?.userId === asset.authorId
   // 평가 자격: 로그인 + 작성자 본인 아님 + (무료거나 구매자)
   const canReview = isLoggedIn && !isAuthor && (isFreeAsset || asset.isPurchased)
@@ -222,12 +223,25 @@ export default function AssetDetailPage() {
 
               {canDownload ? (
                 <a href={asset.fileUrl ?? '#'} download target="_blank" rel="noopener noreferrer"
-                  onClick={e => { if (!asset.fileUrl) { e.preventDefault(); toast.error('다운로드 파일이 없습니다.') } }}
+                  onClick={e => {
+                    if (!asset.fileUrl) { e.preventDefault(); toast.error('다운로드 파일이 없습니다.'); return }
+                    // 다운로드 수 기록(사람당 1회만 카운트) — 실패해도 다운로드는 진행
+                    assetApi.recordDownload(assetId).catch(() => {})
+                  }}
                   className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity"
                   style={{ background: '#2f81f7', color: '#fff', display: 'flex' }}>
                   <span className="material-symbols-outlined text-base">download</span>
                   다운로드
                 </a>
+              ) : isFreeAsset ? (
+                // 무료지만 비로그인 → 로그인 유도
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity"
+                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  <span className="material-symbols-outlined text-base">login</span>
+                  로그인 후 다운로드
+                </button>
               ) : (
                 <button
                   onClick={handlePurchase}
@@ -444,6 +458,8 @@ export default function AssetDetailPage() {
               <p className="font-bold mb-3 text-sm">에셋 정보</p>
               {[
                 ['상태', asset.status === 'ACTIVE' ? '판매 중' : asset.status],
+                ['카테고리', asset.categoryName ?? '—'],
+                ['조회수', asset.viewCount.toLocaleString()],
                 ['등록일', new Date(asset.createdAt).toLocaleDateString('ko-KR')],
                 ['라이선스', asset.licenseTypeName ?? '—'],
               ].map(([label, val]) => (

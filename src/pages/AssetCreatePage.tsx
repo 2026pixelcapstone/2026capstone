@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { assetApi } from '../api/assetApi'
+import { assetApi, type AssetCategory, type AssetLicenseType } from '../api/assetApi'
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
@@ -21,12 +21,21 @@ export default function AssetCreatePage() {
   const [description, setDescription] = useState('')
   const [isFree, setIsFree] = useState(true)
   const [price, setPrice] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [licenseTypeId, setLicenseTypeId] = useState('')
+  const [categories, setCategories] = useState<AssetCategory[]>([])
+  const [licenseTypes, setLicenseTypes] = useState<AssetLicenseType[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [images, setImages] = useState<ImageItem[]>([])
   const [assetFile, setAssetFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [fileDragging, setFileDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    assetApi.getCategories().then(res => setCategories(res.data.data)).catch(() => {})
+    assetApi.getLicenseTypes().then(res => setLicenseTypes(res.data.data)).catch(() => {})
+  }, [])
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -112,6 +121,8 @@ export default function AssetCreatePage() {
         description: description.trim() || undefined,
         isFree,
         price: isFree ? 0 : Number(price),
+        categoryId: categoryId ? Number(categoryId) : undefined,
+        licenseTypeId: licenseTypeId ? Number(licenseTypeId) : undefined,
         imageUrls: uploadedImageUrls,
         thumbnailUrl: uploadedImageUrls[0],
         tags: selectedTags.length > 0 ? selectedTags : undefined,
@@ -259,6 +270,34 @@ export default function AssetCreatePage() {
                 />
               </div>
             )}
+          </div>
+
+          {/* 카테고리 / 라이선스 */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">카테고리</label>
+              <select
+                value={categoryId}
+                onChange={e => setCategoryId(e.target.value)}
+                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                <option value="">선택 안 함</option>
+                {categories.map(c => (
+                  <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">라이선스</label>
+              <select
+                value={licenseTypeId}
+                onChange={e => setLicenseTypeId(e.target.value)}
+                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                <option value="">선택 안 함</option>
+                {licenseTypes.map(l => (
+                  <option key={l.licenseTypeId} value={l.licenseTypeId}>{l.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* 태그 */}
