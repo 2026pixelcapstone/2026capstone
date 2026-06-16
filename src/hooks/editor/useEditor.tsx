@@ -4,6 +4,7 @@ import { editorApi, LayerSaveRequest } from "../../api/editorApi";
 import { LayerData, SaveData, useEditorProps } from "../../constants/editorType";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
+import api from "../../lib/axios";
 
 export const useEditor = ({
     stageRef,
@@ -24,96 +25,122 @@ export const useEditor = ({
     // ── 프로젝트 서버 저장 로직 ──────────────────────────────────────────
     const handleSave = useCallback(async (saveData?: SaveData) => {
         if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
-        if(saving) return;
-
+        if (saving) return;
+        setSaving(true);
+        
         const canvas = stageRef.current;
         if (!canvas) return;
 
         const nextTitle = saveData?.title.trim() || projectTitle.trim();
         const nextIsPublic = saveData?.isPublic || false;
 
-        if(!nextTitle){
+        if (!nextTitle) {
             toast.error('프로젝트 이름을 입력해주세요');
             return;
         }
 
-        // 현재 캔버스 데이터 저장 로직(⭐ 서버 문제가 해결되면 currentFrameData함수 다시 사용할거임 ⭐)
-        /*
-        const currentFrameData = canvas.toDataURL(({
-            mimeType: 'image/webp', // png -> webp로 변경
-            quality: 0.7, // 0.7은 70% 압축
-            pixelRatio: 1 // 숫자를 올릴수록 선명하고 큼직한 썸네일 PNG 파일이 추출됨(크기 때문에 1~2배율로 변경)
-        }));*/
         setSaving(true);
-       
-        // 새 프로젝트를 생성하여 프로젝트를 저장하는 로직
         try {
-            let pid = projectId
+            const uploadFormData = new FormData();
+            const uploadedLayerKeys: string[] = [];
+            uploadFormData.append("folder", "pixel-art");
+
+            const thumDataURL = canvas.toDataURL({
+                mimeType: 'image/webp',
+                quality: 0.7,
+                pixelRatio: 1
+            });
+            const thumbResponse = await fetch(thumDataURL);
+            const thumbnailBlob = await thumbResponse.blob();
+            uploadFormData.append('files', thumbnailBlob, 'thumbnail.webp');
+
+            for (const [fIdx, frame] of state.frames.entries()) {
+                for (const layer of frame.layers) {
+                    const layerKey = getCacheKey(fIdx, layer.id);
+                    const layerCanvas = layerCanvasRefs.current[layerKey];
+                    if (layerCanvas) {
+                        const layerDataURL = layerCanvas.toDataURL('image/webp', 0.6);
+                        const layerResponse = await fetch(layerDataURL);
+                        const layerBlob = await layerResponse.blob();
+
+                        uploadFormData.append('files', layerBlob, `layer_${fIdx}_${layer.id}.webp`);
+                        uploadedLayerKeys.push(layerKey);
+                    }
+                }
+            }
+
+            const uploadRes = await api.post<{ data: string[] }>("/api/files/upload/bulk", uploadFormData);
+            const [uploadedThumbUrl, ...uploadedLayerUrls] = uploadRes.data.data;
+            const uploadedLayerUrlByKey = new Map<string, string>();
+            uploadedLayerKeys.forEach((key, idx) => {
+                const url = uploadedLayerUrls[idx];
+                if (url) uploadedLayerUrlByKey.set(key, url);
+            });
+
+            let pid = projectId;
             if (!pid) {
-                // 새 프로젝트 생성
                 const res = await editorApi.createProject({
                     title: nextTitle,
                     width: canvasW,
                     height: canvasH,
-                    //backgroundColor: '',
                     isPublic: nextIsPublic,
-                    thumbnailUrl: "", // ⭐ 백엔드에서 거부를 하여 "" 로 초기화 해놓음 ***
-                })
+                    thumbnailUrl: uploadedThumbUrl
+                });
                 pid = res.data.data.projectId;
                 setProjectId(pid);
                 setSearchParams({ projectId: String(pid) }, { replace: true });
             } else {
-                // 기존 프로젝트 덮어쓰기
-                await editorApi.updateProject(pid, { 
+                await editorApi.updateProject(pid, {
                     title: nextTitle,
                     isPublic: nextIsPublic,
-                    thumbnailUrl: "", // ⭐ 백엔드에서 거부를 하여 "" 로 초기화 해놓음 ***
-                })
+                    thumbnailUrl: uploadedThumbUrl,
+                });
             }
-            /* flatMap의 효과 -> 각 프레임 당으로 분리되어 있는 레이어를 1치원 배열로 오름차순 정렬시켜줌
-            (layerOrder의 수가 리셋되는 부분을 찾아 프레임 구별) */
-            const layersToSave: LayerSaveRequest[] = state.frames.flatMap((frame, fIdx) => 
-                frame.layers.map((layer:LayerData): LayerSaveRequest => {
-                    // 1. 혹시 모를 공백 제거 및 문자열화
-                    const cleanId = String(layer.id).trim();      
-                    // 2. 신규 임시 ID('layer-')이거나, 유령 문자열("null", "undefined")이거나, 빈 값인 경우를 체크
+
+            const layersToSave: LayerSaveRequest[] = state.frames.flatMap((frame, fIdx) =>
+                frame.layers.map((layer: LayerData): LayerSaveRequest => {
+                    const cleanId = String(layer.id).trim();
                     const isNewLayer = cleanId.startsWith('layer-') || cleanId === 'null' || cleanId === 'undefined' || !cleanId;
-                    return{
-                        // 임시 UUID 형태(`layer-`)면 서버에서 신규 PK를 따도록 null 처리, 기존 정수 ID면 유지
+                    const layerKey = getCacheKey(fIdx, layer.id);
+
+                    return {
                         layerId: isNewLayer ? null : Number(cleanId),
                         name: layer.name,
-                        layerOrder: layer.layerOrder, // 위에 flatMap + layerOder 조합으로 프레임 순서와 레이어 순서를 구별
+                        layerOrder: layer.layerOrder,
                         blendMode: layer.blendMode,
                         isLocked: layer.isLocked,
                         isVisible: layer.isVisible,
                         opacity: layer.opacity,
-                        // 키 저장은 안됨
-                        pixelData: layerCanvasRefs.current[getCacheKey(fIdx, layer.id)]?.toDataURL('image/png') || layer.pixelData || ''
-                    }
+                        fileUrl: uploadedLayerUrlByKey.get(layerKey) ?? null,
+                        pixelData: ""
+                    };
                 })
             );
+
             await editorApi.saveLayers(pid, layersToSave);
-            
+
             setUnsaved(false);
-            toast.success('저장되었습니다.');
-        } catch(error) {
+            toast.success('성공적으로 저장되었습니다.');
+        }
+        catch (error) {
             console.error("저장 중 에러 발생", error);
             toast.error('저장에 실패했습니다.');
-        } finally {
-            setSaving(false)
+        }
+        finally {
+            setSaving(false);
         }
 
-  }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, stageRef, setSearchParams, state.frames])
+    }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, stageRef, setSearchParams, state.frames, layerCanvasRefs])
 
-  const openSaveModal = useCallback(() => {
-    if (!isLoggedIn) {
-        toast.error('로그인이 필요합니다.');
-        return;
-    }
-    setIsSaveModalOpen(true)
-  }, [isLoggedIn]);
+    const openSaveModal = useCallback(() => {
+        if (!isLoggedIn) {
+            toast.error('로그인이 필요합니다.');
+            return;
+        }
+        setIsSaveModalOpen(true)
+    }, [isLoggedIn]);
 
-  // ── [ 컴포넌트가 사용할 무기들을 반환] ──────────────────
+    // ── [ 컴포넌트가 사용할 무기들을 반환] ──────────────────
     return {
         isSaveModalOpen,
         setIsSaveModalOpen,

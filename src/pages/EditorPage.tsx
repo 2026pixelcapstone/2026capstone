@@ -16,6 +16,7 @@ import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
 import { getCacheKey } from '../utils/editorUtils'
+import { ColorPickerModal } from '../components/ColorPickerModal'
 
 type MenuItem =
   | { separator: true }
@@ -35,6 +36,7 @@ export default function EditorPage() {
   const [brushSize, setBrushSize]     = useState(1)
   const [opacity, setOpacity]         = useState(100)
   const [pixelPerfect, setPixelPerfect] = useState(true)
+  const [isHexModal, setIsHexModal] = useState(false)
 
   const {canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
@@ -42,6 +44,7 @@ export default function EditorPage() {
   const initialCanvasData = createInitialCanvasData();
   const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
   
+
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
     frames: state.frames,
@@ -88,7 +91,7 @@ export default function EditorPage() {
   const [showGridLines, setShowGridLines] = useState(true)
 
   // ── 프로젝트 저장 관련 상태 ──────────────────────────
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
+  const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
 
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
@@ -376,7 +379,7 @@ export default function EditorPage() {
       toast.error('로그인이 필요합니다.')
       return
     }
-    setIsSaveModalOpen(true)
+    setSaveIsModalOpen(true)
   }, [isLoggedIn])
   
   // ── Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
@@ -565,6 +568,35 @@ export default function EditorPage() {
     color: activeTool === id ? '#2f81f7' : '#7d8590',
   })
 
+  // 팔레트 컬러 칩을 클릭했을 때 색상을 반영하는 함수
+  const selectPaletteColor = (color: string) => {
+    setFgColor(color);    // 1. 실제로 그려질 메인 전경색 변경
+    setHexInput(color);   // 2. 눈에 보이는 HEX 텍스트 입력창 글자도 동기화
+  };
+  
+  // ── [슬라이더 연동을 위해 새로 추가할 코드] ─────────────────
+  
+  // 1. 슬라이더의 RGB 숫자를 다시 #ffffff 형태의 HEX 문자로 바꿔주는 함수
+  const rgbToHex = (r: number, g: number, b: number) => {
+    const toHex = (c: number) => {
+      const hex = Math.max(0, Math.min(255, c)).toString(16);
+      return hex.length === 1 ? "0" + hex : hex; // 한 자리 수면 앞에 0 채우기 (예: f -> 0f)
+    };
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  };
+
+  // 2. R, G, B 슬라이더를 밀 때 호출될 핵심 핸들러 함수
+  const handleRgbChange = (channel: 'r' | 'g' | 'b', value: number) => {
+    // 슬라이더를 민 채널만 value로 바꾸고, 나머지는 기존 rgb 값 유지
+    const nextHex = rgbToHex(
+      channel === 'r' ? value : rgb.r,
+      channel === 'g' ? value : rgb.g,
+      channel === 'b' ? value : rgb.b
+    );
+    
+    setFgColor(nextHex);   // 에디터 메인 색상 변경 (도화지에 그려질 색)
+    setHexInput(nextHex);  // 눈에 보이는 HEX 입력창 글자도 동기화
+  };
   // ── 애니메이션 ───────────────────────────────────
   useEffect(() => {
     framesCountRef.current = state.frames.length;
@@ -629,7 +661,8 @@ export default function EditorPage() {
         height: canvasH
       };
     });
-    setUnsaved(true);
+    setUnsaved(false);
+
   }, [state.currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
   /* 프레임 선택 시 실행되는 함수 */
@@ -659,7 +692,10 @@ export default function EditorPage() {
         } 
     } 
     else {
-      state.currentFrameIdx = nextIndex;
+      setState((prev) => ({
+        ...prev,
+        currentFrameIdx: nextIndex,
+      }));
       setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     }
   }
@@ -799,8 +835,8 @@ export default function EditorPage() {
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
     <div className="fixed inset-0 top-0 flex flex-col" style={{ background: '#0d1117', color: '#e6edf3', zIndex: 60 }}>
       <EditorSaveProjectModal
-        isOpen={isSaveModalOpen}
-        onClose={() => setIsSaveModalOpen(false)}
+        isOpen={saveIsModalOpen}
+        onClose={() => setSaveIsModalOpen(false)}
         onSave={handleSave}
         initialTitle={projectTitle}
       />
@@ -1204,7 +1240,10 @@ export default function EditorPage() {
             <div className="flex items-center gap-4 mb-4 px-1">
               <div className="relative">
                 <div className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
-                  style={{ background: fgColor, borderColor: '#30363d' }} title="Foreground" />
+                  style={{ background: fgColor, borderColor: '#30363d' }} 
+                  title="Foreground"
+                  onClick={() => setIsHexModal(true)} 
+                />
                 <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm"
                   style={{ background: '#161b22', borderColor: '#30363d' }} title="Background" />
               </div>
@@ -1227,8 +1266,15 @@ export default function EditorPage() {
               ].map(({ ch, val, color: col, accent }) => (
                 <div key={ch} className="flex items-center gap-2">
                   <span className="text-xs font-bold w-3 flex-shrink-0" style={{ color: col }}>{ch}</span>
-                  <input type="range" min={0} max={255} value={val}
-                    className={`flex-1 h-1.5 cursor-pointer ${accent}`} readOnly />
+
+                  <input 
+                    type="range"
+                    min={0}
+                    max={255}
+                    value={val}
+                    className={`flex-1 h-1.5 cursor-pointer ${accent}`} 
+                    onChange={(e) => handleRgbChange(ch.toLowerCase() as 'r' | 'g' | 'b', Number(e.target.value))}
+                    />
                   <span className="text-xs font-bold w-7 text-right" style={{ color: '#7d8590' }}>{val}</span>
                 </div>
               ))}
@@ -1251,7 +1297,9 @@ export default function EditorPage() {
             </div>
             <div className="grid grid-cols-7 gap-1.5 px-1">
               {PALETTE_COLORS.map(c => (
-                <button key={c} onClick={() => { setFgColor(c); setHexInput(c) }}
+                <button 
+                  key={c} 
+                  onClick={() => { selectPaletteColor(c) }}
                   className="w-8 h-8 rounded cursor-pointer transition-all border-2 hover:scale-110"
                   style={{ background: c, borderColor: fgColor === c ? '#e6edf3' : 'transparent' }} />
               ))}
@@ -1389,7 +1437,13 @@ export default function EditorPage() {
             </div>
           </div>
         </aside>
-
+        
+        <ColorPickerModal 
+          isOpen={isHexModal}
+          onClose={() => setIsHexModal(false)}
+          color={fgColor}
+          onChange={selectPaletteColor}
+        />
         {/* ── ⏳AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
           style={{ 
