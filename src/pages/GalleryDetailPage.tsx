@@ -22,6 +22,7 @@ export default function GalleryDetailPage() {
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [zoom, setZoom] = useState(4)
+  const [downloading, setDownloading] = useState(false)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInternalDraw, setIsInternalDraw] = useState(false);
@@ -143,6 +144,35 @@ export default function GalleryDetailPage() {
       }
   };
 
+  // .ppit 원본 다운로드 — CORS 가능 시 blob 저장, 실패 시 새 탭 폴백
+  const handleDownloadPpit = async () => {
+    if (!post?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
+    setDownloading(true)
+    try {
+      const res = await fetch(post.fileUrl)
+      if (!res.ok) throw new Error('fetch failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${post.title || 'artwork'}.ppit`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      window.open(post.fileUrl, '_blank', 'noopener')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const copyColor = (hex: string) => {
+    navigator.clipboard?.writeText(hex)
+      .then(() => toast.success(`${hex} 복사됨`))
+      .catch(() => {})
+  }
+
   const handleDeletePost = async () => {
     if (!post) return
     if (!confirm('게시글을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
@@ -173,6 +203,23 @@ export default function GalleryDetailPage() {
     )
   }
 
+  // ── 전용 갤러리(.ppit) 파생값 ──
+  const isDedicated = post.galleryType === 'DEDICATED'
+  const vis = post.dedicatedVisibility ?? {}
+  const showCanvasInfo = !isDedicated || vis.canvas !== false           // 캔버스 정보 노출 여부
+  const paletteColors = post.palette?.colors ?? []
+  const showPalette = isDedicated && vis.palette !== false && paletteColors.length > 0
+  const isAnimated = !!post.thumbnailUrl && /\.gif(\?|$)/i.test(post.thumbnailUrl)
+
+  // 정보 그리드 항목 (캔버스 정보는 토글에 따라)
+  const infoItems: [string, string][] = [
+    ...(showCanvasInfo
+      ? [['해상도', post.canvasWidth && post.canvasHeight ? `${post.canvasWidth} × ${post.canvasHeight}` : '-'] as [string, string]]
+      : []),
+    ['갤러리 유형', post.galleryType === 'FREE' ? '자유 갤러리' : '전용 갤러리'],
+    ['공개 범위', post.visibility === 'PUBLIC' ? '전체 공개' : post.visibility === 'PRIVATE' ? '비공개' : '링크 공유'],
+  ]
+
   return (
     <div style={{ background: '#0d1117', color: '#e6edf3' }}>
       {/* 뷰어 */}
@@ -195,6 +242,13 @@ export default function GalleryDetailPage() {
           }
           <span className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs text-white"
             style={{ background: 'rgba(0,0,0,0.6)' }}>{zoom * 100}%</span>
+          {isAnimated && (
+            <span className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-white"
+              style={{ background: 'rgba(240,136,62,0.85)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 13 }}>animation</span>
+              애니메이션
+            </span>
+          )}
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1.5 rounded-xl"
             style={{ background: 'rgba(0,0,0,0.6)' }}>
             <button onClick={() => setZoom(z => Math.max(1, z - 1))} className="text-white">
@@ -312,11 +366,7 @@ export default function GalleryDetailPage() {
               </div>
             )}
             <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-              {[
-                ['해상도', post.canvasWidth && post.canvasHeight ? `${post.canvasWidth} × ${post.canvasHeight}` : '-'],
-                ['갤러리 유형', post.galleryType === 'FREE' ? '자유 갤러리' : '전용 갤러리'],
-                ['공개 범위', post.visibility === 'PUBLIC' ? '전체 공개' : post.visibility === 'PRIVATE' ? '비공개' : '링크 공유'],
-              ].map(([k, v]) => (
+              {infoItems.map(([k, v]) => (
                 <div key={k} className="rounded-xl p-3" style={{ background: '#161b22', border: '1px solid #30363d' }}>
                   <p style={{ color: '#7d8590' }}>{k}</p>
                   <p className="font-bold mt-0.5">{v}</p>
@@ -430,6 +480,66 @@ export default function GalleryDetailPage() {
               )}
             </div>
           </div>
+
+          {/* ── 전용 갤러리: 팔레트 ── */}
+          {showPalette && (
+            <div className="rounded-2xl border p-5" style={{ background: '#21262d', borderColor: '#30363d' }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-bold">
+                  팔레트{post.palette?.name ? ` · ${post.palette.name}` : ''}
+                </p>
+                <span className="text-xs" style={{ color: '#7d8590' }}>{paletteColors.length}색</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {paletteColors.map((c, i) => (
+                  <button
+                    key={`${c}-${i}`}
+                    type="button"
+                    onClick={() => copyColor(c)}
+                    title={`${c} (클릭하여 복사)`}
+                    aria-label={`색상 ${c} 복사`}
+                    className="w-7 h-7 rounded-md transition-transform hover:scale-110"
+                    style={{ background: c, border: '1px solid #30363d' }}
+                  />
+                ))}
+              </div>
+              {/* "이 팔레트 가져오기"는 에디터 연동(Phase ④) 필요 → 준비 중 */}
+              <button
+                type="button"
+                disabled
+                title="에디터 연동 준비 중"
+                className="w-full mt-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 opacity-40 cursor-not-allowed"
+                style={{ background: '#1c2128', border: '1px solid #30363d', color: '#7d8590' }}>
+                <span className="material-symbols-outlined text-base">download_for_offline</span>
+                이 팔레트 가져오기 (준비 중)
+              </button>
+            </div>
+          )}
+
+          {/* ── 전용 갤러리: .ppit 다운로드 ── */}
+          {isDedicated && (
+            <div className="rounded-2xl border p-5" style={{ background: '#21262d', borderColor: '#30363d' }}>
+              <p className="font-bold mb-3">원본 파일</p>
+              {post.fileUrl ? (
+                <button
+                  type="button"
+                  onClick={handleDownloadPpit}
+                  disabled={downloading}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ background: '#f0883e', color: '#fff' }}>
+                  <span className={`material-symbols-outlined text-base${downloading ? ' animate-spin' : ''}`}>
+                    {downloading ? 'progress_activity' : 'download'}
+                  </span>
+                  {downloading ? '내려받는 중...' : '.ppit 다운로드'}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 text-sm" style={{ color: '#7d8590' }}>
+                  <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
+                  작성자가 원본 다운로드를 비공개로 설정했습니다.
+                </div>
+              )}
+            </div>
+          )}
 
           {post.imageUrls.length > 1 && (
             <div className="rounded-2xl border p-5" style={{ background: '#21262d', borderColor: '#30363d' }}>
