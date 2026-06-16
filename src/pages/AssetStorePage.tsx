@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { assetApi, type AssetSummary } from '../api/assetApi'
+import { assetApi, type AssetSummary, type AssetCategory } from '../api/assetApi'
 import { useAuthStore } from '../store/authStore'
 import { useBlockStore } from '../store/blockStore'
 import TagBlockMenu from '../components/TagBlockMenu'
-
-const CATEGORIES = ['전체', '캐릭터', '타일셋', '배경/환경', 'UI/아이콘', '스프라이트', '이펙트']
 
 export default function AssetStorePage() {
   const navigate = useNavigate()
@@ -13,17 +11,32 @@ export default function AssetStorePage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const isLoggedIn = !!accessToken
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeCategory = searchParams.get('tag') ?? '전체'
+  // 상단 카테고리 필터(categoryId) / 카드 태그 클릭 필터(tag) — 둘 중 하나만 활성
+  const activeCategoryId = searchParams.get('category')
+  const activeTag = searchParams.get('tag')
+  const [categories, setCategories] = useState<AssetCategory[]>([])
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all')
   const [sort, setSort] = useState('createdAt,desc')
   const [keyword, setKeyword] = useState('')
   const [inputValue, setInputValue] = useState('')
 
+  useEffect(() => {
+    assetApi.getCategories()
+      .then(res => setCategories(res.data.data))
+      .catch(err => console.error('카테고리 목록 로드 실패:', err))
+  }, [])
+
+  // 상단 카테고리 버튼 — categoryId 필터(null=전체). 태그 필터는 해제.
+  const handleCategoryFilter = (categoryId: number | null) => {
+    setKeyword('')
+    setInputValue('')
+    setSearchParams(categoryId != null ? { category: String(categoryId) } : {}, { replace: false })
+  }
+  // 카드의 태그 칩 클릭 — 태그 필터. 카테고리 필터는 해제.
   const handleCategorySelect = (tag: string) => {
     setKeyword('')
     setInputValue('')
-    if (tag === '전체') setSearchParams({}, { replace: false })
-    else setSearchParams({ tag }, { replace: false })
+    setSearchParams({ tag }, { replace: false })
   }
   const [assets, setAssets] = useState<AssetSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,7 +60,7 @@ export default function AssetStorePage() {
   useEffect(() => {
     setPage(0)
     setAssets([])
-  }, [priceFilter, activeCategory, sort, keyword])
+  }, [priceFilter, activeCategoryId, activeTag, sort, keyword])
 
   useEffect(() => {
     const fetch = async () => {
@@ -62,15 +75,21 @@ export default function AssetStorePage() {
           content = res.data.data.content
           last = res.data.data.last
           totalElements = res.data.data.totalElements
-        } else if (activeCategory !== '전체') {
+        } else if (activeTag) {
           const isFree = priceFilter === 'all' ? undefined : priceFilter === 'free'
-          const res = await assetApi.getByTag(activeCategory, { page, size: 8, sort, isFree })
+          const res = await assetApi.getByTag(activeTag, { page, size: 8, sort, isFree })
           content = res.data.data.content
           last = res.data.data.last
           totalElements = res.data.data.totalElements
         } else {
           const isFree = priceFilter === 'all' ? undefined : priceFilter === 'free'
-          const res = await assetApi.getList({ isFree, page, size: 8, sort })
+          // categoryId는 숫자만 (URL 수동편집 ?category=abc 같은 NaN 차단)
+          const parsedCategoryId = activeCategoryId ? Number(activeCategoryId) : undefined
+          const res = await assetApi.getList({
+            isFree,
+            categoryId: parsedCategoryId != null && !Number.isNaN(parsedCategoryId) ? parsedCategoryId : undefined,
+            page, size: 8, sort,
+          })
           content = res.data.data.content
           last = res.data.data.last
           totalElements = res.data.data.totalElements
@@ -86,7 +105,7 @@ export default function AssetStorePage() {
       }
     }
     fetch()
-  }, [page, priceFilter, sort, keyword, activeCategory])
+  }, [page, priceFilter, sort, keyword, activeCategoryId, activeTag])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -140,13 +159,20 @@ export default function AssetStorePage() {
               </div>
               <div className="w-px h-6" style={{ background: '#30363d' }} />
               <div className="flex gap-2 flex-wrap">
-                {CATEGORIES.map(cat => (
-                  <button key={cat} onClick={() => handleCategorySelect(cat)}
+                <button onClick={() => handleCategoryFilter(null)}
+                  className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
+                  style={!activeCategoryId && !activeTag
+                    ? { background: '#2f81f7', color: '#fff' }
+                    : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                  전체
+                </button>
+                {categories.map(cat => (
+                  <button key={cat.categoryId} onClick={() => handleCategoryFilter(cat.categoryId)}
                     className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
-                    style={activeCategory === cat
+                    style={activeCategoryId === String(cat.categoryId)
                       ? { background: '#2f81f7', color: '#fff' }
                       : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
-                    {cat}
+                    {cat.name}
                   </button>
                 ))}
               </div>

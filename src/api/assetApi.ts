@@ -15,6 +15,7 @@ export interface AssetSummary {
   commentCount: number
   averageRating: number
   reviewCount: number
+  categoryName: string | null
   status: string
   createdAt: string
   tags: string[]
@@ -25,7 +26,10 @@ export interface AssetResponse extends AssetSummary {
   imageUrls: string[]
   fileUrl: string | null
   tags: string[]
+  categoryId: number | null
+  licenseTypeId: number | null
   licenseTypeName: string | null
+  viewCount: number
   isLiked: boolean
   isPurchased: boolean
   myRating: number | null   // 현재 유저가 남긴 별점(없으면 null)
@@ -57,6 +61,23 @@ export interface AssetRatingSummary {
   distribution: AssetRatingDistribution
 }
 
+// 카테고리/라이선스 선택지
+export interface AssetCategory {
+  categoryId: number
+  name: string
+}
+
+export interface AssetLicenseType {
+  licenseTypeId: number
+  name: string
+  canCommercial: boolean
+  canModify: boolean
+  canRedistribute: boolean
+  requireAttribution: boolean
+  isExclusive: boolean
+  description: string | null
+}
+
 export interface AssetCreateRequest {
   title: string
   description?: string
@@ -77,15 +98,15 @@ export interface AssetUpdateRequest {
   thumbnailUrl?: string
   price?: number
   isFree?: boolean
-  categoryId?: number
-  licenseTypeId?: number
+  categoryId?: number | null     // null = 카테고리 해제
+  licenseTypeId?: number | null  // null = 라이선스 해제
   imageUrls?: string[]
   tags?: string[]
 }
 
 export const assetApi = {
   // 목록 조회
-  getList: (params?: { isFree?: boolean; page?: number; size?: number; sort?: string; authorId?: number }) =>
+  getList: (params?: { isFree?: boolean; categoryId?: number; page?: number; size?: number; sort?: string; authorId?: number }) =>
     api.get<{ success: boolean; data: PageResponse<AssetSummary> }>('/api/assets', { params }),
 
   // 상세 조회
@@ -112,6 +133,10 @@ export const assetApi = {
   purchase: (assetId: number) =>
     api.post<{ success: boolean }>(`/api/assets/${assetId}/purchase`),
 
+  // 다운로드 기록 (로그인 필수, 사람당 1회만 카운트) — 실제 파일 다운로드와 별개로 호출
+  recordDownload: (assetId: number) =>
+    api.post<{ success: boolean }>(`/api/assets/${assetId}/download`),
+
   // 댓글 목록
   getComments: (assetId: number, params?: { page?: number; size?: number }) =>
     api.get<{ success: boolean; data: PageResponse<AssetCommentResponse> }>(`/api/assets/${assetId}/comments`, { params }),
@@ -123,6 +148,13 @@ export const assetApi = {
   // 평점 요약(평균/개수/분포)
   getRatingSummary: (assetId: number) =>
     api.get<{ success: boolean; data: AssetRatingSummary }>(`/api/assets/${assetId}/rating-summary`),
+
+  // 카테고리/라이선스 선택지
+  getCategories: () =>
+    api.get<{ success: boolean; data: AssetCategory[] }>('/api/assets/categories'),
+
+  getLicenseTypes: () =>
+    api.get<{ success: boolean; data: AssetLicenseType[] }>('/api/assets/license-types'),
 
   // 댓글 삭제
   deleteComment: (assetId: number, commentId: number) =>

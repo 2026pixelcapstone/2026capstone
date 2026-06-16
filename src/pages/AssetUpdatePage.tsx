@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { assetApi } from '../api/assetApi'
+import { assetApi, type AssetCategory, type AssetLicenseType } from '../api/assetApi'
 import { fileApi } from '../api/fileApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -25,10 +25,26 @@ export default function AssetUpdatePage() {
   const [description, setDescription] = useState('')
   const [isFree, setIsFree] = useState(true)
   const [price, setPrice] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [licenseTypeId, setLicenseTypeId] = useState('')
+  const [categories, setCategories] = useState<AssetCategory[]>([])
+  const [licenseTypes, setLicenseTypes] = useState<AssetLicenseType[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [images, setImages] = useState<ImageItem[]>([])
   const [dragging, setDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([assetApi.getCategories(), assetApi.getLicenseTypes()])
+      .then(([catRes, licRes]) => {
+        if (cancelled) return
+        setCategories(catRes.data.data)
+        setLicenseTypes(licRes.data.data)
+      })
+      .catch(() => { if (!cancelled) toast.error('카테고리/라이선스 목록을 불러오지 못했습니다.') })
+    return () => { cancelled = true }
+  }, [])
 
   const imageInputRef = useRef<HTMLInputElement>(null)
 
@@ -58,6 +74,8 @@ export default function AssetUpdatePage() {
         setDescription(asset.description ?? '')
         setIsFree(asset.isFree || asset.price === 0)
         setPrice(asset.price > 0 ? String(asset.price) : '')
+        setCategoryId(asset.categoryId ? String(asset.categoryId) : '')
+        setLicenseTypeId(asset.licenseTypeId ? String(asset.licenseTypeId) : '')
         setSelectedTags(asset.tags ?? [])
         // 상세 페이지와 동일 계약: imageUrls가 비면 thumbnailUrl로 fallback
         const existingUrls = asset.imageUrls?.length
@@ -139,6 +157,9 @@ export default function AssetUpdatePage() {
         description: description.trim() || undefined,
         isFree,
         price: isFree ? 0 : Number(price),
+        // 수정 폼은 항상 현재값을 보냄 — '선택 안 함'이면 null로 명시 전송해 해제 반영
+        categoryId: categoryId ? Number(categoryId) : null,
+        licenseTypeId: licenseTypeId ? Number(licenseTypeId) : null,
         imageUrls: finalUrls,
         thumbnailUrl: finalUrls[0],
         tags: selectedTags,
@@ -221,6 +242,26 @@ export default function AssetUpdatePage() {
                   className="flex-1 bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500" />
               </div>
             )}
+          </div>
+
+          {/* 카테고리 / 라이선스 */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">카테고리</label>
+              <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
+                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                <option value="">선택 안 함</option>
+                {categories.map(c => (<option key={c.categoryId} value={c.categoryId}>{c.name}</option>))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">라이선스</label>
+              <select value={licenseTypeId} onChange={e => setLicenseTypeId(e.target.value)}
+                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                <option value="">선택 안 함</option>
+                {licenseTypes.map(l => (<option key={l.licenseTypeId} value={l.licenseTypeId}>{l.name}</option>))}
+              </select>
+            </div>
           </div>
 
           {/* 태그 */}
