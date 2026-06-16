@@ -195,6 +195,7 @@ export default function AssetStorePage() {
                 style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
                 <option value="createdAt,desc">최신순</option>
                 <option value="downloadCount,desc">인기순</option>
+                <option value="averageRating,desc">평점순</option>
                 <option value="price,asc">낮은 가격순</option>
                 <option value="price,desc">높은 가격순</option>
               </select>
@@ -267,6 +268,12 @@ export default function AssetStorePage() {
                       </div>
                     )}
                     <div className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
+                      {item.reviewCount >= 4 && (
+                        <span className="flex items-center gap-1" style={{ color: '#f0883e' }}>
+                          <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                          {item.averageRating.toFixed(1)}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-xs">favorite</span>
                         {item.likeCount.toLocaleString()}
