@@ -692,7 +692,10 @@ export default function EditorPage() {
         } 
     } 
     else {
-      state.currentFrameIdx = nextIndex;
+      setState((prev) => ({
+        ...prev,
+        currentFrameIdx: nextIndex,
+      }));
       setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     }
   }
