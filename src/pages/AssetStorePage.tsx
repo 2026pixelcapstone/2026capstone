@@ -21,7 +21,9 @@ export default function AssetStorePage() {
   const [inputValue, setInputValue] = useState('')
 
   useEffect(() => {
-    assetApi.getCategories().then(res => setCategories(res.data.data)).catch(() => {})
+    assetApi.getCategories()
+      .then(res => setCategories(res.data.data))
+      .catch(err => console.error('카테고리 목록 로드 실패:', err))
   }, [])
 
   // 상단 카테고리 버튼 — categoryId 필터(null=전체). 태그 필터는 해제.
@@ -81,8 +83,11 @@ export default function AssetStorePage() {
           totalElements = res.data.data.totalElements
         } else {
           const isFree = priceFilter === 'all' ? undefined : priceFilter === 'free'
+          // categoryId는 숫자만 (URL 수동편집 ?category=abc 같은 NaN 차단)
+          const parsedCategoryId = activeCategoryId ? Number(activeCategoryId) : undefined
           const res = await assetApi.getList({
-            isFree, categoryId: activeCategoryId ? Number(activeCategoryId) : undefined,
+            isFree,
+            categoryId: parsedCategoryId != null && !Number.isNaN(parsedCategoryId) ? parsedCategoryId : undefined,
             page, size: 8, sort,
           })
           content = res.data.data.content

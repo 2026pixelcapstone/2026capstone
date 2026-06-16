@@ -33,8 +33,15 @@ export default function AssetCreatePage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    assetApi.getCategories().then(res => setCategories(res.data.data)).catch(() => {})
-    assetApi.getLicenseTypes().then(res => setLicenseTypes(res.data.data)).catch(() => {})
+    let cancelled = false
+    Promise.all([assetApi.getCategories(), assetApi.getLicenseTypes()])
+      .then(([catRes, licRes]) => {
+        if (cancelled) return
+        setCategories(catRes.data.data)
+        setLicenseTypes(licRes.data.data)
+      })
+      .catch(() => { if (!cancelled) toast.error('카테고리/라이선스 목록을 불러오지 못했습니다.') })
+    return () => { cancelled = true }
   }, [])
 
   const imageInputRef = useRef<HTMLInputElement>(null)

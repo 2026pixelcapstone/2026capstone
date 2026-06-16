@@ -98,8 +98,8 @@ export interface AssetUpdateRequest {
   thumbnailUrl?: string
   price?: number
   isFree?: boolean
-  categoryId?: number
-  licenseTypeId?: number
+  categoryId?: number | null     // null = 카테고리 해제
+  licenseTypeId?: number | null  // null = 라이선스 해제
   imageUrls?: string[]
   tags?: string[]
 }

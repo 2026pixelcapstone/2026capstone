@@ -35,8 +35,15 @@ export default function AssetUpdatePage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    assetApi.getCategories().then(res => setCategories(res.data.data)).catch(() => {})
-    assetApi.getLicenseTypes().then(res => setLicenseTypes(res.data.data)).catch(() => {})
+    let cancelled = false
+    Promise.all([assetApi.getCategories(), assetApi.getLicenseTypes()])
+      .then(([catRes, licRes]) => {
+        if (cancelled) return
+        setCategories(catRes.data.data)
+        setLicenseTypes(licRes.data.data)
+      })
+      .catch(() => { if (!cancelled) toast.error('카테고리/라이선스 목록을 불러오지 못했습니다.') })
+    return () => { cancelled = true }
   }, [])
 
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -150,8 +157,9 @@ export default function AssetUpdatePage() {
         description: description.trim() || undefined,
         isFree,
         price: isFree ? 0 : Number(price),
-        categoryId: categoryId ? Number(categoryId) : undefined,
-        licenseTypeId: licenseTypeId ? Number(licenseTypeId) : undefined,
+        // 수정 폼은 항상 현재값을 보냄 — '선택 안 함'이면 null로 명시 전송해 해제 반영
+        categoryId: categoryId ? Number(categoryId) : null,
+        licenseTypeId: licenseTypeId ? Number(licenseTypeId) : null,
         imageUrls: finalUrls,
         thumbnailUrl: finalUrls[0],
         tags: selectedTags,
