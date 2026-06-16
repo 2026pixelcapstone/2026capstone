@@ -232,12 +232,69 @@ export default function EditorPage() {
     const { x, y } = pos
     if (x < 0 || x >= canvasW || y < 0 || y >= canvasH) return
 
+    // ─── [연필 도구] ──────────────────────────────────────────
     if (activeTool === 'pencil') {
       ctx.fillStyle = fgColor
       ctx.fillRect(x, y, brushSize, brushSize)
       ctx.globalAlpha = 1
-    } else if (activeTool === 'eraser') {
+    }
+    // ─── [지우개 도구] ────────────────────────────────────────
+    else if (activeTool === 'eraser') {
       ctx.clearRect(x, y, brushSize, brushSize)
+    }
+    // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘] -> 여러번 쓰면 화면 멈춤 현상이 일어남──────────
+    /*
+    else if (activeTool === 'fill') {
+      // 32비트 정수 배열(Uint32Array) 단위로 조작하여 JavaScript 연산 속도를 극한으로 끌어올립니다.
+      const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
+      const data32 = new Uint32Array(imgData.data.buffer);
+      
+      // 시작점의 색상 추출
+      const targetColor = data32[y * canvasW + x];
+      
+      // 채우고자 하는 fgColor를 32비트 정수(ABGR 구조)로 변환
+      // (예: #818cf8 파싱 후 비트 시프트)
+      const r = parseInt(fgColor.slice(1, 3), 16);
+      const g = parseInt(fgColor.slice(3, 5), 16);
+      const b = parseInt(fgColor.slice(5, 7), 16);
+      const fillColor = (255 << 24) | (b << 16) | (g << 8) | r; // 알파값 255 완전 불투명
+      
+      if (targetColor !== fillColor) {
+        // 큐(Queue) 기반의 Flood Fill (스택 오버플로우 방지)
+        const queue: [number, number][] = [[x, y]];
+        
+        while (queue.length > 0) {
+          const [cx, cy] = queue.shift()!;
+          const idx = cy * canvasW + cx;
+          
+          if (data32[idx] === targetColor) {
+            data32[idx] = fillColor;
+            
+            if (cx > 0) queue.push([cx - 1, cy]);
+            if (cx < canvasW - 1) queue.push([cx + 1, cy]);
+            if (cy > 0) queue.push([cx, cy - 1]);
+            if (cy < canvasH - 1) queue.push([cx, cy + 1]);
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        commitLayerChanges();
+      }
+    }
+    */
+    // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
+    else if (activeTool === 'eyedrop') {
+      const imgData = ctx.getImageData(x, y, 1, 1).data;
+      // 투명한 영역(알파값 0)을 찍으면 기본 검정 처리 혹은 스킵
+      if (imgData[3] !== 0) {
+        const r = imgData[0].toString(16).padStart(2, '0');
+        const g = imgData[1].toString(16).padStart(2, '0');
+        const b = imgData[2].toString(16).padStart(2, '0');
+        const pickedHex = `#${r}${g}${b}`;
+        
+        // 앞서 만든 단일 진입점 변경 함수 호출!
+        selectPaletteColor(pickedHex);
+      }
+      return;
     }
 
     // 💡 캐시 키(cacheKey)와 달리, Konva 노드는 순수 레이어 고유 ID로 등록되어 있으므로 activeLayer로 찾습니다.
