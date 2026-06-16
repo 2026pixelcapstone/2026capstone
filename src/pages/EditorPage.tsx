@@ -291,9 +291,10 @@ export default function EditorPage() {
         const b = imgData[2].toString(16).padStart(2, '0');
         const pickedHex = `#${r}${g}${b}`;
         
-        // 우리가 앞서 만든 단일 진입점 변경 함수 호출!
+        // 앞서 만든 단일 진입점 변경 함수 호출!
         selectPaletteColor(pickedHex);
       }
+      return;
     }
 
     // 💡 캐시 키(cacheKey)와 달리, Konva 노드는 순수 레이어 고유 ID로 등록되어 있으므로 activeLayer로 찾습니다.
