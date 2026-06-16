@@ -266,7 +266,7 @@ export default function EditorPage() {
         height: h,
       };
     })
-    setUnsaved(true);
+    setUnsaved(false);
     setOpenMenu(null);
   }
 
@@ -629,7 +629,7 @@ export default function EditorPage() {
         height: canvasH
       };
     });
-    setUnsaved(true);
+    setUnsaved(false);
   }, [state.currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
   /* 프레임 선택 시 실행되는 함수 */
