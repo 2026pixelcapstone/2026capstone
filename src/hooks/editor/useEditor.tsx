@@ -26,7 +26,8 @@ export const useEditor = ({
     const handleSave = useCallback(async (saveData?: SaveData) => {
         if (!isLoggedIn) { toast.error('로그인이 필요합니다.'); return }
         if (saving) return;
-
+        setSaving(true);
+        
         const canvas = stageRef.current;
         if (!canvas) return;
 

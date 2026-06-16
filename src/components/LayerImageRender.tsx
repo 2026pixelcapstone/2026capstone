@@ -1,5 +1,5 @@
 import { getCacheKey } from "../utils/editorUtils";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Image as KonvaImage } from 'react-konva';
 
 interface LayerRendererProps {
@@ -22,28 +22,29 @@ export const LayerImageRenderer = ({
     const imageRef = useRef<any>(null);
     const cacheKey = getCacheKey(currentFrameIdx, layerId);
     
-    // 💡 [구조적 안정성 및 크기 동기화 강화]:
-    // 메모리에 내 상자가 없다면 즉시 생성하고, 이미 존재하더라도 크기가 바뀌었다면 
-    // "동기적"으로 캔버스의 실제 해상도를 즉시 최신 크기(canvasW, canvasH)로 동기화합니다.
-    if (!layerCanvasRefs.current[cacheKey]) {
-        const canvas = document.createElement('canvas');
-        canvas.width = canvasW;
-        canvas.height = canvasH;
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.imageSmoothingEnabled = false;
-        
-        layerCanvasRefs.current[cacheKey] = canvas;
-    } else {
-        // 🌟 [초특급 중요]: 크기 변경 버튼을 눌러 canvasW/H가 바뀌었을 때 
-        // 런타임에 멈춰있는 기존 가상 캔버스의 하드웨어 해상도 크기를 즉시 리사이징합니다!
-        const existingCanvas = layerCanvasRefs.current[cacheKey];
-        if (existingCanvas && (existingCanvas.width !== canvasW || existingCanvas.height !== canvasH)) {
-            existingCanvas.width = canvasW;
-            existingCanvas.height = canvasH;
-            const ctx = existingCanvas.getContext('2d');
+   // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
+    useLayoutEffect(() => {
+        if (!layerCanvasRefs.current[cacheKey]) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+            const ctx = canvas.getContext('2d');
             if (ctx) ctx.imageSmoothingEnabled = false;
+        
+            layerCanvasRefs.current[cacheKey] = canvas;
+        } else {
+            // 크기 변경 버튼을 눌러 canvasW/H가 바뀌었을 때 
+            // 런타임에 멈춰있는 기존 가상 캔버스의 하드웨어 해상도 크기를 즉시 리사이징합니다!
+            const existingCanvas = layerCanvasRefs.current[cacheKey];
+            if (existingCanvas && (existingCanvas.width !== canvasW || existingCanvas.height !== canvasH)) {
+                existingCanvas.width = canvasW;
+                existingCanvas.height = canvasH;
+                const ctx = existingCanvas.getContext('2d');
+                if (ctx) ctx.imageSmoothingEnabled = false;
+            }
         }
-    }
+    },[cacheKey, canvasW, canvasH, layerCanvasRefs])
+ 
 
     // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.
     useEffect(() => {

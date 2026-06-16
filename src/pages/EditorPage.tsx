@@ -269,7 +269,7 @@ export default function EditorPage() {
         height: h,
       };
     })
-    setUnsaved(false);
+    setUnsaved(true);
     setOpenMenu(null);
   }
 
