@@ -233,6 +233,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
         setParseError(err instanceof Error ? err.message : '.ppit 파싱에 실패했습니다.')
       }
     }
+    reader.onerror = () => setParseError('파일을 읽지 못했습니다. 다시 시도해 주세요.')
     reader.readAsText(file)
   }, [])
 
@@ -276,7 +277,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     try {
       if (isFree) {
         // ── 자유 갤러리: 이미지 업로드 → 게시글 ──
-        toast.info?.('이미지 업로드 중...')
+        toast.info('이미지 업로드 중...')
         const imageUrls = await fileApi.uploadImages(images.map(img => img.file), 'gallery/images')
         const res = await galleryApi.createPost({
           title: title.trim(),
@@ -297,7 +298,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
       const { ppit, text, name, frameCanvases } = ppitInfo!
       const animated = frameCanvases.length > 1
 
-      toast.info?.('미리보기 생성 중...')
+      toast.info('미리보기 생성 중...')
       // 썸네일: 애니메이션이면 GIF, 단일 프레임이면 정적 PNG
       let thumbBlob: Blob
       let thumbExt: string
@@ -311,7 +312,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
       }
       const baseName = name.replace(/\.(ppit|json)$/i, '') || 'artwork'
 
-      toast.info?.('파일 업로드 중...')
+      toast.info('파일 업로드 중...')
       const thumbFile = new File([thumbBlob], `${baseName}.${thumbExt}`, { type: thumbBlob.type })
       const thumbnailUrl = await fileApi.uploadImage(thumbFile, 'gallery/dedicated')
       uploaded.push(thumbnailUrl)
@@ -839,7 +840,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
             type="submit"
             form=""
             onClick={handleSubmit}
-            disabled={submitting || !title.trim() || (!isFree ? !ppitInfo : false)}
+            disabled={submitting || !title.trim() || (!isFree && !ppitInfo)}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 transition-opacity hover:opacity-90"
             style={{ background: accentColor, color: '#fff' }}>
             {submitting

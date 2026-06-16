@@ -53,6 +53,9 @@ export function parsePpit(text: string): PpitFile {
   } catch {
     throw new Error('JSON 파싱에 실패했습니다.')
   }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error('.ppit 형식이 아닙니다. (최상위가 객체가 아님)')
+  }
   const d = raw as Record<string, unknown>
   if (d.format !== 'ppit') {
     throw new Error('.ppit 형식이 아닙니다. (format ≠ "ppit")')
