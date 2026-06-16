@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { assetApi, type AssetResponse, type AssetCommentResponse } from '../api/assetApi'
+import { assetApi, type AssetResponse, type AssetCommentResponse, type AssetRatingSummary } from '../api/assetApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import StarRating from '../components/StarRating'
 
-const RATING_DIST = [78, 15, 5, 1, 1]
+const MIN_RATINGS = 4   // 이 개수 미만이면 "평가 부족" 표시(유니티 방식)
 
 export default function AssetDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,33 +17,42 @@ export default function AssetDetailPage() {
 
   const [asset, setAsset] = useState<AssetResponse | null>(null)
   const [comments, setComments] = useState<AssetCommentResponse[]>([])
+  const [ratingSummary, setRatingSummary] = useState<AssetRatingSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedThumb, setSelectedThumb] = useState(0)
   const [purchasing, setPurchasing] = useState(false)
   const [commentText, setCommentText] = useState('')
+  const [reviewRating, setReviewRating] = useState(0)   // 입력 중인 별점(0=미선택)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true)
-      try {
-        const [assetRes, commentsRes] = await Promise.all([
-          assetApi.getAsset(assetId),
-          assetApi.getComments(assetId, { size: 20 }),
-        ])
-        setAsset(assetRes.data.data)
-        setComments(commentsRes.data.data.content)
-      } catch (err) {
-        const status = getErrorStatus(err)
-        if (status === 403) navigate('/403', { replace: true })
-        else if (status && status >= 500) navigate('/500', { replace: true })
-        else setAsset(null)
-      } finally {
-        setLoading(false)
-      }
+  const load = useCallback(async (initial = false) => {
+    if (initial) setLoading(true)
+    try {
+      // 평점 요약은 보조 데이터 — 실패해도 상세 페이지는 떠야 하므로 분리 처리(allSettled)
+      const [assetRes, commentsRes, summaryRes] = await Promise.allSettled([
+        assetApi.getAsset(assetId),
+        assetApi.getComments(assetId, { size: 20 }),
+        assetApi.getRatingSummary(assetId),
+      ])
+      if (assetRes.status === 'rejected') throw assetRes.reason
+      if (commentsRes.status === 'rejected') throw commentsRes.reason
+      setAsset(assetRes.value.data.data)
+      setComments(commentsRes.value.data.data.content)
+      setRatingSummary(summaryRes.status === 'fulfilled' ? summaryRes.value.data.data : null)
+      setReviewRating(assetRes.value.data.data.myRating ?? 0)
+    } catch (err) {
+      const status = getErrorStatus(err)
+      if (status === 403) navigate('/403', { replace: true })
+      else if (status && status >= 500) navigate('/500', { replace: true })
+      else if (initial) setAsset(null)
+    } finally {
+      if (initial) setLoading(false)
     }
-    if (assetId) fetchAll()
-  }, [assetId])
+  }, [assetId, navigate])
+
+  useEffect(() => {
+    if (assetId) load(true)
+  }, [assetId, load])
 
   const handleLike = async () => {
     if (!isLoggedIn || !asset) return
@@ -88,15 +98,18 @@ export default function AssetDetailPage() {
   }
 
   const handleComment = async () => {
-    if (!commentText.trim() || !isLoggedIn) return
+    if (!commentText.trim() || !isLoggedIn || !asset) return
+    const isAuthorSelf = user?.userId === asset.authorId
+    const canReview = !isAuthorSelf && (asset.isFree || asset.price === 0 || asset.isPurchased)
+    const rating = canReview && reviewRating > 0 ? reviewRating : undefined
     setSubmitting(true)
     try {
-      const res = await assetApi.createComment(assetId, { content: commentText.trim() })
-      setComments(prev => [res.data.data, ...prev])
+      await assetApi.createComment(assetId, { content: commentText.trim(), rating })
       setCommentText('')
-      setAsset(prev => prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev)
+      // 리뷰는 유저당 1개라 갱신될 수 있어, 낙관적 추가 대신 재조회로 동기화(요약/카운트 포함)
+      await load()
     } catch (err) {
-      toast.error(getErrorMessage(err, '댓글 등록에 실패했습니다.'))
+      toast.error(getErrorMessage(err, '등록에 실패했습니다.'))
     } finally {
       setSubmitting(false)
     }
@@ -124,6 +137,8 @@ export default function AssetDetailPage() {
   const isFreeAsset = asset.isFree || asset.price === 0
   const canDownload = isFreeAsset || asset.isPurchased
   const isAuthor = user?.userId === asset.authorId
+  // 평가 자격: 로그인 + 작성자 본인 아님 + (무료거나 구매자)
+  const canReview = isLoggedIn && !isAuthor && (isFreeAsset || asset.isPurchased)
 
   return (
     <div style={{ background: '#0d1117', color: '#e6edf3' }}>
@@ -188,7 +203,7 @@ export default function AssetDetailPage() {
               </Link>
               <div className="grid grid-cols-3 gap-2 my-4 text-center">
                 {[
-                  ['❤️ ' + asset.likeCount.toLocaleString(), '좋아요'],
+                  [asset.reviewCount >= MIN_RATINGS ? '★ ' + asset.averageRating.toFixed(1) : '—', '평점'],
                   [asset.downloadCount.toLocaleString(), '다운로드'],
                   [asset.commentCount.toString(), '댓글'],
                 ].map(([val, label]) => (
@@ -226,11 +241,11 @@ export default function AssetDetailPage() {
 
               <button
                 onClick={handleLike}
-                className="w-full py-2.5 rounded-xl text-sm transition-colors hover:bg-[#21262d] flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-[#21262d] flex items-center justify-center gap-2"
                 style={{ border: `1px solid ${asset.isLiked ? '#e11d48' : '#30363d'}`, color: asset.isLiked ? '#e11d48' : '#7d8590' }}>
                 <span className="material-symbols-outlined text-base"
                   style={{ fontVariationSettings: asset.isLiked ? "'FILL' 1" : "'FILL' 0" }}>favorite</span>
-                {asset.isLiked ? '좋아요 취소' : '좋아요'}
+                좋아요 {asset.likeCount.toLocaleString()}
               </button>
 
               {/* 작성자 전용 — 수정 / 삭제 */}
@@ -297,28 +312,54 @@ export default function AssetDetailPage() {
             <section>
               <h2 className="text-xl font-bold mb-4">댓글 ({asset.commentCount})</h2>
 
-              {/* 평점 분포 (더미 유지 — 추후 리뷰 API 연결 시 교체) */}
+              {/* 평점 요약 (실제 데이터) */}
               <div className="rounded-2xl border p-5 mb-6" style={{ background: '#161b22', borderColor: '#30363d' }}>
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-5xl font-bold">—</p>
-                    <div className="flex mt-1">{[1,2,3,4,5].map(i => (
-                      <span key={i} style={{ color: '#30363d' }}>★</span>
-                    ))}</div>
+                {ratingSummary && ratingSummary.count >= MIN_RATINGS ? (
+                  <div className="flex items-center gap-6">
+                    <div className="text-center shrink-0">
+                      <p className="text-5xl font-bold">{ratingSummary.average.toFixed(1)}</p>
+                      <div className="mt-1"><StarRating value={ratingSummary.average} size={16} /></div>
+                      <p className="text-xs mt-1" style={{ color: '#7d8590' }}>{ratingSummary.count}개 평가</p>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {ratingSummary.distribution.map((cnt, i) => {
+                        const star = 5 - i
+                        const pct = ratingSummary.count > 0 ? Math.round((cnt / ratingSummary.count) * 100) : 0
+                        return (
+                          <div key={star} className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
+                            <span className="w-5">{star}★</span>
+                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#21262d' }}>
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#f0883e' }} />
+                            </div>
+                            <span className="w-8 text-right">{cnt}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div className="flex-1 space-y-2">
-                    {RATING_DIST.map((pct, i) => (
-                      <div key={i} className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
-                        <span>{5 - i}★</span>
-                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#21262d' }}>
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#f0883e' }} />
-                        </div>
-                        <span>{pct}%</span>
-                      </div>
-                    ))}
+                ) : (
+                  <div className="flex items-center gap-3 py-2" style={{ color: '#7d8590' }}>
+                    <StarRating value={0} size={18} />
+                    <span className="text-sm">
+                      아직 평가가 충분하지 않습니다{ratingSummary && ratingSummary.count > 0 ? ` (${ratingSummary.count}개)` : ''}.
+                    </span>
                   </div>
-                </div>
+                )}
               </div>
+
+              {/* 리뷰 별점 입력 (평가 자격자만) */}
+              {canReview && (
+                <div className="flex items-center gap-3 mb-3 px-1">
+                  <span className="text-sm font-bold" style={{ color: '#e6edf3' }}>
+                    {asset.myRating ? '내 평점' : '평점 남기기'}
+                  </span>
+                  <StarRating value={reviewRating} size={26} interactive onChange={setReviewRating} />
+                  {reviewRating > 0 && (
+                    <button type="button" onClick={() => setReviewRating(0)}
+                      className="text-xs hover:underline" style={{ color: '#7d8590' }}>지우기</button>
+                  )}
+                </div>
+              )}
 
               {/* 댓글 입력 */}
               <div className="flex gap-3 mb-6">
@@ -340,7 +381,7 @@ export default function AssetDetailPage() {
                         disabled={submitting || !commentText.trim()}
                         className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
                         style={{ background: '#2f81f7', color: '#fff' }}>
-                        {submitting ? '등록 중...' : '등록'}
+                        {submitting ? '등록 중...' : (canReview && reviewRating > 0 ? '리뷰 등록' : '등록')}
                       </button>
                     </div>
                   )}
@@ -358,6 +399,9 @@ export default function AssetDetailPage() {
                           style={{ background: c.authorProfileImageUrl ? `url(${c.authorProfileImageUrl}) center/cover` : 'linear-gradient(135deg, #2f81f7, #1a3a6b)' }} />
                         <div>
                           <span className="font-bold text-sm">@{c.authorNickname}</span>
+                          {c.rating != null && (
+                            <span className="ml-2 align-middle"><StarRating value={c.rating} size={14} /></span>
+                          )}
                           <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
                             {new Date(c.createdAt).toLocaleDateString('ko-KR')}
                           </p>
