@@ -17,6 +17,8 @@ import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
 import { getCacheKey } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
+import { parsePpit, serializePpit } from '../lib/ppit'
+import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
 
 type MenuItem =
   | { separator: true }
@@ -97,6 +99,7 @@ export default function EditorPage() {
   const [editingTitle, setEditingTitle] = useState(false)
   const isDrawing = useRef(false)
   const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
+  const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
   const {handleSave, setProjectId, saving} = useEditor({
     stageRef,
@@ -474,6 +477,41 @@ export default function EditorPage() {
     URL.revokeObjectURL(url)
   }
 
+  // ── .ppit 내보내기/불러오기 ───────────────────────────
+  const safeFileName = (title: string) =>
+    (title || 'artwork').trim().replace(/[\\/:*?"<>|]+/g, '_') || 'artwork'
+
+  const handleExportPpit = useCallback(() => {
+    try {
+      const ppit = canvasDataToPpit(state, PALETTE_COLORS)
+      const blob = new Blob([serializePpit(ppit)], { type: 'application/json' })
+      downloadBlob(blob, `${safeFileName(projectTitle)}.ppit`)
+    } catch {
+      toast.error('.ppit 내보내기에 실패했습니다.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, projectTitle])
+
+  const handleImportPpit = useCallback(async (file: File) => {
+    try {
+      const text = await file.text()
+      const ppit = parsePpit(text)
+      const cd = ppitToCanvasData(ppit)
+      // 캔버스 크기 먼저 반영
+      setCanvasW(cd.width); setCanvasH(cd.height)
+      setCustomW(cd.width); setCustomH(cd.height)
+      setWithHistory(() => cd)
+      setActiveLayer(cd.frames[0]?.layers[0]?.id ?? null)
+      setProjectId(null)   // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
+      setProjectTitle(file.name.replace(/\.(ppit|json)$/i, '') || 'Untitled Project')
+      setUnsaved(true)
+      toast.success('.ppit을 불러왔습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '.ppit을 불러오지 못했습니다.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setCanvasW, setCanvasH, setWithHistory, setActiveLayer, setProjectId])
+
   const handleExportImage = useCallback(async() => {
     const stage = stageRef.current
     if (!stage) return
@@ -811,7 +849,7 @@ export default function EditorPage() {
       id: 'file', label: 'File',
       items: [
         { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
-        { label: 'Open Project…',     icon: 'folder_open',   shortcut: 'Ctrl+O' },
+        { label: 'Open .ppit…',       icon: 'folder_open',   shortcut: 'Ctrl+O', action: () => { ppitInputRef.current?.click(); setOpenMenu(null) } },
         { separator: true },
         { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { openSaveModal(); setOpenMenu(null) } },
         //{ label: 'Save As…',          icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },
@@ -819,7 +857,7 @@ export default function EditorPage() {
         { separator: true },
         { label: 'Export Image',      icon: 'image',         action: () => { handleExportImage(); setOpenMenu(null) } },
         { label: 'Export Spritesheet',      icon: 'grid_on' },
-        { label: 'Download .pixhub',        icon: 'download' },
+        { label: 'Download .ppit',          icon: 'download', action: () => { handleExportPpit(); setOpenMenu(null) } },
         { separator: true },
         { label: 'Back to Main',       icon: 'arrow_back', action: () => { window.location.href = '/' } },
       ],
@@ -897,7 +935,20 @@ export default function EditorPage() {
         onSave={handleSave}
         initialTitle={projectTitle}
       />
-      
+
+      {/* .ppit 불러오기 (Open .ppit…) */}
+      <input
+        ref={ppitInputRef}
+        type="file"
+        accept=".ppit,.json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) handleImportPpit(f)
+          e.target.value = ''   // 같은 파일 재선택 허용
+        }}
+      />
+
       {/* ── TOP BAR (Photoshop 스타일 메뉴 툴바) ─────── */}
       <header className="h-10 flex items-center flex-shrink-0 border-b select-none"
         style={{ background: '#161b22', borderColor: '#30363d' }}>
