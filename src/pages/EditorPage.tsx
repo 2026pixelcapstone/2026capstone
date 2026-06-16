@@ -119,6 +119,35 @@ export default function EditorPage() {
 
   // ── 캔버스 그리기 로직 ──────────────
 
+  // -------- Stage 컨텍스트 튜닝 훅 추가 -----------
+  useEffect(() => {
+    if (!stageRef.current) return;
+
+    const disableSmoothing = () => {
+      const stage = stageRef.current;
+      if(!stage) return;
+
+      // Konva Stage 내부에 생성된 모든 실제 Canvas 엘리먼트들을 싹 긁어옵니다.
+      const layers = stage.getLayers();
+      layers.forEach((konvaLayer) => {
+        const canvasInstance = konvaLayer.getCanvas();
+        if (canvasInstance) {
+          const ctx = canvasInstance.getContext();
+          if (ctx) {
+            // Konva 내부 캔버스 엔진의 스무딩을 차단합니다
+            ctx.imageSmoothingEnabled = false;
+          }
+        }
+      });
+      stage.batchDraw();
+    }
+    disableSmoothing();
+
+    // 브라우저 렌더링 프레임 단위로 한 번 더 쐐기 박기
+    const rafId = requestAnimationFrame(disableSmoothing);
+    return () => cancelAnimationFrame(rafId);
+  }, [activeLayer, state.currentFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
+  
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
   const getPixel = useCallback(() => {
     const stage = stageRef.current;
@@ -222,9 +251,23 @@ export default function EditorPage() {
     if (isDrawing.current) drawPixel()
   }
 
+  // -------- 캔버스 크기 변경 -----------
   const applyCanvasSize = (w: number, h: number) => {
+    if(canvasW === w && canvasH === h){
+      setOpenMenu(null);
+      return;
+    }
     setCanvasW(w); setCanvasH(h)
-    setOpenMenu(null)
+
+    setWithHistory((prev) => {
+      return {
+        ...prev,
+        width: w,
+        height: h,
+      };
+    })
+    setUnsaved(true);
+    setOpenMenu(null);
   }
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
@@ -582,10 +625,12 @@ export default function EditorPage() {
       return {
         ...prev,
         frames: updatedFrames,
+        width: canvasW,
+        height: canvasH
       };
     });
     setUnsaved(true);
-  }, [state.currentFrameIdx, activeLayer, setWithHistory]);
+  }, [state.currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
@@ -600,6 +645,7 @@ export default function EditorPage() {
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
           const layerImageData = cachedCanvas.toDataURL();
+          
           setWithHistory((prev) => ({
             ...prev,
             frames: prev.frames.map((f, i) =>
@@ -607,17 +653,13 @@ export default function EditorPage() {
                 ? { ...f, layers: f.layers.map(l => l.id === activeLayer ? {...l, pixelData: layerImageData}: l) }
                 : f
             ),
-            currentFrameIdx: nextIndex,
           }));
           setActiveLayer(nextActiveLayerId);
           setUnsaved(false);
         } 
     } 
     else {
-      setWithHistory((prev) => ({
-        ...prev,
-        currentFrameIdx: nextIndex,
-      }));
+      state.currentFrameIdx = nextIndex;
       setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     }
   }
@@ -925,12 +967,17 @@ export default function EditorPage() {
             ].join(','),
             backgroundSize: '16px 16px',
             backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
-            imageRendering: 'pixelated',
+            
           }}>
 
           {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
           <div className="relative shadow-2xl"
-            style={{ width: canvasW * zoom, height: canvasH * zoom, backgroundColor: '#e8e8e8' }}>
+              style={{ width: canvasW * zoom, 
+              height: canvasH * zoom, 
+              backgroundColor: '#e8e8e8' ,
+              imageRendering: 'pixelated'
+            }}
+          >
             {/* 픽셀 그리드 오버레이 */}
             {showGridLines && zoom >= 8 && (
               <div className="absolute inset-0 pointer-events-none z-20"
@@ -945,6 +992,8 @@ export default function EditorPage() {
               height={canvasH * zoom}
               scaleX={zoom}
               scaleY={zoom}
+              pixelRatio={1}
+              style={{imageRendering: 'pixelated'}}
               onMouseDown={() => { isDrawing.current = true; drawPixel() }}
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
@@ -961,7 +1010,7 @@ export default function EditorPage() {
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .filter((layer) => layer.isVisible)
                 .map((layer) => (
-                  <KonvaLayer key={layer.id} id={layer.id} opacity={layer.opacity / 100}>
+                  <KonvaLayer key={`${layer.id}-${canvasW}-${canvasH}`} id={layer.id} opacity={layer.opacity / 100}>
                     
                     {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
                     <LayerImageRenderer 

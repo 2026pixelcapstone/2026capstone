@@ -40,11 +40,11 @@ export const useEditor = ({
         // 현재 캔버스 데이터 저장 로직(⭐ 서버 문제가 해결되면 currentFrameData함수 다시 사용할거임 ⭐)
         /*
         const currentFrameData = canvas.toDataURL(({
-            mimeType: 'image/png',
-            pixelRatio: 4 // 숫자를 올릴수록 선명하고 큼직한 썸네일 PNG 파일이 추출됨
-        }));
+            mimeType: 'image/webp', // png -> webp로 변경
+            quality: 0.7, // 0.7은 70% 압축
+            pixelRatio: 1 // 숫자를 올릴수록 선명하고 큼직한 썸네일 PNG 파일이 추출됨(크기 때문에 1~2배율로 변경)
+        }));*/
         setSaving(true);
-        */
        
         // 새 프로젝트를 생성하여 프로젝트를 저장하는 로직
         try {
