@@ -1,28 +1,39 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { notificationApi, type NotificationItem } from '../api/notificationApi'
+import { chatApi, type UnreadConversation } from '../api/chatApi'
 import { useNotificationStore } from '../store/notificationStore'
 import { notificationTargetPath, notificationIcon, timeAgo } from '../utils/notificationUtils'
+import ChatPreviewRow from './ChatPreviewRow'
 
 const DROPDOWN_SIZE = 8
 
 export default function NotificationBell() {
   const navigate = useNavigate()
-  const { unreadTotal, unreadChat, fetchUnread } = useNotificationStore()
+  const { unreadTotal, fetchUnread } = useNotificationStore()
 
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<NotificationItem[]>([])
+  const [convs, setConvs] = useState<UnreadConversation[]>([])
   const [loading, setLoading] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  // 드롭다운 열 때 최근 알림 로드 (재오픈 시 이전 요청의 늦은 응답이 덮어쓰지 않도록 가드)
+  // 드롭다운 열 때 안읽은 알림 + 안읽은 대화방을 함께 로드
+  // (재오픈 시 이전 요청의 늦은 응답이 덮어쓰지 않도록 가드)
   useEffect(() => {
     if (!open) return
     let cancelled = false
     setLoading(true)
-    notificationApi.getList({ size: DROPDOWN_SIZE })
-      .then(res => { if (!cancelled) setItems(res.data.data.notifications) })
-      .catch(() => { if (!cancelled) setItems([]) })
+    Promise.all([
+      notificationApi.getList({ size: DROPDOWN_SIZE, unreadOnly: true }),
+      chatApi.getUnreadConversations(),
+    ])
+      .then(([notiRes, convRes]) => {
+        if (cancelled) return
+        setItems(notiRes.data.data.notifications)
+        setConvs(convRes.data.data)
+      })
+      .catch(() => { if (!cancelled) { setItems([]); setConvs([]) } })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [open])
@@ -42,6 +53,8 @@ export default function NotificationBell() {
   const handleItemClick = async (n: NotificationItem) => {
     setOpen(false)
     if (!n.isRead) {
+      // 드롭다운은 안읽음만 표시하므로 읽은 항목은 목록에서 제거
+      setItems(prev => prev.filter(x => x.notificationId !== n.notificationId))
       try {
         await notificationApi.markRead(n.notificationId)
         await fetchUnread()
@@ -51,15 +64,15 @@ export default function NotificationBell() {
     if (path) navigate(path)
   }
 
-  const handleChatSummaryClick = () => {
+  const handleConvClick = (commissionId: number) => {
     setOpen(false)
-    navigate('/commission')
+    navigate(`/commission/${commissionId}`)
   }
 
   const handleMarkAll = async () => {
     try {
       await notificationApi.markAllRead()
-      setItems(prev => prev.map(n => ({ ...n, isRead: true })))
+      setItems([])   // 드롭다운은 안읽음만 표시 → 전부 읽으면 비움
       await fetchUnread()
     } catch { /* 무시 */ }
   }
@@ -95,24 +108,17 @@ export default function NotificationBell() {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto">
-            {/* 채팅 안읽음 요약 한 줄 */}
-            {unreadChat > 0 && (
-              <button onClick={handleChatSummaryClick}
-                className="w-full flex items-center gap-3 px-4 py-3 border-b transition-colors hover:bg-[#1c2128] text-left"
-                style={{ borderColor: '#21262d' }}>
-                <span className="material-symbols-outlined text-xl" style={{ color: '#2f81f7' }}>forum</span>
-                <span className="text-sm font-semibold flex-1" style={{ color: '#e6edf3' }}>
-                  읽지 않은 메시지 {unreadChat}개
-                </span>
-                <span className="material-symbols-outlined text-base" style={{ color: '#7d8590' }}>chevron_right</span>
-              </button>
-            )}
+            {/* 안읽은 대화방 미리보기 (최신 메시지순) → 클릭 시 해당 거래룸으로 */}
+            {convs.map(c => (
+              <ChatPreviewRow key={c.commissionId} conv={c}
+                onClick={() => handleConvClick(c.commissionId)} />
+            ))}
 
             {/* 알림 목록 */}
             {loading ? (
               <div className="px-4 py-8 text-center text-sm" style={{ color: '#7d8590' }}>불러오는 중…</div>
             ) : items.length === 0 ? (
-              unreadChat > 0 ? null : (
+              convs.length > 0 ? null : (
                 <div className="px-4 py-10 text-center text-sm" style={{ color: '#7d8590' }}>
                   새로운 알림이 없습니다.
                 </div>
