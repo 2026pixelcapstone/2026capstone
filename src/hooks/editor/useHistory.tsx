@@ -4,8 +4,8 @@ import {MAX_HISTORY_SIZE} from '../../constants/editor'
 export function useHistory<T>(initialState: T){
     // 데이터 무결성을 위해 let 대신 const를 씀
     const [state, setState] = useState<T>(initialState);
-    const [undoStack, setUndoStack] = useState<T[]>([]);
-    const [redoStack, setRedoStack] = useState<T[]>([]);
+    const [_undoStack, setUndoStack] = useState<T[]>([]);
+    const [_redoStack, setRedoStack] = useState<T[]>([]);
 
     // (new 작업이 들어왔을 때)새로운 상태로 업데이트
     const setWithHistory = useCallback((value: T | ((prev: T) => T )) => {

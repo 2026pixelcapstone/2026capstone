@@ -146,7 +146,7 @@ export default function EditorPage() {
     // 브라우저 렌더링 프레임 단위로 한 번 더 쐐기 박기
     const rafId = requestAnimationFrame(disableSmoothing);
     return () => cancelAnimationFrame(rafId);
-  }, [state.frames, state.currentFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
+  }, [activeLayer, state.currentFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
   
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
   const getPixel = useCallback(() => {
