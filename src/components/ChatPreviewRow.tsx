@@ -10,11 +10,12 @@ export default function ChatPreviewRow({
   onClick: () => void
 }) {
   return (
-    <button onClick={onClick}
+    <button type="button" onClick={onClick}
       className="w-full flex items-center gap-3 px-4 py-3 border-b transition-colors hover:bg-[#1c2128] text-left"
       style={{ borderColor: '#21262d', background: 'rgba(47,129,247,0.06)' }}>
       {conv.partnerProfileImageUrl ? (
-        <img src={conv.partnerProfileImageUrl} alt=""
+        <img src={conv.partnerProfileImageUrl}
+          alt={conv.partnerNickname ? `${conv.partnerNickname} 프로필 이미지` : '사용자 프로필 이미지'}
           className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
       ) : (
         <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
