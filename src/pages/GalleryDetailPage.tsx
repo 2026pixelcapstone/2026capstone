@@ -22,6 +22,7 @@ export default function GalleryDetailPage() {
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [zoom, setZoom] = useState(4)
+  const [downloading, setDownloading] = useState(false)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInternalDraw, setIsInternalDraw] = useState(false);
@@ -145,7 +146,8 @@ export default function GalleryDetailPage() {
 
   // .ppit 원본 다운로드 — CORS 가능 시 blob 저장, 실패 시 새 탭 폴백
   const handleDownloadPpit = async () => {
-    if (!post?.fileUrl) return
+    if (!post?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
+    setDownloading(true)
     try {
       const res = await fetch(post.fileUrl)
       if (!res.ok) throw new Error('fetch failed')
@@ -160,6 +162,8 @@ export default function GalleryDetailPage() {
       URL.revokeObjectURL(url)
     } catch {
       window.open(post.fileUrl, '_blank', 'noopener')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -493,6 +497,7 @@ export default function GalleryDetailPage() {
                     type="button"
                     onClick={() => copyColor(c)}
                     title={`${c} (클릭하여 복사)`}
+                    aria-label={`색상 ${c} 복사`}
                     className="w-7 h-7 rounded-md transition-transform hover:scale-110"
                     style={{ background: c, border: '1px solid #30363d' }}
                   />
@@ -519,10 +524,13 @@ export default function GalleryDetailPage() {
                 <button
                   type="button"
                   onClick={handleDownloadPpit}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
+                  disabled={downloading}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-60"
                   style={{ background: '#f0883e', color: '#fff' }}>
-                  <span className="material-symbols-outlined text-base">download</span>
-                  .ppit 다운로드
+                  <span className={`material-symbols-outlined text-base${downloading ? ' animate-spin' : ''}`}>
+                    {downloading ? 'progress_activity' : 'download'}
+                  </span>
+                  {downloading ? '내려받는 중...' : '.ppit 다운로드'}
                 </button>
               ) : (
                 <div className="flex items-center gap-2 text-sm" style={{ color: '#7d8590' }}>
