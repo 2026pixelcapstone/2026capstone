@@ -4,6 +4,9 @@
 import { GIFEncoder, quantize, applyPalette } from 'gifenc'
 import type { PaletteData } from '../api/galleryApi'
 
+/** fps 미지정 시 기본값 (파서/내보내기 공통) */
+export const PPIT_DEFAULT_FPS = 12
+
 export interface PpitLayer {
   id: string
   name: string
@@ -110,7 +113,7 @@ export function parsePpit(text: string): PpitFile {
       width,
       height,
       backgroundColor: typeof canvas?.backgroundColor === 'string' ? (canvas.backgroundColor as string) : null,
-      fps: Number.isFinite(fpsRaw) && fpsRaw > 0 ? fpsRaw : 12,
+      fps: Number.isFinite(fpsRaw) && fpsRaw > 0 ? fpsRaw : PPIT_DEFAULT_FPS,
     },
     palette,
     frames,
@@ -194,6 +197,11 @@ export async function renderGifBlob(ppit: PpitFile, framesCanvas?: HTMLCanvasEle
   }
   gif.finish()
   return new Blob([gif.bytesView()], { type: 'image/gif' })
+}
+
+/** PpitFile → .ppit JSON 문자열 (에디터 export·다운로드용). */
+export function serializePpit(ppit: PpitFile): string {
+  return JSON.stringify(ppit, null, 2)
 }
 
 /** .ppit 원본 텍스트를 File로 (R2 업로드용). */
