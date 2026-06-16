@@ -264,7 +264,6 @@ export default function EditorPage() {
         ...prev,
         width: w,
         height: h,
-        frames: state.frames
       };
     })
     setUnsaved(true);
@@ -646,6 +645,7 @@ export default function EditorPage() {
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
           const layerImageData = cachedCanvas.toDataURL();
+          
           setWithHistory((prev) => ({
             ...prev,
             frames: prev.frames.map((f, i) =>
@@ -653,17 +653,13 @@ export default function EditorPage() {
                 ? { ...f, layers: f.layers.map(l => l.id === activeLayer ? {...l, pixelData: layerImageData}: l) }
                 : f
             ),
-            currentFrameIdx: nextIndex,
           }));
           setActiveLayer(nextActiveLayerId);
           setUnsaved(false);
         } 
     } 
     else {
-      setWithHistory((prev) => ({
-        ...prev,
-        currentFrameIdx: nextIndex,
-      }));
+      state.currentFrameIdx = nextIndex;
       setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     }
   }
