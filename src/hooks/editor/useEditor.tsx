@@ -43,7 +43,7 @@ export const useEditor = ({
             const uploadFormData = new FormData();
             // 백엔드 @RequestParam("folder") 값 세팅
             uploadFormData.append("folder", "pixel-art");
-
+            
             const thumDataURL = canvas.toDataURL({
                 mimeType: 'image/webp', // png -> webp로 변경
                 quality: 0.7, // 0.7은 70% 압축

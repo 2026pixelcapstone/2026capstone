@@ -630,6 +630,7 @@ export default function EditorPage() {
       };
     });
     setUnsaved(false);
+
   }, [state.currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
   /* 프레임 선택 시 실행되는 함수 */
