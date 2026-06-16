@@ -28,13 +28,12 @@ export function useHistory<T>(initialState: T){
             const previous = currentUndoStack[currentUndoStack.length - 1]
             const newUndoStack = currentUndoStack.slice(0, -1); // 마지막 아이템을 제외한 나머지만 복사
 
-            setState((currentState) => {
-                setRedoStack((prevRedo) => [currentState, ...prevRedo]); // unshift 사용(스택이 역순으로 쌓이기 때문에 0번째가 다음 redo 시 현재 state가 된다)
-                return previous;
-            });
+            setState(previous);
+            setRedoStack((prevRedo) => [state, ...prevRedo]); // unshift 사용(스택이 역순으로 쌓이기 때문에 0번째가 다음 redo 시 현재 state가 된다)
+            
             return newUndoStack;
         })
-    }, []);
+    }, [state]);
 
     // 되돌아가기
     const redo = useCallback(() => {
@@ -45,13 +44,12 @@ export function useHistory<T>(initialState: T){
             const next = currentRedoStack[0];
             const newRedoStack = currentRedoStack.slice(1);
 
-            setState((currentState) => {
-                setUndoStack((prevUndo) => [...prevUndo, currentState]);  // 현재 상태를 Undo 스택으로 보냄(과거 기록 누적)
-                return next;
-            })
+            setState(next);
+            setUndoStack((prevUndo) => [...prevUndo, state]);  // 현재 상태를 Undo 스택으로 보냄(과거 기록 누적)
+    
             return newRedoStack;
         })
-    }, []);
+    }, [state]);
     
     return {state, setState, setWithHistory, undo, redo};
 }
