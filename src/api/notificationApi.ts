@@ -47,7 +47,8 @@ export interface UnreadCount {
 
 export const notificationApi = {
   // 목록 (커서 — before 없으면 최신 size개, before=notificationId면 그보다 이전 size개)
-  getList: (params?: { before?: number; size?: number }) =>
+  // unreadOnly=true면 안읽음만 (드롭다운용), 미지정/false면 전체 (전체보기 페이지용)
+  getList: (params?: { before?: number; size?: number; unreadOnly?: boolean }) =>
     api.get<{ success: boolean; data: NotificationPage }>('/api/notifications', { params }),
 
   // 안읽음 집계 (종 배지 폴링 대상)

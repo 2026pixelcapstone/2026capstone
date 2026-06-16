@@ -25,7 +25,22 @@ export interface ChatEvent {
   presentUserIds?: number[]  // type=PRESENCE — 현재 거래룸에 있는 사용자들
 }
 
+// 알림용 — 안읽은 메시지가 있는 거래방 미리보기 (최신 메시지순)
+export interface UnreadConversation {
+  commissionId: number
+  partnerId: number
+  partnerNickname: string | null
+  partnerProfileImageUrl: string | null
+  lastMessageContent: string | null
+  lastMessageAt: string | null
+  unreadCount: number
+}
+
 export const chatApi = {
+  // 안읽은 대화방 미리보기 목록 (알림 드롭다운/전체보기용)
+  getUnreadConversations: () =>
+    api.get<{ success: boolean; data: UnreadConversation[] }>('/api/chat/unread-conversations'),
+
   // 커미션 거래룸 메시지 목록 (커서 페이지네이션, 로그인·당사자 전용)
   // before 없으면 최신 size개, before=messageId면 그보다 이전 size개("위로 더보기")
   getMessages: (commissionId: number, params?: { before?: number; size?: number }) =>
