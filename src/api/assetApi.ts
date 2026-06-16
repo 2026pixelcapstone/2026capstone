@@ -47,11 +47,14 @@ export interface AssetCommentResponse {
   updatedAt: string
 }
 
-// 평점 요약 — distribution은 [5★,4★,3★,2★,1★] 개수
+// 평점 분포 — 고정 길이 [5★,4★,3★,2★,1★] (순서·길이 계약을 타입으로 고정)
+export type AssetRatingDistribution = [number, number, number, number, number]
+
+// 평점 요약
 export interface AssetRatingSummary {
   average: number
   count: number
-  distribution: number[]
+  distribution: AssetRatingDistribution
 }
 
 export interface AssetCreateRequest {

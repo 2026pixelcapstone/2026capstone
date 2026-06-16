@@ -28,15 +28,18 @@ export default function AssetDetailPage() {
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true)
     try {
-      const [assetRes, commentsRes, summaryRes] = await Promise.all([
+      // 평점 요약은 보조 데이터 — 실패해도 상세 페이지는 떠야 하므로 분리 처리(allSettled)
+      const [assetRes, commentsRes, summaryRes] = await Promise.allSettled([
         assetApi.getAsset(assetId),
         assetApi.getComments(assetId, { size: 20 }),
         assetApi.getRatingSummary(assetId),
       ])
-      setAsset(assetRes.data.data)
-      setComments(commentsRes.data.data.content)
-      setRatingSummary(summaryRes.data.data)
-      setReviewRating(assetRes.data.data.myRating ?? 0)
+      if (assetRes.status === 'rejected') throw assetRes.reason
+      if (commentsRes.status === 'rejected') throw commentsRes.reason
+      setAsset(assetRes.value.data.data)
+      setComments(commentsRes.value.data.data.content)
+      setRatingSummary(summaryRes.status === 'fulfilled' ? summaryRes.value.data.data : null)
+      setReviewRating(assetRes.value.data.data.myRating ?? 0)
     } catch (err) {
       const status = getErrorStatus(err)
       if (status === 403) navigate('/403', { replace: true })

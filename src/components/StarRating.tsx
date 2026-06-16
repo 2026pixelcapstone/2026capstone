@@ -1,7 +1,7 @@
 /**
  * 별점 표시/입력 공용 컴포넌트.
- * - 표시(interactive=false): value(0~5, 평균은 소수 가능)만큼 채워 보여줌(반올림).
- * - 입력(interactive=true): 클릭 시 onChange(1~5) 호출.
+ * - 표시(interactive=false): value(0~5, 평균은 소수 가능)만큼 채워 보여줌(반올림). 장식용 span.
+ * - 입력(interactive=true): 각 별을 네이티브 button으로 렌더 → 포커스/키보드(Enter·Space) 기본 지원.
  */
 export default function StarRating({
   value,
@@ -15,26 +15,41 @@ export default function StarRating({
   onChange?: (v: number) => void
 }) {
   const filled = Math.round(value)
+
+  const star = (i: number) => (
+    <span
+      className="material-symbols-outlined"
+      style={{
+        fontSize: size,
+        lineHeight: 1,
+        color: i <= filled ? '#f0883e' : '#30363d',
+        fontVariationSettings: i <= filled ? "'FILL' 1" : "'FILL' 0",
+        transition: 'color 0.1s',
+      }}>
+      star
+    </span>
+  )
+
   return (
-    <span className="inline-flex items-center" style={{ gap: 1 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <span
-          key={i}
-          onClick={interactive ? () => onChange?.(i) : undefined}
-          role={interactive ? 'button' : undefined}
-          aria-label={interactive ? `${i}점` : undefined}
-          className="material-symbols-outlined select-none"
-          style={{
-            fontSize: size,
-            lineHeight: 1,
-            color: i <= filled ? '#f0883e' : '#30363d',
-            cursor: interactive ? 'pointer' : 'default',
-            fontVariationSettings: i <= filled ? "'FILL' 1" : "'FILL' 0",
-            transition: 'color 0.1s',
-          }}>
-          star
-        </span>
-      ))}
+    <span
+      className="inline-flex items-center select-none"
+      style={{ gap: 1 }}
+      aria-label={!interactive ? `별점 ${value}점` : undefined}
+      role={!interactive ? 'img' : undefined}>
+      {[1, 2, 3, 4, 5].map(i =>
+        interactive ? (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onChange?.(i)}
+            aria-label={`${i}점`}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', lineHeight: 1 }}>
+            {star(i)}
+          </button>
+        ) : (
+          <span key={i} aria-hidden="true">{star(i)}</span>
+        ),
+      )}
     </span>
   )
 }
