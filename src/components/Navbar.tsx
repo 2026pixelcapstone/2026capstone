@@ -98,13 +98,13 @@ export default function Navbar() {
             // 에디터는 콘텐츠 생성(저장)이 미인증 차단 대상 → 진입 자체를 비활성 + 호버 안내
             if (link.to === '/editor' && gateBlocked) {
               return (
-                <span key={link.to} role="link" aria-disabled="true" title={gateMessage}
+                <button key={link.to} type="button" aria-disabled="true" title={gateMessage}
                   onClick={() => toast.error(gateMessage)}
-                  className="flex items-center gap-1 text-base font-semibold tracking-tight cursor-not-allowed select-none"
+                  className="flex items-center gap-1 p-0 bg-transparent text-base font-semibold tracking-tight cursor-not-allowed select-none"
                   style={{ color: '#484f58', borderBottom: '2px solid transparent', paddingBottom: 3 }}>
                   <span className="material-symbols-outlined text-base">lock</span>
                   {link.label}
-                </span>
+                </button>
               )
             }
             return (
