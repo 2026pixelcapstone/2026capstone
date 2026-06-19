@@ -4,6 +4,7 @@ import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
 import GalleryCreateModal from '../components/GalleryCreateModal'
+import { useEmailGate } from '../hooks/useEmailGate'
 import TagBlockMenu from '../components/TagBlockMenu'
 
 const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
@@ -12,6 +13,7 @@ export default function FreeGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const { isLoggedIn } = useAuthStore()
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const { blocked: gateBlocked, guard: gate, gateProps } = useEmailGate()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTag = searchParams.get('tag') ?? '전체'
   const [sort, setSort] = useState('createdAt,desc')
@@ -170,10 +172,11 @@ export default function FreeGalleryPage() {
           <div className="ml-auto flex items-center gap-3">
             {isLoggedIn && (
               <button
-                onClick={() => setCreateModalOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+                onClick={gate(() => setCreateModalOpen(true))}
+                {...gateProps}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
                 style={{ background: '#2f81f7', color: '#fff' }}>
-                <span className="material-symbols-outlined text-base">add</span>
+                <span className="material-symbols-outlined text-base">{gateBlocked ? 'lock' : 'add'}</span>
                 게시글 등록
               </button>
             )}

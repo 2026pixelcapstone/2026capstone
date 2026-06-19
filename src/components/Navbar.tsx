@@ -4,11 +4,14 @@ import { useAuthStore } from '../store/authStore'
 import { authApi } from '../api/authApi'
 import FontSelector from './FontSelector'
 import NotificationBell from './NotificationBell'
+import { toast } from '../store/toastStore'
+import { useEmailGate } from '../hooks/useEmailGate'
 
 export default function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { isLoggedIn, user, logout } = useAuthStore()
+  const { blocked: gateBlocked, message: gateMessage } = useEmailGate()
   const [galleryOpen, setGalleryOpen] = useState(false)
 
   const handleLogout = async () => {
@@ -92,6 +95,18 @@ export default function Navbar() {
             { label: '커미션',     to: '/commission' },
           ].map(link => {
             const active = location.pathname.startsWith(link.to)
+            // 에디터는 콘텐츠 생성(저장)이 미인증 차단 대상 → 진입 자체를 비활성 + 호버 안내
+            if (link.to === '/editor' && gateBlocked) {
+              return (
+                <span key={link.to} role="link" aria-disabled="true" title={gateMessage}
+                  onClick={() => toast.error(gateMessage)}
+                  className="flex items-center gap-1 text-base font-semibold tracking-tight cursor-not-allowed select-none"
+                  style={{ color: '#484f58', borderBottom: '2px solid transparent', paddingBottom: 3 }}>
+                  <span className="material-symbols-outlined text-base">lock</span>
+                  {link.label}
+                </span>
+              )
+            }
             return (
               <Link key={link.to} to={link.to}
                 className="text-base font-semibold tracking-tight transition-colors"
