@@ -6,12 +6,20 @@ export const fileApi = {
    * @param files 업로드할 파일 목록
    * @param folder R2 저장 경로 (예: "gallery/images", "assets/files")
    */
-  uploadImages: async (files: File[], folder: string): Promise<string[]> => {
+  uploadImages: async (
+    files: File[],
+    folder: string,
+    onProgress?: (percent: number) => void,
+  ): Promise<string[]> => {
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
     formData.append('folder', folder)
 
-    const res = await api.post<{ data: string[] }>('/api/files/upload/bulk', formData)
+    const res = await api.post<{ data: string[] }>('/api/files/upload/bulk', formData, {
+      onUploadProgress: onProgress
+        ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)) }
+        : undefined,
+    })
     return res.data.data
   },
 

@@ -58,6 +58,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)   // 자유 갤러리 이미지 업로드 진행률(%)
   const [topTags, setTopTags] = useState<TagResponse[]>([])
 
   // ── 태그 자동완성 ──
@@ -272,13 +273,16 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     if (isFree && images.length === 0) { toast.error('이미지를 1장 이상 업로드해주세요.'); return }
     if (!isFree && !ppitInfo) { toast.error('.ppit 파일을 업로드해주세요.'); return }
     setSubmitting(true)
+    setUploadProgress(0)
     // 전용 업로드 실패 시 보상 삭제용
     const uploaded: string[] = []
     try {
       if (isFree) {
         // ── 자유 갤러리: 이미지 업로드 → 게시글 ──
-        toast.info('이미지 업로드 중...')
-        const imageUrls = await fileApi.uploadImages(images.map(img => img.file), 'gallery/images')
+        toast.info(`이미지 ${images.length}장 업로드 중...`)
+        const imageUrls = await fileApi.uploadImages(
+          images.map(img => img.file), 'gallery/images', setUploadProgress,
+        )
         const res = await galleryApi.createPost({
           title: title.trim(),
           description: description.trim() || undefined,
@@ -341,6 +345,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
       toast.error(getErrorMessage(err, '게시글 등록에 실패했습니다.'))
     } finally {
       setSubmitting(false)
+      setUploadProgress(0)
     }
   }
 
@@ -846,7 +851,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
             {submitting
               ? <span className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
-                  등록 중...
+                  {isFree && uploadProgress > 0 && uploadProgress < 100
+                    ? `업로드 중 ${uploadProgress}%`
+                    : '등록 중...'}
                 </span>
               : '게시글 등록'}
           </button>
