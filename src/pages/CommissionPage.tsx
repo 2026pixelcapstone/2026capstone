@@ -11,6 +11,7 @@ import DateField from '../components/DateField'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
+import { useEmailGate } from '../hooks/useEmailGate'
 
 // 서비스 카테고리 — 등록 폼 선택지 (백엔드 저장값과 정확히 일치해야 함)
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
@@ -192,6 +193,7 @@ export default function CommissionPage() {
   const [reqPage, setReqPage] = useState(0)
   const [reqHasMore, setReqHasMore] = useState(true)
 
+  const { blocked: gateBlocked, guard: gate, gateProps } = useEmailGate()
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState<RequestPostCreateRequest>(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
@@ -431,15 +433,19 @@ export default function CommissionPage() {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={handleOpenModal}
-                className="px-5 py-2.5 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
+                onClick={gate(handleOpenModal)}
+                {...gateProps}
+                className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#21262d]'}`}
                 style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
                 의뢰 등록하기
               </button>
               <button
-                onClick={handleOpenServiceModal}
-                className="px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
+                onClick={gate(handleOpenServiceModal)}
+                {...gateProps}
+                className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-sm ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
                 style={{ background: '#2f81f7', color: '#fff' }}>
+                {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
                 서비스 등록하기
               </button>
             </div>
@@ -563,9 +569,11 @@ export default function CommissionPage() {
                     <p className="font-bold mb-1">등록된 작가 서비스가 없습니다</p>
                     <p className="text-sm">첫 번째로 서비스를 등록해보세요</p>
                     <button
-                      onClick={handleOpenServiceModal}
-                      className="mt-4 px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
+                      onClick={gate(handleOpenServiceModal)}
+                      {...gateProps}
+                      className={`mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-sm ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
                       style={{ background: '#2f81f7', color: '#fff' }}>
+                      {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
                       서비스 등록하기
                     </button>
                   </>

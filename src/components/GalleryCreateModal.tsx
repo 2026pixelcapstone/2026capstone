@@ -1,13 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { galleryApi, type GalleryType, type Visibility, type TagResponse } from '../api/galleryApi'
+import {
+  galleryApi, type GalleryType, type Visibility, type TagResponse, type DedicatedVisibility,
+} from '../api/galleryApi'
 import { tagApi } from '../api/tagApi'
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
+import {
+  parsePpit, compositeAllFrames, renderThumbnailBlob, renderGifBlob, ppitTextToFile,
+  type PpitFile,
+} from '../lib/ppit'
 
 const MAX_TAGS = 10
 const MAX_IMAGES = 10
+const MAX_CANVAS_SIZE = 1024 // 브라우저 프리징 방지 상한
 
 interface LocalImage {
   id: string
@@ -15,44 +22,24 @@ interface LocalImage {
   previewUrl: string
 }
 
-interface PixelFileInfo {
+// 전용(.ppit) 로드 결과
+interface PpitInfo {
   name: string
-  width: number
-  height: number
-  layerCount: number
-  raw: object
+  text: string                    // 원본 .ppit 텍스트 (R2 업로드용)
+  ppit: PpitFile
+  frameCanvases: HTMLCanvasElement[]  // 프레임별 합성 결과(미리보기·썸네일·GIF 재사용)
 }
 
-const MAX_CANVAS_SIZE = 1024 // 브라우저 프리징 방지 상한
-
-function renderPixelData(canvas: HTMLCanvasElement, raw: object) {
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  const d = raw as Record<string, unknown>
-  const width = Math.min((d.width as number) || (d.canvasWidth as number) || 32, MAX_CANVAS_SIZE)
-  const height = Math.min((d.height as number) || (d.canvasHeight as number) || 32, MAX_CANVAS_SIZE)
-  const layers = (d.layers as Array<{ pixels?: Record<string, string>; visible?: boolean }>) || []
-  const scale = Math.min(Math.floor(400 / Math.max(width, height)), 16) || 1
-  canvas.width = width * scale
-  canvas.height = height * scale
-  ctx.imageSmoothingEnabled = false
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      ctx.fillStyle = (x + y) % 2 === 0 ? '#1a1a1a' : '#222'
-      ctx.fillRect(x * scale, y * scale, scale, scale)
-    }
-  }
-  for (const layer of layers) {
-    if (layer.visible === false) continue
-    for (const [key, color] of Object.entries(layer.pixels ?? {})) {
-      if (color && color !== 'transparent') {
-        const [px, py] = key.split(',').map(Number)
-        ctx.fillStyle = color
-        ctx.fillRect(px * scale, py * scale, scale, scale)
-      }
-    }
-  }
+const DEFAULT_VISIBILITY: Required<DedicatedVisibility> = {
+  canvas: true, palette: true, layers: true, download: false, // download 기본 비공개(스펙 §6)
 }
+
+const VIS_OPTIONS = [
+  { key: 'canvas', label: '캔버스 크기/배경', icon: 'crop_free' },
+  { key: 'palette', label: '팔레트', icon: 'palette' },
+  { key: 'layers', label: '레이어 구조', icon: 'layers' },
+  { key: 'download', label: '.ppit 원본 다운로드 제공', icon: 'download' },
+] as const
 
 interface Props {
   type: GalleryType
@@ -71,6 +58,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)   // 자유 갤러리 이미지 업로드 진행률(%)
   const [topTags, setTopTags] = useState<TagResponse[]>([])
 
   // ── 태그 자동완성 ──
@@ -88,12 +76,14 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ── 전용 갤러리: JSON 파일 ──
-  const [fileInfo, setFileInfo] = useState<PixelFileInfo | null>(null)
+  // ── 전용 갤러리: .ppit 파일 ──
+  const [ppitInfo, setPpitInfo] = useState<PpitInfo | null>(null)
   const [draggingFile, setDraggingFile] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
-  const jsonInputRef = useRef<HTMLInputElement>(null)
+  const [dedVis, setDedVis] = useState<Required<DedicatedVisibility>>(DEFAULT_VISIBILITY)
+  const ppitInputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animRef = useRef<number | null>(null)
 
   const tagInputRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -107,7 +97,8 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     // 이미지 ObjectURL revoke 후 초기화 (메모리 누수 방지)
     setImages(prev => { prev.forEach(img => URL.revokeObjectURL(img.previewUrl)); return [] })
     setDraggingImg(false); setActiveIdx(0)
-    setFileInfo(null); setDraggingFile(false); setParseError(null)
+    setPpitInfo(null); setDraggingFile(false); setParseError(null)
+    setDedVis(DEFAULT_VISIBILITY)
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [isOpen])
 
@@ -166,10 +157,36 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     }
   }, [tagInput, selectedTags])
 
-  // 캔버스 렌더
+  // 캔버스 미리보기 — 합성 프레임 렌더 + (frames>1) fps 애니메이션
   useEffect(() => {
-    if (fileInfo && canvasRef.current) renderPixelData(canvasRef.current, fileInfo.raw)
-  }, [fileInfo])
+    const target = canvasRef.current
+    if (!ppitInfo || !target) return
+    const { ppit, frameCanvases } = ppitInfo
+    const ctx = target.getContext('2d')
+    if (!ctx) return
+    const { width, height, fps } = ppit.canvas
+    const scale = Math.max(1, Math.min(Math.floor(256 / Math.max(width, height)) || 1, 16))
+    target.width = width * scale
+    target.height = height * scale
+    ctx.imageSmoothingEnabled = false
+
+    const draw = (i: number) => {
+      ctx.clearRect(0, 0, target.width, target.height)
+      ctx.drawImage(frameCanvases[i], 0, 0, target.width, target.height)
+    }
+    draw(0)
+    if (frameCanvases.length <= 1) return
+
+    let idx = 0
+    let last = performance.now()
+    const interval = 1000 / (fps || 12)
+    const loop = (t: number) => {
+      if (t - last >= interval) { idx = (idx + 1) % frameCanvases.length; draw(idx); last = t }
+      animRef.current = requestAnimationFrame(loop)
+    }
+    animRef.current = requestAnimationFrame(loop)
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
+  }, [ppitInfo])
 
   // ── 이미지 추가 (FREE) ──
   const addImages = useCallback((files: FileList | File[]) => {
@@ -194,24 +211,30 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     })
   }
 
-  // ── JSON 파일 처리 (DEDICATED) ──
+  // ── .ppit 파일 처리 (DEDICATED) ──
   const processFile = useCallback((file: File) => {
-    setParseError(null); setFileInfo(null)
-    if (!file.name.endsWith('.json') && file.type !== 'application/json') {
-      setParseError('.json 파일만 업로드할 수 있습니다.')
+    setParseError(null); setPpitInfo(null)
+    if (!/\.(ppit|json)$/i.test(file.name)) {
+      setParseError('.ppit 파일만 업로드할 수 있습니다.')
       return
     }
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
+      const text = e.target?.result as string
       try {
-        const raw = JSON.parse(e.target?.result as string) as Record<string, unknown>
-        const width = (raw.width as number) || (raw.canvasWidth as number) || 0
-        const height = (raw.height as number) || (raw.canvasHeight as number) || 0
-        if (!width || !height) { setParseError('파일 형식이 올바르지 않습니다. (width/height 누락)'); return }
-        setFileInfo({ name: file.name, width, height, layerCount: ((raw.layers as unknown[]) || []).length, raw })
-        setTitle(prev => prev || file.name.replace(/\.json$/, ''))
-      } catch { setParseError('JSON 파싱에 실패했습니다.') }
+        const ppit = parsePpit(text)
+        if (ppit.canvas.width > MAX_CANVAS_SIZE || ppit.canvas.height > MAX_CANVAS_SIZE) {
+          setParseError(`캔버스가 너무 큽니다. (최대 ${MAX_CANVAS_SIZE}px)`)
+          return
+        }
+        const frameCanvases = await compositeAllFrames(ppit)
+        setPpitInfo({ name: file.name, text, ppit, frameCanvases })
+        setTitle(prev => prev || file.name.replace(/\.(ppit|json)$/i, ''))
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : '.ppit 파싱에 실패했습니다.')
+      }
     }
+    reader.onerror = () => setParseError('파일을 읽지 못했습니다. 다시 시도해 주세요.')
     reader.readAsText(file)
   }, [])
 
@@ -248,37 +271,81 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     if (submitting) return
     if (!title.trim()) { toast.error('제목을 입력해주세요.'); return }
     if (isFree && images.length === 0) { toast.error('이미지를 1장 이상 업로드해주세요.'); return }
-    if (!isFree && !fileInfo) { toast.error('픽셀 파일을 업로드해주세요.'); return }
+    if (!isFree && !ppitInfo) { toast.error('.ppit 파일을 업로드해주세요.'); return }
     setSubmitting(true)
+    setUploadProgress(0)
+    // 전용 업로드 실패 시 보상 삭제용
+    const uploaded: string[] = []
     try {
-      // 1단계: 이미지 업로드 (FREE 갤러리만)
-      let imageUrls: string[] = []
-      if (isFree && images.length > 0) {
-        toast.info?.('이미지 업로드 중...')
-        imageUrls = await fileApi.uploadImages(
-          images.map(img => img.file),
-          'gallery/images'
+      if (isFree) {
+        // ── 자유 갤러리: 이미지 업로드 → 게시글 ──
+        toast.info(`이미지 ${images.length}장 업로드 중...`)
+        const imageUrls = await fileApi.uploadImages(
+          images.map(img => img.file), 'gallery/images', setUploadProgress,
         )
+        const res = await galleryApi.createPost({
+          title: title.trim(),
+          description: description.trim() || undefined,
+          galleryType: type,
+          visibility,
+          tags: selectedTags.length > 0 ? selectedTags : undefined,
+          imageUrls,
+          thumbnailUrl: imageUrls[0],
+        })
+        toast.success('게시글이 등록되었습니다.')
+        onClose()
+        navigate(`/gallery/${res.data.data.postId}`)
+        return
       }
 
-      // 2단계: 게시글 생성
+      // ── 전용 갤러리(.ppit): 썸네일/GIF 렌더 → .ppit·썸네일 업로드 → 게시글 ──
+      const { ppit, text, name, frameCanvases } = ppitInfo!
+      const animated = frameCanvases.length > 1
+
+      toast.info('미리보기 생성 중...')
+      // 썸네일: 애니메이션이면 GIF, 단일 프레임이면 정적 PNG
+      let thumbBlob: Blob
+      let thumbExt: string
+      if (animated) {
+        const gif = await renderGifBlob(ppit, frameCanvases)
+        thumbBlob = gif ?? await renderThumbnailBlob(ppit)
+        thumbExt = gif ? 'gif' : 'png'
+      } else {
+        thumbBlob = await renderThumbnailBlob(ppit)
+        thumbExt = 'png'
+      }
+      const baseName = name.replace(/\.(ppit|json)$/i, '') || 'artwork'
+
+      toast.info('파일 업로드 중...')
+      const thumbFile = new File([thumbBlob], `${baseName}.${thumbExt}`, { type: thumbBlob.type })
+      const thumbnailUrl = await fileApi.uploadImage(thumbFile, 'gallery/dedicated')
+      uploaded.push(thumbnailUrl)
+      const fileUrl = await fileApi.uploadImage(ppitTextToFile(text, baseName), 'gallery/dedicated')
+      uploaded.push(fileUrl)
+
       const res = await galleryApi.createPost({
         title: title.trim(),
         description: description.trim() || undefined,
         galleryType: type,
         visibility,
         tags: selectedTags.length > 0 ? selectedTags : undefined,
-        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-        thumbnailUrl: imageUrls[0],
-        ...(fileInfo ? { canvasWidth: fileInfo.width, canvasHeight: fileInfo.height } : {}),
+        thumbnailUrl,
+        fileUrl,
+        canvasWidth: ppit.canvas.width,
+        canvasHeight: ppit.canvas.height,
+        palette: ppit.palette,
+        dedicatedVisibility: dedVis,
       })
       toast.success('게시글이 등록되었습니다.')
       onClose()
       navigate(`/gallery/${res.data.data.postId}`)
     } catch (err) {
+      // 게시글 생성 전 업로드된 R2 파일 보상 삭제 (베스트 에포트)
+      if (uploaded.length > 0) fileApi.deleteFiles(uploaded).catch(() => {})
       toast.error(getErrorMessage(err, '게시글 등록에 실패했습니다.'))
     } finally {
       setSubmitting(false)
+      setUploadProgress(0)
     }
   }
 
@@ -494,6 +561,47 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
               </div>
             </div>
 
+            {/* 공개 항목 토글 (전용 갤러리 전용) */}
+            {!isFree && (
+              <div>
+                <label className="block text-sm font-bold mb-1">공개 항목</label>
+                <p className="text-xs mb-3" style={{ color: '#7d8590' }}>
+                  작품 뷰어는 항상 공개됩니다. 아래 항목만 공개 여부를 선택하세요.
+                </p>
+                <div className="space-y-2">
+                  {VIS_OPTIONS.map(opt => {
+                    const on = dedVis[opt.key]
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setDedVis(prev => ({ ...prev, [opt.key]: !prev[opt.key] }))}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-all"
+                        style={on
+                          ? { background: accentBg, border: `1px solid ${accentColor}` }
+                          : { background: '#0d1117', border: '1px solid #30363d' }}>
+                        <span className="material-symbols-outlined text-lg flex-shrink-0"
+                          style={{ color: on ? accentColor : '#484f58' }}>{opt.icon}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold">{opt.label}</p>
+                          {opt.key === 'download' && (
+                            <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                              켜면 다른 사용자가 .ppit 원본을 내려받아 리믹스/편집할 수 있습니다
+                            </p>
+                          )}
+                        </div>
+                        {/* 토글 스위치 */}
+                        <div className="w-9 h-5 rounded-full flex-shrink-0 flex items-center transition-all px-0.5"
+                          style={{ background: on ? accentColor : '#30363d', justifyContent: on ? 'flex-end' : 'flex-start' }}>
+                          <div className="w-4 h-4 rounded-full" style={{ background: '#fff' }} />
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
           </div>
 
           {/* 오른쪽: 미리보기 패널 */}
@@ -601,18 +709,20 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 )}
               </>
             ) : (
-              /* ── 전용 갤러리: JSON 파일 + 캔버스 ── */
+              /* ── 전용 갤러리: .ppit 파일 + 합성 미리보기 ── */
               <>
                 {/* 상단 바 */}
                 <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
                   style={{ borderBottom: '1px solid #30363d' }}>
                   <span className="text-sm font-bold" style={{ color: '#7d8590' }}>
-                    {fileInfo ? '파일 로드됨' : '파일 없음'}
+                    {ppitInfo
+                      ? (ppitInfo.frameCanvases.length > 1 ? `애니메이션 · ${ppitInfo.frameCanvases.length}프레임` : '파일 로드됨')
+                      : '파일 없음'}
                   </span>
-                  {fileInfo && (
+                  {ppitInfo && (
                     <button
                       type="button"
-                      onClick={() => jsonInputRef.current?.click()}
+                      onClick={() => ppitInputRef.current?.click()}
                       className="flex items-center gap-1.5 text-sm font-bold transition-colors hover:text-white"
                       style={{ color: accentColor }}>
                       <span className="material-symbols-outlined text-base">upload_file</span>
@@ -622,15 +732,15 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 </div>
 
                 {/* 메인 영역 */}
-                <div className="flex-1 flex items-center justify-center relative overflow-hidden p-6"
+                <div className="flex-1 flex items-center justify-center relative overflow-y-auto p-6"
                   style={{ background: '#0d1117' }}
                   onDrop={e => { e.preventDefault(); setDraggingFile(false); const f = e.dataTransfer.files[0]; if (f) processFile(f) }}
                   onDragOver={e => { e.preventDefault(); setDraggingFile(true) }}
                   onDragLeave={() => setDraggingFile(false)}>
 
-                  {!fileInfo ? (
+                  {!ppitInfo ? (
                     <div
-                      onClick={() => jsonInputRef.current?.click()}
+                      onClick={() => ppitInputRef.current?.click()}
                       className="flex flex-col items-center gap-4 cursor-pointer select-none p-8 text-center rounded-2xl transition-all w-full"
                       style={{
                         border: `2px dashed ${draggingFile ? accentColor : '#30363d'}`,
@@ -643,9 +753,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                       </div>
                       <div>
                         <p className="text-sm font-bold" style={{ color: draggingFile ? accentColor : '#7d8590' }}>
-                          {draggingFile ? '여기에 놓으세요' : '픽셀 파일을 드래그하거나 클릭하세요'}
+                          {draggingFile ? '여기에 놓으세요' : '.ppit 파일을 드래그하거나 클릭하세요'}
                         </p>
-                        <p className="text-xs mt-1" style={{ color: '#484f58' }}>PixelHub 전용 포맷 (.json)</p>
+                        <p className="text-xs mt-1" style={{ color: '#484f58' }}>PixelPilot 전용 포맷 (.ppit)</p>
                       </div>
                     </div>
                   ) : (
@@ -655,18 +765,40 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                         style={{ background: '#161b22', border: '1px solid #30363d' }}>
                         <span className="material-symbols-outlined text-xl" style={{ color: accentColor }}>description</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate">{fileInfo.name}</p>
+                          <p className="text-sm font-bold truncate">{ppitInfo.name}</p>
                           <p className="text-xs" style={{ color: '#7d8590' }}>
-                            {fileInfo.width}×{fileInfo.height}px · 레이어 {fileInfo.layerCount}개
+                            {ppitInfo.ppit.canvas.width}×{ppitInfo.ppit.canvas.height}px
+                            {' · '}레이어 {ppitInfo.ppit.frames[0]?.layers.length ?? 0}개
+                            {ppitInfo.frameCanvases.length > 1 && ` · ${ppitInfo.frameCanvases.length}프레임 @ ${ppitInfo.ppit.canvas.fps}fps`}
                           </p>
                         </div>
                       </div>
-                      {/* 캔버스 */}
+                      {/* 합성 미리보기 캔버스 (체커보드 배경) */}
                       <div className="rounded-xl overflow-hidden flex items-center justify-center"
-                        style={{ background: '#161b22', border: '1px solid #30363d', padding: 12 }}>
+                        style={{
+                          background: '#161b22', border: '1px solid #30363d', padding: 12,
+                          backgroundImage: 'linear-gradient(45deg,#1a1a1a 25%,transparent 25%,transparent 75%,#1a1a1a 75%),linear-gradient(45deg,#1a1a1a 25%,#222 25%,#222 75%,#1a1a1a 75%)',
+                          backgroundSize: '16px 16px', backgroundPosition: '0 0,8px 8px',
+                        }}>
                         <canvas ref={canvasRef}
-                          style={{ imageRendering: 'pixelated', maxWidth: '100%', maxHeight: 280 }} />
+                          style={{ imageRendering: 'pixelated', maxWidth: '100%', maxHeight: 240 }} />
                       </div>
+                      {/* 팔레트 스와치 */}
+                      {ppitInfo.ppit.palette && ppitInfo.ppit.palette.colors.length > 0 && (
+                        <div className="w-full">
+                          <p className="text-xs font-bold mb-2" style={{ color: '#7d8590' }}>
+                            팔레트{ppitInfo.ppit.palette.name ? ` · ${ppitInfo.ppit.palette.name}` : ''}
+                            {' '}({ppitInfo.ppit.palette.colors.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ppitInfo.ppit.palette.colors.map((c, i) => (
+                              <div key={`${c}-${i}`} title={c}
+                                className="w-6 h-6 rounded-md flex-shrink-0"
+                                style={{ background: c, border: '1px solid #30363d' }} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -685,7 +817,8 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                   style={{ background: accentBg, border: `1px solid ${accentBorder}` }}>
                   <span className="material-symbols-outlined text-base mt-0.5" style={{ color: accentColor }}>info</span>
                   <p className="text-xs leading-relaxed" style={{ color: '#7d8590' }}>
-                    에디터에서 작업 후 <strong style={{ color: '#e6edf3' }}>내보내기 → .json</strong>으로 저장하여 업로드하세요.
+                    에디터에서 작업 후 <strong style={{ color: '#e6edf3' }}>내보내기 → .ppit</strong>으로 저장하여 업로드하세요.
+                    썸네일·애니메이션·팔레트는 업로드 시 자동 생성됩니다.
                   </p>
                 </div>
               </>
@@ -693,7 +826,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
 
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
               onChange={e => e.target.files && addImages(e.target.files)} />
-            <input ref={jsonInputRef} type="file" accept=".json,application/json" className="hidden"
+            <input ref={ppitInputRef} type="file" accept=".ppit,.json,application/json" className="hidden"
               onChange={e => e.target.files?.[0] && processFile(e.target.files[0])} />
           </div>
         </form>
@@ -712,13 +845,15 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
             type="submit"
             form=""
             onClick={handleSubmit}
-            disabled={submitting || !title.trim() || (!isFree ? !fileInfo : false)}
+            disabled={submitting || !title.trim() || (!isFree && !ppitInfo)}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 transition-opacity hover:opacity-90"
             style={{ background: accentColor, color: '#fff' }}>
             {submitting
               ? <span className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
-                  등록 중...
+                  {isFree && uploadProgress > 0 && uploadProgress < 100
+                    ? `업로드 중 ${uploadProgress}%`
+                    : '등록 중...'}
                 </span>
               : '게시글 등록'}
           </button>

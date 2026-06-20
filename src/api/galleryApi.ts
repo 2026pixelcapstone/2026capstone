@@ -3,6 +3,19 @@ import api from '../lib/axios'
 export type GalleryType = 'FREE' | 'DEDICATED'
 export type Visibility = 'PUBLIC' | 'PRIVATE' | 'UNLISTED'
 
+// 전용 갤러리(.ppit) — 백엔드 JSONB 구조와 동일 형태
+export interface PaletteData {
+  name?: string | null
+  colors: string[]
+}
+
+export interface DedicatedVisibility {
+  canvas?: boolean
+  palette?: boolean
+  layers?: boolean
+  download?: boolean
+}
+
 export interface GalleryPostSummary {
   postId: number
   title: string
@@ -31,6 +44,10 @@ export interface GalleryPostResponse extends GalleryPostSummary {
   canvasWidth: number | null
   canvasHeight: number | null
   isLiked: boolean
+  // 전용 갤러리(.ppit) — FREE는 null. fileUrl은 download=false·비소유자면 서버에서 마스킹
+  fileUrl: string | null
+  palette: PaletteData | null
+  dedicatedVisibility: DedicatedVisibility | null
 }
 
 export interface GalleryCommentResponse {
@@ -61,6 +78,10 @@ export interface GalleryPostCreateRequest {
   canvasHeight?: number
   imageUrls?: string[]
   tags?: string[]
+  // 전용 갤러리(.ppit)
+  fileUrl?: string
+  palette?: PaletteData
+  dedicatedVisibility?: DedicatedVisibility
 }
 
 export interface GalleryPostUpdateRequest {

@@ -2,13 +2,7 @@
 @source "../index.html";
 @source ".";
 
-/* 메이플스토리 폰트 */
-@font-face {
-  font-family: 'MaplestoryOTFBold';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2108@1.1/MaplestoryOTFBold.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-}
+/* 메이플스토리 폰트는 index.html에서 fonts-archive CDN(Maplestory.css)으로 로드 — family: 'Maplestory' */
 
 @theme {
   --color-background: #0d1117;
