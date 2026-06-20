@@ -354,8 +354,8 @@ export default function CommissionDetailPage() {
                       </div>
                     )}
 
-                    {/* 원본 다운로드 — fileUrl은 작가에게 항상, 의뢰자에겐 완료(COMPLETED) 후에만 옴 */}
-                    {commission.fileUrl ? (
+                    {/* 원본 다운로드 — 역할/상태로 잠금 강제(작가 또는 완료). 백엔드 마스킹 + UI 이중 방어 */}
+                    {commission.fileUrl && (isArtist || commission.status === 'COMPLETED') ? (
                       <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer" download
                         className="flex items-center gap-2 text-sm font-bold hover:underline"
                         style={{ color: '#2f81f7' }}>
