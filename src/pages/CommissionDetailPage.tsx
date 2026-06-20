@@ -138,6 +138,9 @@ export default function CommissionDetailPage() {
   const handleDownloadOriginal = async () => {
     if (!commission?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
     const fileUrl = commission.fileUrl
+    // 클릭 직후(사용자 활성화 유효) 빈 탭을 선점 — fetch 실패 시 팝업 차단 없이 이 탭으로 폴백.
+    // noopener를 주면 핸들이 null이 되므로 빼고, 대신 opener를 수동으로 끊어 보안 유지.
+    const fallbackTab = window.open('', '_blank')
     setDownloading(true)
     try {
       const res = await fetch(fileUrl)
@@ -153,8 +156,14 @@ export default function CommissionDetailPage() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
+      fallbackTab?.close()   // blob 저장 성공 → 선점 탭 불필요
     } catch {
-      window.open(fileUrl, '_blank', 'noopener')
+      if (fallbackTab) {
+        fallbackTab.opener = null
+        fallbackTab.location.href = fileUrl
+      } else {
+        window.open(fileUrl, '_blank', 'noopener')   // 선점 실패 시 최후 폴백
+      }
     } finally {
       setDownloading(false)
     }
