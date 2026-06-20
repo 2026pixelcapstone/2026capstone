@@ -4,12 +4,14 @@ import { assetApi, type AssetSummary, type AssetCategory } from '../api/assetApi
 import { useAuthStore } from '../store/authStore'
 import { useBlockStore } from '../store/blockStore'
 import TagBlockMenu from '../components/TagBlockMenu'
+import { useEmailGate } from '../hooks/useEmailGate'
 
 export default function AssetStorePage() {
   const navigate = useNavigate()
   const { accessToken } = useAuthStore(state => state)
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
   const isLoggedIn = !!accessToken
+  const { blocked: gateBlocked, guard: gate, gateProps } = useEmailGate()
   const [searchParams, setSearchParams] = useSearchParams()
   // 상단 카테고리 필터(categoryId) / 카드 태그 클릭 필터(tag) — 둘 중 하나만 활성
   const activeCategoryId = searchParams.get('category')
@@ -187,9 +189,11 @@ export default function AssetStorePage() {
           {/* 오른쪽: 업로드 버튼 + 검색창 + 정렬 */}
           <div className="ml-auto flex items-center gap-3">
             <button
-              onClick={() => accessToken ? navigate('/assets/create') : navigate('/login')}
-              className="px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+              onClick={gate(() => accessToken ? navigate('/assets/create') : navigate('/login'))}
+              {...gateProps}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${gateBlocked ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ background: '#2f81f7', color: '#fff' }}>
+              {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
               + 에셋 업로드
             </button>
             <form onSubmit={handleSearch}>
