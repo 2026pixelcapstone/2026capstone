@@ -40,7 +40,8 @@ export const useEditor = ({
             return; // 여기서는 아직 setSaving(true) 전이므로 안전하게 탈출합니다.
         }
 
-        setSaving(true); // 가드 검사가 완전히 끝난 이 시점에 확실하게 한 번만 락을 겁니다.
+
+        setSaving(true); //  가드 검사가 완전히 끝난 이 시점에 확실하게 한 번만 락을 겁니다.
         
         try {
             const uploadFormData = new FormData();
@@ -76,11 +77,23 @@ export const useEditor = ({
             // 3. 파일 서버 대량(Bulk) 업로드 프로세스
             const uploadRes = await api.post<{ data: string[] }>("/api/files/upload/bulk", uploadFormData);
             
-            // 💡 API 명세서 구조에 따라 uploadRes.data 혹은 uploadRes.data.data 매핑 검증 필요
-            const responseData = uploadRes.data as any;
-            const fileList = Array.isArray(responseData.data) ? responseData.data : responseData;
+
+            // 봇의 지적 반영: API 응답 구조 정규화 및 방어적 유효성 검증 추가
+            const responseData = uploadRes.data as { data?: string[] } | string[];
+            const fileList = Array.isArray(responseData) 
+                ? responseData 
+                : (responseData?.data && Array.isArray(responseData.data) ? responseData.data : null);
+            
+            if (!fileList || fileList.length === 0) {
+                throw new Error('파일 업로드 응답이 유효하지 않습니다.');
+            }
             
             const [uploadedThumbUrl, ...uploadedLayerUrls] = fileList;
+            
+            if (!uploadedThumbUrl) {
+                throw new Error('썸네일 URL을 받지 못했습니다.');
+            }
+
             const uploadedLayerUrlByKey = new Map<string, string>();
             
             uploadedLayerKeys.forEach((key, idx) => {

@@ -1,0 +1,76 @@
+{
+  "format": "ppit",
+  "version": 1,
+  "canvas": {
+    "width": 16,
+    "height": 16,
+    "backgroundColor": "#00000000",
+    "fps": 3
+  },
+  "palette": {
+    "name": "PICO-8 sample",
+    "colors": [
+      "#000000",
+      "#ffec27",
+      "#ff004d",
+      "#ab5236",
+      "#1d2b53"
+    ]
+  },
+  "frames": [
+    {
+      "id": "frame-0",
+      "layers": [
+        {
+          "id": "f0-l0",
+          "name": "face",
+          "layerOrder": 0,
+          "blendMode": "NORMAL",
+          "opacity": 1,
+          "isVisible": true,
+          "isLocked": false,
+          "color": "#ffec27",
+          "pixelData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAO0lEQVR4nGNgoBX4/0b9PzImWyNJBhHSjNcQYjXjNIQiA0jVjGHIMDBg4GOBKgmJWEPwasZnENEaSQUASajF5CcHZa8AAAAASUVORK5CYII="
+        },
+        {
+          "id": "f0-l1",
+          "name": "features",
+          "layerOrder": 1,
+          "blendMode": "NORMAL",
+          "opacity": 1,
+          "isVisible": true,
+          "isLocked": false,
+          "color": "#000000",
+          "pixelData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAH0lEQVR4nGNgGAWDF/wnUmwU4AH/0QINnU+2QcMRAAAZlQf55jYdvgAAAABJRU5ErkJggg=="
+        }
+      ]
+    },
+    {
+      "id": "frame-1",
+      "layers": [
+        {
+          "id": "f1-l0",
+          "name": "face",
+          "layerOrder": 0,
+          "blendMode": "NORMAL",
+          "opacity": 1,
+          "isVisible": true,
+          "isLocked": false,
+          "color": "#ffec27",
+          "pixelData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAO0lEQVR4nGNgoBX4/0b9PzImWyNJBhHSjNcQYjXjNIQiA0jVjGHIMDBg4GOBKgmJWEPwasZnENEaSQUASajF5CcHZa8AAAAASUVORK5CYII="
+        },
+        {
+          "id": "f1-l1",
+          "name": "features",
+          "layerOrder": 1,
+          "blendMode": "NORMAL",
+          "opacity": 1,
+          "isVisible": true,
+          "isLocked": false,
+          "color": "#000000",
+          "pixelData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHklEQVR4nGNgGAWDF/wnUmxYg/8Mvv+R8RA0YOgAAD/gHYOp/TVGAAAAAElFTkSuQmCC"
+        }
+      ]
+    }
+  ]
+}
