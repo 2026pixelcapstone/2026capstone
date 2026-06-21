@@ -4,6 +4,7 @@ import { LayerData } from '../constants/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
+import EditorOpenProjectModal from '../components/EditorOpenProjectModal'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -100,6 +101,7 @@ export default function EditorPage() {
 
   // ── 프로젝트 저장 관련 상태 ──────────────────────────
   const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
+  const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
 
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
@@ -107,7 +109,7 @@ export default function EditorPage() {
 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
-  const {handleSave, setProjectId, saving} = useEditor({
+  const {handleSave, projectId, setProjectId, saving} = useEditor({
     stageRef,
     layerCanvasRefs,
     canvasW,
@@ -369,8 +371,11 @@ export default function EditorPage() {
     if (!id || !isLoggedIn) return
     const numId = Number(id)
     if (isNaN(numId)) return
+    // 이미 메모리에 로드된 프로젝트면 재로드 안 함 — 저장 시 setSearchParams로 URL이 바뀌어도
+    // (레이어 저장 전에) 재로드가 현재 캔버스를 비우던 백지 버그 방지
+    if (numId === projectId) return
 
-    editorApi.getProject(numId).then(res => {
+    editorApi.getProject(numId).then(async res => {
       const proj = res.data.data
       setProjectId(proj.projectId)
       setProjectTitle(proj.title)
@@ -383,11 +388,32 @@ export default function EditorPage() {
 
       if(proj.layers && proj.layers.length > 0){
         const rawLayers = proj.layers;
+
+        // 레이어 그림은 저장 시 webp(fileUrl)로 올라가고 pixelData는 빈값 → fileUrl을 dataURL로 복원해야 렌더됨.
+        // (pixelData가 이미 있으면 그대로, 없고 fileUrl이 있으면 fetch→dataURL. R2 CORS 필요, dataURL이라 저장 시 캔버스 오염 없음)
+        const restoredPixelData: string[] = await Promise.all(
+          rawLayers.map(async (sl: any): Promise<string> => {
+            if (sl.pixelData && String(sl.pixelData).trim()) return sl.pixelData
+            if (!sl.fileUrl) return ''
+            try {
+              const r = await fetch(sl.fileUrl)
+              if (!r.ok) return ''
+              const blob = await r.blob()
+              return await new Promise<string>((resolve) => {
+                const reader = new FileReader()
+                reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+                reader.onerror = () => resolve('')
+                reader.readAsDataURL(blob)
+              })
+            } catch { return '' }
+          })
+        )
+
         const restoredFrames: any[] = [];
         let currentFrameLayers: LayerData[] = [];
         let frameCounter = 0;
 
-        rawLayers.forEach((serverLayer: any) => {
+        rawLayers.forEach((serverLayer: any, idx: number) => {
           // layerOrder가 0을 만났고, 이미 모아둔 레이어가 주머니에 있다면 ➔ 이전 프레임 완성 처리 후 쪼개기
           if(serverLayer.layerOrder === 0 && currentFrameLayers.length > 0){
              restoredFrames.push({
@@ -408,7 +434,7 @@ export default function EditorPage() {
             isVisible: serverLayer.isVisible !== false, // 기본값 true 보장
             opacity: serverLayer.opacity ?? 100,
             color: '#818cf8',
-            pixelData: serverLayer.pixelData || '', // JSON.parse 없이 순수 Base64 문자열 그대로 매핑!
+            pixelData: restoredPixelData[idx] || '', // fileUrl에서 복원한 dataURL (없으면 빈값)
           });
         });
 
@@ -437,7 +463,7 @@ export default function EditorPage() {
       }
       setUnsaved(false)
     }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
-  }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
+  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -528,6 +554,17 @@ export default function EditorPage() {
       toast.error(e instanceof Error ? e.message : '.ppit을 불러오지 못했습니다.')
     }
   }, [loadPpitText, unsaved])
+
+  // 저장된 프로젝트 열기 (모달에서 선택) → URL projectId로 로드 effect 트리거
+  const handleOpenProject = useCallback((pid: number) => {
+    if (pid !== projectId &&
+        unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) {
+      return
+    }
+    setOpenProjectModalOpen(false)
+    setSearchParams({ projectId: String(pid) }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, unsaved, setSearchParams])
 
   // ── 갤러리에서 진입(편집/리믹스): ?import=<.ppit URL> 자동 로드 ──
   useEffect(() => {
@@ -936,6 +973,7 @@ export default function EditorPage() {
       id: 'file', label: 'File',
       items: [
         { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
+        { label: 'Open Project…',     icon: 'folder',        action: () => { setOpenProjectModalOpen(true); setOpenMenu(null) } },
         { label: 'Open .ppit…',       icon: 'folder_open',   action: () => { ppitInputRef.current?.click(); setOpenMenu(null) } },
         { separator: true },
         { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { openSaveModal(); setOpenMenu(null) } },
@@ -1021,6 +1059,12 @@ export default function EditorPage() {
         onClose={() => setSaveIsModalOpen(false)}
         onSave={handleSave}
         initialTitle={projectTitle}
+      />
+
+      <EditorOpenProjectModal
+        isOpen={openProjectModalOpen}
+        onClose={() => setOpenProjectModalOpen(false)}
+        onSelect={handleOpenProject}
       />
 
       {/* .ppit 불러오기 (Open .ppit…) */}
