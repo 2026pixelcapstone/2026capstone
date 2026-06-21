@@ -887,6 +887,7 @@ export default function EditorPage() {
   ] as const;
 
   // -------- 레이어 순서 변경 -----------
+  const LAYER_DND_MIME = "application/x-pixelhub-layer-index";
   
   // 순서가 뒤집힌 배열을 다루기 위해 실제 원본 인덱스를 포함한 객체 배열을 만듭니다.
   const reversedLayersWithIdx = useMemo(() => { // UI용 역순 배열을 useMemo로 감싸서 최신 상태와 동기화
@@ -898,13 +899,20 @@ export default function EditorPage() {
   // 드래그하는 레이어의 '원본 인덱스'를 저장합니다.
   // 레이어 드래그 시작
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    e.dataTransfer.setData("text/plain", index.toString()); // 데이터 형식, 실제 들고 갈 값
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(LAYER_DND_MIME, String(index)); // 내부 레이어 DnD 전용 값
   }
 
   // 레이어를 내려놓음
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
     e.preventDefault();
-    const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
+    const rawSourceIndex = e.dataTransfer.getData(LAYER_DND_MIME);
+    if (!/^\d+$/.test(rawSourceIndex)) return;
+
+    const sourceIndex = Number(rawSourceIndex);
+    const layerCount = state.frames[state.currentFrameIdx]?.layers.length ?? 0;
+    
+    if (sourceIndex >= layerCount || targetIndex < 0 || targetIndex >= layerCount) return;
 
     if(sourceIndex !== targetIndex){
       reorderLayers(sourceIndex, targetIndex)
@@ -1584,11 +1592,18 @@ export default function EditorPage() {
               {reversedLayersWithIdx.map(({layer, originalIndex}) => (
                 <div 
                   key={layer.id}
+                  role="button"
                   draggable // 드래그 가능하도록 설정
                   onDragStart={(e) => handleDragStart(e, originalIndex)}
                   onDragOver={(e) => handleDragOver(e)}
                   onDrop={(e) => handleDrop(e, originalIndex)}
                   onClick={() => selectLayer(state.currentFrameIdx, layer.id)}
+                  onKeyDown={(e) => {
+                    if(e.key === 'Enter' || e.key === ' '){
+                      e.preventDefault();
+                      selectLayer(state.currentFrameIdx, layer.id);
+                    }
+                  }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
                   style={{
                     background: activeLayer === layer.id ? 'rgba(47,129,247,0.1)' : 'transparent',

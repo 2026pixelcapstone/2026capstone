@@ -123,8 +123,13 @@ export const useLayers = (
                 const [removed] = newLayers.splice(layerStartIndex, 1);
                 newLayers.splice(layerEndIndex, 0, removed);
 
-                console.log("② [변경 후] 레이어 순서:", newLayers.map((l: any) => l.name));
-                return { ...frame, layers: newLayers };
+                const reorderedLayers = newLayers.map((layer: LayerData, idx: number) =>({
+                    ...layer,
+                    layerOrder: idx,
+                }));
+
+                console.log("② [변경 후] 레이어 순서:", reorderedLayers.map((l: any) => l.name));
+                return { ...frame, layers: reorderedLayers};
             });
             return { ...prev, frames: updatedFrames };
         })
