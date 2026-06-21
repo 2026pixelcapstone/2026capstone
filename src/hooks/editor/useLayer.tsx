@@ -106,5 +106,30 @@ export const useLayers = (
         });
     }, [setWithHistory]);
     
-    return { addLayer, deleteLayer, toggleVisibility, layerCountersRef};
+    // ── 레이어의 순서 바꾸기 ───────────────────────────────────
+    const reorderLayers = useCallback((layerStartIndex: number , layerEndIndex: number) => {
+        
+        setWithHistory((prev: any) => {
+            const currentFrameIdx = prev.currentFrameIdx;
+
+            const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
+                if (fIdx !== currentFrameIdx) return frame;
+
+                const newLayers = [...frame.layers];
+
+                /* splice: 지정 수가 0이면 아무것도 잘라내기 하지 않음. 
+                시작 위치부터 카운트하여 카운트 수 만큼 뒤에 있는 인덱스까지 잘라내기
+                (지정 수가 배열 길이 - start 보다 클 때는 start 뒤의 배열 전체 삭제)*/
+                const [removed] = newLayers.splice(layerStartIndex, 1);
+                newLayers.splice(layerEndIndex, 0, removed);
+
+                console.log("② [변경 후] 레이어 순서:", newLayers.map((l: any) => l.name));
+                return { ...frame, layers: newLayers };
+            });
+            return { ...prev, frames: updatedFrames };
+        })
+       
+    },[setWithHistory])
+    
+    return { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers};
 }
