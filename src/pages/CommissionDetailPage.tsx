@@ -264,7 +264,8 @@ export default function CommissionDetailPage() {
   const isArtist = me?.userId === commission.artistId
   const canUploadFile = isArtist && (commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW')
   const previews = commission.previewImages ?? []
-  const current = previews.length ? previews[Math.min(activePreview, previews.length - 1)] : null
+  const currentIndex = previews.length ? Math.min(activePreview, previews.length - 1) : 0
+  const current = previews.length ? previews[currentIndex] : null
   const movePreview = (delta: number) =>
     setActivePreview(i => (i + delta + previews.length) % previews.length)
   const canRequestReview = isArtist && commission.status === 'IN_PROGRESS'
@@ -442,7 +443,7 @@ export default function CommissionDetailPage() {
                         <div className="relative">
                           <button type="button" onClick={() => setLightboxOpen(true)}
                             className="block w-full cursor-zoom-in" aria-label="미리보기 크게 보기">
-                            <img src={current.imageUrl} alt={`미리보기 ${activePreview + 1}`}
+                            <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
                               className="w-full rounded-lg" style={{ border: '1px solid #30363d' }} />
                           </button>
                           {previews.length > 1 && (
@@ -456,7 +457,7 @@ export default function CommissionDetailPage() {
                                 <span className="material-symbols-outlined text-lg">chevron_right</span>
                               </button>
                               <div className="absolute bottom-1 right-2 px-2 py-0.5 rounded-full text-xs bg-black/60 text-white">
-                                {activePreview + 1} / {previews.length}
+                                {currentIndex + 1} / {previews.length}
                               </div>
                             </>
                           )}
@@ -468,7 +469,7 @@ export default function CommissionDetailPage() {
                             {previews.map((p, i) => (
                               <button key={p.previewImageId} type="button" onClick={() => setActivePreview(i)}
                                 className="shrink-0 w-12 h-12 rounded overflow-hidden"
-                                style={{ border: i === activePreview ? '2px solid #2f81f7' : '1px solid #30363d' }}>
+                                style={{ border: i === currentIndex ? '2px solid #2f81f7' : '1px solid #30363d' }}>
                                 <img src={p.imageUrl} alt={`미리보기 ${i + 1} 썸네일`} className="w-full h-full object-cover" />
                               </button>
                             ))}
@@ -620,12 +621,12 @@ export default function CommissionDetailPage() {
               </button>
             </>
           )}
-          <img src={current.imageUrl} alt={`미리보기 ${activePreview + 1}`}
+          <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
             onClick={(e) => e.stopPropagation()}
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
           {previews.length > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm bg-black/60 text-white">
-              {activePreview + 1} / {previews.length}
+              {currentIndex + 1} / {previews.length}
             </div>
           )}
         </div>
