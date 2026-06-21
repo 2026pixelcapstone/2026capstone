@@ -105,6 +105,7 @@ export default function CommissionDetailPage() {
     setUploading(true)
     try {
       let updated = commission
+      let succeeded = 0
       for (const file of files) {
         let uploadedUrl: string | null = null
         try {
@@ -116,14 +117,17 @@ export default function CommissionDetailPage() {
             fileSize: file.size,
           })
           updated = res.data.data
+          succeeded++
         } catch (err) {
           // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
           if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
           toast.error(getErrorMessage(err, `${file.name} 업로드에 실패했습니다.`))
         }
       }
-      setCommission(updated)
-      toast.success('납품 파일이 업로드되었습니다.')
+      if (succeeded > 0) {
+        setCommission(updated)
+        toast.success(`납품 파일 ${succeeded}개가 업로드되었습니다.`)
+      }
     } finally {
       setUploading(false)
     }
