@@ -194,7 +194,7 @@ export default function EditorPage() {
       
       // 크기 조절 등으로 인해 기존 도화지를 복사해야 하는 상황
       if (existingCanvas) {
-        ctx.drawImage(existingCanvas, 0, 0);
+        ctx.drawImage(existingCanvas, 0, 0, existingCanvas.width, existingCanvas.height);
       }
     }
     layerCanvasRefs.current[id] = nextCanvas
@@ -553,6 +553,7 @@ export default function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, loadPpitText])
 
+  
   const handleExportImage = useCallback(async() => {
     const stage = stageRef.current
     if (!stage) return
@@ -1234,7 +1235,8 @@ export default function EditorPage() {
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .filter((layer) => layer.isVisible)
                 .map((layer) => (
-                  <KonvaLayer key={`${layer.id}-${canvasW}-${canvasH}`} id={layer.id} opacity={layer.opacity / 100}>
+                  //  <KonvaLayer key={`${layer.id}-${canvasW}-${canvasH}`} 
+                  <KonvaLayer key={layer.id} id={layer.id} opacity={layer.opacity / 100}>
                     
                     {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
                     <LayerImageRenderer 

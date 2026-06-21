@@ -37,10 +37,24 @@ export const LayerImageRenderer = ({
             // 런타임에 멈춰있는 기존 가상 캔버스의 하드웨어 해상도 크기를 즉시 리사이징합니다!
             const existingCanvas = layerCanvasRefs.current[cacheKey];
             if (existingCanvas && (existingCanvas.width !== canvasW || existingCanvas.height !== canvasH)) {
+                
+                // 그림을 임시 가상 캔버스에 백업
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = existingCanvas.width;
+                tempCanvas.height = existingCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                if (tempCtx) tempCtx.drawImage(existingCanvas, 0, 0);
+                
+                // 크기 리사이징(이 순간 기존 데이터 포멧)
                 existingCanvas.width = canvasW;
                 existingCanvas.height = canvasH;
+
                 const ctx = existingCanvas.getContext('2d');
-                if (ctx) ctx.imageSmoothingEnabled = false;
+                if (ctx){ 
+                    ctx.imageSmoothingEnabled = false;
+                    // 백업해 둔 그림을 '늘리지 않고 원래 크기(tempCanvas.width/height) 그대로' 복원합니다
+                    ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+                }
             }
         }
     },[cacheKey, canvasW, canvasH, layerCanvasRefs])
@@ -59,7 +73,7 @@ export const LayerImageRenderer = ({
 
         // 만약 옛날 그림 데이터(pixelData)가 없다면 빈 도화지로 깨끗하게 초기화
         if (!pixelData || !pixelData.trim()) {
-            ctx.clearRect(0, 0, canvasW, canvasH);
+            ctx.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
             imageRef.current?.getLayer()?.batchDraw();
             return;
         }
@@ -68,17 +82,13 @@ export const LayerImageRenderer = ({
         const img = new Image();
         img.onload = () => {
             ctx.imageSmoothingEnabled = false;
-            ctx.clearRect(0, 0, canvasW, canvasH);
-            
-            // 🌟 [핵심 수정]: 단순 (0,0) 드로우 대신, 
-            // 현재 타깃 캔버스의 전체 규격(canvasW, canvasH)에 완전히 들어맞도록 
-            // 가로세로 스케일 크기를 명시해서 구워줍니다. 이래야 불러왔을 때 공중 부양이 박멸됩니다!
-            ctx.drawImage(img, 0, 0, canvasW, canvasH);
+            ctx.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
+            ctx.drawImage(img, 0, 0, img.width, img.height);
             
             imageRef.current?.getLayer()?.batchDraw(); // 스크린에 버퍼 스왑
         };
         img.src = pixelData;
-    }, [cacheKey, pixelData, canvasW, canvasH, layerCanvasRefs])
+    }, [cacheKey, pixelData, layerCanvasRefs])
     
     const myCanvas = layerCanvasRefs.current[cacheKey];
 
