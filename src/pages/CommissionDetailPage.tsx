@@ -37,6 +37,7 @@ export default function CommissionDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [previewUploading, setPreviewUploading] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewInputRef = useRef<HTMLInputElement>(null)
 
@@ -130,6 +131,41 @@ export default function CommissionDetailPage() {
       toast.error(getErrorMessage(err, '미리보기 업로드에 실패했습니다.'))
     } finally {
       setPreviewUploading(false)
+    }
+  }
+
+  // 원본 다운로드 — cross-origin(R2)이라 <a download>는 무시됨 → blob으로 받아 강제 저장, 실패 시 새 탭 폴백
+  const handleDownloadOriginal = async () => {
+    if (!commission?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
+    const fileUrl = commission.fileUrl
+    // 클릭 직후(사용자 활성화 유효) 빈 탭을 선점 — fetch 실패 시 팝업 차단 없이 이 탭으로 폴백.
+    // noopener를 주면 핸들이 null이 되므로 빼고, 대신 opener를 수동으로 끊어 보안 유지.
+    const fallbackTab = window.open('', '_blank')
+    setDownloading(true)
+    try {
+      const res = await fetch(fileUrl)
+      if (!res.ok) throw new Error('fetch failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      // URL 경로 끝에서 원래 파일명/확장자 추출, 실패 시 폴백
+      const name = decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '')
+      a.download = name || `commission_${commission.commissionId}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      fallbackTab?.close()   // blob 저장 성공 → 선점 탭 불필요
+    } catch {
+      if (fallbackTab) {
+        fallbackTab.opener = null
+        fallbackTab.location.href = fileUrl
+      } else {
+        window.open(fileUrl, '_blank', 'noopener')   // 선점 실패 시 최후 폴백
+      }
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -356,12 +392,12 @@ export default function CommissionDetailPage() {
 
                     {/* 원본 다운로드 — 역할/상태로 잠금 강제(작가 또는 완료). 백엔드 마스킹 + UI 이중 방어 */}
                     {commission.fileUrl && (isArtist || commission.status === 'COMPLETED') ? (
-                      <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer" download
-                        className="flex items-center gap-2 text-sm font-bold hover:underline"
+                      <button type="button" onClick={handleDownloadOriginal} disabled={downloading}
+                        className="flex items-center gap-2 text-sm font-bold hover:underline disabled:opacity-50"
                         style={{ color: '#2f81f7' }}>
                         <span className="material-symbols-outlined text-base">download</span>
-                        원본 다운로드
-                      </a>
+                        {downloading ? '다운로드 중...' : '원본 다운로드'}
+                      </button>
                     ) : !isArtist && commission.previewUrl ? (
                       <div className="flex items-center gap-2 text-xs" style={{ color: '#7d8590' }}>
                         <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
