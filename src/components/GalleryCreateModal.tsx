@@ -7,6 +7,7 @@ import { tagApi } from '../api/tagApi'
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '../lib/fileValidation'
 import {
   parsePpit, compositeAllFrames, renderThumbnailBlob, renderGifBlob, ppitTextToFile,
   type PpitFile,
@@ -190,7 +191,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
 
   // ── 이미지 추가 (FREE) ──
   const addImages = useCallback((files: FileList | File[]) => {
-    const arr = Array.from(files).filter(f => f.type.startsWith('image/'))
+    let arr = Array.from(files).filter(f => f.type.startsWith('image/'))
+    const oversized = arr.filter(f => f.size > MAX_UPLOAD_BYTES)
+    if (oversized.length > 0) {
+      toast.error(`${oversized.length}개 이미지가 ${MAX_UPLOAD_MB}MB를 초과해 제외했습니다.`)
+      arr = arr.filter(f => f.size <= MAX_UPLOAD_BYTES)
+    }
     const remaining = MAX_IMAGES - images.length
     const toAdd = arr.slice(0, remaining).map(file => ({
       id: `${Date.now()}-${Math.random()}`,
@@ -214,6 +220,10 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   // ── .ppit 파일 처리 (DEDICATED) ──
   const processFile = useCallback((file: File) => {
     setParseError(null); setPpitInfo(null)
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setParseError(`${MAX_UPLOAD_MB}MB를 초과하는 파일은 업로드할 수 없습니다.`)
+      return
+    }
     if (!/\.(ppit|json)$/i.test(file.name)) {
       setParseError('.ppit 파일만 업로드할 수 있습니다.')
       return
@@ -825,9 +835,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
             )}
 
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
-              onChange={e => e.target.files && addImages(e.target.files)} />
+              onChange={e => { if (e.target.files) addImages(e.target.files); e.target.value = '' }} />
             <input ref={ppitInputRef} type="file" accept=".ppit,.json,application/json" className="hidden"
-              onChange={e => e.target.files?.[0] && processFile(e.target.files[0])} />
+              onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) processFile(f) }} />
           </div>
         </form>
 

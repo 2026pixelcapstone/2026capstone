@@ -6,6 +6,7 @@ import CommissionChat from '../components/CommissionChat'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { validateFilesSize } from '../lib/fileValidation'
 
 const STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: '작업 중',
@@ -100,6 +101,7 @@ export default function CommissionDetailPage() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !commission) return
+    if (!validateFilesSize([file])) return
     setUploading(true)
     let uploadedUrl: string | null = null
     try {
@@ -129,6 +131,7 @@ export default function CommissionDetailPage() {
     if (files.some(f => !f.type.startsWith('image/'))) {
       toast.error('미리보기는 이미지 파일만 가능합니다.'); return
     }
+    if (!validateFilesSize(files)) return
     setPreviewUploading(true)
     try {
       const res = await commissionApi.uploadPreviews(commission.commissionId, files)
