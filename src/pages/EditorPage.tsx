@@ -375,94 +375,83 @@ export default function EditorPage() {
     // (레이어 저장 전에) 재로드가 현재 캔버스를 비우던 백지 버그 방지
     if (numId === projectId) return
 
-    editorApi.getProject(numId).then(async res => {
-      const proj = res.data.data
-      setProjectId(proj.projectId)
-      setProjectTitle(proj.title)
-      
-      // 크기 상태를 먼저 세팅 (초기화 useEffect가 먼저 돌 수 있도록 유도)
-      setCanvasW(proj.width)
-      setCanvasH(proj.height)
-      setCustomW(proj.width)
-      setCustomH(proj.height)
-
-      if(proj.layers && proj.layers.length > 0){
-        const rawLayers = proj.layers;
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await editorApi.getProject(numId)
+        if (cancelled) return
+        const proj = res.data.data
 
         // 레이어 그림은 저장 시 webp(fileUrl)로 올라가고 pixelData는 빈값 → fileUrl을 dataURL로 복원해야 렌더됨.
-        // (pixelData가 이미 있으면 그대로, 없고 fileUrl이 있으면 fetch→dataURL. R2 CORS 필요, dataURL이라 저장 시 캔버스 오염 없음)
-        const restoredPixelData: string[] = await Promise.all(
-          rawLayers.map(async (sl: any): Promise<string> => {
-            if (sl.pixelData && String(sl.pixelData).trim()) return sl.pixelData
-            if (!sl.fileUrl) return ''
-            try {
+        // pixelData가 이미 있으면 그대로, 없고 fileUrl이 있으면 fetch→dataURL. R2 CORS 필요, dataURL이라 저장 시 캔버스 오염 없음.
+        // 🔴 fileUrl이 있는데 복원 실패면 throw → 부분 로드 차단(빈 레이어로 저장 성공 처리 시 원본 파일을 덮어쓸 위험 방지).
+        const restoredFrames: any[] = []
+        if (proj.layers && proj.layers.length > 0) {
+          const rawLayers = proj.layers
+          const restoredPixelData: string[] = await Promise.all(
+            rawLayers.map(async (sl: any, idx: number): Promise<string> => {
+              if (sl.pixelData && String(sl.pixelData).trim()) return sl.pixelData
+              if (!sl.fileUrl) return ''
               const r = await fetch(sl.fileUrl)
-              if (!r.ok) return ''
+              if (!r.ok) throw new Error(`레이어 이미지 복원 실패: ${sl.layerId ?? idx}`)
               const blob = await r.blob()
-              return await new Promise<string>((resolve) => {
+              return await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader()
-                reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '')
-                reader.onerror = () => resolve('')
+                reader.onloadend = () => typeof reader.result === 'string'
+                  ? resolve(reader.result)
+                  : reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? idx}`))
+                reader.onerror = () => reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? idx}`))
                 reader.readAsDataURL(blob)
               })
-            } catch { return '' }
-          })
-        )
-
-        const restoredFrames: any[] = [];
-        let currentFrameLayers: LayerData[] = [];
-        let frameCounter = 0;
-
-        rawLayers.forEach((serverLayer: any, idx: number) => {
-          // layerOrder가 0을 만났고, 이미 모아둔 레이어가 주머니에 있다면 ➔ 이전 프레임 완성 처리 후 쪼개기
-          if(serverLayer.layerOrder === 0 && currentFrameLayers.length > 0){
-             restoredFrames.push({
-              id: `frame-${crypto.randomUUID().slice(0, 8)}`,
-              name: `Frame ${frameCounter + 1}`,
-              layers: currentFrameLayers
             })
-            currentFrameLayers = []; // 다음 프레임을 위해 주머니 비우기
-            frameCounter++;
-          }
-          // 프론트엔드 표준 규격으로 매핑
-          currentFrameLayers.push({
-            id: String(serverLayer.layerId),
-            name: serverLayer.name,
-            layerOrder: serverLayer.layerOrder,
-            blendMode: serverLayer.blendMode || 'NORMAL',
-            isLocked: serverLayer.isLocked || false,
-            isVisible: serverLayer.isVisible !== false, // 기본값 true 보장
-            opacity: serverLayer.opacity ?? 100,
-            color: '#818cf8',
-            pixelData: restoredPixelData[idx] || '', // fileUrl에서 복원한 dataURL (없으면 빈값)
-          });
-        });
+          )
 
-        if (currentFrameLayers.length > 0) {
-          restoredFrames.push({
-            id: `frame-${crypto.randomUUID().slice(0, 8)}`,
-            name: `Frame ${frameCounter + 1}`,
-            layers: currentFrameLayers
-          });
+          let currentFrameLayers: LayerData[] = []
+          let frameCounter = 0
+          rawLayers.forEach((serverLayer: any, idx: number) => {
+            // layerOrder가 0을 만났고 이미 모아둔 레이어가 있으면 → 이전 프레임 완성 후 쪼개기
+            if (serverLayer.layerOrder === 0 && currentFrameLayers.length > 0) {
+              restoredFrames.push({ id: `frame-${crypto.randomUUID().slice(0, 8)}`, name: `Frame ${frameCounter + 1}`, layers: currentFrameLayers })
+              currentFrameLayers = []
+              frameCounter++
+            }
+            currentFrameLayers.push({
+              id: String(serverLayer.layerId),
+              name: serverLayer.name,
+              layerOrder: serverLayer.layerOrder,
+              blendMode: serverLayer.blendMode || 'NORMAL',
+              isLocked: serverLayer.isLocked || false,
+              isVisible: serverLayer.isVisible !== false,
+              opacity: serverLayer.opacity ?? 100,
+              color: '#818cf8',
+              pixelData: restoredPixelData[idx] || '',
+            })
+          })
+          if (currentFrameLayers.length > 0) {
+            restoredFrames.push({ id: `frame-${crypto.randomUUID().slice(0, 8)}`, name: `Frame ${frameCounter + 1}`, layers: currentFrameLayers })
+          }
         }
 
-        // 히스토리 상태 업데이트
+        // 모든 레이어 복원이 끝난 뒤에만 상태 커밋 (부분 로드/덮어쓰기 방지). 중간에 다른 프로젝트로 바뀌면 취소.
+        if (cancelled) return
+        setProjectId(proj.projectId)
+        setProjectTitle(proj.title)
+        setCanvasW(proj.width)
+        setCanvasH(proj.height)
+        setCustomW(proj.width)
+        setCustomH(proj.height)
         if (restoredFrames.length > 0) {
-          setWithHistory((prev) => ({
-            ...prev,
-            frames: restoredFrames,
-            currentFrameIdx: 0
-          }));
-          
-          // 현재 첫 화면에 활성화될 레이어 지정 (0번 프레임의 첫 레이어)
-          const firstLayerId = restoredFrames[0]?.layers[0]?.id;
-          if (firstLayerId) {
-            setActiveLayer(firstLayerId);
-          }
+          setWithHistory((prev) => ({ ...prev, frames: restoredFrames, currentFrameIdx: 0 }))
+          const firstLayerId = restoredFrames[0]?.layers[0]?.id
+          if (firstLayerId) setActiveLayer(firstLayerId)
         }
+        setUnsaved(false)
+      } catch {
+        if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
       }
-      setUnsaved(false)
-    }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
+    })()
+
+    return () => { cancelled = true }
   }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
