@@ -82,13 +82,13 @@ export const LayerImageRenderer = ({
         const img = new Image();
         img.onload = () => {
             ctx.imageSmoothingEnabled = false;
-            ctx.clearRect(0, 0, canvasW, canvasH);
+            ctx.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
             ctx.drawImage(img, 0, 0, img.width, img.height);
             
             imageRef.current?.getLayer()?.batchDraw(); // 스크린에 버퍼 스왑
         };
         img.src = pixelData;
-    }, [cacheKey, pixelData, canvasW, canvasH, layerCanvasRefs])
+    }, [cacheKey, pixelData, layerCanvasRefs])
     
     const myCanvas = layerCanvasRefs.current[cacheKey];
 
