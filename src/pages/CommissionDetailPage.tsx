@@ -42,6 +42,9 @@ export default function CommissionDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false) // 미리보기 확대
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewInputRef = useRef<HTMLInputElement>(null)
+  const lightboxRef = useRef<HTMLDivElement>(null)
+  const lightboxCloseRef = useRef<HTMLButtonElement>(null)
+  const lastFocusedRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -154,16 +157,33 @@ export default function CommissionDetailPage() {
     }
   }
 
-  // 라이트박스: 열렸을 때 ESC 닫기 + 배경 스크롤 잠금
+  // 라이트박스: ESC 닫기 + 배경 스크롤 잠금 + 포커스 트랩/복원(접근성)
   useEffect(() => {
     if (!lightboxOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxOpen(false) }
+    // 트리거 요소 기억(닫을 때 복원)
+    lastFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setLightboxOpen(false); return }
+      if (e.key !== 'Tab' || !lightboxRef.current) return
+      // Tab 포커스를 모달 내부로 가둠
+      const focusable = lightboxRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+
     window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    queueMicrotask(() => lightboxCloseRef.current?.focus())   // 열리면 모달로 포커스 이동
     return () => {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
+      lastFocusedRef.current?.focus()   // 닫히면 트리거로 복원
     }
   }, [lightboxOpen])
 
@@ -582,9 +602,9 @@ export default function CommissionDetailPage() {
 
       {/* 미리보기 라이트박스 */}
       {lightboxOpen && current && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+        <div ref={lightboxRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
           onClick={() => setLightboxOpen(false)} role="dialog" aria-modal="true" aria-label="미리보기 확대">
-          <button type="button" onClick={() => setLightboxOpen(false)} aria-label="닫기"
+          <button ref={lightboxCloseRef} type="button" onClick={() => setLightboxOpen(false)} aria-label="닫기"
             className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
             <span className="material-symbols-outlined">close</span>
           </button>
