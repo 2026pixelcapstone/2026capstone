@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import {useSearchParams } from 'react-router-dom'
 import { LayerData } from '../constants/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
@@ -10,7 +10,7 @@ import { toast } from '../store/toastStore'
 import {useAnimation} from '../hooks/editor/useAnimation'
 import { useHistory } from '../hooks/editor/useHistory'
 import { applyPalette, GIFEncoder, quantize } from 'gifenc'
-import { useLayers } from '../hooks/editor/useLayer'
+import { useLayers as useLayer } from '../hooks/editor/useLayer'
 import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
@@ -76,11 +76,11 @@ export default function EditorPage() {
   const [activeLayer, setActiveLayer] = useState<string | null>(
     initialCanvasData.frames[0]?.layers[0].id || null
   );
-  const { addLayer, deleteLayer, toggleVisibility, layerCountersRef} = useLayers(
+  const { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers} = useLayer(
     state, 
     setWithHistory, 
     activeLayer, 
-    setActiveLayer
+    setActiveLayer,
   );
   // ────────────────────────────
 
@@ -194,7 +194,7 @@ export default function EditorPage() {
       
       // 크기 조절 등으로 인해 기존 도화지를 복사해야 하는 상황
       if (existingCanvas) {
-        ctx.drawImage(existingCanvas, 0, 0);
+        ctx.drawImage(existingCanvas, 0, 0, existingCanvas.width, existingCanvas.height);
       }
     }
     layerCanvasRefs.current[id] = nextCanvas
@@ -553,6 +553,7 @@ export default function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, loadPpitText])
 
+  
   const handleExportImage = useCallback(async() => {
     const stage = stageRef.current
     if (!stage) return
@@ -685,12 +686,14 @@ export default function EditorPage() {
     setSearchParams({}, { replace: true })
   }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, setWithHistory])
 
+  // ── RGB ─────────────────
+ 
   // HEX 입력 → 색상 반영
   const applyHex = () => {
     if (/^#[0-9a-fA-F]{6}$/.test(hexInput)) setFgColor(hexInput)
   }
 
-  // RGB 파싱
+ // RGB 파싱
   const hexToRgb = (hex: string) => ({
     r: parseInt(hex.slice(1,3),16),
     g: parseInt(hex.slice(3,5),16),
@@ -835,7 +838,7 @@ export default function EditorPage() {
       setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     }
   }
-   // ── 레이어 ───────────────────────────────────
+  // ── 레이어 ───────────────────────────────────
   const selectLayer = useCallback((frameIdx: number, layerIdToSelect: string) => {
     const stage = stageRef.current;
     if (!stage || !activeLayer) {
@@ -883,6 +886,43 @@ export default function EditorPage() {
     ['add', '레이어 추가', addLayer],
     ['delete', '레이어 삭제', deleteLayer]
   ] as const;
+
+  // -------- 레이어 순서 변경 -----------
+  const LAYER_DND_MIME = "application/x-pixelhub-layer-index";
+  
+  // 순서가 뒤집힌 배열을 다루기 위해 실제 원본 인덱스를 포함한 객체 배열을 만듭니다.
+  const reversedLayersWithIdx = useMemo(() => { // UI용 역순 배열을 useMemo로 감싸서 최신 상태와 동기화
+    return (state.frames[state.currentFrameIdx]?.layers ?? [])
+      .map((layer, index) => ({ layer, originalIndex: index }))
+      .reverse();
+  }, [state.frames, state.currentFrameIdx]);
+
+  // 드래그하는 레이어의 '원본 인덱스'를 저장합니다.
+  // 레이어 드래그 시작
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(LAYER_DND_MIME, String(index)); // 내부 레이어 DnD 전용 값
+  }
+
+  // 레이어를 내려놓음
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+    e.preventDefault();
+    const rawSourceIndex = e.dataTransfer.getData(LAYER_DND_MIME);
+    if (!/^\d+$/.test(rawSourceIndex)) return;
+
+    const sourceIndex = Number(rawSourceIndex);
+    const layerCount = state.frames[state.currentFrameIdx]?.layers.length ?? 0;
+    
+    if (sourceIndex >= layerCount || targetIndex < 0 || targetIndex >= layerCount) return;
+
+    if(sourceIndex !== targetIndex){
+      reorderLayers(sourceIndex, targetIndex)
+    }
+  }
+  // drop 이벤트를 허용하기 위해 기본 동작을 막습니다.
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault(); 
+  };
 
   // ── 메뉴 정의 (actions can reference state) ──
   const MENU_DEFS: { id: string; label: string; items: MenuItem[] }[] = [
@@ -1195,7 +1235,8 @@ export default function EditorPage() {
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .filter((layer) => layer.isVisible)
                 .map((layer) => (
-                  <KonvaLayer key={`${layer.id}-${canvasW}-${canvasH}`} id={layer.id} opacity={layer.opacity / 100}>
+                  //  <KonvaLayer key={`${layer.id}-${canvasW}-${canvasH}`} 
+                  <KonvaLayer key={layer.id} id={layer.id} opacity={layer.opacity / 100}>
                     
                     {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
                     <LayerImageRenderer 
@@ -1376,7 +1417,6 @@ export default function EditorPage() {
           )}
         </div>
 
-        
         {/* ── 우측 패널 ──────── */}
         <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"
           style={{ width: 300, background: '#161b22', borderColor: '#30363d',
@@ -1551,9 +1591,21 @@ export default function EditorPage() {
               </div>
             </div>
             <div className="space-y-0.5">
-              {([...(state.frames[state.currentFrameIdx]?.layers ?? [])]).reverse().map(layer => (
-                <div key={layer.id}
+              {reversedLayersWithIdx.map(({layer, originalIndex}) => (
+                <div 
+                  key={layer.id}
+                  role="button"
+                  draggable // 드래그 가능하도록 설정
+                  onDragStart={(e) => handleDragStart(e, originalIndex)}
+                  onDragOver={(e) => handleDragOver(e)}
+                  onDrop={(e) => handleDrop(e, originalIndex)}
                   onClick={() => selectLayer(state.currentFrameIdx, layer.id)}
+                  onKeyDown={(e) => {
+                    if(e.key === 'Enter' || e.key === ' '){
+                      e.preventDefault();
+                      selectLayer(state.currentFrameIdx, layer.id);
+                    }
+                  }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
                   style={{
                     background: activeLayer === layer.id ? 'rgba(47,129,247,0.1)' : 'transparent',
@@ -1575,12 +1627,12 @@ export default function EditorPage() {
                     </span>
                   </button>
                   {/* 레이어 썸네일 박스 */}
-                  <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard"
+                  <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none"
                     style={{
                       borderColor: activeLayer === layer.id ? '#2f81f7' : '#30363d',
                     }} />
                     
-                  <span className="text-sm truncate flex-1">{layer.name}</span>
+                  <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
                 </div>
               ))}
             </div>

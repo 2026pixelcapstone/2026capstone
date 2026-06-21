@@ -92,7 +92,8 @@ export interface CommissionResponse extends CommissionSummary {
   requestPostId: number | null
   applicationId: number | null
   paymentId: number | null
-  fileUrl: string | null
+  fileUrl: string | null      // 원본 납품물 — 의뢰자에겐 완료(COMPLETED) 전까지 null 마스킹
+  previewUrl: string | null   // 워터마크 미리보기 — 검토 단계에서 노출
   completedAt: string | null
   updatedAt: string
 }
@@ -258,7 +259,15 @@ export const commissionApi = {
   cancel: (commissionId: number) =>
     api.post<{ success: boolean }>(`/api/commissions/${commissionId}/cancel`),
 
-  // 파일 업로드
+  // 파일 업로드 (원본 납품물 — URL 방식, 프론트가 R2 업로드 후 URL 전달)
   uploadFile: (commissionId: number, data: { fileType: string; fileUrl: string; fileName: string; fileSize?: number }) =>
     api.post<{ success: boolean; data: CommissionResponse }>(`/api/commissions/${commissionId}/files`, data),
+
+  // 미리보기 이미지 업로드 (멀티파트 — 서버가 워터마크+축소 후 previewUrl 저장)
+  uploadPreview: (commissionId: number, image: File) => {
+    const formData = new FormData()
+    formData.append('image', image)
+    return api.post<{ success: boolean; data: CommissionResponse }>(
+      `/api/commissions/${commissionId}/preview`, formData)
+  },
 }
