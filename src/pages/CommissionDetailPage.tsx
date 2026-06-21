@@ -36,7 +36,9 @@ export default function CommissionDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [previewUploading, setPreviewUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const previewInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!id) return
@@ -56,7 +58,9 @@ export default function CommissionDetailPage() {
   // 작가: 작업물 전달 완료 → 검토 요청 (IN_PROGRESS → REVIEW)
   const handleRequestReview = async () => {
     if (!commission) return
-    if (!commission.fileUrl) { toast.error('납품 파일을 먼저 업로드해주세요.'); return }
+    if (!commission.fileUrl || !commission.previewUrl) {
+      toast.error('납품 파일과 미리보기 이미지를 모두 업로드해주세요.'); return
+    }
     setActionLoading(true)
     try {
       const res = await commissionApi.updateStatus(commission.commissionId, 'REVIEW')
@@ -108,6 +112,24 @@ export default function CommissionDetailPage() {
       toast.error(getErrorMessage(err, '파일 업로드에 실패했습니다.'))
     } finally {
       setUploading(false)
+    }
+  }
+
+  // 작가: 검토용 미리보기 이미지 업로드 (서버가 워터마크+축소 → previewUrl)
+  const handlePreviewUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !commission) return
+    if (!file.type.startsWith('image/')) { toast.error('미리보기는 이미지 파일만 가능합니다.'); return }
+    setPreviewUploading(true)
+    try {
+      const res = await commissionApi.uploadPreview(commission.commissionId, file)
+      setCommission(res.data.data)
+      toast.success('미리보기가 업로드되었습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '미리보기 업로드에 실패했습니다.'))
+    } finally {
+      setPreviewUploading(false)
     }
   }
 
@@ -314,34 +336,64 @@ export default function CommissionDetailPage() {
                 </span>
               </div>
 
-              {/* 납품 파일 (진행 중에는 안내 카드 유지, 작가만 업로드) */}
-              {(commission.fileUrl || commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW') && (
+              {/* 작업물 — 미리보기(워터마크)는 모두에게, 원본은 작가/완료 후에만 */}
+              {(commission.previewUrl || commission.fileUrl || canUploadFile) && (
                 <>
                   <div className="h-px" style={{ background: '#30363d' }} />
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#7d8590' }}>납품 파일</div>
-                    {commission.fileUrl ? (
-                      <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm font-bold hover:underline mb-2"
+                  <div className="space-y-3">
+                    <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>작업물</div>
+
+                    {/* 워터마크 미리보기 */}
+                    {commission.previewUrl && (
+                      <div>
+                        <img src={commission.previewUrl} alt="미리보기"
+                          className="w-full rounded-lg" style={{ border: '1px solid #30363d' }} />
+                        <p className="text-xs mt-1" style={{ color: '#7d8590' }}>
+                          워터마크 미리보기{!isArtist ? ' · 완료 확정 후 원본을 받을 수 있습니다' : ''}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 원본 다운로드 — 역할/상태로 잠금 강제(작가 또는 완료). 백엔드 마스킹 + UI 이중 방어 */}
+                    {commission.fileUrl && (isArtist || commission.status === 'COMPLETED') ? (
+                      <a href={commission.fileUrl} target="_blank" rel="noopener noreferrer" download
+                        className="flex items-center gap-2 text-sm font-bold hover:underline"
                         style={{ color: '#2f81f7' }}>
                         <span className="material-symbols-outlined text-base">download</span>
-                        파일 다운로드
+                        원본 다운로드
                       </a>
-                    ) : (
-                      <p className="text-xs mb-2" style={{ color: '#7d8590' }}>
-                        {canUploadFile ? '아직 업로드된 파일이 없습니다.' : '작가가 작업물을 전달하면 표시됩니다.'}
-                      </p>
-                    )}
+                    ) : !isArtist && commission.previewUrl ? (
+                      <div className="flex items-center gap-2 text-xs" style={{ color: '#7d8590' }}>
+                        <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
+                        완료 확정 전까지 원본은 잠겨 있습니다.
+                      </div>
+                    ) : !commission.previewUrl && !canUploadFile ? (
+                      <p className="text-xs" style={{ color: '#7d8590' }}>작가가 작업물을 전달하면 표시됩니다.</p>
+                    ) : null}
+
+                    {/* 작가: 원본 + 미리보기 업로드 (검토 요청엔 둘 다 필요) */}
                     {canUploadFile && (
-                      <>
+                      <div className="space-y-2 pt-1">
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
                           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
                           style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
                           <span className="material-symbols-outlined text-base">upload_file</span>
-                          {uploading ? '업로드 중...' : commission.fileUrl ? '파일 교체' : '납품 파일 업로드'}
+                          {uploading ? '업로드 중...' : commission.fileUrl ? '납품 파일(원본) 교체' : '납품 파일(원본) 업로드'}
                         </button>
-                      </>
+                        <input ref={previewInputRef} type="file" accept="image/*" className="hidden" onChange={handlePreviewUpload} />
+                        <button type="button" onClick={() => previewInputRef.current?.click()} disabled={previewUploading}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
+                          style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                          <span className="material-symbols-outlined text-base">image</span>
+                          {previewUploading ? '미리보기 생성 중...' : commission.previewUrl ? '미리보기 이미지 교체' : '미리보기 이미지 업로드 (필수)'}
+                        </button>
+                        {(!commission.fileUrl || !commission.previewUrl) && (
+                          <p className="text-xs" style={{ color: '#f0883e' }}>
+                            검토 요청하려면 납품 파일과 미리보기 이미지를 모두 올려야 합니다.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </>
