@@ -553,6 +553,7 @@ export default function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, loadPpitText])
 
+  
   const handleExportImage = useCallback(async() => {
     const stage = stageRef.current
     if (!stage) return

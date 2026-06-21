@@ -73,7 +73,7 @@ export const LayerImageRenderer = ({
 
         // 만약 옛날 그림 데이터(pixelData)가 없다면 빈 도화지로 깨끗하게 초기화
         if (!pixelData || !pixelData.trim()) {
-            ctx.clearRect(0, 0, canvasW, canvasH);
+            ctx.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
             imageRef.current?.getLayer()?.batchDraw();
             return;
         }
