@@ -66,7 +66,7 @@ export const LayerImageRenderer = ({
                   
             }
         }
-    },[cacheKey, canvasW, canvasH, layerCanvasRefs])
+    },[cacheKey, canvasW, canvasH, layerCanvasRefs, isScaleImage])
  
 
     // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.

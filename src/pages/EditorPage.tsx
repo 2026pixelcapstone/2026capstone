@@ -28,10 +28,13 @@ type MenuItem =
 export default function EditorPage() {
   
   const stageRef = useRef<Konva.Stage>(null)
-  const menuRef   = useRef<HTMLDivElement>(null)
+  const menuRef   = useRef<HTMLDivElement>(null) 
+  const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
+  
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
-
+ 
+  // ── 도구 관련 상태 ──────────────────────────
   const [activeTool, setActiveTool]   = useState('pencil')
   const [fgColor, setFgColor]         = useState('#2f81f7')
   const [hexInput, setHexInput]       = useState('#2f81f7')
@@ -40,13 +43,15 @@ export default function EditorPage() {
   const [pixelPerfect, setPixelPerfect] = useState(true)
   const [isHexModal, setIsHexModal] = useState(false)
 
+
+  // ── View 상태 ──────────────────────────
   const {canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
+  const [isScaleImage, setIsScaleImage] = useState(false)
 
+  // ── 히스토리 훅 ──────────────────────────
   const initialCanvasData = createInitialCanvasData();
   const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
-  
-  const [isScaleImage, setIsScaleImage] = useState(false)
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
@@ -99,7 +104,7 @@ export default function EditorPage() {
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
   const isDrawing = useRef(false)
-  const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
+
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
   const {handleSave, setProjectId, saving} = useEditor({
@@ -1544,7 +1549,13 @@ export default function EditorPage() {
                   const [w, h] = p.split('×').map(Number)
                   const active = canvasW === w && canvasH === h
                   return (
-                    <button key={p} onClick={() => applyCanvasSize(w, h)}
+                    <button 
+                      key={p} 
+                      onClick={() =>{
+                        setCustomW(w);
+                        setCustomH(h);
+                        
+                      }}
                       className="py-1 text-xs rounded-lg font-bold transition-all border"
                       style={{
                         background: active ? 'rgba(47,129,247,0.15)' : '#1c2128',
