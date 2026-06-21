@@ -92,10 +92,15 @@ export interface CommissionResponse extends CommissionSummary {
   requestPostId: number | null
   applicationId: number | null
   paymentId: number | null
-  fileUrl: string | null      // 원본 납품물 — 의뢰자에겐 완료(COMPLETED) 전까지 null 마스킹
-  previewUrl: string | null   // 워터마크 미리보기 — 검토 단계에서 노출
+  fileUrl: string | null              // 원본 납품물 — 의뢰자에겐 완료(COMPLETED) 전까지 null 마스킹
+  previewImages: PreviewImage[]       // 워터마크 미리보기(다중) — 검토 단계에서 노출(아니면 빈 배열)
   completedAt: string | null
   updatedAt: string
+}
+
+export interface PreviewImage {
+  previewImageId: number
+  imageUrl: string
 }
 
 // ─── 작가 서비스 (commission_services) ────────────────────────────────────────
@@ -263,11 +268,16 @@ export const commissionApi = {
   uploadFile: (commissionId: number, data: { fileType: string; fileUrl: string; fileName: string; fileSize?: number }) =>
     api.post<{ success: boolean; data: CommissionResponse }>(`/api/commissions/${commissionId}/files`, data),
 
-  // 미리보기 이미지 업로드 (멀티파트 — 서버가 워터마크+축소 후 previewUrl 저장)
-  uploadPreview: (commissionId: number, image: File) => {
+  // 미리보기 이미지 업로드 (여러 장, 멀티파트 — 서버가 각각 워터마크+축소 후 행 추가)
+  uploadPreviews: (commissionId: number, images: File[]) => {
     const formData = new FormData()
-    formData.append('image', image)
+    images.forEach(img => formData.append('images', img))
     return api.post<{ success: boolean; data: CommissionResponse }>(
-      `/api/commissions/${commissionId}/preview`, formData)
+      `/api/commissions/${commissionId}/previews`, formData)
   },
+
+  // 미리보기 이미지 1장 삭제 (작가)
+  deletePreview: (commissionId: number, previewImageId: number) =>
+    api.delete<{ success: boolean; data: CommissionResponse }>(
+      `/api/commissions/${commissionId}/previews/${previewImageId}`),
 }
