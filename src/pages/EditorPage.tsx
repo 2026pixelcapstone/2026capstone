@@ -28,10 +28,13 @@ type MenuItem =
 export default function EditorPage() {
   
   const stageRef = useRef<Konva.Stage>(null)
-  const menuRef   = useRef<HTMLDivElement>(null)
+  const menuRef   = useRef<HTMLDivElement>(null) 
+  const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
+  
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
-
+ 
+  // ── 도구 관련 상태 ──────────────────────────
   const [activeTool, setActiveTool]   = useState('pencil')
   const [fgColor, setFgColor]         = useState('#2f81f7')
   const [hexInput, setHexInput]       = useState('#2f81f7')
@@ -40,12 +43,15 @@ export default function EditorPage() {
   const [pixelPerfect, setPixelPerfect] = useState(true)
   const [isHexModal, setIsHexModal] = useState(false)
 
+
+  // ── View 상태 ──────────────────────────
   const {canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx} = useCanvasView(32, 32)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
+  const [isScaleImage, setIsScaleImage] = useState(false)
 
+  // ── 히스토리 훅 ──────────────────────────
   const initialCanvasData = createInitialCanvasData();
   const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
-  
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
@@ -98,7 +104,7 @@ export default function EditorPage() {
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
   const isDrawing = useRef(false)
-  const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
+
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
   const {handleSave, setProjectId, saving} = useEditor({
@@ -1246,6 +1252,7 @@ export default function EditorPage() {
                       canvasH={canvasH}
                       currentFrameIdx={state.currentFrameIdx}
                       layerCanvasRefs={layerCanvasRefs}
+                      isScaleImage = {isScaleImage}
                     />
                   </KonvaLayer>
               ))}
@@ -1535,12 +1542,20 @@ export default function EditorPage() {
           <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
             <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#7d8590' }}>Canvas Size</div>
             <div className="px-1 space-y-2">
+
+              {/* 1. 프리셋 버튼 grid */}
               <div className="grid grid-cols-3 gap-1">
                 {CANVAS_PRESETS.map(p => {
                   const [w, h] = p.split('×').map(Number)
                   const active = canvasW === w && canvasH === h
                   return (
-                    <button key={p} onClick={() => applyCanvasSize(w, h)}
+                    <button 
+                      key={p} 
+                      onClick={() =>{
+                        setCustomW(w);
+                        setCustomH(h);
+                        
+                      }}
                       className="py-1 text-xs rounded-lg font-bold transition-all border"
                       style={{
                         background: active ? 'rgba(47,129,247,0.15)' : '#1c2128',
@@ -1550,6 +1565,8 @@ export default function EditorPage() {
                   )
                 })}
               </div>
+
+              {/* 2. 커스텀 크기 설정 및 Apply 버튼 */}
               <div className="flex items-center gap-1.5 pt-1">
                 <input type="number" value={customW} min={1} max={512}
                   onChange={e => setCustomW(Number(e.target.value))}
@@ -1563,6 +1580,31 @@ export default function EditorPage() {
                 <button onClick={() => applyCanvasSize(customW, customH)}
                   className="flex-1 py-1 rounded text-xs font-bold transition-all hover:opacity-90"
                   style={{ background: '#2f81f7', color: '#fff' }}>Apply</button>
+              </div>
+              
+              {/*3. 이미지 비율 보정 체크 박스*/}
+              <div className="flex items-center gap-2 pt-1 pb-0.5 select-none cursor-pointer"
+                onClick={() => setIsScaleImage(prev => !prev)} // 글씨를 클릭해도 토글되게 유저 경험 개선
+              >
+                <input
+                  type="checkbox"
+                  id="scale-image-toggle"
+                  checked={isScaleImage}
+                  onChange={(e) => setIsScaleImage(e.target.checked)}
+                  className="rounded cursor-pointer accent-[#2f81f7] bg-[#1c2128]" 
+                  style={{ 
+                    width: '13px', 
+                    height: '13px',
+                    border: '1px solid #30363d'
+                  }}
+                />
+                <label
+                  htmlFor="scale-image-toggle"
+                  className="text-[11px] font-semibold cursor-pointer" // 전체 UI 비율에 맞춰 폰트 크기를 약간 슬림하게 조절
+                  style={{ color: '#7d8590' }}
+                >
+                  크기 변경 시 기존 이미지 비율 보정
+                </label>
               </div>
             </div>
           </div>

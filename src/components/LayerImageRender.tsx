@@ -9,6 +9,7 @@ interface LayerRendererProps {
     canvasH: number;
     currentFrameIdx: number;
     layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>;
+    isScaleImage: boolean;
 }
 
 export const LayerImageRenderer = ({
@@ -17,7 +18,8 @@ export const LayerImageRenderer = ({
   canvasW,
   canvasH,
   currentFrameIdx,
-  layerCanvasRefs
+  layerCanvasRefs,
+  isScaleImage
 }: LayerRendererProps) => {
     const imageRef = useRef<any>(null);
     const cacheKey = getCacheKey(currentFrameIdx, layerId);
@@ -52,12 +54,19 @@ export const LayerImageRenderer = ({
                 const ctx = existingCanvas.getContext('2d');
                 if (ctx){ 
                     ctx.imageSmoothingEnabled = false;
-                    // 백업해 둔 그림을 '늘리지 않고 원래 크기(tempCanvas.width/height) 그대로' 복원합니다
-                    ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+                    if(isScaleImage){
+                        // 옵션 A (그림도 함께 보정 확대): 새 도화지 크기(canvasW, canvasH)에 맞춘다.
+                        ctx.drawImage(tempCanvas, 0, 0, canvasW, canvasH)
+                    }
+                    else{
+                        // 옵션 B (그림 크기 고정): 백업 도화지의 원래 크기(tempCanvas.width/height)를 유지한다.
+                        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+                    }
                 }
+                  
             }
         }
-    },[cacheKey, canvasW, canvasH, layerCanvasRefs])
+    },[cacheKey, canvasW, canvasH, layerCanvasRefs, isScaleImage])
  
 
     // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.
