@@ -220,6 +220,10 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   // ── .ppit 파일 처리 (DEDICATED) ──
   const processFile = useCallback((file: File) => {
     setParseError(null); setPpitInfo(null)
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setParseError(`${MAX_UPLOAD_MB}MB를 초과하는 파일은 업로드할 수 없습니다.`)
+      return
+    }
     if (!/\.(ppit|json)$/i.test(file.name)) {
       setParseError('.ppit 파일만 업로드할 수 있습니다.')
       return
