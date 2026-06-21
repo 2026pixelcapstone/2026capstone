@@ -1093,7 +1093,7 @@ export default function EditorPage() {
           ))}
         </div>
 
-        {/* 우: 파일명 + 저장 + 공유 */}
+        {/* 우: 파일명 + 저장 */}
         <div className="ml-auto flex items-center gap-2 pr-3">
           <div className="flex items-center gap-1.5">
             <span className="material-symbols-outlined text-sm" style={{ color: '#7d8590' }}>description</span>
@@ -1125,10 +1125,6 @@ export default function EditorPage() {
             style={{ color: saving ? '#2f81f7' : '#7d8590' }}>
             <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
             {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-bold transition-all hover:opacity-90 active:scale-95"
-            style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 2px 8px rgba(47,129,247,0.3)' }}>
-            <span className="material-symbols-outlined text-base">share</span>Share
           </button>
         </div>
       </header>
