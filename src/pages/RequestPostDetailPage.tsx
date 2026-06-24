@@ -90,12 +90,19 @@ export default function RequestPostDetailPage() {
 
   const handleApply = async () => {
     if (!post) return
+    const price = Number(applyPrice)
+    if (!applyPrice || !Number.isFinite(price) || price < 1) {
+      toast.error('제안 금액을 입력해 주세요.'); return
+    }
+    if (post.budgetMin != null && price < post.budgetMin) {
+      toast.error(`제안 금액은 최소 예산(₩${post.budgetMin.toLocaleString()}) 이상이어야 합니다.`); return
+    }
     setApplying(true)
     try {
       await applicationApi.apply({
         requestPostId: post.requestPostId,
         message: applyMessage || undefined,
-        proposedPrice: applyPrice ? Number(applyPrice) : undefined,
+        proposedPrice: price,
       })
       setApplied(true)
       setShowApplyModal(false)
@@ -443,21 +450,26 @@ export default function RequestPostDetailPage() {
 
           <div>
             <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>
-              제안 금액 <span className="font-normal">(선택)</span>
+              제안 금액 <span style={{ color: '#f85149' }}>*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold"
                 style={{ color: '#7d8590' }}>₩</span>
               <input
                 type="number"
-                placeholder="0"
-                min="1"
+                placeholder={post.budgetMin != null ? String(post.budgetMin) : '0'}
+                min={post.budgetMin ?? 1}
                 value={applyPrice}
                 onChange={e => setApplyPrice(e.target.value)}
                 className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
               />
             </div>
+            {post.budgetMin != null && (
+              <p className="text-xs mt-1" style={{ color: '#7d8590' }}>
+                최소 예산 ₩{post.budgetMin.toLocaleString()} 이상으로 제안할 수 있습니다.
+              </p>
+            )}
           </div>
 
           <div>

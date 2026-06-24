@@ -6,6 +6,7 @@ import CommissionChat from '../components/CommissionChat'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { validateFilesSize } from '../lib/fileValidation'
 
 const STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: '작업 중',
@@ -64,7 +65,7 @@ export default function CommissionDetailPage() {
   // 작가: 작업물 전달 완료 → 검토 요청 (IN_PROGRESS → REVIEW)
   const handleRequestReview = async () => {
     if (!commission) return
-    if (!commission.fileUrl || commission.previewImages.length === 0) {
+    if (commission.deliveryFiles.length === 0 || commission.previewImages.length === 0) {
       toast.error('납품 파일과 미리보기 이미지를 모두 업로드해주세요.'); return
     }
     setActionLoading(true)
@@ -95,27 +96,38 @@ export default function CommissionDetailPage() {
     }
   }
 
-  // 작가: 납품 파일 업로드 (R2 → 커미션 파일 등록)
+  // 작가: 납품 파일 업로드 (R2 → 커미션 파일 등록). 여러 개 선택 시 순차 업로드(누적)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!file || !commission) return
+    if (files.length === 0 || !commission) return
+    if (!validateFilesSize(files)) return
     setUploading(true)
-    let uploadedUrl: string | null = null
     try {
-      uploadedUrl = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
-      const res = await commissionApi.uploadFile(commission.commissionId, {
-        fileType: 'FINAL',
-        fileUrl: uploadedUrl,
-        fileName: file.name,
-        fileSize: file.size,
-      })
-      setCommission(res.data.data)
-      toast.success('납품 파일이 업로드되었습니다.')
-    } catch (err) {
-      // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
-      if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
-      toast.error(getErrorMessage(err, '파일 업로드에 실패했습니다.'))
+      let updated = commission
+      let succeeded = 0
+      for (const file of files) {
+        let uploadedUrl: string | null = null
+        try {
+          uploadedUrl = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
+          const res = await commissionApi.uploadFile(commission.commissionId, {
+            fileType: 'FINAL',
+            fileUrl: uploadedUrl,
+            fileName: file.name,
+            fileSize: file.size,
+          })
+          updated = res.data.data
+          succeeded++
+        } catch (err) {
+          // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
+          if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
+          toast.error(getErrorMessage(err, `${file.name} 업로드에 실패했습니다.`))
+        }
+      }
+      if (succeeded > 0) {
+        setCommission(updated)
+        toast.success(`납품 파일 ${succeeded}개가 업로드되었습니다.`)
+      }
     } finally {
       setUploading(false)
     }
@@ -129,6 +141,7 @@ export default function CommissionDetailPage() {
     if (files.some(f => !f.type.startsWith('image/'))) {
       toast.error('미리보기는 이미지 파일만 가능합니다.'); return
     }
+    if (!validateFilesSize(files)) return
     setPreviewUploading(true)
     try {
       const res = await commissionApi.uploadPreviews(commission.commissionId, files)
@@ -188,9 +201,8 @@ export default function CommissionDetailPage() {
   }, [lightboxOpen])
 
   // 원본 다운로드 — cross-origin(R2)이라 <a download>는 무시됨 → blob으로 받아 강제 저장, 실패 시 새 탭 폴백
-  const handleDownloadOriginal = async () => {
-    if (!commission?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
-    const fileUrl = commission.fileUrl
+  const handleDownloadOriginal = async (fileUrl: string, fileName?: string) => {
+    if (!commission || downloading) return   // 진행 중 더블클릭 방지
     // 클릭 직후(사용자 활성화 유효) 빈 탭을 선점 — fetch 실패 시 팝업 차단 없이 이 탭으로 폴백.
     // noopener를 주면 핸들이 null이 되므로 빼고, 대신 opener를 수동으로 끊어 보안 유지.
     const fallbackTab = window.open('', '_blank')
@@ -202,8 +214,8 @@ export default function CommissionDetailPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      // URL 경로 끝에서 원래 파일명/확장자 추출, 실패 시 폴백
-      const name = decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '')
+      // 파일명: 응답값 우선, 없으면 URL 경로 끝에서 추출, 그래도 없으면 폴백
+      const name = fileName || decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '')
       a.download = name || `commission_${commission.commissionId}`
       document.body.appendChild(a)
       a.click()
@@ -219,6 +231,21 @@ export default function CommissionDetailPage() {
       }
     } finally {
       setDownloading(false)
+    }
+  }
+
+  // 작가: 납품 파일 1개 삭제
+  const handleDeleteFile = async (fileId: number) => {
+    if (!commission) return
+    setUploading(true)
+    try {
+      const res = await commissionApi.deleteFile(commission.commissionId, fileId)
+      setCommission(res.data.data)
+      toast.success('납품 파일을 삭제했습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '납품 파일 삭제에 실패했습니다.'))
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -263,6 +290,7 @@ export default function CommissionDetailPage() {
   const isClient = me?.userId === commission.clientId
   const isArtist = me?.userId === commission.artistId
   const canUploadFile = isArtist && (commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW')
+  const deliveryFiles = commission.deliveryFiles ?? []
   const previews = commission.previewImages ?? []
   const currentIndex = previews.length ? Math.min(activePreview, previews.length - 1) : 0
   const current = previews.length ? previews[currentIndex] : null
@@ -431,7 +459,7 @@ export default function CommissionDetailPage() {
               </div>
 
               {/* 작업물 — 미리보기(워터마크)는 모두에게, 원본은 작가/완료 후에만 */}
-              {(previews.length > 0 || commission.fileUrl || canUploadFile) && (
+              {(previews.length > 0 || deliveryFiles.length > 0 || canUploadFile) && (
                 <>
                   <div className="h-px" style={{ background: '#30363d' }} />
                   <div className="space-y-3">
@@ -482,14 +510,27 @@ export default function CommissionDetailPage() {
                       </div>
                     )}
 
-                    {/* 원본 다운로드 — 역할/상태로 잠금 강제(작가 또는 완료). 백엔드 마스킹 + UI 이중 방어 */}
-                    {commission.fileUrl && (isArtist || commission.status === 'COMPLETED') ? (
-                      <button type="button" onClick={handleDownloadOriginal} disabled={downloading}
-                        className="flex items-center gap-2 text-sm font-bold hover:underline disabled:opacity-50"
-                        style={{ color: '#2f81f7' }}>
-                        <span className="material-symbols-outlined text-base">download</span>
-                        {downloading ? '다운로드 중...' : '원본 다운로드'}
-                      </button>
+                    {/* 원본 납품 파일(다중) — 역할/상태로 잠금 강제(작가 또는 완료). 백엔드 마스킹 + UI 이중 방어 */}
+                    {deliveryFiles.length > 0 && (isArtist || commission.status === 'COMPLETED') ? (
+                      <div className="space-y-1.5">
+                        {deliveryFiles.map(f => (
+                          <div key={f.fileId} className="flex items-center gap-2">
+                            <button type="button" onClick={() => handleDownloadOriginal(f.fileUrl, f.fileName)} disabled={downloading}
+                              className="flex items-center gap-1.5 text-sm font-bold hover:underline disabled:opacity-50 min-w-0"
+                              style={{ color: '#2f81f7' }}>
+                              <span className="material-symbols-outlined text-base">download</span>
+                              <span className="truncate">{f.fileName || '원본 다운로드'}</span>
+                            </button>
+                            {canUploadFile && (
+                              <button type="button" onClick={() => handleDeleteFile(f.fileId)} disabled={uploading}
+                                aria-label={`${f.fileName} 삭제`}
+                                className="shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-[#21262d] disabled:opacity-50" style={{ color: '#f85149' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     ) : !isArtist && previews.length > 0 ? (
                       <div className="flex items-center gap-2 text-xs" style={{ color: '#7d8590' }}>
                         <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
@@ -502,12 +543,12 @@ export default function CommissionDetailPage() {
                     {/* 작가: 원본 + 미리보기 업로드 (검토 요청엔 둘 다 필요) */}
                     {canUploadFile && (
                       <div className="space-y-2 pt-1">
-                        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
                           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
                           style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
                           <span className="material-symbols-outlined text-base">upload_file</span>
-                          {uploading ? '업로드 중...' : commission.fileUrl ? '납품 파일(원본) 교체' : '납품 파일(원본) 업로드'}
+                          {uploading ? '업로드 중...' : deliveryFiles.length > 0 ? '납품 파일(원본) 추가' : '납품 파일(원본) 업로드'}
                         </button>
                         <input ref={previewInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePreviewUpload} />
                         <button type="button" onClick={() => previewInputRef.current?.click()} disabled={previewUploading}
@@ -533,7 +574,7 @@ export default function CommissionDetailPage() {
                           </div>
                         )}
 
-                        {(!commission.fileUrl || previews.length === 0) && (
+                        {(deliveryFiles.length === 0 || previews.length === 0) && (
                           <p className="text-xs" style={{ color: '#f0883e' }}>
                             검토 요청하려면 납품 파일과 미리보기 이미지를 모두 올려야 합니다.
                           </p>

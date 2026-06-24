@@ -92,10 +92,16 @@ export interface CommissionResponse extends CommissionSummary {
   requestPostId: number | null
   applicationId: number | null
   paymentId: number | null
-  fileUrl: string | null              // 원본 납품물 — 의뢰자에겐 완료(COMPLETED) 전까지 null 마스킹
+  deliveryFiles: DeliveryFile[]       // 원본 납품물(다중) — 의뢰자에겐 완료(COMPLETED) 전까지 빈 배열
   previewImages: PreviewImage[]       // 워터마크 미리보기(다중) — 검토 단계에서 노출(아니면 빈 배열)
   completedAt: string | null
   updatedAt: string
+}
+
+export interface DeliveryFile {
+  fileId: number
+  fileUrl: string
+  fileName: string
 }
 
 export interface PreviewImage {
@@ -264,9 +270,14 @@ export const commissionApi = {
   cancel: (commissionId: number) =>
     api.post<{ success: boolean }>(`/api/commissions/${commissionId}/cancel`),
 
-  // 파일 업로드 (원본 납품물 — URL 방식, 프론트가 R2 업로드 후 URL 전달)
+  // 파일 업로드 (원본 납품물 — URL 방식, 프론트가 R2 업로드 후 URL 전달). 여러 번 호출 시 누적
   uploadFile: (commissionId: number, data: { fileType: string; fileUrl: string; fileName: string; fileSize?: number }) =>
     api.post<{ success: boolean; data: CommissionResponse }>(`/api/commissions/${commissionId}/files`, data),
+
+  // 납품 파일 1개 삭제 (작가)
+  deleteFile: (commissionId: number, fileId: number) =>
+    api.delete<{ success: boolean; data: CommissionResponse }>(
+      `/api/commissions/${commissionId}/files/${fileId}`),
 
   // 미리보기 이미지 업로드 (여러 장, 멀티파트 — 서버가 각각 워터마크+축소 후 행 추가)
   uploadPreviews: (commissionId: number, images: File[]) => {
