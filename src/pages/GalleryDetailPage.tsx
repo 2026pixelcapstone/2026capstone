@@ -24,6 +24,11 @@ export default function GalleryDetailPage() {
   const [zoom, setZoom] = useState(4)
   const [downloading, setDownloading] = useState(false)
   const [activeImageIdx, setActiveImageIdx] = useState(0)   // 자유 갤러리 다중 이미지 캐러셀
+  const [lightboxOpen, setLightboxOpen] = useState(false)   // 사진 클릭 확대(라이트박스)
+  const [lightboxZoom, setLightboxZoom] = useState(1)
+  const lightboxRef = useRef<HTMLDivElement>(null)
+  const lightboxCloseRef = useRef<HTMLButtonElement>(null)
+  const lastFocusedRef = useRef<HTMLElement | null>(null)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInternalDraw, setIsInternalDraw] = useState(false);
@@ -96,6 +101,32 @@ export default function GalleryDetailPage() {
 
   // 게시글 이동 시 다중 이미지 인덱스 초기화
   useEffect(() => { setActiveImageIdx(0) }, [postId])
+
+  // 라이트박스: 열 때 줌 1배 리셋 + ESC 닫기 + 배경 스크롤 잠금 + 포커스 트랩/복원
+  useEffect(() => {
+    if (!lightboxOpen) return
+    setLightboxZoom(1)
+    lastFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setLightboxOpen(false); return }
+      if (e.key !== 'Tab' || !lightboxRef.current) return
+      const f = lightboxRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      if (f.length === 0) return
+      const first = f[0], last = f[f.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    queueMicrotask(() => lightboxCloseRef.current?.focus())
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+      lastFocusedRef.current?.focus()
+    }
+  }, [lightboxOpen])
 
   const handleLike = async () => {
     if (!isLoggedIn || !post) return
@@ -260,9 +291,12 @@ export default function GalleryDetailPage() {
                   <span className="material-symbols-outlined">chevron_left</span>
                 </button>
               )}
-              <img src={activeImage ?? undefined} alt={post.title}
-                className="max-w-full rounded-lg shadow-[0_0_80px_rgba(47,129,247,0.25)]"
-                style={{ maxHeight: 600, objectFit: 'contain' }} />
+              <button type="button" onClick={() => setLightboxOpen(true)}
+                className="cursor-zoom-in" aria-label="사진 크게 보기">
+                <img src={activeImage ?? undefined} alt={post.title}
+                  className="max-w-full rounded-lg shadow-[0_0_80px_rgba(47,129,247,0.25)]"
+                  style={{ maxHeight: 600, objectFit: 'contain' }} />
+              </button>
               {multiImage && (
                 <button
                   onClick={() => setActiveImageIdx(i => (i + 1) % galleryImages.length)}
@@ -627,6 +661,49 @@ export default function GalleryDetailPage() {
           {/* 다중 이미지는 상단 뷰어의 캐러셀(화살표+썸네일 스트립)에서 확인 */}
         </div>
       </div>
+
+      {/* 사진 라이트박스 (자유 갤러리) — 클릭 확대 + 줌(+/−) */}
+      {lightboxOpen && isPhotoGallery && activeImage && (
+        <div ref={lightboxRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxOpen(false)} role="dialog" aria-modal="true" aria-label="사진 확대">
+          <button ref={lightboxCloseRef} type="button" onClick={() => setLightboxOpen(false)} aria-label="닫기"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+          {multiImage && (
+            <>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setActiveImageIdx(i => (i - 1 + galleryImages.length) % galleryImages.length) }}
+                aria-label="이전 사진"
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+                <span className="material-symbols-outlined text-2xl">chevron_left</span>
+              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setActiveImageIdx(i => (i + 1) % galleryImages.length) }}
+                aria-label="다음 사진"
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+                <span className="material-symbols-outlined text-2xl">chevron_right</span>
+              </button>
+            </>
+          )}
+          {/* 줌 스크롤 가능한 이미지 영역 */}
+          <div className="max-w-[92vw] max-h-[88vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <img src={activeImage} alt={post.title}
+              style={{ transform: `scale(${lightboxZoom})`, transformOrigin: 'center', transition: 'transform 0.1s' }}
+              className="max-w-[92vw] max-h-[88vh] object-contain select-none" draggable={false} />
+          </div>
+          {/* 줌 컨트롤 + 카운터 */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1.5 rounded-xl bg-black/60 text-white"
+            onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setLightboxZoom(z => Math.max(1, +(z - 0.5).toFixed(1)))} aria-label="축소">
+              <span className="material-symbols-outlined text-base">remove</span>
+            </button>
+            <span className="text-xs px-2 tabular-nums">{Math.round(lightboxZoom * 100)}%</span>
+            <button type="button" onClick={() => setLightboxZoom(z => Math.min(5, +(z + 0.5).toFixed(1)))} aria-label="확대">
+              <span className="material-symbols-outlined text-base">add</span>
+            </button>
+            {multiImage && <span className="text-xs pl-2 border-l ml-1" style={{ borderColor: 'rgba(255,255,255,0.3)' }}>{safeImageIdx + 1} / {galleryImages.length}</span>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
