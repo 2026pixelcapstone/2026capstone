@@ -7,6 +7,7 @@ import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import Dropdown from '../components/GalleryDetailDropdown';
+import GalleryCreateModal from '../components/GalleryCreateModal'
 
 export default function GalleryDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,6 +25,7 @@ export default function GalleryDetailPage() {
   const [zoom, setZoom] = useState(4)
   const [downloading, setDownloading] = useState(false)
   const [activeImageIdx, setActiveImageIdx] = useState(0)   // 자유 갤러리 다중 이미지 캐러셀
+  const [showEditModal, setShowEditModal] = useState(false) // 작성자 수정 모달
   const [lightboxOpen, setLightboxOpen] = useState(false)   // 사진 클릭 확대(라이트박스)
   const [lightboxZoom, setLightboxZoom] = useState(1)
   const lightboxRef = useRef<HTMLDivElement>(null)
@@ -406,15 +408,24 @@ export default function GalleryDetailPage() {
             <button className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined">flag</span>
             </button>
-            {/* 작성자 본인만 삭제 버튼 표시 */}
+            {/* 작성자 본인만 수정/삭제 버튼 표시 */}
             {isLoggedIn && user?.userId === post.authorId && (
-              <button
-                onClick={handleDeletePost}
-                className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
-                title="게시글 삭제"
-                style={{ color: '#f85149' }}>
-                <span className="material-symbols-outlined">delete</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
+                  title="게시글 수정"
+                  style={{ color: '#7d8590' }}>
+                  <span className="material-symbols-outlined">edit</span>
+                </button>
+                <button
+                  onClick={handleDeletePost}
+                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
+                  title="게시글 삭제"
+                  style={{ color: '#f85149' }}>
+                  <span className="material-symbols-outlined">delete</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -661,6 +672,17 @@ export default function GalleryDetailPage() {
           {/* 다중 이미지는 상단 뷰어의 캐러셀(화살표+썸네일 스트립)에서 확인 */}
         </div>
       </div>
+
+      {/* 작성자 수정 모달 */}
+      {showEditModal && (
+        <GalleryCreateModal
+          type={post.galleryType}
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          editPost={post}
+          onUpdated={(updated) => setPost(updated)}
+        />
+      )}
 
       {/* 사진 라이트박스 (자유 갤러리) — 클릭 확대 + 줌(+/−) */}
       {lightboxOpen && isPhotoGallery && activeImage && (

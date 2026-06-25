@@ -6,6 +6,8 @@ import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 
+const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
+
 function formatPrice(service: ArtistServiceResponse) {
   if (service.serviceType === 'OPTION' && service.basePrice != null)
     return `₩${service.basePrice.toLocaleString()}`
@@ -46,6 +48,18 @@ export default function ArtistServiceDetailPage() {
   const [portfolioLoading, setPortfolioLoading] = useState(false)
 
   // 의뢰하기 모달
+  // 수정 모달 (작성자)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [eTitle, setETitle] = useState('')
+  const [eDesc, setEDesc] = useState('')
+  const [eType, setEType] = useState<'OPTION' | 'QUOTE'>('OPTION')
+  const [eBasePrice, setEBasePrice] = useState('')
+  const [ePriceMin, setEPriceMin] = useState('')
+  const [ePriceMax, setEPriceMax] = useState('')
+  const [eDays, setEDays] = useState('')
+  const [eCategory, setECategory] = useState('캐릭터')
+  const [editing, setEditing] = useState(false)
+
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [orderPrice, setOrderPrice] = useState('')
   const [orderDeadline, setOrderDeadline] = useState('')
@@ -100,6 +114,57 @@ export default function ArtistServiceDetailPage() {
       toast.error(getErrorMessage(err, '마감 처리에 실패했습니다.'))
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const openEdit = () => {
+    if (!service) return
+    setETitle(service.title)
+    setEDesc(service.description ?? '')
+    setEType(service.serviceType)
+    setEBasePrice(service.basePrice != null ? String(service.basePrice) : '')
+    setEPriceMin(service.priceMin != null ? String(service.priceMin) : '')
+    setEPriceMax(service.priceMax != null ? String(service.priceMax) : '')
+    setEDays(service.estimatedDays != null ? String(service.estimatedDays) : '')
+    setECategory(service.category || '캐릭터')
+    setShowEditModal(true)
+  }
+
+  const handleUpdate = async () => {
+    if (!service) return
+    if (!eTitle.trim()) { toast.error('제목을 입력해 주세요.'); return }
+    const basePrice = eBasePrice ? Number(eBasePrice) : undefined
+    const pMin = ePriceMin ? Number(ePriceMin) : undefined
+    const pMax = ePriceMax ? Number(ePriceMax) : undefined
+    const days = eDays ? Number(eDays) : undefined
+    const invalid = (n: number | undefined) => n != null && (!Number.isFinite(n) || n < 0)
+    if (eType === 'OPTION' && (basePrice == null || invalid(basePrice))) {
+      toast.error('기본 가격은 0 이상의 숫자여야 합니다.'); return
+    }
+    if (invalid(pMin) || invalid(pMax)) { toast.error('가격은 0 이상의 숫자여야 합니다.'); return }
+    if (invalid(days)) { toast.error('예상 작업일은 0 이상의 숫자여야 합니다.'); return }
+    if (eType === 'QUOTE' && pMin != null && pMax != null && pMin > pMax) {
+      toast.error('최소 가격은 최대 가격보다 클 수 없습니다.'); return
+    }
+    setEditing(true)
+    try {
+      const res = await artistServiceApi.update(service.serviceId, {
+        title: eTitle.trim(),
+        description: eDesc.trim() || undefined,
+        serviceType: eType,
+        basePrice: eType === 'OPTION' ? basePrice : undefined,
+        priceMin: eType === 'QUOTE' ? pMin : undefined,
+        priceMax: eType === 'QUOTE' ? pMax : undefined,
+        estimatedDays: days,
+        category: eCategory,
+      })
+      setService(res.data.data)
+      setShowEditModal(false)
+      toast.success('서비스가 수정되었습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '수정에 실패했습니다.'))
+    } finally {
+      setEditing(false)
     }
   }
 
@@ -353,6 +418,14 @@ export default function ArtistServiceDetailPage() {
                       {actionLoading ? '처리 중...' : '서비스 마감하기'}
                     </button>
                   )}
+                  {isOpen && (
+                    <button onClick={openEdit} disabled={actionLoading}
+                      className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[#1c2128] disabled:opacity-50"
+                      style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                      <span className="material-symbols-outlined text-base">edit</span>
+                      서비스 수정
+                    </button>
+                  )}
                   <button onClick={handleDelete} disabled={actionLoading}
                     className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[#1c2128] disabled:opacity-50"
                     style={{ border: '1px solid #30363d', color: '#f85149' }}>
@@ -468,6 +541,94 @@ export default function ArtistServiceDetailPage() {
               style={{ background: '#2f81f7', color: '#fff' }}>
               {ordering ? '접수 중...' : '의뢰 접수'}
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 수정 모달 (작성자) */}
+    {showEditModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+        onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true" aria-labelledby="service-edit-title">
+        <div className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+          style={{ background: '#161b22', border: '1px solid #30363d' }} onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 id="service-edit-title" className="text-lg font-bold" style={{ color: '#e6edf3' }}>서비스 수정</h2>
+            <button type="button" onClick={() => setShowEditModal(false)} aria-label="닫기"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>제목 *</label>
+              <input type="text" value={eTitle} onChange={e => setETitle(e.target.value)} maxLength={100}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>설명</label>
+              <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} rows={4}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>가격 방식</label>
+                <select value={eType} onChange={e => setEType(e.target.value as 'OPTION' | 'QUOTE')}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}>
+                  <option value="OPTION">가격 고정형</option>
+                  <option value="QUOTE">가격 협의형</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>카테고리</label>
+                <select value={eCategory} onChange={e => setECategory(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}>
+                  {SERVICE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            {eType === 'OPTION' ? (
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>기본 가격 (원) *</label>
+                <input type="number" value={eBasePrice} onChange={e => setEBasePrice(e.target.value)} min={0}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최소 가격 (원)</label>
+                  <input type="number" value={ePriceMin} onChange={e => setEPriceMin(e.target.value)} min={0}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최대 가격 (원)</label>
+                  <input type="number" value={ePriceMax} onChange={e => setEPriceMax(e.target.value)} min={0}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>예상 작업일 (일)</label>
+              <input type="number" value={eDays} onChange={e => setEDays(e.target.value)} min={0}
+                placeholder="비우면 기간 협의"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowEditModal(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
+                style={{ border: '1px solid #30363d', color: '#7d8590' }}>취소</button>
+              <button type="button" onClick={handleUpdate} disabled={editing}
+                className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
+                style={{ background: '#2f81f7', color: '#fff' }}>{editing ? '저장 중...' : '저장'}</button>
+            </div>
           </div>
         </div>
       </div>
