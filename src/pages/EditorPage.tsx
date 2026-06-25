@@ -4,6 +4,7 @@ import { LayerData } from '../constants/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
+import EditorOpenProjectModal from '../components/EditorOpenProjectModal'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -100,6 +101,7 @@ export default function EditorPage() {
 
   // ── 프로젝트 저장 관련 상태 ──────────────────────────
   const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
+  const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
 
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
@@ -107,7 +109,7 @@ export default function EditorPage() {
 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
-  const {handleSave, setProjectId, saving} = useEditor({
+  const {handleSave, projectId, setProjectId, saving} = useEditor({
     stageRef,
     layerCanvasRefs,
     canvasW,
@@ -369,75 +371,88 @@ export default function EditorPage() {
     if (!id || !isLoggedIn) return
     const numId = Number(id)
     if (isNaN(numId)) return
+    // 이미 메모리에 로드된 프로젝트면 재로드 안 함 — 저장 시 setSearchParams로 URL이 바뀌어도
+    // (레이어 저장 전에) 재로드가 현재 캔버스를 비우던 백지 버그 방지
+    if (numId === projectId) return
 
-    editorApi.getProject(numId).then(res => {
-      const proj = res.data.data
-      setProjectId(proj.projectId)
-      setProjectTitle(proj.title)
-      
-      // 크기 상태를 먼저 세팅 (초기화 useEffect가 먼저 돌 수 있도록 유도)
-      setCanvasW(proj.width)
-      setCanvasH(proj.height)
-      setCustomW(proj.width)
-      setCustomH(proj.height)
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await editorApi.getProject(numId)
+        if (cancelled) return
+        const proj = res.data.data
 
-      if(proj.layers && proj.layers.length > 0){
-        const rawLayers = proj.layers;
-        const restoredFrames: any[] = [];
-        let currentFrameLayers: LayerData[] = [];
-        let frameCounter = 0;
-
-        rawLayers.forEach((serverLayer: any) => {
-          // layerOrder가 0을 만났고, 이미 모아둔 레이어가 주머니에 있다면 ➔ 이전 프레임 완성 처리 후 쪼개기
-          if(serverLayer.layerOrder === 0 && currentFrameLayers.length > 0){
-             restoredFrames.push({
-              id: `frame-${crypto.randomUUID().slice(0, 8)}`,
-              name: `Frame ${frameCounter + 1}`,
-              layers: currentFrameLayers
+        // 레이어 그림은 저장 시 webp(fileUrl)로 올라가고 pixelData는 빈값 → fileUrl을 dataURL로 복원해야 렌더됨.
+        // pixelData가 이미 있으면 그대로, 없고 fileUrl이 있으면 fetch→dataURL. R2 CORS 필요, dataURL이라 저장 시 캔버스 오염 없음.
+        // 🔴 fileUrl이 있는데 복원 실패면 throw → 부분 로드 차단(빈 레이어로 저장 성공 처리 시 원본 파일을 덮어쓸 위험 방지).
+        const restoredFrames: any[] = []
+        if (proj.layers && proj.layers.length > 0) {
+          const rawLayers = proj.layers
+          const restoredPixelData: string[] = await Promise.all(
+            rawLayers.map(async (sl: any, idx: number): Promise<string> => {
+              if (sl.pixelData && String(sl.pixelData).trim()) return sl.pixelData
+              if (!sl.fileUrl) return ''
+              const r = await fetch(sl.fileUrl)
+              if (!r.ok) throw new Error(`레이어 이미지 복원 실패: ${sl.layerId ?? idx}`)
+              const blob = await r.blob()
+              return await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onloadend = () => typeof reader.result === 'string'
+                  ? resolve(reader.result)
+                  : reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? idx}`))
+                reader.onerror = () => reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? idx}`))
+                reader.readAsDataURL(blob)
+              })
             })
-            currentFrameLayers = []; // 다음 프레임을 위해 주머니 비우기
-            frameCounter++;
-          }
-          // 프론트엔드 표준 규격으로 매핑
-          currentFrameLayers.push({
-            id: String(serverLayer.layerId),
-            name: serverLayer.name,
-            layerOrder: serverLayer.layerOrder,
-            blendMode: serverLayer.blendMode || 'NORMAL',
-            isLocked: serverLayer.isLocked || false,
-            isVisible: serverLayer.isVisible !== false, // 기본값 true 보장
-            opacity: serverLayer.opacity ?? 100,
-            color: '#818cf8',
-            pixelData: serverLayer.pixelData || '', // JSON.parse 없이 순수 Base64 문자열 그대로 매핑!
-          });
-        });
+          )
 
-        if (currentFrameLayers.length > 0) {
-          restoredFrames.push({
-            id: `frame-${crypto.randomUUID().slice(0, 8)}`,
-            name: `Frame ${frameCounter + 1}`,
-            layers: currentFrameLayers
-          });
+          let currentFrameLayers: LayerData[] = []
+          let frameCounter = 0
+          rawLayers.forEach((serverLayer: any, idx: number) => {
+            // layerOrder가 0을 만났고 이미 모아둔 레이어가 있으면 → 이전 프레임 완성 후 쪼개기
+            if (serverLayer.layerOrder === 0 && currentFrameLayers.length > 0) {
+              restoredFrames.push({ id: `frame-${crypto.randomUUID().slice(0, 8)}`, name: `Frame ${frameCounter + 1}`, layers: currentFrameLayers })
+              currentFrameLayers = []
+              frameCounter++
+            }
+            currentFrameLayers.push({
+              id: String(serverLayer.layerId),
+              name: serverLayer.name,
+              layerOrder: serverLayer.layerOrder,
+              blendMode: serverLayer.blendMode || 'NORMAL',
+              isLocked: serverLayer.isLocked || false,
+              isVisible: serverLayer.isVisible !== false,
+              opacity: serverLayer.opacity ?? 100,
+              color: '#818cf8',
+              pixelData: restoredPixelData[idx] || '',
+            })
+          })
+          if (currentFrameLayers.length > 0) {
+            restoredFrames.push({ id: `frame-${crypto.randomUUID().slice(0, 8)}`, name: `Frame ${frameCounter + 1}`, layers: currentFrameLayers })
+          }
         }
 
-        // 히스토리 상태 업데이트
+        // 모든 레이어 복원이 끝난 뒤에만 상태 커밋 (부분 로드/덮어쓰기 방지). 중간에 다른 프로젝트로 바뀌면 취소.
+        if (cancelled) return
+        setProjectId(proj.projectId)
+        setProjectTitle(proj.title)
+        setCanvasW(proj.width)
+        setCanvasH(proj.height)
+        setCustomW(proj.width)
+        setCustomH(proj.height)
         if (restoredFrames.length > 0) {
-          setWithHistory((prev) => ({
-            ...prev,
-            frames: restoredFrames,
-            currentFrameIdx: 0
-          }));
-          
-          // 현재 첫 화면에 활성화될 레이어 지정 (0번 프레임의 첫 레이어)
-          const firstLayerId = restoredFrames[0]?.layers[0]?.id;
-          if (firstLayerId) {
-            setActiveLayer(firstLayerId);
-          }
+          setWithHistory((prev) => ({ ...prev, frames: restoredFrames, currentFrameIdx: 0 }))
+          const firstLayerId = restoredFrames[0]?.layers[0]?.id
+          if (firstLayerId) setActiveLayer(firstLayerId)
         }
+        setUnsaved(false)
+      } catch {
+        if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
       }
-      setUnsaved(false)
-    }).catch(() => toast.error('프로젝트를 불러오지 못했습니다.'))
-  }, [searchParams, isLoggedIn, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
+    })()
+
+    return () => { cancelled = true }
+  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -528,6 +543,17 @@ export default function EditorPage() {
       toast.error(e instanceof Error ? e.message : '.ppit을 불러오지 못했습니다.')
     }
   }, [loadPpitText, unsaved])
+
+  // 저장된 프로젝트 열기 (모달에서 선택) → URL projectId로 로드 effect 트리거
+  const handleOpenProject = useCallback((pid: number) => {
+    if (pid !== projectId &&
+        unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) {
+      return
+    }
+    setOpenProjectModalOpen(false)
+    setSearchParams({ projectId: String(pid) }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, unsaved, setSearchParams])
 
   // ── 갤러리에서 진입(편집/리믹스): ?import=<.ppit URL> 자동 로드 ──
   useEffect(() => {
@@ -936,6 +962,7 @@ export default function EditorPage() {
       id: 'file', label: 'File',
       items: [
         { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
+        { label: 'Open Project…',     icon: 'folder',        action: () => { setOpenProjectModalOpen(true); setOpenMenu(null) } },
         { label: 'Open .ppit…',       icon: 'folder_open',   action: () => { ppitInputRef.current?.click(); setOpenMenu(null) } },
         { separator: true },
         { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { openSaveModal(); setOpenMenu(null) } },
@@ -1023,6 +1050,12 @@ export default function EditorPage() {
         initialTitle={projectTitle}
       />
 
+      <EditorOpenProjectModal
+        isOpen={openProjectModalOpen}
+        onClose={() => setOpenProjectModalOpen(false)}
+        onSelect={handleOpenProject}
+      />
+
       {/* .ppit 불러오기 (Open .ppit…) */}
       <input
         ref={ppitInputRef}
@@ -1093,7 +1126,7 @@ export default function EditorPage() {
           ))}
         </div>
 
-        {/* 우: 파일명 + 저장 + 공유 */}
+        {/* 우: 파일명 + 저장 */}
         <div className="ml-auto flex items-center gap-2 pr-3">
           <div className="flex items-center gap-1.5">
             <span className="material-symbols-outlined text-sm" style={{ color: '#7d8590' }}>description</span>
@@ -1125,10 +1158,6 @@ export default function EditorPage() {
             style={{ color: saving ? '#2f81f7' : '#7d8590' }}>
             <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
             {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-bold transition-all hover:opacity-90 active:scale-95"
-            style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 2px 8px rgba(47,129,247,0.3)' }}>
-            <span className="material-symbols-outlined text-base">share</span>Share
           </button>
         </div>
       </header>

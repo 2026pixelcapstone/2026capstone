@@ -6,6 +6,7 @@ import CommissionChat from '../components/CommissionChat'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { validateFilesSize } from '../lib/fileValidation'
 
 const STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: '작업 중',
@@ -38,8 +39,13 @@ export default function CommissionDetailPage() {
   const [uploading, setUploading] = useState(false)
   const [previewUploading, setPreviewUploading] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [activePreview, setActivePreview] = useState(0)   // 캐러셀 현재 인덱스
+  const [lightboxOpen, setLightboxOpen] = useState(false) // 미리보기 확대
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewInputRef = useRef<HTMLInputElement>(null)
+  const lightboxRef = useRef<HTMLDivElement>(null)
+  const lightboxCloseRef = useRef<HTMLButtonElement>(null)
+  const lastFocusedRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -59,7 +65,7 @@ export default function CommissionDetailPage() {
   // 작가: 작업물 전달 완료 → 검토 요청 (IN_PROGRESS → REVIEW)
   const handleRequestReview = async () => {
     if (!commission) return
-    if (!commission.fileUrl || !commission.previewUrl) {
+    if (commission.deliveryFiles.length === 0 || commission.previewImages.length === 0) {
       toast.error('납품 파일과 미리보기 이미지를 모두 업로드해주세요.'); return
     }
     setActionLoading(true)
@@ -90,43 +96,57 @@ export default function CommissionDetailPage() {
     }
   }
 
-  // 작가: 납품 파일 업로드 (R2 → 커미션 파일 등록)
+  // 작가: 납품 파일 업로드 (R2 → 커미션 파일 등록). 여러 개 선택 시 순차 업로드(누적)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!file || !commission) return
+    if (files.length === 0 || !commission) return
+    if (!validateFilesSize(files)) return
     setUploading(true)
-    let uploadedUrl: string | null = null
     try {
-      uploadedUrl = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
-      const res = await commissionApi.uploadFile(commission.commissionId, {
-        fileType: 'FINAL',
-        fileUrl: uploadedUrl,
-        fileName: file.name,
-        fileSize: file.size,
-      })
-      setCommission(res.data.data)
-      toast.success('납품 파일이 업로드되었습니다.')
-    } catch (err) {
-      // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
-      if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
-      toast.error(getErrorMessage(err, '파일 업로드에 실패했습니다.'))
+      let updated = commission
+      let succeeded = 0
+      for (const file of files) {
+        let uploadedUrl: string | null = null
+        try {
+          uploadedUrl = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
+          const res = await commissionApi.uploadFile(commission.commissionId, {
+            fileType: 'FINAL',
+            fileUrl: uploadedUrl,
+            fileName: file.name,
+            fileSize: file.size,
+          })
+          updated = res.data.data
+          succeeded++
+        } catch (err) {
+          // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
+          if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
+          toast.error(getErrorMessage(err, `${file.name} 업로드에 실패했습니다.`))
+        }
+      }
+      if (succeeded > 0) {
+        setCommission(updated)
+        toast.success(`납품 파일 ${succeeded}개가 업로드되었습니다.`)
+      }
     } finally {
       setUploading(false)
     }
   }
 
-  // 작가: 검토용 미리보기 이미지 업로드 (서버가 워터마크+축소 → previewUrl)
+  // 작가: 검토용 미리보기 이미지 업로드 (여러 장, 서버가 각각 워터마크+축소 → 행 추가)
   const handlePreviewUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!file || !commission) return
-    if (!file.type.startsWith('image/')) { toast.error('미리보기는 이미지 파일만 가능합니다.'); return }
+    if (files.length === 0 || !commission) return
+    if (files.some(f => !f.type.startsWith('image/'))) {
+      toast.error('미리보기는 이미지 파일만 가능합니다.'); return
+    }
+    if (!validateFilesSize(files)) return
     setPreviewUploading(true)
     try {
-      const res = await commissionApi.uploadPreview(commission.commissionId, file)
+      const res = await commissionApi.uploadPreviews(commission.commissionId, files)
       setCommission(res.data.data)
-      toast.success('미리보기가 업로드되었습니다.')
+      toast.success(`미리보기 ${files.length}장이 업로드되었습니다.`)
     } catch (err) {
       toast.error(getErrorMessage(err, '미리보기 업로드에 실패했습니다.'))
     } finally {
@@ -134,10 +154,55 @@ export default function CommissionDetailPage() {
     }
   }
 
+  // 작가: 미리보기 1장 삭제
+  const handleDeletePreview = async (previewImageId: number) => {
+    if (!commission) return
+    setPreviewUploading(true)
+    try {
+      const res = await commissionApi.deletePreview(commission.commissionId, previewImageId)
+      setCommission(res.data.data)
+      setActivePreview(0)
+      toast.success('미리보기를 삭제했습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '미리보기 삭제에 실패했습니다.'))
+    } finally {
+      setPreviewUploading(false)
+    }
+  }
+
+  // 라이트박스: ESC 닫기 + 배경 스크롤 잠금 + 포커스 트랩/복원(접근성)
+  useEffect(() => {
+    if (!lightboxOpen) return
+    // 트리거 요소 기억(닫을 때 복원)
+    lastFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setLightboxOpen(false); return }
+      if (e.key !== 'Tab' || !lightboxRef.current) return
+      // Tab 포커스를 모달 내부로 가둠
+      const focusable = lightboxRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    queueMicrotask(() => lightboxCloseRef.current?.focus())   // 열리면 모달로 포커스 이동
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+      lastFocusedRef.current?.focus()   // 닫히면 트리거로 복원
+    }
+  }, [lightboxOpen])
+
   // 원본 다운로드 — cross-origin(R2)이라 <a download>는 무시됨 → blob으로 받아 강제 저장, 실패 시 새 탭 폴백
-  const handleDownloadOriginal = async () => {
-    if (!commission?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
-    const fileUrl = commission.fileUrl
+  const handleDownloadOriginal = async (fileUrl: string, fileName?: string) => {
+    if (!commission || downloading) return   // 진행 중 더블클릭 방지
     // 클릭 직후(사용자 활성화 유효) 빈 탭을 선점 — fetch 실패 시 팝업 차단 없이 이 탭으로 폴백.
     // noopener를 주면 핸들이 null이 되므로 빼고, 대신 opener를 수동으로 끊어 보안 유지.
     const fallbackTab = window.open('', '_blank')
@@ -149,8 +214,8 @@ export default function CommissionDetailPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      // URL 경로 끝에서 원래 파일명/확장자 추출, 실패 시 폴백
-      const name = decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '')
+      // 파일명: 응답값 우선, 없으면 URL 경로 끝에서 추출, 그래도 없으면 폴백
+      const name = fileName || decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '')
       a.download = name || `commission_${commission.commissionId}`
       document.body.appendChild(a)
       a.click()
@@ -166,6 +231,21 @@ export default function CommissionDetailPage() {
       }
     } finally {
       setDownloading(false)
+    }
+  }
+
+  // 작가: 납품 파일 1개 삭제
+  const handleDeleteFile = async (fileId: number) => {
+    if (!commission) return
+    setUploading(true)
+    try {
+      const res = await commissionApi.deleteFile(commission.commissionId, fileId)
+      setCommission(res.data.data)
+      toast.success('납품 파일을 삭제했습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '납품 파일 삭제에 실패했습니다.'))
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -210,6 +290,12 @@ export default function CommissionDetailPage() {
   const isClient = me?.userId === commission.clientId
   const isArtist = me?.userId === commission.artistId
   const canUploadFile = isArtist && (commission.status === 'IN_PROGRESS' || commission.status === 'REVIEW')
+  const deliveryFiles = commission.deliveryFiles ?? []
+  const previews = commission.previewImages ?? []
+  const currentIndex = previews.length ? Math.min(activePreview, previews.length - 1) : 0
+  const current = previews.length ? previews[currentIndex] : null
+  const movePreview = (delta: number) =>
+    setActivePreview(i => (i + delta + previews.length) % previews.length)
   const canRequestReview = isArtist && commission.status === 'IN_PROGRESS'
   const canConfirmComplete = isClient && commission.status === 'REVIEW'
   const canCancel = (isClient || isArtist) && commission.status === 'IN_PROGRESS'
@@ -373,58 +459,122 @@ export default function CommissionDetailPage() {
               </div>
 
               {/* 작업물 — 미리보기(워터마크)는 모두에게, 원본은 작가/완료 후에만 */}
-              {(commission.previewUrl || commission.fileUrl || canUploadFile) && (
+              {(previews.length > 0 || deliveryFiles.length > 0 || canUploadFile) && (
                 <>
                   <div className="h-px" style={{ background: '#30363d' }} />
                   <div className="space-y-3">
                     <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>작업물</div>
 
-                    {/* 워터마크 미리보기 */}
-                    {commission.previewUrl && (
+                    {/* 워터마크 미리보기 — 다중 캐러셀 + 클릭 확대(라이트박스) */}
+                    {current && (
                       <div>
-                        <img src={commission.previewUrl} alt="미리보기"
-                          className="w-full rounded-lg" style={{ border: '1px solid #30363d' }} />
+                        <div className="relative">
+                          <button type="button" onClick={() => setLightboxOpen(true)}
+                            className="block w-full cursor-zoom-in" aria-label="미리보기 크게 보기">
+                            <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
+                              className="w-full rounded-lg" style={{ border: '1px solid #30363d' }} />
+                          </button>
+                          {previews.length > 1 && (
+                            <>
+                              <button type="button" onClick={() => movePreview(-1)} aria-label="이전 미리보기"
+                                className="absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+                                <span className="material-symbols-outlined text-lg">chevron_left</span>
+                              </button>
+                              <button type="button" onClick={() => movePreview(1)} aria-label="다음 미리보기"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+                                <span className="material-symbols-outlined text-lg">chevron_right</span>
+                              </button>
+                              <div className="absolute bottom-1 right-2 px-2 py-0.5 rounded-full text-xs bg-black/60 text-white">
+                                {currentIndex + 1} / {previews.length}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* 썸네일 스트립 (2장 이상) */}
+                        {previews.length > 1 && (
+                          <div className="flex gap-1.5 mt-2 overflow-x-auto">
+                            {previews.map((p, i) => (
+                              <button key={p.previewImageId} type="button" onClick={() => setActivePreview(i)}
+                                className="shrink-0 w-12 h-12 rounded overflow-hidden"
+                                style={{ border: i === currentIndex ? '2px solid #2f81f7' : '1px solid #30363d' }}>
+                                <img src={p.imageUrl} alt={`미리보기 ${i + 1} 썸네일`} className="w-full h-full object-cover" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
                         <p className="text-xs mt-1" style={{ color: '#7d8590' }}>
                           워터마크 미리보기{!isArtist ? ' · 완료 확정 후 원본을 받을 수 있습니다' : ''}
                         </p>
                       </div>
                     )}
 
-                    {/* 원본 다운로드 — 역할/상태로 잠금 강제(작가 또는 완료). 백엔드 마스킹 + UI 이중 방어 */}
-                    {commission.fileUrl && (isArtist || commission.status === 'COMPLETED') ? (
-                      <button type="button" onClick={handleDownloadOriginal} disabled={downloading}
-                        className="flex items-center gap-2 text-sm font-bold hover:underline disabled:opacity-50"
-                        style={{ color: '#2f81f7' }}>
-                        <span className="material-symbols-outlined text-base">download</span>
-                        {downloading ? '다운로드 중...' : '원본 다운로드'}
-                      </button>
-                    ) : !isArtist && commission.previewUrl ? (
+                    {/* 원본 납품 파일(다중) — 역할/상태로 잠금 강제(작가 또는 완료). 백엔드 마스킹 + UI 이중 방어 */}
+                    {deliveryFiles.length > 0 && (isArtist || commission.status === 'COMPLETED') ? (
+                      <div className="space-y-1.5">
+                        {deliveryFiles.map(f => (
+                          <div key={f.fileId} className="flex items-center gap-2">
+                            <button type="button" onClick={() => handleDownloadOriginal(f.fileUrl, f.fileName)} disabled={downloading}
+                              className="flex items-center gap-1.5 text-sm font-bold hover:underline disabled:opacity-50 min-w-0"
+                              style={{ color: '#2f81f7' }}>
+                              <span className="material-symbols-outlined text-base">download</span>
+                              <span className="truncate">{f.fileName || '원본 다운로드'}</span>
+                            </button>
+                            {canUploadFile && (
+                              <button type="button" onClick={() => handleDeleteFile(f.fileId)} disabled={uploading}
+                                aria-label={`${f.fileName} 삭제`}
+                                className="shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-[#21262d] disabled:opacity-50" style={{ color: '#f85149' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : !isArtist && previews.length > 0 ? (
                       <div className="flex items-center gap-2 text-xs" style={{ color: '#7d8590' }}>
                         <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
                         완료 확정 전까지 원본은 잠겨 있습니다.
                       </div>
-                    ) : !commission.previewUrl && !canUploadFile ? (
+                    ) : previews.length === 0 && !canUploadFile ? (
                       <p className="text-xs" style={{ color: '#7d8590' }}>작가가 작업물을 전달하면 표시됩니다.</p>
                     ) : null}
 
                     {/* 작가: 원본 + 미리보기 업로드 (검토 요청엔 둘 다 필요) */}
                     {canUploadFile && (
                       <div className="space-y-2 pt-1">
-                        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
                           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
                           style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
                           <span className="material-symbols-outlined text-base">upload_file</span>
-                          {uploading ? '업로드 중...' : commission.fileUrl ? '납품 파일(원본) 교체' : '납품 파일(원본) 업로드'}
+                          {uploading ? '업로드 중...' : deliveryFiles.length > 0 ? '납품 파일(원본) 추가' : '납품 파일(원본) 업로드'}
                         </button>
-                        <input ref={previewInputRef} type="file" accept="image/*" className="hidden" onChange={handlePreviewUpload} />
+                        <input ref={previewInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePreviewUpload} />
                         <button type="button" onClick={() => previewInputRef.current?.click()} disabled={previewUploading}
                           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
                           style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
                           <span className="material-symbols-outlined text-base">image</span>
-                          {previewUploading ? '미리보기 생성 중...' : commission.previewUrl ? '미리보기 이미지 교체' : '미리보기 이미지 업로드 (필수)'}
+                          {previewUploading ? '처리 중...' : previews.length > 0 ? '미리보기 이미지 추가' : '미리보기 이미지 업로드 (필수)'}
                         </button>
-                        {(!commission.fileUrl || !commission.previewUrl) && (
+
+                        {/* 작가 전용: 업로드된 미리보기 썸네일 + 개별 삭제 */}
+                        {previews.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {previews.map((p, i) => (
+                              <div key={p.previewImageId} className="relative w-14 h-14 rounded overflow-hidden" style={{ border: '1px solid #30363d' }}>
+                                <img src={p.imageUrl} alt={`미리보기 ${i + 1}`} className="w-full h-full object-cover" />
+                                <button type="button" onClick={() => handleDeletePreview(p.previewImageId)} disabled={previewUploading}
+                                  aria-label={`미리보기 ${i + 1} 삭제`}
+                                  className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white disabled:opacity-50">
+                                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {(deliveryFiles.length === 0 || previews.length === 0) && (
                           <p className="text-xs" style={{ color: '#f0883e' }}>
                             검토 요청하려면 납품 파일과 미리보기 이미지를 모두 올려야 합니다.
                           </p>
@@ -491,6 +641,37 @@ export default function CommissionDetailPage() {
 
         </div>
       </div>
+
+      {/* 미리보기 라이트박스 */}
+      {lightboxOpen && current && (
+        <div ref={lightboxRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxOpen(false)} role="dialog" aria-modal="true" aria-label="미리보기 확대">
+          <button ref={lightboxCloseRef} type="button" onClick={() => setLightboxOpen(false)} aria-label="닫기"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+          {previews.length > 1 && (
+            <>
+              <button type="button" onClick={(e) => { e.stopPropagation(); movePreview(-1) }} aria-label="이전 미리보기"
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+                <span className="material-symbols-outlined text-2xl">chevron_left</span>
+              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); movePreview(1) }} aria-label="다음 미리보기"
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 text-white">
+                <span className="material-symbols-outlined text-2xl">chevron_right</span>
+              </button>
+            </>
+          )}
+          <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
+          {previews.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm bg-black/60 text-white">
+              {currentIndex + 1} / {previews.length}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { assetApi, type AssetResponse, type AssetCommentResponse, type AssetRati
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { downloadFileForced } from '../lib/download'
 import StarRating from '../components/StarRating'
 
 const MIN_RATINGS = 4   // 이 개수 미만이면 "평가 부족" 표시(유니티 방식)
@@ -14,6 +15,7 @@ export default function AssetDetailPage() {
   const { isLoggedIn, user } = useAuthStore()
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   const [asset, setAsset] = useState<AssetResponse | null>(null)
   const [comments, setComments] = useState<AssetCommentResponse[]>([])
@@ -222,17 +224,24 @@ export default function AssetDetailPage() {
               </div>
 
               {canDownload ? (
-                <a href={asset.fileUrl ?? '#'} download target="_blank" rel="noopener noreferrer"
-                  onClick={e => {
-                    if (!asset.fileUrl) { e.preventDefault(); toast.error('다운로드 파일이 없습니다.'); return }
+                <button type="button" disabled={downloading}
+                  onClick={async () => {
+                    if (!asset.fileUrl) { toast.error('다운로드 파일이 없습니다.'); return }
+                    setDownloading(true)
                     // 다운로드 수 기록(사람당 1회만 카운트) — 실패해도 다운로드는 진행
                     assetApi.recordDownload(assetId).catch(() => {})
+                    try {
+                      // cross-origin(R2)이라 <a download>는 무시됨 → blob으로 강제 저장
+                      await downloadFileForced(asset.fileUrl)
+                    } finally {
+                      setDownloading(false)
+                    }
                   }}
-                  className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity"
-                  style={{ background: '#2f81f7', color: '#fff', display: 'flex' }}>
+                  className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{ background: '#2f81f7', color: '#fff' }}>
                   <span className="material-symbols-outlined text-base">download</span>
-                  다운로드
-                </a>
+                  {downloading ? '다운로드 중...' : '다운로드'}
+                </button>
               ) : isFreeAsset ? (
                 // 무료지만 비로그인 → 로그인 유도
                 <button
