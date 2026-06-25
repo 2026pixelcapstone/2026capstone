@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   galleryApi, type GalleryType, type Visibility, type TagResponse, type DedicatedVisibility,
+  type GalleryPostResponse,
 } from '../api/galleryApi'
 import { tagApi } from '../api/tagApi'
 import { fileApi } from '../api/fileApi'
@@ -46,11 +47,14 @@ interface Props {
   type: GalleryType
   isOpen: boolean
   onClose: () => void
+  editPost?: GalleryPostResponse        // 있으면 수정 모드 (없으면 등록)
+  onUpdated?: (post: GalleryPostResponse) => void
 }
 
-export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
+export default function GalleryCreateModal({ type, isOpen, onClose, editPost, onUpdated }: Props) {
   const navigate = useNavigate()
   const isFree = type === 'FREE'
+  const isEdit = !!editPost
 
   // ── 폼 상태 ──
   const [title, setTitle] = useState('')
@@ -76,6 +80,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const [draggingImg, setDraggingImg] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // 수정 모드: 유지할 기존 이미지 URL들(FREE). 최종 imageUrls = 유지 + 신규 업로드
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([])
+  // 수정 모드: 기존 .ppit(DEDICATED). 새 .ppit을 올리지 않으면 이걸 그대로 유지
+  const [existingPpit, setExistingPpit] = useState<
+    { fileUrl: string | null; thumbnailUrl: string | null; canvasWidth: number | null; canvasHeight: number | null } | null
+  >(null)
 
   // ── 전용 갤러리: .ppit 파일 ──
   const [ppitInfo, setPpitInfo] = useState<PpitInfo | null>(null)
@@ -89,19 +99,35 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const tagInputRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 모달 열릴 때 상태 초기화
+  // 모달 열릴 때 상태 초기화 (수정 모드면 기존값 prefill)
   useEffect(() => {
     if (!isOpen) return
-    setTitle(''); setDescription(''); setVisibility('PUBLIC')
-    setSelectedTags([]); setTagInput(''); setSubmitting(false)
+    setSubmitting(false)
     setTagSuggestions([]); setShowSuggest(false); setActiveSuggestIdx(-1)
-    // 이미지 ObjectURL revoke 후 초기화 (메모리 누수 방지)
+    // 신규 업로드 이미지 ObjectURL revoke 후 초기화 (메모리 누수 방지)
     setImages(prev => { prev.forEach(img => URL.revokeObjectURL(img.previewUrl)); return [] })
     setDraggingImg(false); setActiveIdx(0)
     setPpitInfo(null); setDraggingFile(false); setParseError(null)
-    setDedVis(DEFAULT_VISIBILITY)
+    if (editPost) {
+      setTitle(editPost.title)
+      setDescription(editPost.description ?? '')
+      setVisibility(editPost.visibility)
+      setSelectedTags(editPost.tags ?? [])
+      setTagInput('')
+      setExistingImageUrls(editPost.imageUrls ?? [])
+      setExistingPpit({
+        fileUrl: editPost.fileUrl, thumbnailUrl: editPost.thumbnailUrl,
+        canvasWidth: editPost.canvasWidth, canvasHeight: editPost.canvasHeight,
+      })
+      setDedVis({ ...DEFAULT_VISIBILITY, ...(editPost.dedicatedVisibility ?? {}) })
+    } else {
+      setTitle(''); setDescription(''); setVisibility('PUBLIC')
+      setSelectedTags([]); setTagInput('')
+      setExistingImageUrls([]); setExistingPpit(null)
+      setDedVis(DEFAULT_VISIBILITY)
+    }
     if (scrollRef.current) scrollRef.current.scrollTop = 0
-  }, [isOpen])
+  }, [isOpen, editPost])
 
   // ESC 닫기
   useEffect(() => {
@@ -276,17 +302,84 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   }
 
   // ── 제출 ──
+  // 수정 저장 (handleSubmit의 try 안에서 호출 — 보상삭제 uploaded 공유)
+  const handleUpdate = async (post: GalleryPostResponse, uploaded: string[]) => {
+    const common = {
+      title: title.trim(),
+      description: description.trim() || undefined,
+      visibility,
+      tags: selectedTags,
+    }
+    if (isFree) {
+      // 신규 업로드분만 올리고, 유지한 기존 URL과 합침
+      let newUrls: string[] = []
+      if (images.length > 0) {
+        toast.info(`이미지 ${images.length}장 업로드 중...`)
+        newUrls = await fileApi.uploadImages(images.map(i => i.file), 'gallery/images', setUploadProgress)
+        uploaded.push(...newUrls)
+      }
+      const imageUrls = [...existingImageUrls, ...newUrls]
+      const res = await galleryApi.updatePost(post.postId, { ...common, imageUrls, thumbnailUrl: imageUrls[0] })
+      toast.success('게시글이 수정되었습니다.')
+      onUpdated?.(res.data.data); onClose()
+      return
+    }
+    // 전용(.ppit): 새 .ppit을 올렸으면 교체 렌더·업로드, 아니면 기존 유지
+    if (ppitInfo) {
+      const { ppit, text, name, frameCanvases } = ppitInfo
+      const animated = frameCanvases.length > 1
+      toast.info('미리보기 생성 중...')
+      let thumbBlob: Blob, thumbExt: string
+      if (animated) {
+        const gif = await renderGifBlob(ppit, frameCanvases)
+        thumbBlob = gif ?? await renderThumbnailBlob(ppit); thumbExt = gif ? 'gif' : 'png'
+      } else { thumbBlob = await renderThumbnailBlob(ppit); thumbExt = 'png' }
+      const baseName = name.replace(/\.(ppit|json)$/i, '') || 'artwork'
+      toast.info('파일 업로드 중...')
+      const thumbnailUrl = await fileApi.uploadImage(new File([thumbBlob], `${baseName}.${thumbExt}`, { type: thumbBlob.type }), 'gallery/dedicated')
+      uploaded.push(thumbnailUrl)
+      const fileUrl = await fileApi.uploadImage(ppitTextToFile(text, baseName), 'gallery/dedicated')
+      uploaded.push(fileUrl)
+      const res = await galleryApi.updatePost(post.postId, {
+        ...common, thumbnailUrl, fileUrl,
+        canvasWidth: ppit.canvas.width, canvasHeight: ppit.canvas.height,
+        palette: ppit.palette, dedicatedVisibility: dedVis,
+      })
+      toast.success('게시글이 수정되었습니다.')
+      onUpdated?.(res.data.data); onClose()
+      return
+    }
+    // 기존 .ppit 유지 (메타/공개토글만 변경) — 전용 필드는 전부 다시 보내야 덮어쓰기 안전
+    const res = await galleryApi.updatePost(post.postId, {
+      ...common,
+      thumbnailUrl: existingPpit?.thumbnailUrl ?? undefined,
+      fileUrl: existingPpit?.fileUrl ?? undefined,
+      canvasWidth: existingPpit?.canvasWidth ?? undefined,
+      canvasHeight: existingPpit?.canvasHeight ?? undefined,
+      palette: post.palette ?? undefined,
+      dedicatedVisibility: dedVis,
+    })
+    toast.success('게시글이 수정되었습니다.')
+    onUpdated?.(res.data.data); onClose()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
     if (!title.trim()) { toast.error('제목을 입력해주세요.'); return }
-    if (isFree && images.length === 0) { toast.error('이미지를 1장 이상 업로드해주세요.'); return }
-    if (!isFree && !ppitInfo) { toast.error('.ppit 파일을 업로드해주세요.'); return }
+    const freeTotal = images.length + (isEdit ? existingImageUrls.length : 0)
+    if (isFree && freeTotal === 0) { toast.error('이미지를 1장 이상 업로드해주세요.'); return }
+    if (!isFree && !ppitInfo && !(isEdit && existingPpit?.fileUrl)) { toast.error('.ppit 파일을 업로드해주세요.'); return }
     setSubmitting(true)
     setUploadProgress(0)
     // 전용 업로드 실패 시 보상 삭제용
     const uploaded: string[] = []
     try {
+      // ── 수정 모드 ──
+      if (isEdit && editPost) {
+        await handleUpdate(editPost, uploaded)
+        return
+      }
       if (isFree) {
         // ── 자유 갤러리: 이미지 업로드 → 게시글 ──
         toast.info(`이미지 ${images.length}장 업로드 중...`)
@@ -384,7 +477,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: accentColor }}>
                 {isFree ? '자유 갤러리' : '전용 갤러리'}
               </span>
-              <h2 className="text-lg font-bold leading-tight">게시글 등록</h2>
+              <h2 className="text-lg font-bold leading-tight">{isEdit ? '게시글 수정' : '게시글 등록'}</h2>
             </div>
           </div>
           <button onClick={onClose}
@@ -638,6 +731,25 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                   )}
                 </div>
 
+                {/* 수정 모드: 기존 이미지(유지/제거) */}
+                {isEdit && existingImageUrls.length > 0 && (
+                  <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid #30363d' }}>
+                    <p className="text-xs mb-2" style={{ color: '#7d8590' }}>기존 이미지 (×로 제거, 아래에서 새 이미지 추가)</p>
+                    <div className="flex flex-wrap gap-2">
+                      {existingImageUrls.map((url, i) => (
+                        <div key={url + i} className="relative w-16 h-16 rounded-lg overflow-hidden" style={{ border: '1px solid #30363d' }}>
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <button type="button" aria-label="이미지 제거"
+                            onClick={() => setExistingImageUrls(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white">
+                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* 메인 미리보기 */}
                 <div className="flex-1 flex items-center justify-center relative overflow-hidden"
                   style={{ background: '#0d1117' }}
@@ -749,6 +861,22 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                   onDragLeave={() => setDraggingFile(false)}>
 
                   {!ppitInfo ? (
+                    isEdit && existingPpit?.thumbnailUrl ? (
+                      /* 수정 모드: 기존 .ppit 유지(교체하려면 새 파일 업로드) */
+                      <div className="w-full flex flex-col items-center gap-4">
+                        <img src={existingPpit.thumbnailUrl} alt="현재 작품"
+                          className="rounded-lg" style={{ maxHeight: 320, imageRendering: 'pixelated', border: '1px solid #30363d' }} />
+                        <p className="text-xs text-center" style={{ color: '#7d8590' }}>
+                          현재 .ppit 유지 중 · 교체하려면 새 파일을 올리세요
+                        </p>
+                        <button type="button" onClick={() => ppitInputRef.current?.click()}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128]"
+                          style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                          <span className="material-symbols-outlined text-base">upload_file</span>
+                          .ppit 교체
+                        </button>
+                      </div>
+                    ) : (
                     <div
                       onClick={() => ppitInputRef.current?.click()}
                       className="flex flex-col items-center gap-4 cursor-pointer select-none p-8 text-center rounded-2xl transition-all w-full"
@@ -768,6 +896,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                         <p className="text-xs mt-1" style={{ color: '#484f58' }}>PixelPilot 전용 포맷 (.ppit)</p>
                       </div>
                     </div>
+                    )
                   ) : (
                     <div className="w-full flex flex-col items-center gap-4">
                       {/* 파일 정보 */}
@@ -855,7 +984,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
             type="submit"
             form=""
             onClick={handleSubmit}
-            disabled={submitting || !title.trim() || (!isFree && !ppitInfo)}
+            disabled={submitting || !title.trim() || (!isFree && !ppitInfo && !(isEdit && existingPpit?.fileUrl))}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 transition-opacity hover:opacity-90"
             style={{ background: accentColor, color: '#fff' }}>
             {submitting
@@ -863,9 +992,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                   <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
                   {isFree && uploadProgress > 0 && uploadProgress < 100
                     ? `업로드 중 ${uploadProgress}%`
-                    : '등록 중...'}
+                    : (isEdit ? '저장 중...' : '등록 중...')}
                 </span>
-              : '게시글 등록'}
+              : (isEdit ? '수정 저장' : '게시글 등록')}
           </button>
         </div>
 

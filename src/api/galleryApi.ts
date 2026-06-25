@@ -93,6 +93,12 @@ export interface GalleryPostUpdateRequest {
   isEditable?: boolean
   imageUrls?: string[]
   tags?: string[]
+  // 전용 갤러리(.ppit) — DEDICATED 수정 시 파일 교체용
+  canvasWidth?: number
+  canvasHeight?: number
+  fileUrl?: string
+  palette?: PaletteData
+  dedicatedVisibility?: DedicatedVisibility
 }
 
 export interface PageResponse<T> {
