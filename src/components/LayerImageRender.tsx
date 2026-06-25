@@ -60,7 +60,11 @@ export const LayerImageRenderer = ({
                     }
                     else{
                         // 옵션 B (그림 크기 고정): 백업 도화지의 원래 크기(tempCanvas.width/height)를 유지한다.
-                        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+                        
+                        const offsetX = (canvasW - tempCanvas.width) / 2;
+                        const offsetY = (canvasH - tempCanvas.height) / 2;
+
+                        ctx.drawImage(tempCanvas, offsetX, offsetY, tempCanvas.width, tempCanvas.height);
                     }
                 }
                   
