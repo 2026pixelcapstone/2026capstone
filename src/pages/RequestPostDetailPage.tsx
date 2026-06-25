@@ -560,12 +560,12 @@ export default function RequestPostDetailPage() {
     {/* 수정 모달 (작성자) */}
     {showEditModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-        onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true">
+        onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true" aria-labelledby="request-edit-title">
         <div className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
           style={{ background: '#161b22', border: '1px solid #30363d' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold" style={{ color: '#e6edf3' }}>의뢰 수정</h2>
-            <button onClick={() => setShowEditModal(false)} aria-label="닫기"
+            <h2 id="request-edit-title" className="text-lg font-bold" style={{ color: '#e6edf3' }}>의뢰 수정</h2>
+            <button type="button" onClick={() => setShowEditModal(false)} aria-label="닫기"
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined text-base">close</span>
             </button>

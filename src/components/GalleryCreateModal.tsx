@@ -223,7 +223,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
       toast.error(`${oversized.length}개 이미지가 ${MAX_UPLOAD_MB}MB를 초과해 제외했습니다.`)
       arr = arr.filter(f => f.size <= MAX_UPLOAD_BYTES)
     }
-    const remaining = MAX_IMAGES - images.length
+    // 수정 모드: 유지 중인 기존 이미지 + 신규 합산으로 상한 계산
+    const remaining = MAX_IMAGES - images.length - (isEdit ? existingImageUrls.length : 0)
+    if (remaining <= 0) {
+      toast.error(`이미지는 최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다.`)
+      return
+    }
     const toAdd = arr.slice(0, remaining).map(file => ({
       id: `${Date.now()}-${Math.random()}`,
       file,
@@ -231,7 +236,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
     }))
     setImages(prev => [...prev, ...toAdd])
     if (arr.length > remaining) toast.error(`이미지는 최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다.`)
-  }, [images.length])
+  }, [images.length, isEdit, existingImageUrls.length])
 
   const removeImage = (id: string) => {
     setImages(prev => {
@@ -445,7 +450,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
     } catch (err) {
       // 게시글 생성 전 업로드된 R2 파일 보상 삭제 (베스트 에포트)
       if (uploaded.length > 0) fileApi.deleteFiles(uploaded).catch(() => {})
-      toast.error(getErrorMessage(err, '게시글 등록에 실패했습니다.'))
+      toast.error(getErrorMessage(err, isEdit ? '게시글 수정에 실패했습니다.' : '게시글 등록에 실패했습니다.'))
     } finally {
       setSubmitting(false)
       setUploadProgress(0)
@@ -717,7 +722,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
                 <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
                   style={{ borderBottom: '1px solid #30363d' }}>
                   <span className="text-sm font-bold" style={{ color: '#7d8590' }}>
-                    {images.length}/{MAX_IMAGES} 파일
+                    {images.length + (isEdit ? existingImageUrls.length : 0)}/{MAX_IMAGES} 파일
                   </span>
                   {images.length > 0 && (
                     <button

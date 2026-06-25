@@ -133,9 +133,16 @@ export default function ArtistServiceDetailPage() {
   const handleUpdate = async () => {
     if (!service) return
     if (!eTitle.trim()) { toast.error('제목을 입력해 주세요.'); return }
-    if (eType === 'OPTION' && !eBasePrice) { toast.error('가격 고정형은 기본 가격을 입력해 주세요.'); return }
+    const basePrice = eBasePrice ? Number(eBasePrice) : undefined
     const pMin = ePriceMin ? Number(ePriceMin) : undefined
     const pMax = ePriceMax ? Number(ePriceMax) : undefined
+    const days = eDays ? Number(eDays) : undefined
+    const invalid = (n: number | undefined) => n != null && (!Number.isFinite(n) || n < 0)
+    if (eType === 'OPTION' && (basePrice == null || invalid(basePrice))) {
+      toast.error('기본 가격은 0 이상의 숫자여야 합니다.'); return
+    }
+    if (invalid(pMin) || invalid(pMax)) { toast.error('가격은 0 이상의 숫자여야 합니다.'); return }
+    if (invalid(days)) { toast.error('예상 작업일은 0 이상의 숫자여야 합니다.'); return }
     if (eType === 'QUOTE' && pMin != null && pMax != null && pMin > pMax) {
       toast.error('최소 가격은 최대 가격보다 클 수 없습니다.'); return
     }
@@ -145,10 +152,10 @@ export default function ArtistServiceDetailPage() {
         title: eTitle.trim(),
         description: eDesc.trim() || undefined,
         serviceType: eType,
-        basePrice: eType === 'OPTION' ? (eBasePrice ? Number(eBasePrice) : undefined) : undefined,
+        basePrice: eType === 'OPTION' ? basePrice : undefined,
         priceMin: eType === 'QUOTE' ? pMin : undefined,
         priceMax: eType === 'QUOTE' ? pMax : undefined,
-        estimatedDays: eDays ? Number(eDays) : undefined,
+        estimatedDays: days,
         category: eCategory,
       })
       setService(res.data.data)
@@ -542,12 +549,12 @@ export default function ArtistServiceDetailPage() {
     {/* 수정 모달 (작성자) */}
     {showEditModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-        onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true">
+        onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true" aria-labelledby="service-edit-title">
         <div className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
           style={{ background: '#161b22', border: '1px solid #30363d' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold" style={{ color: '#e6edf3' }}>서비스 수정</h2>
-            <button onClick={() => setShowEditModal(false)} aria-label="닫기"
+            <h2 id="service-edit-title" className="text-lg font-bold" style={{ color: '#e6edf3' }}>서비스 수정</h2>
+            <button type="button" onClick={() => setShowEditModal(false)} aria-label="닫기"
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined text-base">close</span>
             </button>
