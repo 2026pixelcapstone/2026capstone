@@ -80,6 +80,7 @@ export interface CommissionSummary {
   clientNickname: string | null
   artistId: number
   artistNickname: string | null
+  title: string | null   // 거래 기록 스냅샷 — 무슨 작업이었는지(원글 삭제돼도 보존)
   agreedPrice: number
   agreedDeadline: string | null
   status: CommissionStatus
@@ -92,8 +93,12 @@ export interface CommissionResponse extends CommissionSummary {
   requestPostId: number | null
   applicationId: number | null
   paymentId: number | null
+  description: string | null          // 거래 기록 스냅샷 — 의뢰/서비스 내용
   deliveryFiles: DeliveryFile[]       // 원본 납품물(다중) — 의뢰자에겐 완료(COMPLETED) 전까지 빈 배열
   previewImages: PreviewImage[]       // 워터마크 미리보기(다중) — 검토 단계에서 노출(아니면 빈 배열)
+  // 타임라인 — 단계 전이 시각(수락=createdAt, 검토요청, 완료, 취소)
+  reviewRequestedAt: string | null
+  cancelledAt: string | null
   completedAt: string | null
   updatedAt: string
 }

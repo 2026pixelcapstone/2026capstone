@@ -71,9 +71,13 @@ export default function CommissionList({ commissions, loading, perspective }: Co
                     style={{ background: 'rgba(47,129,247,0.1)', color: '#2f81f7', border: '1px solid rgba(47,129,247,0.2)' }}>
                     {TYPE_LABEL[c.commissionType] ?? c.commissionType}
                   </span>
-                  <span className="text-xs font-bold truncate" style={{ color: '#e6edf3' }}>
+                  <span className="text-xs truncate" style={{ color: '#7d8590' }}>
                     {otherNickname ?? '—'}
                   </span>
+                </div>
+                {/* 거래 스냅샷 제목 — 무슨 작업이었는지. 옛 거래(스냅샷 이전)는 null */}
+                <div className="text-sm font-bold truncate" style={{ color: '#e6edf3' }}>
+                  {c.title ?? '(제목 없음)'}
                 </div>
                 <div className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
                   <span>₩{(c.agreedPrice ?? 0).toLocaleString()}</span>
