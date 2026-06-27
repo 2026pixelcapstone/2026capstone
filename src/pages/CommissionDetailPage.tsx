@@ -255,7 +255,9 @@ export default function CommissionDetailPage() {
     setActionLoading(true)
     try {
       await commissionApi.cancel(commission.commissionId)
-      setCommission(prev => prev ? { ...prev, status: 'CANCELLED' } : prev)
+      // status만 바꾸면 진행 기록 타임라인에 '취소' 단계가 안 떠서 cancelledAt도 함께 채움
+      // (클라 시각 — 새로고침 시 서버값으로 정확해짐)
+      setCommission(prev => prev ? { ...prev, status: 'CANCELLED', cancelledAt: new Date().toISOString() } : prev)
       toast.success('계약이 취소되었습니다.')
     } catch (err) {
       toast.error(getErrorMessage(err, '취소에 실패했습니다.'))
