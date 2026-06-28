@@ -255,7 +255,9 @@ export default function CommissionDetailPage() {
     setActionLoading(true)
     try {
       await commissionApi.cancel(commission.commissionId)
-      setCommission(prev => prev ? { ...prev, status: 'CANCELLED' } : prev)
+      // status만 바꾸면 진행 기록 타임라인에 '취소' 단계가 안 떠서 cancelledAt도 함께 채움
+      // (클라 시각 — 새로고침 시 서버값으로 정확해짐)
+      setCommission(prev => prev ? { ...prev, status: 'CANCELLED', cancelledAt: new Date().toISOString() } : prev)
       toast.success('계약이 취소되었습니다.')
     } catch (err) {
       toast.error(getErrorMessage(err, '취소에 실패했습니다.'))
@@ -370,7 +372,8 @@ export default function CommissionDetailPage() {
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl font-bold">계약 #{commission.commissionId}</h1>
+              {/* 거래 스냅샷 제목 — 무슨 작업이었는지. 옛 거래(스냅샷 이전)는 계약 번호로 폴백 */}
+              <h1 className="text-2xl font-bold">{commission.title ?? `계약 #${commission.commissionId}`}</h1>
             </div>
 
             {/* 의뢰자 / 작가 카드 */}
@@ -399,6 +402,16 @@ export default function CommissionDetailPage() {
                 </div>
               ))}
             </div>
+
+            {/* 의뢰 내용 — 거래 스냅샷(원글이 수정·삭제돼도 당시 내용 보존) */}
+            {commission.description && (
+              <div className="p-5 rounded-2xl border" style={{ background: '#161b22', borderColor: '#30363d' }}>
+                <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#7d8590' }}>의뢰 내용</div>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#e6edf3' }}>
+                  {commission.description}
+                </p>
+              </div>
+            )}
 
             {/* 채팅 (Phase 3-a: REST 기반. 실시간 푸시는 3-b WebSocket 예정) */}
             <CommissionChat
@@ -450,12 +463,27 @@ export default function CommissionDetailPage() {
                 </span>
               </div>
 
-              {/* 계약 시작일 */}
-              <div className="flex items-center justify-between text-sm">
-                <span style={{ color: '#7d8590' }}>계약일</span>
-                <span className="font-bold">
-                  {new Date(commission.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
-                </span>
+              <div className="h-px" style={{ background: '#30363d' }} />
+
+              {/* 진행 타임라인 — 단계 전이 시각(수락→검토요청→완료/취소). 발생한 단계만 표시 */}
+              <div className="space-y-2">
+                <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>진행 기록</div>
+                {([
+                  { label: '수락', at: commission.createdAt },
+                  { label: '검토 요청', at: commission.reviewRequestedAt },
+                  { label: '완료', at: commission.completedAt },
+                  { label: '취소', at: commission.cancelledAt },
+                ] as const).filter(s => s.at).map(s => (
+                  <div key={s.label} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2" style={{ color: '#7d8590' }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.label === '취소' ? '#f85149' : '#2f81f7' }} />
+                      {s.label}
+                    </span>
+                    <span className="font-bold text-xs">
+                      {new Date(s.at as string).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                ))}
               </div>
 
               {/* 작업물 — 미리보기(워터마크)는 모두에게, 원본은 작가/완료 후에만 */}
