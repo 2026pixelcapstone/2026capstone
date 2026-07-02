@@ -5,6 +5,7 @@ import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
 
@@ -66,6 +67,12 @@ export default function ArtistServiceDetailPage() {
   const [ordering, setOrdering] = useState(false)
   const [ordered, setOrdered] = useState(false)
   const orderRequestId = useRef(0)  // race condition 방지용 요청 토큰
+
+  // 모달 접근성 — 포커스 트랩(Tab 가둠·ESC 닫기·포커스 복원)
+  const orderModalRef = useRef<HTMLDivElement>(null)
+  const editModalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(showOrderModal, orderModalRef, () => setShowOrderModal(false))
+  useFocusTrap(showEditModal, editModalRef, () => setShowEditModal(false))
 
   // 서비스 ID 변경 시 주문 관련 상태 초기화
   useEffect(() => {
@@ -472,11 +479,12 @@ export default function ArtistServiceDetailPage() {
     {showOrderModal && service && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
         style={{ background: 'rgba(0,0,0,0.7)' }}
-        onClick={e => { if (e.target === e.currentTarget) setShowOrderModal(false) }}>
-        <div className="w-full max-w-md rounded-2xl border p-6 space-y-5"
+        onClick={e => { if (e.target === e.currentTarget) setShowOrderModal(false) }}
+        role="dialog" aria-modal="true" aria-labelledby="service-order-title">
+        <div ref={orderModalRef} className="w-full max-w-md rounded-2xl border p-6 space-y-5"
           style={{ background: '#161b22', borderColor: '#30363d' }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">의뢰하기</h2>
+            <h2 id="service-order-title" className="text-lg font-bold">의뢰하기</h2>
             <button onClick={() => setShowOrderModal(false)}
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
               style={{ color: '#7d8590' }}>
@@ -550,7 +558,7 @@ export default function ArtistServiceDetailPage() {
     {showEditModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
         onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true" aria-labelledby="service-edit-title">
-        <div className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        <div ref={editModalRef} className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
           style={{ background: '#161b22', border: '1px solid #30363d' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h2 id="service-edit-title" className="text-lg font-bold" style={{ color: '#e6edf3' }}>서비스 수정</h2>

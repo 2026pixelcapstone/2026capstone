@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { requestPostApi, applicationApi, type RequestPostResponse, type ApplicationResponse } from '../api/commissionApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import DateField from '../components/DateField'
 
 function formatBudget(min?: number | null, max?: number | null) {
@@ -38,6 +39,12 @@ export default function RequestPostDetailPage() {
   const [editBudgetMax, setEditBudgetMax] = useState('')
   const [editDeadline, setEditDeadline] = useState('')
   const [editing, setEditing] = useState(false)
+
+  // 모달 접근성 — 포커스 트랩(Tab 가둠·ESC 닫기·포커스 복원)
+  const applyModalRef = useRef<HTMLDivElement>(null)
+  const editModalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(showApplyModal, applyModalRef, () => setShowApplyModal(false))
+  useFocusTrap(showEditModal, editModalRef, () => setShowEditModal(false))
 
   // 의뢰자용 지원자 목록
   const [applications, setApplications] = useState<ApplicationResponse[]>([])
@@ -491,11 +498,12 @@ export default function RequestPostDetailPage() {
     {showApplyModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
         style={{ background: 'rgba(0,0,0,0.7)' }}
-        onClick={e => { if (e.target === e.currentTarget) setShowApplyModal(false) }}>
-        <div className="w-full max-w-md rounded-2xl border p-6 space-y-5"
+        onClick={e => { if (e.target === e.currentTarget) setShowApplyModal(false) }}
+        role="dialog" aria-modal="true" aria-labelledby="request-apply-title">
+        <div ref={applyModalRef} className="w-full max-w-md rounded-2xl border p-6 space-y-5"
           style={{ background: '#161b22', borderColor: '#30363d' }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">지원하기</h2>
+            <h2 id="request-apply-title" className="text-lg font-bold">지원하기</h2>
             <button onClick={() => setShowApplyModal(false)}
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
               style={{ color: '#7d8590' }}>
@@ -561,7 +569,7 @@ export default function RequestPostDetailPage() {
     {showEditModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
         onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true" aria-labelledby="request-edit-title">
-        <div className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        <div ref={editModalRef} className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
           style={{ background: '#161b22', border: '1px solid #30363d' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h2 id="request-edit-title" className="text-lg font-bold" style={{ color: '#e6edf3' }}>의뢰 수정</h2>
