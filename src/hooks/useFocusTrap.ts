@@ -29,9 +29,11 @@ export function useFocusTrap(
     // 트리거 요소 기억(닫을 때 복원)
     const lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
 
+    // disabled 요소는 tab order에서 제외되므로 목록에서도 걸러야 함 —
+    // 첫/마지막 focusable이 disabled(예: 제출 중 버튼)면 순환 비교가 어긋나 포커스가 모달 밖으로 샌다.
     const getFocusable = () =>
       containerRef.current?.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? null
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])') ?? null
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onEscapeRef.current?.(); return }

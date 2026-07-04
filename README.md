@@ -25,7 +25,7 @@ AI 어시스턴트 기반 픽셀아트 일관성 관리 및 에셋 생태계 플
 
 ## 주요 구조
 
-```
+```text
 frontend/src/
 ├── pages/        # 라우트 페이지 (갤러리·에셋·에디터·커미션·마이페이지·로그인 등)
 ├── components/   # 공용 컴포넌트 (Navbar·모달·TagInput·CommissionList·CommissionChat 등)
@@ -100,7 +100,7 @@ cd backend/server
 
 ### 전체 스택 동시 실행 순서
 
-```
+```text
 1. Docker Desktop 실행 (트레이 아이콘 초록색 확인)
 2. docker start pixelart-db              # DB 컨테이너 시작
 3. cd backend/server → gradlew bootRun   # 백엔드 시작

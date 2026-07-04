@@ -504,7 +504,7 @@ export default function RequestPostDetailPage() {
           style={{ background: '#161b22', borderColor: '#30363d' }}>
           <div className="flex items-center justify-between">
             <h2 id="request-apply-title" className="text-lg font-bold">지원하기</h2>
-            <button onClick={() => setShowApplyModal(false)}
+            <button onClick={() => setShowApplyModal(false)} aria-label="닫기"
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
               style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined text-base">close</span>
