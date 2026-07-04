@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { validateFilesSize } from '../lib/fileValidation'
+import { downloadFileForced } from '../lib/download'
 
 const STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: '작업 중',
@@ -200,35 +201,13 @@ export default function CommissionDetailPage() {
     }
   }, [lightboxOpen])
 
-  // 원본 다운로드 — cross-origin(R2)이라 <a download>는 무시됨 → blob으로 받아 강제 저장, 실패 시 새 탭 폴백
+  // 원본 다운로드 — 공용 downloadFileForced(캐시 우회 + blob 강제 저장 + 빈 탭 선점 폴백) 사용.
+  // 파일명: 응답값(fileName) 우선, 없으면 유틸이 URL 경로 끝에서 추출.
   const handleDownloadOriginal = async (fileUrl: string, fileName?: string) => {
     if (!commission || downloading) return   // 진행 중 더블클릭 방지
-    // 클릭 직후(사용자 활성화 유효) 빈 탭을 선점 — fetch 실패 시 팝업 차단 없이 이 탭으로 폴백.
-    // noopener를 주면 핸들이 null이 되므로 빼고, 대신 opener를 수동으로 끊어 보안 유지.
-    const fallbackTab = window.open('', '_blank')
     setDownloading(true)
     try {
-      const res = await fetch(fileUrl)
-      if (!res.ok) throw new Error('fetch failed')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      // 파일명: 응답값 우선, 없으면 URL 경로 끝에서 추출, 그래도 없으면 폴백
-      const name = fileName || decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '')
-      a.download = name || `commission_${commission.commissionId}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      fallbackTab?.close()   // blob 저장 성공 → 선점 탭 불필요
-    } catch {
-      if (fallbackTab) {
-        fallbackTab.opener = null
-        fallbackTab.location.href = fileUrl
-      } else {
-        window.open(fileUrl, '_blank', 'noopener')   // 선점 실패 시 최후 폴백
-      }
+      await downloadFileForced(fileUrl, fileName)
     } finally {
       setDownloading(false)
     }

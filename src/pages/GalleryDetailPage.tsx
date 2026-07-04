@@ -6,6 +6,7 @@ import { useLikeStore } from '../store/likeStore'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { downloadFileForced } from '../lib/download'
 import Dropdown from '../components/GalleryDetailDropdown';
 import GalleryCreateModal from '../components/GalleryCreateModal'
 
@@ -181,24 +182,13 @@ export default function GalleryDetailPage() {
       }
   };
 
-  // .ppit 원본 다운로드 — CORS 가능 시 blob 저장, 실패 시 새 탭 폴백
+  // .ppit 원본 다운로드 — 공용 downloadFileForced(캐시 우회 + blob 강제 저장 + 빈 탭 선점 폴백) 사용.
+  // 기존 인라인 대비 개선: 실패 시 window.open이 사용자 활성화 만료로 팝업 차단되던 잠재 이슈 해소(빈 탭 선점).
   const handleDownloadPpit = async () => {
     if (!post?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
     setDownloading(true)
     try {
-      const res = await fetch(post.fileUrl)
-      if (!res.ok) throw new Error('fetch failed')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${post.title || 'artwork'}.ppit`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    } catch {
-      window.open(post.fileUrl, '_blank', 'noopener')
+      await downloadFileForced(post.fileUrl, `${post.title || 'artwork'}.ppit`)
     } finally {
       setDownloading(false)
     }
