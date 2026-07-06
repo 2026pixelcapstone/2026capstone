@@ -95,7 +95,8 @@ export interface CommissionResponse extends CommissionSummary {
   paymentId: number | null
   description: string | null          // 거래 기록 스냅샷 — 의뢰/서비스 내용
   deliveryFiles: DeliveryFile[]       // 원본 납품물(다중) — 의뢰자에겐 완료(COMPLETED) 전까지 빈 배열
-  previewImages: PreviewImage[]       // 워터마크 미리보기(다중) — 검토 단계에서 노출(아니면 빈 배열)
+  deliveryFileCount: number           // 작가 납품 파일 수 — 마스킹 무관(의뢰자가 몇 개 납품됐는지 알 수 있게)
+  previewImages: PreviewImage[]       // 워터마크 미리보기(다중) — 원본 업로드 시 자동 생성, 검토 단계에서 노출
   // 타임라인 — 단계 전이 시각(수락=createdAt, 검토요청, 완료, 취소)
   reviewRequestedAt: string | null
   cancelledAt: string | null
@@ -112,6 +113,8 @@ export interface DeliveryFile {
 export interface PreviewImage {
   previewImageId: number
   imageUrl: string
+  // 이 미리보기를 만든 원본 파일명(자동 생성분만) — 확장자로 "GIF 애니메이션" 라벨 표시용
+  sourceFileName: string | null
 }
 
 // ─── 작가 서비스 (commission_services) ────────────────────────────────────────
@@ -275,25 +278,19 @@ export const commissionApi = {
   cancel: (commissionId: number) =>
     api.post<{ success: boolean }>(`/api/commissions/${commissionId}/cancel`),
 
-  // 파일 업로드 (원본 납품물 — URL 방식, 프론트가 R2 업로드 후 URL 전달). 여러 번 호출 시 누적
-  uploadFile: (commissionId: number, data: { fileType: string; fileUrl: string; fileName: string; fileSize?: number }) =>
-    api.post<{ success: boolean; data: CommissionResponse }>(`/api/commissions/${commissionId}/files`, data),
+  // 납품/참고 파일 업로드 (멀티파트, 다중) — "원본 = 미리보기" 재설계.
+  // 서버가 원본을 R2에 저장하고, 작가 납품 이미지면 워터마크 미리보기를 자동 생성(gif=첫 프레임).
+  // (기존 R2 2단계 업로드 + 미리보기 별도 업로드는 폐지)
+  uploadFiles: (commissionId: number, files: File[], fileType = 'FINAL') => {
+    const formData = new FormData()
+    files.forEach(f => formData.append('files', f))
+    formData.append('fileType', fileType)
+    return api.post<{ success: boolean; data: CommissionResponse }>(
+      `/api/commissions/${commissionId}/files`, formData)
+  },
 
-  // 납품 파일 1개 삭제 (작가)
+  // 납품 파일 1개 삭제 (작가) — 자동 생성된 미리보기도 서버에서 연동 삭제
   deleteFile: (commissionId: number, fileId: number) =>
     api.delete<{ success: boolean; data: CommissionResponse }>(
       `/api/commissions/${commissionId}/files/${fileId}`),
-
-  // 미리보기 이미지 업로드 (여러 장, 멀티파트 — 서버가 각각 워터마크+축소 후 행 추가)
-  uploadPreviews: (commissionId: number, images: File[]) => {
-    const formData = new FormData()
-    images.forEach(img => formData.append('images', img))
-    return api.post<{ success: boolean; data: CommissionResponse }>(
-      `/api/commissions/${commissionId}/previews`, formData)
-  },
-
-  // 미리보기 이미지 1장 삭제 (작가)
-  deletePreview: (commissionId: number, previewImageId: number) =>
-    api.delete<{ success: boolean; data: CommissionResponse }>(
-      `/api/commissions/${commissionId}/previews/${previewImageId}`),
 }

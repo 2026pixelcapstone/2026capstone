@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { commissionApi, type CommissionResponse } from '../api/commissionApi'
-import { fileApi } from '../api/fileApi'
 import CommissionChat from '../components/CommissionChat'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -38,12 +37,10 @@ export default function CommissionDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [previewUploading, setPreviewUploading] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [activePreview, setActivePreview] = useState(0)   // 캐러셀 현재 인덱스
   const [lightboxOpen, setLightboxOpen] = useState(false) // 미리보기 확대
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const previewInputRef = useRef<HTMLInputElement>(null)
   const lightboxRef = useRef<HTMLDivElement>(null)
   const lightboxCloseRef = useRef<HTMLButtonElement>(null)
   const lastFocusedRef = useRef<HTMLElement | null>(null)
@@ -66,8 +63,9 @@ export default function CommissionDetailPage() {
   // 작가: 작업물 전달 완료 → 검토 요청 (IN_PROGRESS → REVIEW)
   const handleRequestReview = async () => {
     if (!commission) return
-    if (commission.deliveryFiles.length === 0 || commission.previewImages.length === 0) {
-      toast.error('납품 파일과 미리보기 이미지를 모두 업로드해주세요.'); return
+    // 미리보기는 원본 업로드 시 자동 생성되므로 납품 파일만 필수(백엔드 게이트와 일치)
+    if (commission.deliveryFiles.length === 0) {
+      toast.error('납품 파일을 1개 이상 업로드해주세요.'); return
     }
     setActionLoading(true)
     try {
@@ -97,77 +95,25 @@ export default function CommissionDetailPage() {
     }
   }
 
-  // 작가: 납품 파일 업로드 (R2 → 커미션 파일 등록). 여러 개 선택 시 순차 업로드(누적)
+  // 작가: 납품 파일 업로드 (멀티파트, 서버 경유) — "원본 = 미리보기" 재설계.
+  // 서버가 원본을 R2에 저장하고, 이미지면 워터마크 미리보기를 자동 생성(gif=첫 프레임).
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
     if (files.length === 0 || !commission) return
+    if (files.length > 5) {
+      toast.error('한 번에 최대 5개까지 업로드할 수 있습니다.'); return   // 서버 상한과 일치
+    }
     if (!validateFilesSize(files)) return
     setUploading(true)
     try {
-      let updated = commission
-      let succeeded = 0
-      for (const file of files) {
-        let uploadedUrl: string | null = null
-        try {
-          uploadedUrl = await fileApi.uploadImage(file, `commissions/${commission.commissionId}/files`)
-          const res = await commissionApi.uploadFile(commission.commissionId, {
-            fileType: 'FINAL',
-            fileUrl: uploadedUrl,
-            fileName: file.name,
-            fileSize: file.size,
-          })
-          updated = res.data.data
-          succeeded++
-        } catch (err) {
-          // R2 업로드는 됐으나 메타 등록 실패 시 고아 파일 정리
-          if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
-          toast.error(getErrorMessage(err, `${file.name} 업로드에 실패했습니다.`))
-        }
-      }
-      if (succeeded > 0) {
-        setCommission(updated)
-        toast.success(`납품 파일 ${succeeded}개가 업로드되었습니다.`)
-      }
+      const res = await commissionApi.uploadFiles(commission.commissionId, files)
+      setCommission(res.data.data)
+      toast.success(`납품 파일 ${files.length}개가 업로드되었습니다. (이미지는 미리보기 자동 생성)`)
+    } catch (err) {
+      toast.error(getErrorMessage(err, '납품 파일 업로드에 실패했습니다.'))
     } finally {
       setUploading(false)
-    }
-  }
-
-  // 작가: 검토용 미리보기 이미지 업로드 (여러 장, 서버가 각각 워터마크+축소 → 행 추가)
-  const handlePreviewUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    e.target.value = ''
-    if (files.length === 0 || !commission) return
-    if (files.some(f => !f.type.startsWith('image/'))) {
-      toast.error('미리보기는 이미지 파일만 가능합니다.'); return
-    }
-    if (!validateFilesSize(files)) return
-    setPreviewUploading(true)
-    try {
-      const res = await commissionApi.uploadPreviews(commission.commissionId, files)
-      setCommission(res.data.data)
-      toast.success(`미리보기 ${files.length}장이 업로드되었습니다.`)
-    } catch (err) {
-      toast.error(getErrorMessage(err, '미리보기 업로드에 실패했습니다.'))
-    } finally {
-      setPreviewUploading(false)
-    }
-  }
-
-  // 작가: 미리보기 1장 삭제
-  const handleDeletePreview = async (previewImageId: number) => {
-    if (!commission) return
-    setPreviewUploading(true)
-    try {
-      const res = await commissionApi.deletePreview(commission.commissionId, previewImageId)
-      setCommission(res.data.data)
-      setActivePreview(0)
-      toast.success('미리보기를 삭제했습니다.')
-    } catch (err) {
-      toast.error(getErrorMessage(err, '미리보기 삭제에 실패했습니다.'))
-    } finally {
-      setPreviewUploading(false)
     }
   }
 
@@ -472,15 +418,23 @@ export default function CommissionDetailPage() {
                   <div className="space-y-3">
                     <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>작업물</div>
 
-                    {/* 워터마크 미리보기 — 다중 캐러셀 + 클릭 확대(라이트박스) */}
+                    {/* 워터마크 미리보기 — 다중 캐러셀 + 클릭 확대(라이트박스).
+                        원본 업로드 시 자동 생성. 우클릭/드래그 방지(저장 억제 — 베스트 에포트) */}
                     {current && (
                       <div>
                         <div className="relative">
                           <button type="button" onClick={() => setLightboxOpen(true)}
                             className="block w-full cursor-zoom-in" aria-label="미리보기 크게 보기">
                             <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
-                              className="w-full rounded-lg" style={{ border: '1px solid #30363d' }} />
+                              className="w-full rounded-lg" style={{ border: '1px solid #30363d' }}
+                              onContextMenu={e => e.preventDefault()} draggable={false} />
                           </button>
+                          {/* GIF 원본에서 생성된 미리보기 → 첫 프레임임을 안내 */}
+                          {current.sourceFileName?.toLowerCase().endsWith('.gif') && (
+                            <div className="absolute top-1 left-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white">
+                              GIF 애니메이션 · 미리보기는 첫 프레임
+                            </div>
+                          )}
                           {previews.length > 1 && (
                             <>
                               <button type="button" onClick={() => movePreview(-1)} aria-label="이전 미리보기"
@@ -538,16 +492,19 @@ export default function CommissionDetailPage() {
                           </div>
                         ))}
                       </div>
-                    ) : !isArtist && previews.length > 0 ? (
+                    ) : !isArtist && commission.deliveryFileCount > 0 ? (
                       <div className="flex items-center gap-2 text-xs" style={{ color: '#7d8590' }}>
                         <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
-                        완료 확정 전까지 원본은 잠겨 있습니다.
+                        <span>
+                          납품 파일 {commission.deliveryFileCount}개 — 완료 확정 전까지 원본은 잠겨 있습니다.
+                          {previews.length === 0 && ' (미리보기 미지원 형식 — 채팅으로 확인해 주세요)'}
+                        </span>
                       </div>
                     ) : previews.length === 0 && !canUploadFile ? (
                       <p className="text-xs" style={{ color: '#7d8590' }}>작가가 작업물을 전달하면 표시됩니다.</p>
                     ) : null}
 
-                    {/* 작가: 원본 + 미리보기 업로드 (검토 요청엔 둘 다 필요) */}
+                    {/* 작가: 원본 업로드 — 이미지는 워터마크 미리보기 자동 생성("원본 = 미리보기" 재설계) */}
                     {canUploadFile && (
                       <div className="space-y-2 pt-1">
                         <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
@@ -557,33 +514,13 @@ export default function CommissionDetailPage() {
                           <span className="material-symbols-outlined text-base">upload_file</span>
                           {uploading ? '업로드 중...' : deliveryFiles.length > 0 ? '납품 파일(원본) 추가' : '납품 파일(원본) 업로드'}
                         </button>
-                        <input ref={previewInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePreviewUpload} />
-                        <button type="button" onClick={() => previewInputRef.current?.click()} disabled={previewUploading}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
-                          style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
-                          <span className="material-symbols-outlined text-base">image</span>
-                          {previewUploading ? '처리 중...' : previews.length > 0 ? '미리보기 이미지 추가' : '미리보기 이미지 업로드 (필수)'}
-                        </button>
-
-                        {/* 작가 전용: 업로드된 미리보기 썸네일 + 개별 삭제 */}
-                        {previews.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {previews.map((p, i) => (
-                              <div key={p.previewImageId} className="relative w-14 h-14 rounded overflow-hidden" style={{ border: '1px solid #30363d' }}>
-                                <img src={p.imageUrl} alt={`미리보기 ${i + 1}`} className="w-full h-full object-cover" />
-                                <button type="button" onClick={() => handleDeletePreview(p.previewImageId)} disabled={previewUploading}
-                                  aria-label={`미리보기 ${i + 1} 삭제`}
-                                  className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white disabled:opacity-50">
-                                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {(deliveryFiles.length === 0 || previews.length === 0) && (
+                        <p className="text-xs" style={{ color: '#7d8590' }}>
+                          이미지 파일은 업로드 시 워터마크 미리보기가 자동 생성됩니다.
+                          (GIF는 첫 프레임 / PSD 등 비이미지는 미리보기 없음)
+                        </p>
+                        {deliveryFiles.length === 0 && (
                           <p className="text-xs" style={{ color: '#f0883e' }}>
-                            검토 요청하려면 납품 파일과 미리보기 이미지를 모두 올려야 합니다.
+                            검토 요청하려면 납품 파일을 1개 이상 올려야 합니다.
                           </p>
                         )}
                       </div>
@@ -671,6 +608,7 @@ export default function CommissionDetailPage() {
           )}
           <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
             onClick={(e) => e.stopPropagation()}
+            onContextMenu={e => e.preventDefault()} draggable={false}
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
           {previews.length > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm bg-black/60 text-white">
