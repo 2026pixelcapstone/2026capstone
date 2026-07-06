@@ -101,6 +101,9 @@ export default function CommissionDetailPage() {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
     if (files.length === 0 || !commission) return
+    if (files.length > 5) {
+      toast.error('한 번에 최대 5개까지 업로드할 수 있습니다.'); return   // 서버 상한과 일치
+    }
     if (!validateFilesSize(files)) return
     setUploading(true)
     try {
