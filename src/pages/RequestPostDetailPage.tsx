@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { requestPostApi, applicationApi, type RequestPostResponse, type ApplicationResponse } from '../api/commissionApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { useFocusTrap } from '../hooks/useFocusTrap'
+import DateField from '../components/DateField'
 
 function formatBudget(min?: number | null, max?: number | null) {
   if (!min && !max) return '협의'
@@ -28,6 +30,21 @@ export default function RequestPostDetailPage() {
   const [applyPrice, setApplyPrice] = useState('')
   const [applying, setApplying] = useState(false)
   const [applied, setApplied] = useState(false)
+
+  // 수정 모달 (작성자)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editBudgetMin, setEditBudgetMin] = useState('')
+  const [editBudgetMax, setEditBudgetMax] = useState('')
+  const [editDeadline, setEditDeadline] = useState('')
+  const [editing, setEditing] = useState(false)
+
+  // 모달 접근성 — 포커스 트랩(Tab 가둠·ESC 닫기·포커스 복원)
+  const applyModalRef = useRef<HTMLDivElement>(null)
+  const editModalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(showApplyModal, applyModalRef, () => setShowApplyModal(false))
+  useFocusTrap(showEditModal, editModalRef, () => setShowEditModal(false))
 
   // 의뢰자용 지원자 목록
   const [applications, setApplications] = useState<ApplicationResponse[]>([])
@@ -85,6 +102,43 @@ export default function RequestPostDetailPage() {
       toast.error(getErrorMessage(err, '마감 처리에 실패했습니다.'))
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const openEdit = () => {
+    if (!post) return
+    setEditTitle(post.title)
+    setEditDesc(post.description ?? '')
+    setEditBudgetMin(post.budgetMin != null ? String(post.budgetMin) : '')
+    setEditBudgetMax(post.budgetMax != null ? String(post.budgetMax) : '')
+    setEditDeadline(post.deadline ?? '')
+    setShowEditModal(true)
+  }
+
+  const handleUpdate = async () => {
+    if (!post) return
+    if (!editTitle.trim()) { toast.error('제목을 입력해 주세요.'); return }
+    const min = editBudgetMin ? Number(editBudgetMin) : undefined
+    const max = editBudgetMax ? Number(editBudgetMax) : undefined
+    if (min != null && max != null && min > max) {
+      toast.error('최소 예산은 최대 예산보다 클 수 없습니다.'); return
+    }
+    setEditing(true)
+    try {
+      const res = await requestPostApi.update(post.requestPostId, {
+        title: editTitle.trim(),
+        description: editDesc.trim() || undefined,
+        budgetMin: min,
+        budgetMax: max,
+        deadline: editDeadline || undefined,
+      })
+      setPost(res.data.data)
+      setShowEditModal(false)
+      toast.success('의뢰가 수정되었습니다.')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '수정에 실패했습니다.'))
+    } finally {
+      setEditing(false)
     }
   }
 
@@ -390,6 +444,14 @@ export default function RequestPostDetailPage() {
                       {actionLoading ? '처리 중...' : '의뢰 마감하기'}
                     </button>
                   )}
+                  {isOpen && (
+                    <button onClick={openEdit} disabled={actionLoading}
+                      className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[#1c2128] disabled:opacity-50"
+                      style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                      <span className="material-symbols-outlined text-base">edit</span>
+                      의뢰 수정
+                    </button>
+                  )}
                   <button onClick={handleDelete} disabled={actionLoading}
                     className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[#1c2128] disabled:opacity-50"
                     style={{ border: '1px solid #30363d', color: '#f85149' }}>
@@ -436,12 +498,13 @@ export default function RequestPostDetailPage() {
     {showApplyModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
         style={{ background: 'rgba(0,0,0,0.7)' }}
-        onClick={e => { if (e.target === e.currentTarget) setShowApplyModal(false) }}>
-        <div className="w-full max-w-md rounded-2xl border p-6 space-y-5"
+        onClick={e => { if (e.target === e.currentTarget) setShowApplyModal(false) }}
+        role="dialog" aria-modal="true" aria-labelledby="request-apply-title">
+        <div ref={applyModalRef} className="w-full max-w-md rounded-2xl border p-6 space-y-5"
           style={{ background: '#161b22', borderColor: '#30363d' }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">지원하기</h2>
-            <button onClick={() => setShowApplyModal(false)}
+            <h2 id="request-apply-title" className="text-lg font-bold">지원하기</h2>
+            <button onClick={() => setShowApplyModal(false)} aria-label="닫기"
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
               style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined text-base">close</span>
@@ -497,6 +560,63 @@ export default function RequestPostDetailPage() {
               style={{ background: '#2f81f7', color: '#fff' }}>
               {applying ? '지원 중...' : '지원하기'}
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 수정 모달 (작성자) */}
+    {showEditModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+        onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true" aria-labelledby="request-edit-title">
+        <div ref={editModalRef} className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+          style={{ background: '#161b22', border: '1px solid #30363d' }} onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 id="request-edit-title" className="text-lg font-bold" style={{ color: '#e6edf3' }}>의뢰 수정</h2>
+            <button type="button" onClick={() => setShowEditModal(false)} aria-label="닫기"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>제목 *</label>
+              <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} maxLength={100}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>설명</label>
+              <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최소 예산 (원)</label>
+                <input type="number" value={editBudgetMin} onChange={e => setEditBudgetMin(e.target.value)} min={0}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최대 예산 (원)</label>
+                <input type="number" value={editBudgetMax} onChange={e => setEditBudgetMax(e.target.value)} min={0}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>마감일</label>
+              <DateField value={editDeadline} onChange={setEditDeadline} placeholder="마감일 선택 (선택사항)" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowEditModal(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
+                style={{ border: '1px solid #30363d', color: '#7d8590' }}>취소</button>
+              <button type="button" onClick={handleUpdate} disabled={editing}
+                className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
+                style={{ background: '#2f81f7', color: '#fff' }}>{editing ? '저장 중...' : '저장'}</button>
+            </div>
           </div>
         </div>
       </div>

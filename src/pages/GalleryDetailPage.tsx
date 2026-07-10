@@ -6,7 +6,9 @@ import { useLikeStore } from '../store/likeStore'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { downloadFileForced } from '../lib/download'
 import Dropdown from '../components/GalleryDetailDropdown';
+import GalleryCreateModal from '../components/GalleryCreateModal'
 
 export default function GalleryDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,6 +26,7 @@ export default function GalleryDetailPage() {
   const [zoom, setZoom] = useState(4)
   const [downloading, setDownloading] = useState(false)
   const [activeImageIdx, setActiveImageIdx] = useState(0)   // 자유 갤러리 다중 이미지 캐러셀
+  const [showEditModal, setShowEditModal] = useState(false) // 작성자 수정 모달
   const [lightboxOpen, setLightboxOpen] = useState(false)   // 사진 클릭 확대(라이트박스)
   const [lightboxZoom, setLightboxZoom] = useState(1)
   const lightboxRef = useRef<HTMLDivElement>(null)
@@ -179,24 +182,13 @@ export default function GalleryDetailPage() {
       }
   };
 
-  // .ppit 원본 다운로드 — CORS 가능 시 blob 저장, 실패 시 새 탭 폴백
+  // .ppit 원본 다운로드 — 공용 downloadFileForced(캐시 우회 + blob 강제 저장 + 빈 탭 선점 폴백) 사용.
+  // 기존 인라인 대비 개선: 실패 시 window.open이 사용자 활성화 만료로 팝업 차단되던 잠재 이슈 해소(빈 탭 선점).
   const handleDownloadPpit = async () => {
     if (!post?.fileUrl || downloading) return   // 진행 중 더블클릭 방지
     setDownloading(true)
     try {
-      const res = await fetch(post.fileUrl)
-      if (!res.ok) throw new Error('fetch failed')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${post.title || 'artwork'}.ppit`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    } catch {
-      window.open(post.fileUrl, '_blank', 'noopener')
+      await downloadFileForced(post.fileUrl, `${post.title || 'artwork'}.ppit`)
     } finally {
       setDownloading(false)
     }
@@ -406,15 +398,24 @@ export default function GalleryDetailPage() {
             <button className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" style={{ color: '#7d8590' }}>
               <span className="material-symbols-outlined">flag</span>
             </button>
-            {/* 작성자 본인만 삭제 버튼 표시 */}
+            {/* 작성자 본인만 수정/삭제 버튼 표시 */}
             {isLoggedIn && user?.userId === post.authorId && (
-              <button
-                onClick={handleDeletePost}
-                className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
-                title="게시글 삭제"
-                style={{ color: '#f85149' }}>
-                <span className="material-symbols-outlined">delete</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
+                  title="게시글 수정"
+                  style={{ color: '#7d8590' }}>
+                  <span className="material-symbols-outlined">edit</span>
+                </button>
+                <button
+                  onClick={handleDeletePost}
+                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
+                  title="게시글 삭제"
+                  style={{ color: '#f85149' }}>
+                  <span className="material-symbols-outlined">delete</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -661,6 +662,17 @@ export default function GalleryDetailPage() {
           {/* 다중 이미지는 상단 뷰어의 캐러셀(화살표+썸네일 스트립)에서 확인 */}
         </div>
       </div>
+
+      {/* 작성자 수정 모달 */}
+      {showEditModal && (
+        <GalleryCreateModal
+          type={post.galleryType}
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          editPost={post}
+          onUpdated={(updated) => setPost(updated)}
+        />
+      )}
 
       {/* 사진 라이트박스 (자유 갤러리) — 클릭 확대 + 줌(+/−) */}
       {lightboxOpen && isPhotoGallery && activeImage && (
