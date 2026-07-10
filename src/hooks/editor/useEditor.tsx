@@ -40,6 +40,7 @@ export const useEditor = ({
             return; // 여기서는 아직 setSaving(true) 전이므로 안전하게 탈출합니다.
         }
 
+
         setSaving(true); //  가드 검사가 완전히 끝난 이 시점에 확실하게 한 번만 락을 겁니다.
         
         try {
@@ -76,6 +77,7 @@ export const useEditor = ({
             // 3. 파일 서버 대량(Bulk) 업로드 프로세스
             const uploadRes = await api.post<{ data: string[] }>("/api/files/upload/bulk", uploadFormData);
             
+
             // 봇의 지적 반영: API 응답 구조 정규화 및 방어적 유효성 검증 추가
             const responseData = uploadRes.data as { data?: string[] } | string[];
             const fileList = Array.isArray(responseData) 
@@ -93,10 +95,12 @@ export const useEditor = ({
             }
 
             const uploadedLayerUrlByKey = new Map<string, string>();
+            
             uploadedLayerKeys.forEach((key, idx) => {
                 const url = uploadedLayerUrls[idx];
                 if (url) uploadedLayerUrlByKey.set(key, url);
             });
+
             // 4. 프로젝트 생성(Create) 또는 갱신(Update) 분기 조율
             let pid = projectId;
             if (!pid) {
