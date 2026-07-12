@@ -112,7 +112,7 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
         onFocus={() => { if (suggestions.length > 0) setOpen(true) }}
         disabled={atMax}
         placeholder={atMax ? `최대 ${max}개까지 추가할 수 있습니다.` : placeholder}
-        className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+        className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
@@ -126,7 +126,7 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
         <ul
           role="listbox"
           id={listboxId}
-          className="absolute z-20 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-600 bg-[#161b22] shadow-xl"
+          className="absolute z-20 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-600 bg-surface shadow-xl"
         >
           {suggestions.map((s, idx) => (
             <li

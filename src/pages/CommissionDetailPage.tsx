@@ -15,10 +15,10 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED:   '취소됨',
 }
 const STATUS_COLOR: Record<string, { bg: string; color: string; border: string }> = {
-  IN_PROGRESS: { bg: 'rgba(240,136,62,0.1)',  color: '#f0883e', border: 'rgba(240,136,62,0.3)' },
+  IN_PROGRESS: { bg: 'rgba(240,136,62,0.1)',  color: 'var(--color-accent)', border: 'rgba(240,136,62,0.3)' },
   REVIEW:      { bg: 'rgba(129,140,248,0.1)', color: '#818cf8', border: 'rgba(129,140,248,0.3)' },
-  COMPLETED:   { bg: 'rgba(63,185,80,0.1)',   color: '#3fb950', border: 'rgba(63,185,80,0.3)' },
-  CANCELLED:   { bg: 'rgba(248,81,73,0.1)',   color: '#f85149', border: 'rgba(248,81,73,0.3)' },
+  COMPLETED:   { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',   color: 'var(--color-success)', border: 'color-mix(in srgb, var(--color-success) 30%, transparent)' },
+  CANCELLED:   { bg: 'color-mix(in srgb, var(--color-error) 10%, transparent)',   color: 'var(--color-error)', border: 'color-mix(in srgb, var(--color-error) 30%, transparent)' },
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -194,9 +194,9 @@ export default function CommissionDetailPage() {
   /* ── 로딩 ── */
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
         <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent"
-          style={{ borderColor: '#2f81f7' }} />
+          style={{ borderColor: 'var(--color-primary)' }} />
       </div>
     )
   }
@@ -205,10 +205,10 @@ export default function CommissionDetailPage() {
   if (notFound || !commission) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4"
-        style={{ background: '#0d1117', color: '#e6edf3' }}>
-        <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>inbox</span>
-        <p style={{ color: '#7d8590' }}>존재하지 않는 계약입니다.</p>
-        <Link to="/mypage" className="text-sm font-bold" style={{ color: '#2f81f7' }}>마이페이지로</Link>
+        style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
+        <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>inbox</span>
+        <p style={{ color: 'var(--color-on-surface-variant)' }}>존재하지 않는 계약입니다.</p>
+        <Link to="/mypage" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>마이페이지로</Link>
       </div>
     )
   }
@@ -231,20 +231,20 @@ export default function CommissionDetailPage() {
     : null
 
   return (
-    <div style={{ background: '#0d1117', color: '#e6edf3', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', minHeight: '100vh' }}>
       <div className="max-w-screen-lg mx-auto px-4 sm:px-6 py-8">
 
         {/* 브레드크럼 */}
-        <div className="flex items-center gap-1.5 mb-6 text-sm" style={{ color: '#7d8590' }}>
+        <div className="flex items-center gap-1.5 mb-6 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
           <Link to="/mypage" className="hover:text-white transition-colors">마이페이지</Link>
           <span className="material-symbols-outlined text-sm">chevron_right</span>
-          <span style={{ color: '#e6edf3' }}>계약 #{commission.commissionId}</span>
+          <span style={{ color: 'var(--color-on-surface)' }}>계약 #{commission.commissionId}</span>
         </div>
 
         {/* 진행 스텝퍼 */}
         {commission.status === 'CANCELLED' ? (
           <div className="mb-8 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold"
-            style={{ background: 'rgba(248,81,73,0.1)', color: '#f85149' }}>
+            style={{ background: 'color-mix(in srgb, var(--color-error) 10%, transparent)', color: 'var(--color-error)' }}>
             <span className="material-symbols-outlined text-base">cancel</span>
             취소된 계약입니다
           </div>
@@ -259,14 +259,14 @@ export default function CommissionDetailPage() {
                   <div className="flex flex-col items-center gap-1 shrink-0">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
                       style={done
-                        ? { background: '#2f81f7', color: '#fff' }
-                        : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                        ? { background: 'var(--color-primary)', color: '#fff' }
+                        : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
                       {done ? '✓' : i + 1}
                     </div>
-                    <span className="text-xs font-bold" style={{ color: done ? '#e6edf3' : '#7d8590' }}>{label}</span>
+                    <span className="text-xs font-bold" style={{ color: done ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}>{label}</span>
                   </div>
                   {i < arr.length - 1 && (
-                    <div className="flex-1 h-0.5 mx-2" style={{ background: cur > i ? '#2f81f7' : '#30363d' }} />
+                    <div className="flex-1 h-0.5 mx-2" style={{ background: cur > i ? 'var(--color-primary)' : 'var(--color-surface-container-highest)' }} />
                   )}
                 </div>
               )
@@ -287,12 +287,12 @@ export default function CommissionDetailPage() {
                   {STATUS_LABEL[commission.status]}
                 </span>
                 <span className="text-xs px-2.5 py-0.5 rounded-full font-bold"
-                  style={{ background: '#21262d', color: '#7d8590' }}>
+                  style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
                   {TYPE_LABEL[commission.commissionType] ?? commission.commissionType}
                 </span>
                 {dDay !== null && (
                   <span className="text-xs font-bold"
-                    style={{ color: dDay <= 3 ? '#f85149' : '#7d8590' }}>
+                    style={{ color: dDay <= 3 ? 'var(--color-error)' : 'var(--color-on-surface-variant)' }}>
                     {dDay > 0 ? `마감까지 D-${dDay}` : dDay === 0 ? 'D-Day' : '마감'}
                   </span>
                 )}
@@ -308,20 +308,20 @@ export default function CommissionDetailPage() {
                 { label: '담당 작가', nickname: commission.artistNickname },
               ].map(({ label, nickname }) => (
                 <div key={label} className="flex items-center gap-3 p-4 rounded-2xl border"
-                  style={{ background: '#161b22', borderColor: '#30363d' }}>
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
+                    style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
                     {(nickname ?? '?')[0].toUpperCase()}
                   </div>
                   <div>
-                    <div className="text-xs mb-0.5" style={{ color: '#7d8590' }}>{label}</div>
+                    <div className="text-xs mb-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</div>
                     {nickname ? (
                       <Link to={`/profile/${nickname}`}
-                        className="font-bold text-sm hover:text-[#2f81f7] transition-colors">
+                        className="font-bold text-sm hover:text-primary transition-colors">
                         @{nickname}
                       </Link>
                     ) : (
-                      <span className="text-sm font-bold" style={{ color: '#7d8590' }}>미정</span>
+                      <span className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>미정</span>
                     )}
                   </div>
                 </div>
@@ -330,9 +330,9 @@ export default function CommissionDetailPage() {
 
             {/* 의뢰 내용 — 거래 스냅샷(원글이 수정·삭제돼도 당시 내용 보존) */}
             {commission.description && (
-              <div className="p-5 rounded-2xl border" style={{ background: '#161b22', borderColor: '#30363d' }}>
-                <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#7d8590' }}>의뢰 내용</div>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#e6edf3' }}>
+              <div className="p-5 rounded-2xl border" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+                <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>의뢰 내용</div>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--color-on-surface)' }}>
                   {commission.description}
                 </p>
               </div>
@@ -348,7 +348,7 @@ export default function CommissionDetailPage() {
             {/* 완료일 */}
             {commission.completedAt && (
               <div className="flex items-center gap-2 text-sm p-4 rounded-2xl"
-                style={{ background: 'rgba(63,185,80,0.05)', border: '1px solid rgba(63,185,80,0.2)', color: '#3fb950' }}>
+                style={{ background: 'color-mix(in srgb, var(--color-success) 5%, transparent)', border: '1px solid color-mix(in srgb, var(--color-success) 20%, transparent)', color: 'var(--color-success)' }}>
                 <span className="material-symbols-outlined text-base">check_circle</span>
                 {new Date(commission.completedAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })} 완료
               </div>
@@ -359,20 +359,20 @@ export default function CommissionDetailPage() {
           {/* ===== 우측 사이드바 ===== */}
           <div className="w-full lg:w-72 flex-shrink-0">
             <div className="sticky top-20 rounded-2xl border p-5 space-y-4"
-              style={{ background: '#161b22', borderColor: '#30363d' }}>
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
               {/* 합의 금액 */}
               <div>
-                <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#7d8590' }}>합의 금액</div>
+                <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>합의 금액</div>
                 <div className="text-2xl font-bold">₩{Number(commission.agreedPrice).toLocaleString()}</div>
               </div>
 
-              <div className="h-px" style={{ background: '#30363d' }} />
+              <div className="h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
 
               {/* 합의 마감일 */}
               {commission.agreedDeadline && (
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: '#7d8590' }}>합의 마감일</span>
+                  <span style={{ color: 'var(--color-on-surface-variant)' }}>합의 마감일</span>
                   <span className="font-bold">
                     {new Date(commission.agreedDeadline).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </span>
@@ -381,18 +381,18 @@ export default function CommissionDetailPage() {
 
               {/* 상태 */}
               <div className="flex items-center justify-between text-sm">
-                <span style={{ color: '#7d8590' }}>상태</span>
+                <span style={{ color: 'var(--color-on-surface-variant)' }}>상태</span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold border"
                   style={{ background: sc.bg, color: sc.color, borderColor: sc.border }}>
                   {STATUS_LABEL[commission.status]}
                 </span>
               </div>
 
-              <div className="h-px" style={{ background: '#30363d' }} />
+              <div className="h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
 
               {/* 진행 타임라인 — 단계 전이 시각(수락→검토요청→완료/취소). 발생한 단계만 표시 */}
               <div className="space-y-2">
-                <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>진행 기록</div>
+                <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>진행 기록</div>
                 {([
                   { label: '수락', at: commission.createdAt },
                   { label: '검토 요청', at: commission.reviewRequestedAt },
@@ -400,8 +400,8 @@ export default function CommissionDetailPage() {
                   { label: '취소', at: commission.cancelledAt },
                 ] as const).filter(s => s.at).map(s => (
                   <div key={s.label} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2" style={{ color: '#7d8590' }}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.label === '취소' ? '#f85149' : '#2f81f7' }} />
+                    <span className="flex items-center gap-2" style={{ color: 'var(--color-on-surface-variant)' }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.label === '취소' ? 'var(--color-error)' : 'var(--color-primary)' }} />
                       {s.label}
                     </span>
                     <span className="font-bold text-xs">
@@ -414,9 +414,9 @@ export default function CommissionDetailPage() {
               {/* 작업물 — 미리보기(워터마크)는 모두에게, 원본은 작가/완료 후에만 */}
               {(previews.length > 0 || deliveryFiles.length > 0 || canUploadFile) && (
                 <>
-                  <div className="h-px" style={{ background: '#30363d' }} />
+                  <div className="h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
                   <div className="space-y-3">
-                    <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>작업물</div>
+                    <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>작업물</div>
 
                     {/* 워터마크 미리보기 — 다중 캐러셀 + 클릭 확대(라이트박스).
                         원본 업로드 시 자동 생성. 우클릭/드래그 방지(저장 억제 — 베스트 에포트) */}
@@ -426,7 +426,7 @@ export default function CommissionDetailPage() {
                           <button type="button" onClick={() => setLightboxOpen(true)}
                             className="block w-full cursor-zoom-in" aria-label="미리보기 크게 보기">
                             <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
-                              className="w-full rounded-lg" style={{ border: '1px solid #30363d' }}
+                              className="w-full rounded-lg" style={{ border: '1px solid var(--color-outline)' }}
                               onContextMenu={e => e.preventDefault()} draggable={false} />
                           </button>
                           {/* GIF 원본에서 생성된 미리보기 → 첫 프레임임을 안내 */}
@@ -458,14 +458,14 @@ export default function CommissionDetailPage() {
                             {previews.map((p, i) => (
                               <button key={p.previewImageId} type="button" onClick={() => setActivePreview(i)}
                                 className="shrink-0 w-12 h-12 rounded overflow-hidden"
-                                style={{ border: i === currentIndex ? '2px solid #2f81f7' : '1px solid #30363d' }}>
+                                style={{ border: i === currentIndex ? '2px solid var(--color-primary)' : '1px solid var(--color-surface-container-highest)' }}>
                                 <img src={p.imageUrl} alt={`미리보기 ${i + 1} 썸네일`} className="w-full h-full object-cover" />
                               </button>
                             ))}
                           </div>
                         )}
 
-                        <p className="text-xs mt-1" style={{ color: '#7d8590' }}>
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>
                           워터마크 미리보기{!isArtist ? ' · 완료 확정 후 원본을 받을 수 있습니다' : ''}
                         </p>
                       </div>
@@ -478,14 +478,14 @@ export default function CommissionDetailPage() {
                           <div key={f.fileId} className="flex items-center gap-2">
                             <button type="button" onClick={() => handleDownloadOriginal(f.fileUrl, f.fileName)} disabled={downloading}
                               className="flex items-center gap-1.5 text-sm font-bold hover:underline disabled:opacity-50 min-w-0"
-                              style={{ color: '#2f81f7' }}>
+                              style={{ color: 'var(--color-primary)' }}>
                               <span className="material-symbols-outlined text-base">download</span>
                               <span className="truncate">{f.fileName || '원본 다운로드'}</span>
                             </button>
                             {canUploadFile && (
                               <button type="button" onClick={() => handleDeleteFile(f.fileId)} disabled={uploading}
                                 aria-label={`${f.fileName} 삭제`}
-                                className="shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-[#21262d] disabled:opacity-50" style={{ color: '#f85149' }}>
+                                className="shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container disabled:opacity-50" style={{ color: 'var(--color-error)' }}>
                                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
                               </button>
                             )}
@@ -493,15 +493,15 @@ export default function CommissionDetailPage() {
                         ))}
                       </div>
                     ) : !isArtist && commission.deliveryFileCount > 0 ? (
-                      <div className="flex items-center gap-2 text-xs" style={{ color: '#7d8590' }}>
-                        <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
+                      <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                        <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-outline-strong)' }}>lock</span>
                         <span>
                           납품 파일 {commission.deliveryFileCount}개 — 완료 확정 전까지 원본은 잠겨 있습니다.
                           {previews.length === 0 && ' (미리보기 미지원 형식 — 채팅으로 확인해 주세요)'}
                         </span>
                       </div>
                     ) : previews.length === 0 && !canUploadFile ? (
-                      <p className="text-xs" style={{ color: '#7d8590' }}>작가가 작업물을 전달하면 표시됩니다.</p>
+                      <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>작가가 작업물을 전달하면 표시됩니다.</p>
                     ) : null}
 
                     {/* 작가: 원본 업로드 — 이미지는 워터마크 미리보기 자동 생성("원본 = 미리보기" 재설계) */}
@@ -509,17 +509,17 @@ export default function CommissionDetailPage() {
                       <div className="space-y-2 pt-1">
                         <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
-                          style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                          style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                           <span className="material-symbols-outlined text-base">upload_file</span>
                           {uploading ? '업로드 중...' : deliveryFiles.length > 0 ? '납품 파일(원본) 추가' : '납품 파일(원본) 업로드'}
                         </button>
-                        <p className="text-xs" style={{ color: '#7d8590' }}>
+                        <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                           이미지 파일은 업로드 시 워터마크 미리보기가 자동 생성됩니다.
                           (GIF는 첫 프레임 / PSD 등 비이미지는 미리보기 없음)
                         </p>
                         {deliveryFiles.length === 0 && (
-                          <p className="text-xs" style={{ color: '#f0883e' }}>
+                          <p className="text-xs" style={{ color: 'var(--color-accent)' }}>
                             검토 요청하려면 납품 파일을 1개 이상 올려야 합니다.
                           </p>
                         )}
@@ -529,7 +529,7 @@ export default function CommissionDetailPage() {
                 </>
               )}
 
-              <div className="h-px" style={{ background: '#30363d' }} />
+              <div className="h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
 
               {/* 액션 버튼 */}
               {commission.status !== 'CANCELLED' && commission.status !== 'COMPLETED' && (
@@ -537,27 +537,27 @@ export default function CommissionDetailPage() {
                   {canRequestReview && (
                     <button onClick={handleRequestReview} disabled={actionLoading}
                       className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 disabled:opacity-50"
-                      style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 4px 16px rgba(47,129,247,0.3)' }}>
+                      style={{ background: 'var(--color-primary)', color: '#fff', boxShadow: '0 4px 16px color-mix(in srgb, var(--color-primary) 30%, transparent)' }}>
                       {actionLoading ? '처리 중...' : '검토 요청'}
                     </button>
                   )}
                   {canConfirmComplete && (
                     <button onClick={handleConfirmComplete} disabled={actionLoading}
                       className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 disabled:opacity-50"
-                      style={{ background: '#3fb950', color: '#fff', boxShadow: '0 4px 16px rgba(63,185,80,0.3)' }}>
+                      style={{ background: 'var(--color-success)', color: '#fff', boxShadow: '0 4px 16px color-mix(in srgb, var(--color-success) 30%, transparent)' }}>
                       {actionLoading ? '처리 중...' : '완료 확정'}
                     </button>
                   )}
                   {/* 작가가 검토 요청을 보낸 뒤 의뢰자 확인 대기 안내 */}
                   {isArtist && commission.status === 'REVIEW' && (
-                    <p className="text-xs text-center py-2" style={{ color: '#7d8590' }}>
+                    <p className="text-xs text-center py-2" style={{ color: 'var(--color-on-surface-variant)' }}>
                       의뢰자의 완료 확정을 기다리는 중입니다.
                     </p>
                   )}
                   {canCancel && (
                     <button onClick={handleCancel} disabled={actionLoading}
-                      className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[#1c2128] disabled:opacity-50"
-                      style={{ border: '1px solid #30363d', color: '#f85149' }}>
+                      className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                      style={{ border: '1px solid var(--color-outline)', color: 'var(--color-error)' }}>
                       <span className="material-symbols-outlined text-base">cancel</span>
                       {actionLoading ? '처리 중...' : '계약 취소'}
                     </button>
@@ -567,7 +567,7 @@ export default function CommissionDetailPage() {
 
               {commission.status === 'COMPLETED' && (
                 <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
-                  style={{ background: 'rgba(63,185,80,0.1)', color: '#3fb950' }}>
+                  style={{ background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)' }}>
                   <span className="material-symbols-outlined text-base">check_circle</span>
                   거래 완료
                 </div>
@@ -575,7 +575,7 @@ export default function CommissionDetailPage() {
 
               {commission.status === 'CANCELLED' && (
                 <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
-                  style={{ background: 'rgba(248,81,73,0.1)', color: '#f85149' }}>
+                  style={{ background: 'color-mix(in srgb, var(--color-error) 10%, transparent)', color: 'var(--color-error)' }}>
                   <span className="material-symbols-outlined text-base">cancel</span>
                   취소된 계약
                 </div>

@@ -30,14 +30,14 @@ export default function EmailVerificationBanner() {
 
   return (
     <div className="w-full flex items-center justify-center gap-3 px-4 py-2 text-sm"
-      style={{ background: 'rgba(240,136,62,0.12)', borderBottom: '1px solid rgba(240,136,62,0.3)', color: '#f0883e' }}>
+      style={{ background: 'rgba(240,136,62,0.12)', borderBottom: '1px solid rgba(240,136,62,0.3)', color: 'var(--color-accent)' }}>
       <span className="material-symbols-outlined text-base">mark_email_unread</span>
       <span className="font-medium">
         이메일 인증이 필요합니다. 작품·에셋·커미션 등록 등 일부 기능이 제한됩니다.
       </span>
       <button type="button" onClick={handleResend} disabled={sending}
         className="ml-1 px-3 py-1 rounded-full font-bold text-xs hover:opacity-90 disabled:opacity-50"
-        style={{ background: '#f0883e', color: '#0d1117' }}>
+        style={{ background: 'var(--color-accent)', color: 'var(--color-background)' }}>
         {sending ? '발송 중…' : '인증 메일 재발송'}
       </button>
     </div>

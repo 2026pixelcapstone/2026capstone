@@ -53,40 +53,40 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: '#0d1117', color: '#e6edf3' }}>
+      style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       {/* 픽셀 도트 배경 */}
       <div className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{ backgroundColor: '#0f0e1a', backgroundImage: 'radial-gradient(circle, #2f81f7 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+        style={{ backgroundColor: '#0f0e1a', backgroundImage: 'radial-gradient(circle, var(--color-primary) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(135deg, rgba(47,129,247,0.1) 0%, transparent 50%, #0d1117 100%)' }} />
+        style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 10%, transparent) 0%, transparent 50%, var(--color-background) 100%)' }} />
 
       <div className="relative z-10 w-full max-w-md mx-4">
         {/* 로고 */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 text-3xl font-bold hover:opacity-80 transition-opacity"
-            style={{ color: '#2f81f7' }}>
+            style={{ color: 'var(--color-primary)' }}>
             <span className="material-symbols-outlined text-3xl">grid_view</span>
             PixelHub
           </Link>
-          <p className="text-sm mt-2" style={{ color: '#7d8590' }}>픽셀 아트 크리에이터 커뮤니티</p>
+          <p className="text-sm mt-2" style={{ color: 'var(--color-on-surface-variant)' }}>픽셀 아트 크리에이터 커뮤니티</p>
         </div>
 
         {/* 카드 */}
         <div className="rounded-2xl p-8 shadow-2xl"
-          style={{ background: '#21262d', border: '1px solid #21262d' }}>
+          style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-surface-container)' }}>
           <h1 className="text-2xl font-bold mb-1">로그인</h1>
-          <p className="text-sm mb-8" style={{ color: '#7d8590' }}>계속하려면 로그인하세요.</p>
+          <p className="text-sm mb-8" style={{ color: 'var(--color-on-surface-variant)' }}>계속하려면 로그인하세요.</p>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-bold mb-1.5">이메일</label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-lg"
-                  style={{ color: '#7d8590' }}>mail</span>
+                  style={{ color: 'var(--color-on-surface-variant)' }}>mail</span>
                 <input type="email" placeholder="example@pixelhub.io"
                   value={email} onChange={e => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
               </div>
             </div>
 
@@ -94,14 +94,14 @@ export default function LoginPage() {
               <label className="block text-sm font-bold mb-1.5">비밀번호</label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-lg"
-                  style={{ color: '#7d8590' }}>lock</span>
+                  style={{ color: 'var(--color-on-surface-variant)' }}>lock</span>
                 <input type={showPw ? 'text' : 'password'} placeholder="비밀번호 입력"
                   value={password} onChange={e => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 rounded-xl text-sm outline-none transition-all"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
                 <button type="button" onClick={() => setShowPw(v => !v)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: '#7d8590' }}>
+                  style={{ color: 'var(--color-on-surface-variant)' }}>
                   <span className="material-symbols-outlined text-lg">
                     {showPw ? 'visibility_off' : 'visibility'}
                   </span>
@@ -110,33 +110,33 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-sm px-1" style={{ color: '#f85149' }}>{error}</p>
+              <p className="text-sm px-1" style={{ color: 'var(--color-error)' }}>{error}</p>
             )}
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-[#2f81f7]" />
-                <span className="text-sm" style={{ color: '#7d8590' }}>로그인 상태 유지</span>
+                <input type="checkbox" className="w-4 h-4 accent-primary" />
+                <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>로그인 상태 유지</span>
               </label>
-              <a href="#" className="text-sm font-bold hover:underline" style={{ color: '#2f81f7' }}>비밀번호 찾기</a>
+              <a href="#" className="text-sm font-bold hover:underline" style={{ color: 'var(--color-primary)' }}>비밀번호 찾기</a>
             </div>
 
             <button type="submit" disabled={loading}
               className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ background: '#2f81f7', color: '#fff' }}>
+              style={{ background: 'var(--color-primary)', color: '#fff' }}>
               {loading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
           <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px" style={{ background: '#21262d' }} />
-            <span className="text-xs font-bold" style={{ color: '#7d8590' }}>또는</span>
-            <div className="flex-1 h-px" style={{ background: '#21262d' }} />
+            <div className="flex-1 h-px" style={{ background: 'var(--color-surface-container)' }} />
+            <span className="text-xs font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>또는</span>
+            <div className="flex-1 h-px" style={{ background: 'var(--color-surface-container)' }} />
           </div>
 
           <button type="button" onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl text-sm font-bold hover:opacity-90"
-            style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}>
+            style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
             <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -146,15 +146,15 @@ export default function LoginPage() {
             Google로 계속하기
           </button>
 
-          <p className="text-center text-sm mt-6" style={{ color: '#7d8590' }}>
+          <p className="text-center text-sm mt-6" style={{ color: 'var(--color-on-surface-variant)' }}>
             계정이 없으신가요?
-            <Link to="/signup" className="font-bold hover:underline ml-1" style={{ color: '#2f81f7' }}>회원가입</Link>
+            <Link to="/signup" className="font-bold hover:underline ml-1" style={{ color: 'var(--color-primary)' }}>회원가입</Link>
           </p>
         </div>
 
         <p className="text-center mt-6">
-          <Link to="/" className="flex items-center justify-center gap-1 text-sm transition-colors hover:text-[#2f81f7]"
-            style={{ color: '#7d8590' }}>
+          <Link to="/" className="flex items-center justify-center gap-1 text-sm transition-colors hover:text-primary"
+            style={{ color: 'var(--color-on-surface-variant)' }}>
             <span className="material-symbols-outlined text-base">arrow_back</span>
             메인으로 돌아가기
           </Link>

@@ -53,27 +53,27 @@ export default function VerifyEmailPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: '#0d1117', color: '#e6edf3' }}>
+      style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       <div className="w-full max-w-md rounded-2xl border p-8 text-center"
-        style={{ background: '#161b22', borderColor: '#30363d' }}>
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
         {status === 'loading' && (
           <>
             <div className="mx-auto mb-5 animate-spin rounded-full w-10 h-10 border-2"
-              style={{ borderColor: '#2f81f7', borderTopColor: 'transparent' }} />
-            <p className="text-sm" style={{ color: '#7d8590' }}>이메일 인증을 확인하는 중…</p>
+              style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
+            <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>이메일 인증을 확인하는 중…</p>
           </>
         )}
 
         {status === 'success' && (
           <>
-            <span className="material-symbols-outlined text-5xl" style={{ color: '#3fb950' }}>
+            <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-success)' }}>
               check_circle
             </span>
             <h1 className="mt-3 text-xl font-bold">인증 완료</h1>
-            <p className="mt-2 text-sm" style={{ color: '#7d8590' }}>{message}</p>
+            <p className="mt-2 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{message}</p>
             <Link to="/"
               className="inline-block mt-6 px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
-              style={{ background: '#2f81f7', color: '#fff' }}>
+              style={{ background: 'var(--color-primary)', color: '#fff' }}>
               홈으로 가기
             </Link>
           </>
@@ -81,17 +81,17 @@ export default function VerifyEmailPage() {
 
         {status === 'error' && (
           <>
-            <span className="material-symbols-outlined text-5xl" style={{ color: '#f85149' }}>
+            <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-error)' }}>
               error
             </span>
             <h1 className="mt-3 text-xl font-bold">인증 실패</h1>
-            <p className="mt-2 text-sm" style={{ color: '#7d8590' }}>{message}</p>
-            <p className="mt-1 text-xs" style={{ color: '#484f58' }}>
+            <p className="mt-2 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{message}</p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--color-outline-strong)' }}>
               로그인 후 상단 배너에서 인증 메일을 다시 받을 수 있습니다.
             </p>
             <Link to="/"
               className="inline-block mt-6 px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
-              style={{ background: '#21262d', color: '#e6edf3', border: '1px solid #30363d' }}>
+              style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface)', border: '1px solid var(--color-outline)' }}>
               홈으로 가기
             </Link>
           </>

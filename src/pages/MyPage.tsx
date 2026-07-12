@@ -208,11 +208,11 @@ export default function MyPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#0d1117', color: '#e6edf3' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
 
       {/* 커버 배너 */}
       <div className="relative h-44 overflow-hidden"
-        style={{ background: 'linear-gradient(90deg,#2f81f7cc,#2f81f7,#6366f1)' }}>
+        style={{ background: 'linear-gradient(90deg,color-mix(in srgb, var(--color-primary) 80%, transparent),var(--color-primary),var(--color-secondary))' }}>
         <div className="absolute inset-0 opacity-20" style={{
           backgroundImage: [
             'repeating-linear-gradient(0deg,transparent,transparent 20px,rgba(255,255,255,0.2) 20px,rgba(255,255,255,0.2) 21px)',
@@ -227,19 +227,19 @@ export default function MyPage() {
       </div>
 
       {/* 프로필 인포 바 */}
-      <div className="border-b" style={{ background: '#161b22', borderColor: '#30363d' }}>
+      <div className="border-b" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
         <div className="max-w-screen-xl mx-auto px-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 pt-2" style={{ marginTop: -32 }}>
             {/* 아바타 + 이름 */}
             <div className="flex items-end gap-4">
               <div className="relative flex-shrink-0">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-bold text-2xl border-4 shadow-xl overflow-hidden"
-                  style={{ borderColor: '#0d1117' }}>
+                  style={{ borderColor: 'var(--color-background)' }}>
                   {profile?.profileImageUrl
                     ? <img src={profile.profileImageUrl} alt={profile.nickname} className="w-full h-full object-cover" />
                     : (
                       <div className="w-full h-full flex items-center justify-center font-bold text-2xl"
-                        style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
+                        style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
                         {profile?.nickname?.slice(0, 2).toUpperCase() ?? '..'}
                       </div>
                     )
@@ -250,11 +250,11 @@ export default function MyPage() {
                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                   <h1 className="text-xl font-bold">{profile?.nickname ?? '...'}</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-                    style={{ background: 'rgba(47,129,247,0.1)', color: '#2f81f7' }}>
+                    style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', color: 'var(--color-primary)' }}>
                     {profile?.role ?? 'USER'}
                   </span>
                 </div>
-                <p className="text-xs" style={{ color: '#7d8590' }}>
+                <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                   {profile?.email}
                   {profile?.createdAt && ` · 가입 ${new Date(profile.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short' })}`}
                 </p>
@@ -265,19 +265,19 @@ export default function MyPage() {
             <div className="flex gap-2 sm:mb-1">
               <Link to="/editor"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-all"
-                style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
+                style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
                 <span className="material-symbols-outlined text-base">add</span>
                 새 작품
               </Link>
               <button onClick={handleOpenEdit}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:bg-[#292f38]"
-                style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}>
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:bg-surface-container-high"
+                style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                 <span className="material-symbols-outlined text-base">edit</span>
                 프로필 편집
               </button>
-              <button className="p-2 rounded-xl transition-all hover:bg-[#1c2128]"
-                style={{ border: '1px solid #30363d' }}>
-                <span className="material-symbols-outlined text-base" style={{ color: '#7d8590' }}>settings</span>
+              <button className="p-2 rounded-xl transition-all hover:bg-surface-container-low"
+                style={{ border: '1px solid var(--color-outline)' }}>
+                <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-on-surface-variant)' }}>settings</span>
               </button>
             </div>
           </div>
@@ -286,20 +286,20 @@ export default function MyPage() {
           {(profile?.bio || profile?.websiteUrl) && (
             <div className="pb-4 max-w-2xl">
               {profile?.bio && (
-                <p className="text-sm leading-relaxed" style={{ color: '#7d8590' }}>{profile.bio}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>{profile.bio}</p>
               )}
               {profile?.websiteUrl && (
-                <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: '#7d8590' }}>
+                <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                   <span className="material-symbols-outlined text-xs">link</span>
                   <a href={profile.websiteUrl} target="_blank" rel="noopener noreferrer"
-                    className="hover:underline" style={{ color: '#2f81f7' }}>{profile.websiteUrl}</a>
+                    className="hover:underline" style={{ color: 'var(--color-primary)' }}>{profile.websiteUrl}</a>
                 </div>
               )}
             </div>
           )}
 
           {/* 통계 */}
-          <div className="flex flex-wrap gap-6 py-3 border-t text-sm" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-wrap gap-6 py-3 border-t text-sm" style={{ borderColor: 'var(--color-outline)' }}>
             {[
               [(profile?.followerCount ?? 0).toLocaleString(), '팔로워'],
               [(profile?.followingCount ?? 0).toLocaleString(), '팔로잉'],
@@ -307,7 +307,7 @@ export default function MyPage() {
             ].map(([val, label]) => (
               <div key={label}>
                 <span className="font-bold">{val}</span>
-                <span className="ml-1" style={{ color: '#7d8590' }}>{label}</span>
+                <span className="ml-1" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
               </div>
             ))}
           </div>
@@ -322,13 +322,13 @@ export default function MyPage() {
           {TABS.map((t, i) => (
             <div key={t.key}>
               {t.private && !TABS[i - 1]?.private && (
-                <div className="my-2 border-t" style={{ borderColor: '#21262d' }} />
+                <div className="my-2 border-t" style={{ borderColor: 'var(--color-surface-container)' }} />
               )}
               <button onClick={() => setTab(t.key)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-left transition-all"
                 style={tab === t.key
-                  ? { background: 'rgba(47,129,247,0.12)', color: '#2f81f7' }
-                  : { color: '#7d8590' }}>
+                  ? { background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }
+                  : { color: 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base flex-shrink-0"
                   style={{ fontVariationSettings: tab === t.key ? "'FILL' 1" : "'FILL' 0" }}>
                   {t.icon}
@@ -341,8 +341,8 @@ export default function MyPage() {
                 </span>
                 <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
                   style={{
-                    background: tab === t.key ? 'rgba(47,129,247,0.15)' : '#21262d',
-                    color: tab === t.key ? '#2f81f7' : '#484f58',
+                    background: tab === t.key ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'var(--color-surface-container)',
+                    color: tab === t.key ? 'var(--color-primary)' : 'var(--color-outline-strong)',
                   }}>
                   {tabCount[t.key]}
                 </span>
@@ -360,8 +360,8 @@ export default function MyPage() {
               <button key={t.key} onClick={() => setTab(t.key)}
                 className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                 style={tab === t.key
-                  ? { background: 'rgba(47,129,247,0.15)', color: '#2f81f7' }
-                  : { background: '#21262d', color: '#7d8590' }}>
+                  ? { background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }
+                  : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
                 {t.label}
               </button>
             ))}
@@ -371,7 +371,7 @@ export default function MyPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-base">
               {TABS.find(t => t.key === tab)?.label}
-              <span className="ml-2 text-sm font-normal" style={{ color: '#7d8590' }}>
+              <span className="ml-2 text-sm font-normal" style={{ color: 'var(--color-on-surface-variant)' }}>
                 {tabCount[tab]}
               </span>
             </h2>
@@ -381,8 +381,8 @@ export default function MyPage() {
                   <button key={s} onClick={() => setSort(s)}
                     className="px-3 py-1 rounded-lg text-xs font-bold transition-colors"
                     style={sort === s
-                      ? { background: 'rgba(47,129,247,0.15)', color: '#2f81f7' }
-                      : { background: '#21262d', color: '#7d8590' }}>
+                      ? { background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }
+                      : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
                     {s === 'recent' ? '최신순' : '인기순'}
                   </button>
                 ))}
@@ -391,7 +391,7 @@ export default function MyPage() {
             {tab === 'saved' && (
               <Link to="/editor"
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold hover:opacity-90 transition-all"
-                style={{ background: '#2f81f7', color: '#fff' }}>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>
                 <span className="material-symbols-outlined text-base">add</span>
                 새 프로젝트
               </Link>
@@ -399,7 +399,7 @@ export default function MyPage() {
             {tab === 'assets' && (
               <Link to="/assets/create"
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold hover:opacity-90 transition-all"
-                style={{ background: '#2f81f7', color: '#fff' }}>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>
                 <span className="material-symbols-outlined text-base">add</span>
                 에셋 업로드
               </Link>
@@ -411,16 +411,16 @@ export default function MyPage() {
             worksLoading ? (
               <div className="grid grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: '#21262d' }} />
+                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
                 ))}
               </div>
             ) : works.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>palette</span>
-                <p className="text-sm font-bold" style={{ color: '#7d8590' }}>아직 작품이 없습니다.</p>
+                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>palette</span>
+                <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>아직 작품이 없습니다.</p>
                 <Link to="/editor"
                   className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   첫 작품 만들기
                 </Link>
               </div>
@@ -429,10 +429,10 @@ export default function MyPage() {
                 {works.map(w => (
                   <Link key={w.postId} to={`/gallery/${w.postId}`}
                     className="group aspect-square rounded-xl overflow-hidden relative"
-                    style={{ background: '#21262d' }}>
+                    style={{ background: 'var(--color-surface-container)' }}>
                     {w.thumbnailUrl
                       ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />
+                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />
                     }
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
                       <p className="text-xs font-bold text-white text-center px-2 line-clamp-2">{w.title}</p>
@@ -452,16 +452,16 @@ export default function MyPage() {
             assetsLoading ? (
               <div className="grid grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: '#21262d' }} />
+                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
                 ))}
               </div>
             ) : assets.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>sell</span>
-                <p className="text-sm font-bold" style={{ color: '#7d8590' }}>등록한 에셋이 없습니다.</p>
+                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>sell</span>
+                <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>등록한 에셋이 없습니다.</p>
                 <Link to="/assets"
                   className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   에셋 스토어 보기
                 </Link>
               </div>
@@ -469,21 +469,21 @@ export default function MyPage() {
               <div className="grid grid-cols-3 gap-4">
                 {assets.map(a => (
                   <Link key={a.assetId} to={`/assets/${a.assetId}`}
-                    className="group rounded-xl overflow-hidden border transition-all hover:-translate-y-0.5 hover:shadow-xl hover:border-[#2f81f7]"
-                    style={{ background: '#21262d', borderColor: '#30363d' }}>
+                    className="group rounded-xl overflow-hidden border transition-all hover:-translate-y-0.5 hover:shadow-xl hover:border-primary"
+                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
                     <div className="aspect-square overflow-hidden">
                       {a.thumbnailUrl
                         ? <img src={a.thumbnailUrl} alt={a.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                        : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />
+                        : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />
                       }
                     </div>
                     <div className="p-2">
                       <p className="text-xs font-bold truncate">{a.title}</p>
                       <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs font-bold" style={{ color: a.isFree ? '#3fb950' : '#2f81f7' }}>
+                        <span className="text-xs font-bold" style={{ color: a.isFree ? 'var(--color-success)' : 'var(--color-primary)' }}>
                           {a.isFree ? '무료' : `₩${a.price.toLocaleString()}`}
                         </span>
-                        <span className="text-xs" style={{ color: '#7d8590' }}>♥ {a.likeCount}</span>
+                        <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>♥ {a.likeCount}</span>
                       </div>
                     </div>
                   </Link>
@@ -497,16 +497,16 @@ export default function MyPage() {
             likedLoading ? (
               <div className="grid grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: '#21262d' }} />
+                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
                 ))}
               </div>
             ) : liked.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>favorite</span>
-                <p className="text-sm font-bold" style={{ color: '#7d8590' }}>좋아요한 작품이 없습니다.</p>
+                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>favorite</span>
+                <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>좋아요한 작품이 없습니다.</p>
                 <Link to="/gallery/free"
                   className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   갤러리 둘러보기
                 </Link>
               </div>
@@ -515,10 +515,10 @@ export default function MyPage() {
                 {liked.map(w => (
                   <Link key={w.postId} to={`/gallery/${w.postId}`}
                     className="group aspect-square rounded-xl overflow-hidden relative"
-                    style={{ background: '#21262d' }}>
+                    style={{ background: 'var(--color-surface-container)' }}>
                     {w.thumbnailUrl
                       ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />
+                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />
                     }
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
                       <p className="text-xs font-bold text-white text-center px-2 line-clamp-2">{w.title}</p>
@@ -540,33 +540,33 @@ export default function MyPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="rounded-xl border p-4 animate-pulse"
-                    style={{ background: '#21262d', borderColor: '#30363d', height: 140 }} />
+                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', height: 140 }} />
                 ))}
               </div>
             ) : following.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>person</span>
-                <p className="text-sm" style={{ color: '#7d8590' }}>팔로잉 중인 유저가 없습니다.</p>
+                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>person</span>
+                <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>팔로잉 중인 유저가 없습니다.</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {following.map(u => (
                   <Link key={u.userId} to={`/profile/${u.nickname}`}
-                    className="rounded-xl border p-4 text-center hover:shadow-md hover:border-[#2f81f7] transition-all"
-                    style={{ background: '#21262d', borderColor: '#30363d' }}>
+                    className="rounded-xl border p-4 text-center hover:shadow-md hover:border-primary transition-all"
+                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
                     <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-2 overflow-hidden"
-                      style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,#2f81f7,#6366f1)' }}>
+                      style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))' }}>
                       {u.profileImageUrl
                         ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
                         : u.nickname.slice(0, 2).toUpperCase()
                       }
                     </div>
                     <div className="font-bold text-sm">{u.nickname}</div>
-                    <div className="text-xs mt-0.5 mb-2" style={{ color: '#7d8590' }}>
+                    <div className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
                       팔로워 {u.followerCount.toLocaleString()}
                     </div>
                     <span className="px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ background: 'rgba(47,129,247,0.1)', border: '1px solid rgba(47,129,247,0.2)', color: '#2f81f7' }}>
+                      style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)', color: 'var(--color-primary)' }}>
                       팔로잉
                     </span>
                   </Link>
@@ -581,33 +581,33 @@ export default function MyPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="rounded-xl border p-4 animate-pulse"
-                    style={{ background: '#21262d', borderColor: '#30363d', height: 140 }} />
+                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', height: 140 }} />
                 ))}
               </div>
             ) : followers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>group</span>
-                <p className="text-sm" style={{ color: '#7d8590' }}>팔로워가 없습니다.</p>
+                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>group</span>
+                <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>팔로워가 없습니다.</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {followers.map(u => (
                   <Link key={u.userId} to={`/profile/${u.nickname}`}
-                    className="rounded-xl border p-4 text-center hover:shadow-md hover:border-[#2f81f7] transition-all"
-                    style={{ background: '#21262d', borderColor: '#30363d' }}>
+                    className="rounded-xl border p-4 text-center hover:shadow-md hover:border-primary transition-all"
+                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
                     <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-2 overflow-hidden"
-                      style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,#2f81f7,#6366f1)' }}>
+                      style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))' }}>
                       {u.profileImageUrl
                         ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
                         : u.nickname.slice(0, 2).toUpperCase()
                       }
                     </div>
                     <div className="font-bold text-sm">{u.nickname}</div>
-                    <div className="text-xs mt-0.5 mb-2" style={{ color: '#7d8590' }}>
+                    <div className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
                       팔로워 {u.followerCount.toLocaleString()}
                     </div>
                     <span className="px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ background: '#1c2128', border: '1px solid #30363d', color: '#7d8590' }}>
+                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                       팔로우
                     </span>
                   </Link>
@@ -622,29 +622,29 @@ export default function MyPage() {
               {projects.map(p => (
                 <Link key={p.projectId} to={`/editor?projectId=${p.projectId}`}
                   className="group rounded-xl border overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-xl"
-                  style={{ background: '#21262d', borderColor: '#30363d' }}>
-                  <div className="aspect-video checkerboard bg-[#161b22]">
+                  style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+                  <div className="aspect-video checkerboard bg-surface">
                     {p.thumbnailUrl
                       ? <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
+                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, var(--color-surface), var(--color-surface-container))' }} />
                     }
                   </div>
                   <div className="p-3 flex items-center justify-between">
                     <div>
                       <div className="font-bold text-sm">{p.title}</div>
-                      <div className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
                         {p.width}×{p.height} · {new Date(p.updatedAt).toLocaleDateString('ko-KR')}
                       </div>
                     </div>
                     <span className="material-symbols-outlined text-base opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: '#7d8590' }}>arrow_forward</span>
+                      style={{ color: 'var(--color-on-surface-variant)' }}>arrow_forward</span>
                   </div>
                 </Link>
               ))}
               {projects.length === 0 && (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 gap-3">
-                  <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>folder_open</span>
-                  <p className="text-sm" style={{ color: '#7d8590' }}>저장된 프로젝트가 없습니다.</p>
+                  <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>folder_open</span>
+                  <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>저장된 프로젝트가 없습니다.</p>
                 </div>
               )}
             </div>
@@ -655,14 +655,14 @@ export default function MyPage() {
             <div>
               {/* 서브탭 */}
               <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit"
-                style={{ background: '#161b22', border: '1px solid #30363d' }}>
+                style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
                 {(['client', 'artist'] as const).map(sub => (
                   <button key={sub}
                     onClick={() => setCommissionSubTab(sub)}
                     className="px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
                     style={{
-                      background: commissionSubTab === sub ? '#2f81f7' : 'transparent',
-                      color: commissionSubTab === sub ? '#fff' : '#7d8590',
+                      background: commissionSubTab === sub ? 'var(--color-primary)' : 'transparent',
+                      color: commissionSubTab === sub ? '#fff' : 'var(--color-on-surface-variant)',
                     }}>
                     {sub === 'client' ? '의뢰한 커미션' : '받은 커미션'}
                     <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs"
@@ -686,30 +686,30 @@ export default function MyPage() {
             <div className="space-y-8">
               {/* 차단된 사용자 */}
               <div>
-                <h3 className="font-bold text-sm mb-3" style={{ color: '#7d8590' }}>
-                  차단된 사용자 <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#21262d', color: '#484f58' }}>{blockedUsers.length}</span>
+                <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>
+                  차단된 사용자 <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs" style={{ background: 'var(--color-surface-container)', color: 'var(--color-outline-strong)' }}>{blockedUsers.length}</span>
                 </h3>
                 {blockedUsers.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-2 rounded-xl border" style={{ background: '#21262d', borderColor: '#30363d' }}>
-                    <span className="material-symbols-outlined text-3xl" style={{ color: '#30363d' }}>person_off</span>
-                    <p className="text-sm" style={{ color: '#484f58' }}>차단된 사용자가 없습니다.</p>
+                  <div className="flex flex-col items-center justify-center py-12 gap-2 rounded-xl border" style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+                    <span className="material-symbols-outlined text-3xl" style={{ color: 'var(--color-outline)' }}>person_off</span>
+                    <p className="text-sm" style={{ color: 'var(--color-outline-strong)' }}>차단된 사용자가 없습니다.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {blockedUsers.map(u => (
                       <div key={u.userId} className="flex items-center justify-between px-4 py-3 rounded-xl border"
-                        style={{ background: '#21262d', borderColor: '#30363d' }}>
+                        style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold"
-                            style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,#30363d,#21262d)' }}>
+                            style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,var(--color-surface-container-highest),var(--color-surface-container))' }}>
                             {u.profileImageUrl
                               ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
-                              : <span className="material-symbols-outlined text-base" style={{ color: '#7d8590' }}>person</span>
+                              : <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-on-surface-variant)' }}>person</span>
                             }
                           </div>
                           <Link to={`/profile/${u.nickname}`}
                             className="text-sm font-medium hover:underline"
-                            style={{ color: '#e6edf3' }}>
+                            style={{ color: 'var(--color-on-surface)' }}>
                             {u.nickname}
                           </Link>
                         </div>
@@ -717,8 +717,8 @@ export default function MyPage() {
                             try { await unblockUser(u.userId); toast.success('차단이 해제되었습니다.') }
                             catch { toast.error('차단 해제에 실패했습니다.') }
                           }}
-                          className="px-3 py-1 rounded-lg text-xs font-bold transition-colors hover:bg-[#f85149]/10"
-                          style={{ border: '1px solid #30363d', color: '#f85149' }}>
+                          className="px-3 py-1 rounded-lg text-xs font-bold transition-colors hover:bg-error/10"
+                          style={{ border: '1px solid var(--color-outline)', color: 'var(--color-error)' }}>
                           차단 해제
                         </button>
                       </div>
@@ -729,26 +729,26 @@ export default function MyPage() {
 
               {/* 차단된 태그 */}
               <div>
-                <h3 className="font-bold text-sm mb-3" style={{ color: '#7d8590' }}>
-                  차단된 태그 <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#21262d', color: '#484f58' }}>{blockedTags.length}</span>
+                <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>
+                  차단된 태그 <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs" style={{ background: 'var(--color-surface-container)', color: 'var(--color-outline-strong)' }}>{blockedTags.length}</span>
                 </h3>
                 {blockedTags.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-2 rounded-xl border" style={{ background: '#21262d', borderColor: '#30363d' }}>
-                    <span className="material-symbols-outlined text-3xl" style={{ color: '#30363d' }}>label_off</span>
-                    <p className="text-sm" style={{ color: '#484f58' }}>차단된 태그가 없습니다.</p>
+                  <div className="flex flex-col items-center justify-center py-12 gap-2 rounded-xl border" style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+                    <span className="material-symbols-outlined text-3xl" style={{ color: 'var(--color-outline)' }}>label_off</span>
+                    <p className="text-sm" style={{ color: 'var(--color-outline-strong)' }}>차단된 태그가 없습니다.</p>
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {blockedTags.map(tag => (
                       <div key={tag} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                        style={{ background: '#21262d', border: '1px solid #30363d' }}>
-                        <span className="text-sm" style={{ color: '#7d8590' }}>#{tag}</span>
+                        style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)' }}>
+                        <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>#{tag}</span>
                         <button onClick={async () => {
                             try { await unblockTag(tag); toast.success(`#${tag} 태그 차단이 해제되었습니다.`) }
                             catch { toast.error('태그 차단 해제에 실패했습니다.') }
                           }}
-                          className="transition-colors hover:text-[#f85149]"
-                          style={{ color: '#484f58' }}>
+                          className="transition-colors hover:text-error"
+                          style={{ color: 'var(--color-outline-strong)' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
                         </button>
                       </div>
@@ -757,7 +757,7 @@ export default function MyPage() {
                 )}
               </div>
 
-              <p className="text-xs" style={{ color: '#484f58' }}>
+              <p className="text-xs" style={{ color: 'var(--color-outline-strong)' }}>
                 차단된 사용자와 태그가 포함된 게시물은 갤러리 피드에서 숨겨집니다. 게시물 상세 페이지에서 작가 프로필을 통해 차단할 수 있습니다.
               </p>
             </div>
@@ -772,19 +772,19 @@ export default function MyPage() {
           style={{ background: 'rgba(0,0,0,0.7)' }}
           onClick={e => { if (e.target === e.currentTarget) setShowEditModal(false) }}>
           <div className="w-full max-w-md rounded-2xl border p-6"
-            style={{ background: '#161b22', borderColor: '#30363d' }}>
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold">프로필 편집</h2>
               <button onClick={() => setShowEditModal(false)}
-                className="p-1.5 rounded-lg hover:bg-[#21262d] transition-colors"
-                style={{ color: '#7d8590' }}>
+                className="p-1.5 rounded-lg hover:bg-surface-container transition-colors"
+                style={{ color: 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>닉네임 *</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>닉네임 *</label>
                 <input
                   type="text"
                   value={editForm.nickname ?? ''}
@@ -792,12 +792,12 @@ export default function MyPage() {
                   maxLength={30}
                   placeholder="영문자·숫자·한글·_  2~30자"
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>바이오</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>바이오</label>
                 <textarea
                   value={editForm.bio ?? ''}
                   onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))}
@@ -805,49 +805,49 @@ export default function MyPage() {
                   maxLength={200}
                   placeholder="자신을 소개해보세요"
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>웹사이트 URL</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>웹사이트 URL</label>
                 <input
                   type="url"
                   value={editForm.websiteUrl ?? ''}
                   onChange={e => setEditForm(f => ({ ...f, websiteUrl: e.target.value }))}
                   placeholder="https://"
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm font-bold">프로필 공개</p>
-                  <p className="text-xs" style={{ color: '#7d8590' }}>비공개 시 다른 사용자에게 프로필이 숨겨집니다</p>
+                  <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>비공개 시 다른 사용자에게 프로필이 숨겨집니다</p>
                 </div>
                 <button type="button"
                   onClick={() => setEditForm(f => ({ ...f, isPublic: !f.isPublic }))}
                   className="relative w-11 h-6 rounded-full transition-colors"
-                  style={{ background: editForm.isPublic ? '#2f81f7' : '#30363d' }}>
+                  style={{ background: editForm.isPublic ? 'var(--color-primary)' : 'var(--color-surface-container-highest)' }}>
                   <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
                     style={{ left: editForm.isPublic ? '22px' : '2px' }} />
                 </button>
               </div>
 
               {editError && (
-                <p className="text-sm" style={{ color: '#f85149' }}>{editError}</p>
+                <p className="text-sm" style={{ color: 'var(--color-error)' }}>{editError}</p>
               )}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowEditModal(false)}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm hover:bg-[#21262d] transition-colors"
-                  style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+                  className="flex-1 py-3 rounded-xl font-bold text-sm hover:bg-surface-container transition-colors"
+                  style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   취소
                 </button>
                 <button type="submit" disabled={editSubmitting}
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   {editSubmitting ? '저장 중...' : '저장'}
                 </button>
               </div>

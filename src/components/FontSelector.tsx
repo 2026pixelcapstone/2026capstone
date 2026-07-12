@@ -117,8 +117,8 @@ export default function FontSelector() {
       {/* 트리거 버튼 */}
       <button
         onClick={() => { setOpen(v => !v); setShowAddForm(false) }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-[#1c2128]"
-        style={{ color: '#7d8590' }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-surface-container-low"
+        style={{ color: 'var(--color-on-surface-variant)' }}
         title="폰트 선택"
       >
         <span className="material-symbols-outlined text-lg">font_download</span>
@@ -130,32 +130,32 @@ export default function FontSelector() {
       {open && (
         <div
           className="absolute right-0 top-full mt-2 w-72 rounded-2xl shadow-2xl z-50 overflow-hidden"
-          style={{ background: '#161b22', border: '1px solid #30363d' }}
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
         >
           {/* 프리셋 */}
           <div className="p-3">
             <p className="text-xs font-bold uppercase tracking-widest mb-2 px-1"
-              style={{ color: '#7d8590' }}>기본 폰트</p>
+              style={{ color: 'var(--color-on-surface-variant)' }}>기본 폰트</p>
             {PRESET_FONTS.map(font => (
               <button
                 key={font.id}
                 onClick={() => setFont(font.id)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors hover:bg-[#21262d] group"
-                style={{ background: selectedFontId === font.id ? '#21262d' : 'transparent' }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors hover:bg-surface-container group"
+                style={{ background: selectedFontId === font.id ? 'var(--color-surface-container)' : 'transparent' }}
               >
                 <div className="text-left">
                   <p className="text-sm font-bold" style={{ fontFamily: font.fontFamily }}>
                     {font.label}
                   </p>
                   <p className="text-xs mt-0.5" style={{
-                    color: '#7d8590',
+                    color: 'var(--color-on-surface-variant)',
                     fontFamily: font.fontFamily,
                   }}>
                     {PREVIEW_TEXT}
                   </p>
                 </div>
                 {selectedFontId === font.id && (
-                  <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>
+                  <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-primary)' }}>
                     check
                   </span>
                 )}
@@ -165,14 +165,14 @@ export default function FontSelector() {
 
           {/* 커스텀 폰트 목록 */}
           {customFonts.length > 0 && (
-            <div className="px-3 pb-2 border-t" style={{ borderColor: '#21262d' }}>
+            <div className="px-3 pb-2 border-t" style={{ borderColor: 'var(--color-surface-container)' }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-2 px-1 pt-3"
-                style={{ color: '#7d8590' }}>커스텀 폰트</p>
+                style={{ color: 'var(--color-on-surface-variant)' }}>커스텀 폰트</p>
               {customFonts.map((font: CustomFont) => (
                 <div
                   key={font.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl group hover:bg-[#21262d] transition-colors"
-                  style={{ background: selectedFontId === font.id ? '#21262d' : 'transparent' }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl group hover:bg-surface-container transition-colors"
+                  style={{ background: selectedFontId === font.id ? 'var(--color-surface-container)' : 'transparent' }}
                 >
                   <button
                     className="flex-1 text-left"
@@ -181,17 +181,17 @@ export default function FontSelector() {
                     <p className="text-sm font-bold" style={{ fontFamily: font.fontFamily }}>
                       {font.name}
                     </p>
-                    <p className="text-xs mt-0.5" style={{ color: '#7d8590', fontFamily: font.fontFamily }}>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)', fontFamily: font.fontFamily }}>
                       {PREVIEW_TEXT}
                     </p>
                   </button>
                   {selectedFontId === font.id && (
-                    <span className="material-symbols-outlined text-base shrink-0" style={{ color: '#2f81f7' }}>check</span>
+                    <span className="material-symbols-outlined text-base shrink-0" style={{ color: 'var(--color-primary)' }}>check</span>
                   )}
                   <button
                     onClick={() => removeCustomFont(font.id)}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#30363d]"
-                    style={{ color: '#f85149' }}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-surface-container-highest"
+                    style={{ color: 'var(--color-error)' }}
                     title="삭제"
                   >
                     <span className="material-symbols-outlined text-base">delete</span>
@@ -202,36 +202,36 @@ export default function FontSelector() {
           )}
 
           {/* 커스텀 폰트 추가 */}
-          <div className="p-3 border-t" style={{ borderColor: '#21262d' }}>
+          <div className="p-3 border-t" style={{ borderColor: 'var(--color-surface-container)' }}>
             {!showAddForm ? (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-colors hover:bg-[#21262d]"
-                style={{ color: '#2f81f7' }}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-colors hover:bg-surface-container"
+                style={{ color: 'var(--color-primary)' }}
               >
                 <span className="material-symbols-outlined text-base">add</span>
                 커스텀 폰트 추가
               </button>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs font-bold" style={{ color: '#e6edf3' }}>커스텀 폰트 추가</p>
+                <p className="text-xs font-bold" style={{ color: 'var(--color-on-surface)' }}>커스텀 폰트 추가</p>
 
                 <input
                   placeholder="표시 이름 (예: 나눔고딕)"
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-xs outline-none"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
 
                 {/* 폰트 파일 업로드 */}
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:bg-[#21262d]"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: fontFile ? '#e6edf3' : '#7d8590' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:bg-surface-container"
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: fontFile ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}
                 >
-                  <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>upload_file</span>
+                  <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-primary)' }}>upload_file</span>
                   <span className="truncate">{fontFile ? fontFile.name : '폰트 파일 업로드 (.woff2/.woff/.ttf/.otf)'}</span>
                 </button>
                 <input
@@ -243,9 +243,9 @@ export default function FontSelector() {
                 />
 
                 <div className="flex items-center gap-2 px-1">
-                  <div className="flex-1 h-px" style={{ background: '#30363d' }} />
-                  <span className="text-xs" style={{ color: '#484f58' }}>또는</span>
-                  <div className="flex-1 h-px" style={{ background: '#30363d' }} />
+                  <div className="flex-1 h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
+                  <span className="text-xs" style={{ color: 'var(--color-outline-strong)' }}>또는</span>
+                  <div className="flex-1 h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
                 </div>
 
                 <input
@@ -254,7 +254,7 @@ export default function FontSelector() {
                   disabled={!!fontFile}
                   onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-xs outline-none disabled:opacity-40"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
                 <input
                   placeholder="font-family 직접 입력 (선택·고급)"
@@ -262,15 +262,15 @@ export default function FontSelector() {
                   disabled={!!fontFile}
                   onChange={e => setForm(f => ({ ...f, fontFamily: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-xs outline-none disabled:opacity-40"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
-                <p className="text-xs px-1 leading-relaxed" style={{ color: '#7d8590' }}>
+                <p className="text-xs px-1 leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>
                   파일을 올리거나, Google Fonts URL만 붙여도 됩니다(이름 자동 인식).<br />
                   예: https://fonts.googleapis.com/css2?family=Nanum+Gothic
                 </p>
 
                 {formError && (
-                  <p className="text-xs" style={{ color: '#f85149' }}>{formError}</p>
+                  <p className="text-xs" style={{ color: 'var(--color-error)' }}>{formError}</p>
                 )}
 
                 <div className="flex gap-2">
@@ -278,14 +278,14 @@ export default function FontSelector() {
                     onClick={handleAddFont}
                     disabled={adding}
                     className="flex-1 py-2 rounded-lg text-xs font-bold transition-colors hover:opacity-90 disabled:opacity-50"
-                    style={{ background: '#2f81f7', color: '#fff' }}
+                    style={{ background: 'var(--color-primary)', color: '#fff' }}
                   >
                     {adding ? '추가 중...' : '추가'}
                   </button>
                   <button
                     onClick={() => { setShowAddForm(false); resetForm() }}
-                    className="flex-1 py-2 rounded-lg text-xs font-bold transition-colors hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold transition-colors hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}
                   >
                     취소
                   </button>

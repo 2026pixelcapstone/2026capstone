@@ -81,14 +81,14 @@ export default function NotificationBell() {
     <div className="relative" ref={wrapRef}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative p-2.5 rounded-lg transition-all hover:bg-[#1c2128]"
-        style={{ color: '#7d8590' }}
+        className="relative p-2.5 rounded-lg transition-all hover:bg-surface-container-low"
+        style={{ color: 'var(--color-on-surface-variant)' }}
         title="알림">
         <span className="material-symbols-outlined text-2xl">notifications</span>
         {unreadTotal > 0 && (
           <span
             className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[11px] font-bold"
-            style={{ background: '#f85149', color: '#fff' }}>
+            style={{ background: 'var(--color-error)', color: '#fff' }}>
             {badge}
           </span>
         )}
@@ -96,13 +96,13 @@ export default function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 mt-2 rounded-xl border overflow-hidden shadow-2xl z-50"
-          style={{ background: '#161b22', borderColor: '#30363d', width: 360 }}>
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)', width: 360 }}>
 
           {/* 헤더 */}
-          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: '#21262d' }}>
-            <span className="text-sm font-bold" style={{ color: '#e6edf3' }}>알림</span>
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--color-surface-container)' }}>
+            <span className="text-sm font-bold" style={{ color: 'var(--color-on-surface)' }}>알림</span>
             <button onClick={handleMarkAll}
-              className="text-xs font-semibold hover:underline" style={{ color: '#7d8590' }}>
+              className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-on-surface-variant)' }}>
               모두 읽음
             </button>
           </div>
@@ -116,35 +116,35 @@ export default function NotificationBell() {
 
             {/* 알림 목록 */}
             {loading ? (
-              <div className="px-4 py-8 text-center text-sm" style={{ color: '#7d8590' }}>불러오는 중…</div>
+              <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>불러오는 중…</div>
             ) : items.length === 0 ? (
               convs.length > 0 ? null : (
-                <div className="px-4 py-10 text-center text-sm" style={{ color: '#7d8590' }}>
+                <div className="px-4 py-10 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
                   새로운 알림이 없습니다.
                 </div>
               )
             ) : (
               items.map(n => (
                 <button key={n.notificationId} onClick={() => handleItemClick(n)}
-                  className="w-full flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-[#1c2128] text-left"
-                  style={{ borderColor: '#21262d', background: n.isRead ? 'transparent' : 'rgba(47,129,247,0.06)' }}>
+                  className="w-full flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-surface-container-low text-left"
+                  style={{ borderColor: 'var(--color-surface-container)', background: n.isRead ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 6%, transparent)' }}>
                   {n.senderProfileImageUrl ? (
                     <img src={n.senderProfileImageUrl} alt=""
                       className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                   ) : (
                     <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: '#21262d' }}>
-                      <span className="material-symbols-outlined text-lg" style={{ color: '#7d8590' }}>
+                      style={{ background: 'var(--color-surface-container)' }}>
+                      <span className="material-symbols-outlined text-lg" style={{ color: 'var(--color-on-surface-variant)' }}>
                         {notificationIcon(n.type)}
                       </span>
                     </span>
                   )}
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm leading-snug" style={{ color: '#e6edf3' }}>{n.title}</span>
-                    <span className="block text-xs mt-1" style={{ color: '#7d8590' }}>{timeAgo(n.createdAt)}</span>
+                    <span className="block text-sm leading-snug" style={{ color: 'var(--color-on-surface)' }}>{n.title}</span>
+                    <span className="block text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>{timeAgo(n.createdAt)}</span>
                   </span>
                   {!n.isRead && (
-                    <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: '#2f81f7' }} />
+                    <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: 'var(--color-primary)' }} />
                   )}
                 </button>
               ))
@@ -153,8 +153,8 @@ export default function NotificationBell() {
 
           {/* 푸터 */}
           <button onClick={() => { setOpen(false); navigate('/notifications') }}
-            className="w-full px-4 py-3 text-sm font-semibold border-t transition-colors hover:bg-[#1c2128]"
-            style={{ borderColor: '#21262d', color: '#2f81f7' }}>
+            className="w-full px-4 py-3 text-sm font-semibold border-t transition-colors hover:bg-surface-container-low"
+            style={{ borderColor: 'var(--color-surface-container)', color: 'var(--color-primary)' }}>
             전체 보기
           </button>
         </div>
