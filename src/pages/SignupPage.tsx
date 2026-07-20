@@ -13,7 +13,7 @@ function getPwStrength(pw: string) {
   return score
 }
 
-const STRENGTH_COLORS = ['var(--color-error)', '#f59e0b', '#60a5fa', 'var(--color-success)']
+const STRENGTH_COLORS = ['var(--color-error)', 'var(--color-warning)', 'var(--color-primary-hover)', 'var(--color-success)']
 const STRENGTH_LABELS = ['약함', '보통', '강함', '매우 강함']
 
 export default function SignupPage() {
@@ -74,7 +74,7 @@ export default function SignupPage() {
       style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       {/* 픽셀 도트 배경 */}
       <div className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{ backgroundColor: '#0f0e1a', backgroundImage: 'radial-gradient(circle, var(--color-primary) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+        style={{ backgroundColor: 'var(--color-background)', backgroundImage: 'radial-gradient(circle, var(--color-primary) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 10%, transparent) 0%, transparent 50%, var(--color-background) 100%)' }} />
 
@@ -257,8 +257,7 @@ export default function SignupPage() {
         </div>
 
         <p className="text-center mt-6">
-          <Link to="/" className="flex items-center justify-center gap-1 text-sm transition-colors hover:text-primary"
-            style={{ color: 'var(--color-on-surface-variant)' }}>
+          <Link to="/" className="flex items-center justify-center gap-1 text-sm transition-colors text-on-surface-variant hover:text-primary">
             <span className="material-symbols-outlined text-base">arrow_back</span>
             메인으로 돌아가기
           </Link>

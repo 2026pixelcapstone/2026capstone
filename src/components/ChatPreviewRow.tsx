@@ -11,8 +11,8 @@ export default function ChatPreviewRow({
 }) {
   return (
     <button type="button" onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 border-b transition-colors hover:bg-surface-container-low text-left"
-      style={{ borderColor: 'var(--color-surface-container)', background: 'color-mix(in srgb, var(--color-primary) 6%, transparent)' }}>
+      className="w-full flex items-center gap-3 px-4 py-3 border-b transition-colors bg-primary/6 hover:bg-surface-container-low text-left"
+      style={{ borderColor: 'var(--color-surface-container)' }}>
       {conv.partnerProfileImageUrl ? (
         <img src={conv.partnerProfileImageUrl}
           alt={conv.partnerNickname ? `${conv.partnerNickname} 프로필 이미지` : '사용자 프로필 이미지'}

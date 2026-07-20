@@ -180,7 +180,7 @@ export default function AssetUpdatePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent" style={{ borderColor: 'var(--color-primary)' }} />
+        <div className="animate-spin rounded-full w-10 h-10 border-2" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }

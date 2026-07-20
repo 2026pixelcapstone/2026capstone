@@ -126,8 +126,8 @@ export default function NotificationBell() {
             ) : (
               items.map(n => (
                 <button key={n.notificationId} onClick={() => handleItemClick(n)}
-                  className="w-full flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-surface-container-low text-left"
-                  style={{ borderColor: 'var(--color-surface-container)', background: n.isRead ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 6%, transparent)' }}>
+                  className={`w-full flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-surface-container-low text-left ${n.isRead ? '' : 'bg-primary/6'}`}
+                  style={{ borderColor: 'var(--color-surface-container)' }}>
                   {n.senderProfileImageUrl ? (
                     <img src={n.senderProfileImageUrl} alt=""
                       className="w-9 h-9 rounded-full object-cover flex-shrink-0" />

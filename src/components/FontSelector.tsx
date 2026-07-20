@@ -140,8 +140,7 @@ export default function FontSelector() {
               <button
                 key={font.id}
                 onClick={() => setFont(font.id)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors hover:bg-surface-container group"
-                style={{ background: selectedFontId === font.id ? 'var(--color-surface-container)' : 'transparent' }}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors hover:bg-surface-container group ${selectedFontId === font.id ? 'bg-surface-container' : ''}`}
               >
                 <div className="text-left">
                   <p className="text-sm font-bold" style={{ fontFamily: font.fontFamily }}>
@@ -171,8 +170,7 @@ export default function FontSelector() {
               {customFonts.map((font: CustomFont) => (
                 <div
                   key={font.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl group hover:bg-surface-container transition-colors"
-                  style={{ background: selectedFontId === font.id ? 'var(--color-surface-container)' : 'transparent' }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl group hover:bg-surface-container transition-colors ${selectedFontId === font.id ? 'bg-surface-container' : ''}`}
                 >
                   <button
                     className="flex-1 text-left"
@@ -228,8 +226,8 @@ export default function FontSelector() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:bg-surface-container"
-                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: fontFile ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors bg-surface-container-low hover:bg-surface-container"
+                  style={{ border: '1px solid var(--color-outline)', color: fontFile ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}
                 >
                   <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-primary)' }}>upload_file</span>
                   <span className="truncate">{fontFile ? fontFile.name : '폰트 파일 업로드 (.woff2/.woff/.ttf/.otf)'}</span>

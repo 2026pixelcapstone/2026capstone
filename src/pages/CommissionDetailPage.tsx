@@ -15,8 +15,8 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED:   '취소됨',
 }
 const STATUS_COLOR: Record<string, { bg: string; color: string; border: string }> = {
-  IN_PROGRESS: { bg: 'rgba(240,136,62,0.1)',  color: 'var(--color-accent)', border: 'rgba(240,136,62,0.3)' },
-  REVIEW:      { bg: 'rgba(129,140,248,0.1)', color: '#818cf8', border: 'rgba(129,140,248,0.3)' },
+  IN_PROGRESS: { bg: 'color-mix(in srgb, var(--color-accent) 10%, transparent)',    color: 'var(--color-accent)',    border: 'color-mix(in srgb, var(--color-accent) 30%, transparent)' },
+  REVIEW:      { bg: 'color-mix(in srgb, var(--color-secondary) 10%, transparent)', color: 'var(--color-secondary)', border: 'color-mix(in srgb, var(--color-secondary) 30%, transparent)' },
   COMPLETED:   { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',   color: 'var(--color-success)', border: 'color-mix(in srgb, var(--color-success) 30%, transparent)' },
   CANCELLED:   { bg: 'color-mix(in srgb, var(--color-error) 10%, transparent)',   color: 'var(--color-error)', border: 'color-mix(in srgb, var(--color-error) 30%, transparent)' },
 }
@@ -195,8 +195,8 @@ export default function CommissionDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent"
-          style={{ borderColor: 'var(--color-primary)' }} />
+        <div className="animate-spin rounded-full w-10 h-10 border-2"
+          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }

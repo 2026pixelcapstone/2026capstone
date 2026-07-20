@@ -73,7 +73,7 @@ export default function VerifyEmailPage() {
             <p className="mt-2 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{message}</p>
             <Link to="/"
               className="inline-block mt-6 px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
-              style={{ background: 'var(--color-primary)', color: '#fff' }}>
+              style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
               홈으로 가기
             </Link>
           </>

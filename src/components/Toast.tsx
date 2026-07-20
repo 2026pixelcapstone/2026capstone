@@ -7,9 +7,9 @@ const ICONS = {
 }
 
 const COLORS = {
-  success: { bg: '#1a2e1a', border: 'color-mix(in srgb, var(--color-success) 40%, transparent)',  icon: 'var(--color-success)' },
-  error:   { bg: '#2e1a1a', border: 'color-mix(in srgb, var(--color-error) 40%, transparent)',  icon: 'var(--color-error)' },
-  info:    { bg: '#1a2233', border: 'color-mix(in srgb, var(--color-primary) 40%, transparent)', icon: 'var(--color-primary)' },
+  success: { bg: 'color-mix(in srgb, var(--color-success) 12%, var(--color-surface))',  border: 'color-mix(in srgb, var(--color-success) 40%, transparent)',  icon: 'var(--color-success)' },
+  error:   { bg: 'color-mix(in srgb, var(--color-error) 12%, var(--color-surface))',    border: 'color-mix(in srgb, var(--color-error) 40%, transparent)',  icon: 'var(--color-error)' },
+  info:    { bg: 'color-mix(in srgb, var(--color-primary) 12%, var(--color-surface))',  border: 'color-mix(in srgb, var(--color-primary) 40%, transparent)', icon: 'var(--color-primary)' },
 }
 
 export default function Toast() {

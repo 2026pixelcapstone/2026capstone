@@ -19,7 +19,7 @@ const Dropdown = ({ isOpen, isInternal, onClose, onInfoClick, children }: Dropdo
 
             <div className="absolute bottom-full mb-2 right-0 w-40 bg-surface-container-low border border-outline rounded-lg shadow-xl z-50 overflow-hidden">
                 {/*기본 공통 메뉴*/}
-                <button className="w-full px-4 py-2 text-left text-sm text-on-surface-variant hover:bg-surface-container-highest hover:text-white flex items-center gap-2">
+                <button type="button" className="w-full px-4 py-2 text-left text-sm text-on-surface-variant hover:bg-surface-container-highest hover:text-white flex items-center gap-2">
                     <span className="material-symbols-outlined text-sm">download</span>
                     다운로드
                 </button>

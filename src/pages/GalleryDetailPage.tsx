@@ -223,7 +223,7 @@ export default function GalleryDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent" style={{ borderColor: 'var(--color-primary)' }} />
+        <div className="animate-spin rounded-full w-10 h-10 border-2" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
@@ -392,10 +392,10 @@ export default function GalleryDetailPage() {
                 </Dropdown>
             </div>
 
-            <button className="p-2 rounded-xl hover:bg-surface-container-low transition-colors" style={{ color: 'var(--color-on-surface-variant)' }}>
+            <button type="button" className="p-2 rounded-xl hover:bg-surface-container-low transition-colors" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined">share</span>
             </button>
-            <button className="p-2 rounded-xl hover:bg-surface-container-low transition-colors" style={{ color: 'var(--color-on-surface-variant)' }}>
+            <button type="button" className="p-2 rounded-xl hover:bg-surface-container-low transition-colors" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined">flag</span>
             </button>
             {/* 작성자 본인만 수정/삭제 버튼 표시 */}
@@ -520,8 +520,8 @@ export default function GalleryDetailPage() {
                       <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                         {new Date(c.createdAt).toLocaleDateString('ko-KR')}
                       </span>
-                      {!c.isDeleted && isLoggedIn && (
-                        <button onClick={() => handleDeleteComment(c.commentId)}
+                      {!c.isDeleted && isLoggedIn && c.authorId === user?.userId && (
+                        <button type="button" onClick={() => handleDeleteComment(c.commentId)}
                           className="ml-auto text-xs transition-colors hover:text-error"
                           style={{ color: 'var(--color-outline-strong)' }}>
                           삭제

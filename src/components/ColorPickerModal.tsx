@@ -46,7 +46,7 @@ return (
         <button 
           type="button"
           onClick={onClose}
-          className="w-full py-2 text-xs font-bold text-white bg-primary hover:bg-primary-pressed rounded-lg transition-all shadow-md"
+          className="w-full py-2 text-xs font-bold text-on-primary bg-primary hover:bg-primary-pressed rounded-lg transition-all shadow-md"
         >
           Select Color
         </button>

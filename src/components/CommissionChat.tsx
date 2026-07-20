@@ -271,6 +271,7 @@ export default function CommissionChat({ commissionId, meId, readOnly = false }:
             value={input}
             onChange={e => setInput(e.target.value)}
             placeholder="메시지를 입력하세요"
+            aria-label="메시지 입력"
             maxLength={2000}
             className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}

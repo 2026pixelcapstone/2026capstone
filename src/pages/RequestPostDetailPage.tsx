@@ -204,8 +204,8 @@ export default function RequestPostDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent"
-          style={{ borderColor: 'var(--color-primary)' }} />
+        <div className="animate-spin rounded-full w-10 h-10 border-2"
+          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
@@ -329,12 +329,12 @@ export default function RequestPostDetailPage() {
                     {applications.map(app => {
                       // 지원 상태 배지 — ACCEPTED는 연결된 커미션 상태를 우선 반영
                       const st = (() => {
-                        if (app.status === 'PENDING')  return { label: '대기 중', color: 'var(--color-accent)', bg: 'rgba(240,136,62,0.1)' }
-                        if (app.status === 'REJECTED') return { label: '거절됨',  color: 'var(--color-on-surface-variant)', bg: 'rgba(125,133,144,0.1)' }
+                        if (app.status === 'PENDING')  return { label: '대기 중', color: 'var(--color-accent)', bg: 'color-mix(in srgb, var(--color-accent) 10%, transparent)' }
+                        if (app.status === 'REJECTED') return { label: '거절됨',  color: 'var(--color-on-surface-variant)', bg: 'color-mix(in srgb, var(--color-on-surface-variant) 10%, transparent)' }
                         switch (app.commissionStatus) {
                           case 'CANCELLED': return { label: '계약 취소됨', color: 'var(--color-error)', bg: 'color-mix(in srgb, var(--color-error) 10%, transparent)' }
                           case 'COMPLETED': return { label: '거래 완료',   color: 'var(--color-primary)', bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }
-                          case 'REVIEW':    return { label: '검토 중',     color: '#a371f7', bg: 'rgba(163,113,247,0.1)' }
+                          case 'REVIEW':    return { label: '검토 중',     color: 'var(--color-secondary)', bg: 'color-mix(in srgb, var(--color-secondary) 10%, transparent)' }
                           default:          return { label: '수락됨',      color: 'var(--color-success)', bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)' }
                         }
                       })()

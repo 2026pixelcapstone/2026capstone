@@ -30,7 +30,7 @@ export default function EmailVerificationBanner() {
 
   return (
     <div className="w-full flex items-center justify-center gap-3 px-4 py-2 text-sm"
-      style={{ background: 'rgba(240,136,62,0.12)', borderBottom: '1px solid rgba(240,136,62,0.3)', color: 'var(--color-accent)' }}>
+      style={{ background: 'color-mix(in srgb, var(--color-accent) 12%, transparent)', borderBottom: '1px solid color-mix(in srgb, var(--color-accent) 30%, transparent)', color: 'var(--color-accent)' }}>
       <span className="material-symbols-outlined text-base">mark_email_unread</span>
       <span className="font-medium">
         이메일 인증이 필요합니다. 작품·에셋·커미션 등록 등 일부 기능이 제한됩니다.

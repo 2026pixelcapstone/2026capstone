@@ -460,8 +460,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
   if (!isOpen) return null
 
   const accentColor = isFree ? 'var(--color-primary)' : 'var(--color-accent)'
-  const accentBg = isFree ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'rgba(240,136,62,0.12)'
-  const accentBorder = isFree ? 'color-mix(in srgb, var(--color-primary) 30%, transparent)' : 'rgba(240,136,62,0.3)'
+  const accentBg = isFree
+    ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
+    : 'color-mix(in srgb, var(--color-accent) 12%, transparent)'
+  const accentBorder = isFree
+    ? 'color-mix(in srgb, var(--color-primary) 30%, transparent)'
+    : 'color-mix(in srgb, var(--color-accent) 30%, transparent)'
 
   return (
     <div
