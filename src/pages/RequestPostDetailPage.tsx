@@ -203,9 +203,9 @@ export default function RequestPostDetailPage() {
   /* ── 로딩 ── */
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent"
-          style={{ borderColor: '#2f81f7' }} />
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
+        <div className="animate-spin rounded-full w-10 h-10 border-2"
+          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
@@ -214,10 +214,10 @@ export default function RequestPostDetailPage() {
   if (notFound || !post) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4"
-        style={{ background: '#0d1117', color: '#e6edf3' }}>
-        <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>inbox</span>
-        <p style={{ color: '#7d8590' }}>존재하지 않는 의뢰입니다.</p>
-        <Link to="/commission" className="text-sm font-bold" style={{ color: '#2f81f7' }}>
+        style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
+        <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>inbox</span>
+        <p style={{ color: 'var(--color-on-surface-variant)' }}>존재하지 않는 의뢰입니다.</p>
+        <Link to="/commission" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>
           커미션 목록으로
         </Link>
       </div>
@@ -232,16 +232,16 @@ export default function RequestPostDetailPage() {
 
   return (
     <>
-    <div style={{ background: '#0d1117', color: '#e6edf3', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', minHeight: '100vh' }}>
       <div className="max-w-screen-lg mx-auto px-4 sm:px-6 py-8">
 
         {/* 브레드크럼 */}
-        <div className="flex items-center gap-1.5 mb-6 text-sm" style={{ color: '#7d8590' }}>
+        <div className="flex items-center gap-1.5 mb-6 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
           <Link to="/commission" className="hover:text-white transition-colors">커미션</Link>
           <span className="material-symbols-outlined text-sm">chevron_right</span>
           <Link to="/commission" className="hover:text-white transition-colors">의뢰 찾기</Link>
           <span className="material-symbols-outlined text-sm">chevron_right</span>
-          <span style={{ color: '#e6edf3' }} className="truncate max-w-xs">{post.title}</span>
+          <span style={{ color: 'var(--color-on-surface)' }} className="truncate max-w-xs">{post.title}</span>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -254,55 +254,55 @@ export default function RequestPostDetailPage() {
               <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <span className="px-3 py-1 rounded-full text-xs font-bold border"
                   style={isOpen
-                    ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-                    : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
+                    ? { background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)', borderColor: 'color-mix(in srgb, var(--color-success) 30%, transparent)' }
+                    : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }}>
                   {isOpen ? '모집 중' : '마감'}
                 </span>
                 {dDay !== null && (
                   <span className="text-xs font-bold"
-                    style={{ color: dDay <= 3 ? '#f85149' : '#7d8590' }}>
+                    style={{ color: dDay <= 3 ? 'var(--color-error)' : 'var(--color-on-surface-variant)' }}>
                     {dDay > 0 ? `D-${dDay}` : dDay === 0 ? 'D-Day' : '마감'}
                   </span>
                 )}
               </div>
               <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
               {post.description ? (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#c9d1d9' }}>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-on-surface)' }}>
                   {post.description}
                 </p>
               ) : (
-                <p className="text-sm" style={{ color: '#7d8590' }}>설명이 없습니다.</p>
+                <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>설명이 없습니다.</p>
               )}
             </div>
 
             {/* 의뢰자 프로필 카드 */}
             <div className="flex items-center gap-4 p-5 rounded-2xl border"
-              style={{ background: '#161b22', borderColor: '#30363d' }}>
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
               {post.clientProfileImageUrl ? (
                 <img src={post.clientProfileImageUrl} alt={post.clientNickname ?? ''}
                   className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
               ) : (
                 <div className="w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
+                  style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
                   {(post.clientNickname?.trim()?.[0] ?? '?').toUpperCase()}
                 </div>
               )}
               <div>
-                <div className="text-xs mb-0.5" style={{ color: '#7d8590' }}>의뢰자</div>
+                <div className="text-xs mb-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>의뢰자</div>
                 <Link to={`/profile/${post.clientNickname}`}
-                  className="font-bold hover:text-[#2f81f7] transition-colors">
+                  className="font-bold hover:text-primary transition-colors">
                   @{post.clientNickname ?? '알 수 없음'}
                 </Link>
               </div>
             </div>
 
             {/* 등록일 / 수정일 */}
-            <div className="flex gap-6 text-sm" style={{ color: '#7d8590' }}>
-              <span>등록일: <b style={{ color: '#e6edf3' }}>
+            <div className="flex gap-6 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span>등록일: <b style={{ color: 'var(--color-on-surface)' }}>
                 {new Date(post.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
               </b></span>
               {post.updatedAt !== post.createdAt && (
-                <span>수정일: <b style={{ color: '#e6edf3' }}>
+                <span>수정일: <b style={{ color: 'var(--color-on-surface)' }}>
                   {new Date(post.updatedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
                 </b></span>
               )}
@@ -315,33 +315,33 @@ export default function RequestPostDetailPage() {
                 {appsLoading ? (
                   <div className="space-y-3">
                     {Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="h-24 rounded-2xl animate-pulse" style={{ background: '#21262d' }} />
+                      <div key={i} className="h-24 rounded-2xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
                     ))}
                   </div>
                 ) : applications.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 rounded-2xl border"
-                    style={{ background: '#161b22', borderColor: '#30363d' }}>
-                    <span className="material-symbols-outlined text-3xl" style={{ color: '#30363d' }}>group</span>
-                    <p className="text-sm" style={{ color: '#7d8590' }}>아직 지원자가 없습니다.</p>
+                    style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+                    <span className="material-symbols-outlined text-3xl" style={{ color: 'var(--color-outline)' }}>group</span>
+                    <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>아직 지원자가 없습니다.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {applications.map(app => {
                       // 지원 상태 배지 — ACCEPTED는 연결된 커미션 상태를 우선 반영
                       const st = (() => {
-                        if (app.status === 'PENDING')  return { label: '대기 중', color: '#f0883e', bg: 'rgba(240,136,62,0.1)' }
-                        if (app.status === 'REJECTED') return { label: '거절됨',  color: '#7d8590', bg: 'rgba(125,133,144,0.1)' }
+                        if (app.status === 'PENDING')  return { label: '대기 중', color: 'var(--color-accent)', bg: 'color-mix(in srgb, var(--color-accent) 10%, transparent)' }
+                        if (app.status === 'REJECTED') return { label: '거절됨',  color: 'var(--color-on-surface-variant)', bg: 'color-mix(in srgb, var(--color-on-surface-variant) 10%, transparent)' }
                         switch (app.commissionStatus) {
-                          case 'CANCELLED': return { label: '계약 취소됨', color: '#f85149', bg: 'rgba(248,81,73,0.1)' }
-                          case 'COMPLETED': return { label: '거래 완료',   color: '#2f81f7', bg: 'rgba(47,129,247,0.1)' }
-                          case 'REVIEW':    return { label: '검토 중',     color: '#a371f7', bg: 'rgba(163,113,247,0.1)' }
-                          default:          return { label: '수락됨',      color: '#3fb950', bg: 'rgba(63,185,80,0.1)' }
+                          case 'CANCELLED': return { label: '계약 취소됨', color: 'var(--color-error)', bg: 'color-mix(in srgb, var(--color-error) 10%, transparent)' }
+                          case 'COMPLETED': return { label: '거래 완료',   color: 'var(--color-primary)', bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }
+                          case 'REVIEW':    return { label: '검토 중',     color: 'var(--color-secondary)', bg: 'color-mix(in srgb, var(--color-secondary) 10%, transparent)' }
+                          default:          return { label: '수락됨',      color: 'var(--color-success)', bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)' }
                         }
                       })()
                       const isCancelled = app.status === 'ACCEPTED' && app.commissionStatus === 'CANCELLED'
                       return (
                         <div key={app.applicationId} className="rounded-2xl border p-4"
-                          style={{ background: '#161b22', borderColor: '#30363d' }}>
+                          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
                           <div className="flex items-start justify-between gap-3 mb-2">
                             <div className="flex items-center gap-3 min-w-0">
                               {app.artistProfileImageUrl ? (
@@ -349,16 +349,16 @@ export default function RequestPostDetailPage() {
                                   className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
                               ) : (
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0"
-                                  style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
+                                  style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
                                   {(app.artistNickname?.trim()?.[0] ?? '?').toUpperCase()}
                                 </div>
                               )}
                               <div className="min-w-0">
                                 <Link to={`/profile/${app.artistNickname}`}
-                                  className="font-bold text-sm hover:text-[#2f81f7] transition-colors">
+                                  className="font-bold text-sm hover:text-primary transition-colors">
                                   @{app.artistNickname ?? '알 수 없음'}
                                 </Link>
-                                <div className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                                <div className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
                                   {app.proposedPrice != null ? `제안가 ₩${app.proposedPrice.toLocaleString()}` : '제안가 미입력'}
                                   {' · '}{new Date(app.createdAt).toLocaleDateString('ko-KR')}
                                 </div>
@@ -369,21 +369,21 @@ export default function RequestPostDetailPage() {
                           </div>
 
                           {app.message && (
-                            <p className="text-sm whitespace-pre-wrap mb-3" style={{ color: '#c9d1d9' }}>{app.message}</p>
+                            <p className="text-sm whitespace-pre-wrap mb-3" style={{ color: 'var(--color-on-surface)' }}>{app.message}</p>
                           )}
 
                           {isOpen && app.status === 'PENDING' && (
                             <button onClick={() => handleAccept(app.applicationId)}
                               disabled={accepting !== null}
                               className="w-full py-2.5 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
-                              style={{ background: '#2f81f7', color: '#fff' }}>
+                              style={{ background: 'var(--color-primary)', color: '#fff' }}>
                               {accepting === app.applicationId ? '수락 처리 중...' : '이 작가 수락하기'}
                             </button>
                           )}
                           {app.status === 'ACCEPTED' && app.commissionId && (
                             <Link to={`/commission/${app.commissionId}`}
-                              className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl font-bold text-sm transition-colors hover:bg-[#1c2128]"
-                              style={{ border: '1px solid #30363d', color: isCancelled ? '#7d8590' : '#2f81f7' }}>
+                              className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl font-bold text-sm transition-colors hover:bg-surface-container-low"
+                              style={{ border: '1px solid var(--color-outline)', color: isCancelled ? 'var(--color-on-surface-variant)' : 'var(--color-primary)' }}>
                               <span className="material-symbols-outlined text-base">forum</span>
                               {isCancelled ? '취소된 거래 보기' : '거래룸 보기'}
                             </Link>
@@ -401,20 +401,20 @@ export default function RequestPostDetailPage() {
           {/* ===== 우측 사이드바 ===== */}
           <div className="w-full lg:w-72 flex-shrink-0">
             <div className="sticky top-20 rounded-2xl border p-5 space-y-4"
-              style={{ background: '#161b22', borderColor: '#30363d' }}>
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
               {/* 예산 */}
               <div>
-                <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#7d8590' }}>예산</div>
+                <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>예산</div>
                 <div className="text-2xl font-bold">{formatBudget(post.budgetMin, post.budgetMax)}</div>
               </div>
 
-              <div className="h-px" style={{ background: '#30363d' }} />
+              <div className="h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
 
               {/* 마감일 */}
               {post.deadline && (
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: '#7d8590' }}>마감일</span>
+                  <span style={{ color: 'var(--color-on-surface-variant)' }}>마감일</span>
                   <span className="font-bold">
                     {new Date(post.deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </span>
@@ -423,16 +423,16 @@ export default function RequestPostDetailPage() {
 
               {/* 상태 */}
               <div className="flex items-center justify-between text-sm">
-                <span style={{ color: '#7d8590' }}>상태</span>
+                <span style={{ color: 'var(--color-on-surface-variant)' }}>상태</span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold border"
                   style={isOpen
-                    ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-                    : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
+                    ? { background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)', borderColor: 'color-mix(in srgb, var(--color-success) 30%, transparent)' }
+                    : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }}>
                   {isOpen ? '모집 중' : '마감'}
                 </span>
               </div>
 
-              <div className="h-px" style={{ background: '#30363d' }} />
+              <div className="h-px" style={{ background: 'var(--color-surface-container-highest)' }} />
 
               {/* 액션 버튼 */}
               {isOwner ? (
@@ -440,21 +440,21 @@ export default function RequestPostDetailPage() {
                   {isOpen && (
                     <button onClick={handleClose} disabled={actionLoading}
                       className="w-full py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
-                      style={{ background: '#2f81f7', color: '#fff' }}>
+                      style={{ background: 'var(--color-primary)', color: '#fff' }}>
                       {actionLoading ? '처리 중...' : '의뢰 마감하기'}
                     </button>
                   )}
                   {isOpen && (
                     <button onClick={openEdit} disabled={actionLoading}
-                      className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[#1c2128] disabled:opacity-50"
-                      style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                      className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                      style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                       <span className="material-symbols-outlined text-base">edit</span>
                       의뢰 수정
                     </button>
                   )}
                   <button onClick={handleDelete} disabled={actionLoading}
-                    className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[#1c2128] disabled:opacity-50"
-                    style={{ border: '1px solid #30363d', color: '#f85149' }}>
+                    className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                    style={{ border: '1px solid var(--color-outline)', color: 'var(--color-error)' }}>
                     <span className="material-symbols-outlined text-base">delete</span>
                     {actionLoading ? '처리 중...' : '의뢰 삭제'}
                   </button>
@@ -462,7 +462,7 @@ export default function RequestPostDetailPage() {
               ) : isOpen ? (
                 applied ? (
                   <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
-                    style={{ background: 'rgba(63,185,80,0.1)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)' }}>
+                    style={{ background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)', border: '1px solid color-mix(in srgb, var(--color-success) 30%, transparent)' }}>
                     <span className="material-symbols-outlined text-base">check_circle</span>
                     지원 완료
                   </div>
@@ -473,18 +473,18 @@ export default function RequestPostDetailPage() {
                       setShowApplyModal(true)
                     }}
                     className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90"
-                    style={{ background: '#2f81f7', color: '#fff', boxShadow: '0 4px 16px rgba(47,129,247,0.3)' }}>
+                    style={{ background: 'var(--color-primary)', color: '#fff', boxShadow: '0 4px 16px color-mix(in srgb, var(--color-primary) 30%, transparent)' }}>
                     지원하기
                   </button>
                 )
               ) : (
                 <div className="flex items-center justify-center py-3 rounded-xl text-sm font-bold"
-                  style={{ background: '#21262d', color: '#7d8590' }}>
+                  style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
                   마감된 의뢰입니다
                 </div>
               )}
 
-              <p className="text-xs text-center leading-relaxed" style={{ color: '#7d8590' }}>
+              <p className="text-xs text-center leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>
                 지원 전 의뢰 내용을 충분히 확인해 주세요.
               </p>
             </div>
@@ -501,23 +501,23 @@ export default function RequestPostDetailPage() {
         onClick={e => { if (e.target === e.currentTarget) setShowApplyModal(false) }}
         role="dialog" aria-modal="true" aria-labelledby="request-apply-title">
         <div ref={applyModalRef} className="w-full max-w-md rounded-2xl border p-6 space-y-5"
-          style={{ background: '#161b22', borderColor: '#30363d' }}>
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
           <div className="flex items-center justify-between">
             <h2 id="request-apply-title" className="text-lg font-bold">지원하기</h2>
             <button onClick={() => setShowApplyModal(false)} aria-label="닫기"
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
-              style={{ color: '#7d8590' }}>
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base">close</span>
             </button>
           </div>
 
           <div>
-            <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>
-              제안 금액 <span style={{ color: '#f85149' }}>*</span>
+            <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>
+              제안 금액 <span style={{ color: 'var(--color-error)' }}>*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold"
-                style={{ color: '#7d8590' }}>₩</span>
+                style={{ color: 'var(--color-on-surface-variant)' }}>₩</span>
               <input
                 type="number"
                 placeholder={post.budgetMin != null ? String(post.budgetMin) : '0'}
@@ -525,18 +525,18 @@ export default function RequestPostDetailPage() {
                 value={applyPrice}
                 onChange={e => setApplyPrice(e.target.value)}
                 className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
               />
             </div>
             {post.budgetMin != null && (
-              <p className="text-xs mt-1" style={{ color: '#7d8590' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>
                 최소 예산 ₩{post.budgetMin.toLocaleString()} 이상으로 제안할 수 있습니다.
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>
+            <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>
               메시지 <span className="font-normal">(선택)</span>
             </label>
             <textarea
@@ -545,19 +545,19 @@ export default function RequestPostDetailPage() {
               value={applyMessage}
               onChange={e => setApplyMessage(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
-              style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+              style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
             />
           </div>
 
           <div className="flex gap-2 pt-1">
             <button onClick={() => setShowApplyModal(false)}
-              className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors hover:bg-[#21262d]"
-              style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+              className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container"
+              style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
               취소
             </button>
             <button onClick={handleApply} disabled={applying}
               className="flex-1 py-3 rounded-xl text-sm font-bold hover:opacity-90 disabled:opacity-50"
-              style={{ background: '#2f81f7', color: '#fff' }}>
+              style={{ background: 'var(--color-primary)', color: '#fff' }}>
               {applying ? '지원 중...' : '지원하기'}
             </button>
           </div>
@@ -570,52 +570,52 @@ export default function RequestPostDetailPage() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
         onClick={() => setShowEditModal(false)} role="dialog" aria-modal="true" aria-labelledby="request-edit-title">
         <div ref={editModalRef} className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
-          style={{ background: '#161b22', border: '1px solid #30363d' }} onClick={e => e.stopPropagation()}>
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
-            <h2 id="request-edit-title" className="text-lg font-bold" style={{ color: '#e6edf3' }}>의뢰 수정</h2>
+            <h2 id="request-edit-title" className="text-lg font-bold" style={{ color: 'var(--color-on-surface)' }}>의뢰 수정</h2>
             <button type="button" onClick={() => setShowEditModal(false)} aria-label="닫기"
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base">close</span>
             </button>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>제목 *</label>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>제목 *</label>
               <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} maxLength={100}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+                style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>설명</label>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>설명</label>
               <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
-                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+                style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최소 예산 (원)</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>최소 예산 (원)</label>
                 <input type="number" value={editBudgetMin} onChange={e => setEditBudgetMin(e.target.value)} min={0}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최대 예산 (원)</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>최대 예산 (원)</label>
                 <input type="number" value={editBudgetMax} onChange={e => setEditBudgetMax(e.target.value)} min={0}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>마감일</label>
+              <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>마감일</label>
               <DateField value={editDeadline} onChange={setEditDeadline} placeholder="마감일 선택 (선택사항)" />
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setShowEditModal(false)}
-                className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
-                style={{ border: '1px solid #30363d', color: '#7d8590' }}>취소</button>
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-surface-container"
+                style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>취소</button>
               <button type="button" onClick={handleUpdate} disabled={editing}
                 className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#2f81f7', color: '#fff' }}>{editing ? '저장 중...' : '저장'}</button>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>{editing ? '저장 중...' : '저장'}</button>
             </div>
           </div>
         </div>

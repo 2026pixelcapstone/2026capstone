@@ -104,26 +104,26 @@ export default function FreeGalleryPage() {
 
   return (
     <>
-    <div style={{ background: '#0d1117' }}>
+    <div style={{ background: 'var(--color-background)' }}>
       {/* 히어로 — 검색 중이 아닐 때만 */}
       {!keyword && (
         <div className="w-full relative mb-16" style={{ height: 600 }}>
           {featured?.thumbnailUrl
             ? <img src={featured.thumbnailUrl} alt={featured.title} className="w-full h-full object-cover" />
-            : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #0a1628 0%, #1a3a5c 40%, #2f81f7 100%)' }} />
+            : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #0a1628 0%, #1a3a5c 40%, var(--color-primary) 100%)' }} />
           }
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
           {featured && (
             <div className="absolute bottom-12 left-12 max-w-xl">
               <div className="flex items-center gap-3 mb-4">
                 <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
-                  style={{ background: '#2f81f7', color: '#fff' }}>추천</span>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>추천</span>
                 <span className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-bold"
-                  style={{ background: 'rgba(255,255,255,0.1)', color: '#e6edf3' }}>자유 갤러리</span>
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--color-on-surface)' }}>자유 갤러리</span>
               </div>
               <h1 className="text-5xl font-bold mb-3 tracking-tight">{featured.title}</h1>
-              <p className="text-base mb-2" style={{ color: '#7d8590' }}>by @{featured.authorNickname}</p>
-              <div className="flex items-center gap-4 mb-6 text-sm" style={{ color: '#7d8590' }}>
+              <p className="text-base mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>by @{featured.authorNickname}</p>
+              <div className="flex items-center gap-4 mb-6 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-base">favorite</span>
                   {featured.likeCount.toLocaleString()}
@@ -135,7 +135,7 @@ export default function FreeGalleryPage() {
               </div>
               <Link to={`/gallery/${featured.postId}`}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-opacity hover:opacity-90"
-                style={{ background: '#2f81f7', color: '#fff' }}>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>
                 작품 보기
                 <span className="material-symbols-outlined text-base">arrow_forward</span>
               </Link>
@@ -155,15 +155,15 @@ export default function FreeGalleryPage() {
                 <button key={tag} onClick={() => handleTagSelect(tag)}
                   className="px-8 py-3 rounded-full text-sm font-bold transition-colors"
                   style={activeTag === tag
-                    ? { background: '#2f81f7', color: '#fff' }
-                    : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                    ? { background: 'var(--color-primary)', color: '#fff' }
+                    : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
                   #{tag}
                 </button>
               ))}
             </div>
           ) : (
-            <p className="text-sm" style={{ color: '#7d8590' }}>
-              <span style={{ color: '#e6edf3' }}>"{keyword}"</span> 검색 결과&nbsp;
+            <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span style={{ color: 'var(--color-on-surface)' }}>"{keyword}"</span> 검색 결과&nbsp;
               {loading ? '...' : `${filtered.length}건`}
             </p>
           )}
@@ -175,7 +175,7 @@ export default function FreeGalleryPage() {
                 onClick={gate(() => setCreateModalOpen(true))}
                 {...gateProps}
                 className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
-                style={{ background: '#2f81f7', color: '#fff' }}>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>
                 <span className="material-symbols-outlined text-base">{gateBlocked ? 'lock' : 'add'}</span>
                 게시글 등록
               </button>
@@ -183,19 +183,19 @@ export default function FreeGalleryPage() {
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base"
-                  style={{ color: '#7d8590' }}>search</span>
+                  style={{ color: 'var(--color-on-surface-variant)' }}>search</span>
                 <input
                   ref={inputRef}
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}
                   placeholder="작품 검색..."
                   className="pl-10 pr-8 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', width: 200 }}
+                  style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)', width: 200 }}
                 />
                 {(inputValue || keyword) && (
                   <button type="button" onClick={clearSearch}
                     className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-white"
-                    style={{ color: '#7d8590' }}>
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
                 )}
@@ -206,7 +206,7 @@ export default function FreeGalleryPage() {
                 value={sort}
                 onChange={e => setSort(e.target.value)}
                 className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
+                style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                 <option value="createdAt,desc">최신순</option>
                 <option value="likeCount,desc">인기순</option>
                 <option value="viewCount,desc">조회순</option>
@@ -220,9 +220,9 @@ export default function FreeGalleryPage() {
           <div className="grid grid-cols-3 gap-12">
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div className="aspect-[4/3] rounded-2xl mb-4" style={{ background: '#21262d' }} />
-                <div className="h-4 rounded mb-2" style={{ background: '#21262d', width: '60%' }} />
-                <div className="h-3 rounded" style={{ background: '#21262d', width: '40%' }} />
+                <div className="aspect-[4/3] rounded-2xl mb-4" style={{ background: 'var(--color-surface-container)' }} />
+                <div className="h-4 rounded mb-2" style={{ background: 'var(--color-surface-container)', width: '60%' }} />
+                <div className="h-3 rounded" style={{ background: 'var(--color-surface-container)', width: '40%' }} />
               </div>
             ))}
           </div>
@@ -232,10 +232,10 @@ export default function FreeGalleryPage() {
               {filtered.map(item => (
                 <Link key={item.postId} to={`/gallery/${item.postId}`} className="group relative flex flex-col cursor-pointer">
                   <TagBlockMenu tags={item.tags} />
-                  <div className="aspect-[4/3] overflow-hidden rounded-2xl mb-6 relative bg-[#21262d]">
+                  <div className="aspect-[4/3] overflow-hidden rounded-2xl mb-6 relative bg-surface-container">
                     {item.thumbnailUrl
                       ? <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
-                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
+                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, var(--color-surface), var(--color-surface-container))' }} />
                     }
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
                       <span className="text-white font-bold text-sm">작품 보기</span>
@@ -244,9 +244,9 @@ export default function FreeGalleryPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="text-xl font-bold mb-1">{item.title}</h3>
-                      <p className="text-sm font-medium" style={{ color: '#7d8590' }}>by @{item.authorNickname}</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>by @{item.authorNickname}</p>
                     </div>
-                    <div className="flex items-center gap-3 text-sm" style={{ color: '#7d8590' }}>
+                    <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
                       <span className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-sm">favorite</span>
                         {item.likeCount.toLocaleString()}
@@ -265,7 +265,7 @@ export default function FreeGalleryPage() {
                           onClick={e => { e.preventDefault(); handleTagSelect(tag) }}
                           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTagSelect(tag) } }}
                           className="px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                          style={{ background: '#21262d', border: '1px solid #30363d', color: '#7d8590' }}>
+                          style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                           #{tag}
                         </span>
                       ))}
@@ -281,7 +281,7 @@ export default function FreeGalleryPage() {
                   onClick={() => setPage(p => p + 1)}
                   disabled={loading}
                   className="px-10 py-3.5 rounded-xl font-bold transition-colors disabled:opacity-50"
-                  style={{ background: '#21262d', color: '#2f81f7', border: '1px solid #30363d' }}>
+                  style={{ background: 'var(--color-surface-container)', color: 'var(--color-primary)', border: '1px solid var(--color-outline)' }}>
                   {loading ? '불러오는 중...' : '더 보기'}
                 </button>
               </div>
@@ -289,16 +289,16 @@ export default function FreeGalleryPage() {
 
             {!loading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
-                <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
+                <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>
                   {keyword ? 'search_off' : 'image_not_supported'}
                 </span>
-                <p style={{ color: '#7d8590' }}>
+                <p style={{ color: 'var(--color-on-surface-variant)' }}>
                   {keyword ? `"${keyword}"에 대한 검색 결과가 없습니다.` : '작품이 없습니다.'}
                 </p>
                 {keyword && (
                   <button onClick={clearSearch}
                     className="text-sm font-bold hover:underline"
-                    style={{ color: '#2f81f7' }}>
+                    style={{ color: 'var(--color-primary)' }}>
                     전체 작품 보기
                   </button>
                 )}

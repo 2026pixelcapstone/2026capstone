@@ -82,11 +82,11 @@ export default function NotificationPage() {
   return (
     <div className="max-w-[760px] mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: '#e6edf3' }}>알림</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-on-surface)' }}>알림</h1>
         {items.some(n => !n.isRead) && (
           <button onClick={handleMarkAll}
-            className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-[#1c2128]"
-            style={{ color: '#7d8590' }}>
+            className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-surface-container-low"
+            style={{ color: 'var(--color-on-surface-variant)' }}>
             모두 읽음
           </button>
         )}
@@ -94,7 +94,7 @@ export default function NotificationPage() {
 
       {/* 안읽은 대화방 미리보기 (최신 메시지순) → 클릭 시 해당 거래룸으로 */}
       {convs.length > 0 && (
-        <div className="rounded-xl border overflow-hidden mb-4" style={{ borderColor: '#21262d' }}>
+        <div className="rounded-xl border overflow-hidden mb-4" style={{ borderColor: 'var(--color-surface-container)' }}>
           {convs.map(c => (
             <ChatPreviewRow key={c.commissionId} conv={c}
               onClick={() => navigate(`/commission/${c.commissionId}`)} />
@@ -103,48 +103,48 @@ export default function NotificationPage() {
       )}
 
       {loading ? (
-        <div className="py-20 text-center text-sm" style={{ color: '#7d8590' }}>불러오는 중…</div>
+        <div className="py-20 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>불러오는 중…</div>
       ) : items.length === 0 ? (
         // 안읽은 대화방만 있고 알림 row가 없으면 위 미리보기만 보이고 큰 일러스트는 생략
         convs.length > 0 ? null : (
-          <div className="py-20 text-center" style={{ color: '#7d8590' }}>
-            <span className="material-symbols-outlined text-5xl block mb-3" style={{ color: '#30363d' }}>
+          <div className="py-20 text-center" style={{ color: 'var(--color-on-surface-variant)' }}>
+            <span className="material-symbols-outlined text-5xl block mb-3" style={{ color: 'var(--color-outline)' }}>
               notifications_off
             </span>
             <p className="text-sm">아직 알림이 없습니다.</p>
           </div>
         )
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#21262d' }}>
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-surface-container)' }}>
           {items.map(n => (
             <button key={n.notificationId} onClick={() => handleClick(n)}
-              className="w-full flex items-start gap-3 px-4 py-4 border-b transition-colors hover:bg-[#1c2128] text-left"
-              style={{ borderColor: '#21262d', background: n.isRead ? 'transparent' : 'rgba(47,129,247,0.06)' }}>
+              className="w-full flex items-start gap-3 px-4 py-4 border-b transition-colors hover:bg-surface-container-low text-left"
+              style={{ borderColor: 'var(--color-surface-container)', background: n.isRead ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 6%, transparent)' }}>
               {n.senderProfileImageUrl ? (
                 <img src={n.senderProfileImageUrl} alt=""
                   className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
               ) : (
                 <span className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#21262d' }}>
-                  <span className="material-symbols-outlined text-xl" style={{ color: '#7d8590' }}>
+                  style={{ background: 'var(--color-surface-container)' }}>
+                  <span className="material-symbols-outlined text-xl" style={{ color: 'var(--color-on-surface-variant)' }}>
                     {notificationIcon(n.type)}
                   </span>
                 </span>
               )}
               <span className="flex-1 min-w-0">
-                <span className="block text-sm leading-snug" style={{ color: '#e6edf3' }}>{n.title}</span>
-                <span className="block text-xs mt-1" style={{ color: '#7d8590' }}>{timeAgo(n.createdAt)}</span>
+                <span className="block text-sm leading-snug" style={{ color: 'var(--color-on-surface)' }}>{n.title}</span>
+                <span className="block text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>{timeAgo(n.createdAt)}</span>
               </span>
               {!n.isRead && (
-                <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: '#2f81f7' }} />
+                <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: 'var(--color-primary)' }} />
               )}
             </button>
           ))}
 
           {hasMore && (
             <button onClick={loadMore} disabled={loadingMore}
-              className="w-full py-3 text-sm font-semibold transition-colors hover:bg-[#1c2128] disabled:opacity-50"
-              style={{ color: '#7d8590' }}>
+              className="w-full py-3 text-sm font-semibold transition-colors hover:bg-surface-container-low disabled:opacity-50"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
               {loadingMore ? '불러오는 중…' : '더 보기'}
             </button>
           )}

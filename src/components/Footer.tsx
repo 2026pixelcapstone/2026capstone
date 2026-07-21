@@ -7,10 +7,10 @@ import { Link } from 'react-router-dom'
  */
 export default function Footer() {
   return (
-    <footer className="mt-16 border-t" style={{ borderColor: '#21262d', background: '#0d1117' }}>
+    <footer className="mt-16 border-t" style={{ borderColor: 'var(--color-surface-container)', background: 'var(--color-background)' }}>
       <div className="max-w-[1440px] mx-auto px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-xs leading-relaxed text-center sm:text-left" style={{ color: '#7d8590' }}>
-          <span className="font-bold" style={{ color: '#e6edf3' }}>PixelPilot</span>
+        <div className="text-xs leading-relaxed text-center sm:text-left" style={{ color: 'var(--color-on-surface-variant)' }}>
+          <span className="font-bold" style={{ color: 'var(--color-on-surface)' }}>PixelPilot</span>
           <span className="mx-2">·</span>팀 익스팬션 조 — 캡스톤 디자인 프로젝트
           <div className="mt-1">
             <Link to="/gallery/free" className="hover:text-white transition-colors">갤러리</Link>

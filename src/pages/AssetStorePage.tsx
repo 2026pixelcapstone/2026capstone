@@ -121,21 +121,21 @@ export default function AssetStorePage() {
   }
 
   return (
-    <div style={{ background: '#0d1117' }}>
+    <div style={{ background: 'var(--color-background)' }}>
       {/* 히어로 */}
       <div className="relative py-20 px-8 text-center overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, rgba(47,129,247,0.3) 0%, #161b22 50%, #0d1117 100%)' }}>
+        style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 30%, transparent) 0%, var(--color-surface) 50%, var(--color-background) 100%)' }}>
         <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: 'radial-gradient(circle, #2f81f7 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+          style={{ backgroundImage: 'radial-gradient(circle, var(--color-primary) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
         <div className="relative z-10">
           <h1 className="text-5xl font-bold mb-3 tracking-tight">에셋 스토어</h1>
-          <p className="text-base mb-8" style={{ color: '#7d8590' }}>최고의 픽셀아트 에셋을 발견하고, 만들고, 공유하세요</p>
+          <p className="text-base mb-8" style={{ color: 'var(--color-on-surface-variant)' }}>최고의 픽셀아트 에셋을 발견하고, 만들고, 공유하세요</p>
           <div className="flex justify-center gap-10">
             <div className="text-center">
-              <p className="text-3xl font-bold" style={{ color: '#2f81f7' }}>
+              <p className="text-3xl font-bold" style={{ color: 'var(--color-primary)' }}>
                 {totalStats.total > 0 ? totalStats.total.toLocaleString() : '—'}
               </p>
-              <p className="text-sm mt-1" style={{ color: '#7d8590' }}>에셋</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>에셋</p>
             </div>
           </div>
         </div>
@@ -153,35 +153,35 @@ export default function AssetStorePage() {
                   <button key={val} onClick={() => setPriceFilter(val)}
                     className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
                     style={priceFilter === val
-                      ? { background: '#2f81f7', color: '#fff' }
-                      : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                      ? { background: 'var(--color-primary)', color: '#fff' }
+                      : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
                     {label}
                   </button>
                 ))}
               </div>
-              <div className="w-px h-6" style={{ background: '#30363d' }} />
+              <div className="w-px h-6" style={{ background: 'var(--color-surface-container-highest)' }} />
               <div className="flex gap-2 flex-wrap">
                 <button onClick={() => handleCategoryFilter(null)}
                   className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
                   style={!activeCategoryId && !activeTag
-                    ? { background: '#2f81f7', color: '#fff' }
-                    : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                    ? { background: 'var(--color-primary)', color: '#fff' }
+                    : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
                   전체
                 </button>
                 {categories.map(cat => (
                   <button key={cat.categoryId} onClick={() => handleCategoryFilter(cat.categoryId)}
                     className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
                     style={activeCategoryId === String(cat.categoryId)
-                      ? { background: '#2f81f7', color: '#fff' }
-                      : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                      ? { background: 'var(--color-primary)', color: '#fff' }
+                      : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
                     {cat.name}
                   </button>
                 ))}
               </div>
             </>
           ) : (
-            <p className="text-sm" style={{ color: '#7d8590' }}>
-              <span style={{ color: '#e6edf3' }}>"{keyword}"</span> 검색 결과&nbsp;
+            <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span style={{ color: 'var(--color-on-surface)' }}>"{keyword}"</span> 검색 결과&nbsp;
               {loading ? '...' : `${totalStats.total}건`}
             </p>
           )}
@@ -192,26 +192,26 @@ export default function AssetStorePage() {
               onClick={gate(() => accessToken ? navigate('/assets/create') : navigate('/login'))}
               {...gateProps}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${gateBlocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-              style={{ background: '#2f81f7', color: '#fff' }}>
+              style={{ background: 'var(--color-primary)', color: '#fff' }}>
               {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
               + 에셋 업로드
             </button>
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base"
-                  style={{ color: '#7d8590' }}>search</span>
+                  style={{ color: 'var(--color-on-surface-variant)' }}>search</span>
                 <input
                   ref={inputRef}
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}
                   placeholder="에셋 검색..."
                   className="pl-10 pr-8 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', width: 200 }}
+                  style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)', width: 200 }}
                 />
                 {(inputValue || keyword) && (
                   <button type="button" onClick={clearSearch}
                     className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-white"
-                    style={{ color: '#7d8590' }}>
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
                 )}
@@ -222,7 +222,7 @@ export default function AssetStorePage() {
                 value={sort}
                 onChange={e => setSort(e.target.value)}
                 className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
+                style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                 <option value="createdAt,desc">최신순</option>
                 <option value="downloadCount,desc">인기순</option>
                 <option value="averageRating,desc">평점순</option>
@@ -237,11 +237,11 @@ export default function AssetStorePage() {
         {loading && assets.length === 0 ? (
           <div className="grid grid-cols-4 gap-5">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-2xl overflow-hidden" style={{ background: '#21262d' }}>
-                <div className="aspect-square" style={{ background: '#30363d' }} />
+              <div key={i} className="animate-pulse rounded-2xl overflow-hidden" style={{ background: 'var(--color-surface-container)' }}>
+                <div className="aspect-square" style={{ background: 'var(--color-surface-container-highest)' }} />
                 <div className="p-4 space-y-2">
-                  <div className="h-3 rounded" style={{ background: '#30363d', width: '70%' }} />
-                  <div className="h-3 rounded" style={{ background: '#30363d', width: '40%' }} />
+                  <div className="h-3 rounded" style={{ background: 'var(--color-surface-container-highest)', width: '70%' }} />
+                  <div className="h-3 rounded" style={{ background: 'var(--color-surface-container-highest)', width: '40%' }} />
                 </div>
               </div>
             ))}
@@ -253,12 +253,12 @@ export default function AssetStorePage() {
                 <div key={item.assetId} className="group relative">
                   <TagBlockMenu tags={item.tags} />
                   <Link to={`/assets/${item.assetId}`}
-                  className="block rounded-2xl overflow-hidden border transition-all hover:border-[#2f81f7]/50 hover:-translate-y-1"
-                  style={{ background: '#21262d', borderColor: '#30363d' }}>
-                  <div className="aspect-square checkerboard relative bg-[#161b22]">
+                  className="block rounded-2xl overflow-hidden border transition-all hover:border-primary/50 hover:-translate-y-1"
+                  style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+                  <div className="aspect-square checkerboard relative bg-surface">
                     {item.thumbnailUrl
                       ? <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
+                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, var(--color-surface), var(--color-surface-container))' }} />
                     }
                     {(() => {
                       const isFree = item.isFree || item.price === 0
@@ -266,13 +266,13 @@ export default function AssetStorePage() {
                         <>
                           <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-xs font-bold border"
                             style={isFree
-                              ? { background: 'rgba(63,185,80,0.2)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-                              : { background: 'rgba(47,129,247,0.2)', color: '#2f81f7', borderColor: 'rgba(47,129,247,0.3)' }}>
+                              ? { background: 'color-mix(in srgb, var(--color-success) 20%, transparent)', color: 'var(--color-success)', borderColor: 'color-mix(in srgb, var(--color-success) 30%, transparent)' }
+                              : { background: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', color: 'var(--color-primary)', borderColor: 'color-mix(in srgb, var(--color-primary) 30%, transparent)' }}>
                             {isFree ? '무료' : `₩${item.price.toLocaleString()}`}
                           </div>
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <span className="px-4 py-2 rounded-lg text-sm font-bold"
-                              style={{ background: '#2f81f7', color: '#fff' }}>
+                              style={{ background: 'var(--color-primary)', color: '#fff' }}>
                               {isFree ? '다운로드' : '구매하기'}
                             </span>
                           </div>
@@ -282,7 +282,7 @@ export default function AssetStorePage() {
                   </div>
                   <div className="p-4">
                     <h3 className="font-bold text-sm mb-1 truncate">{item.title}</h3>
-                    <p className="text-xs mb-2" style={{ color: '#7d8590' }}>@{item.authorNickname}</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>@{item.authorNickname}</p>
                     {item.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-2">
                         {item.tags.slice(0, 3).map(tag => (
@@ -291,15 +291,15 @@ export default function AssetStorePage() {
                             onClick={e => { e.preventDefault(); handleCategorySelect(tag) }}
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCategorySelect(tag) } }}
                             className="px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                            style={{ background: '#161b22', border: '1px solid #30363d', color: '#7d8590' }}>
+                            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                             #{tag}
                           </span>
                         ))}
                       </div>
                     )}
-                    <div className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                       {item.reviewCount >= 4 && (
-                        <span className="flex items-center gap-1" style={{ color: '#f0883e' }}>
+                        <span className="flex items-center gap-1" style={{ color: 'var(--color-accent)' }}>
                           <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                           {item.averageRating.toFixed(1)}
                         </span>
@@ -325,7 +325,7 @@ export default function AssetStorePage() {
                   onClick={() => setPage(p => p + 1)}
                   disabled={loading}
                   className="px-10 py-3.5 rounded-xl font-bold disabled:opacity-50"
-                  style={{ background: '#21262d', color: '#2f81f7', border: '1px solid #30363d' }}>
+                  style={{ background: 'var(--color-surface-container)', color: 'var(--color-primary)', border: '1px solid var(--color-outline)' }}>
                   {loading ? '불러오는 중...' : '더 보기'}
                 </button>
               </div>
@@ -333,16 +333,16 @@ export default function AssetStorePage() {
 
             {!loading && visibleAssets.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
-                <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>
+                <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>
                   {keyword ? 'search_off' : 'inventory_2'}
                 </span>
-                <p style={{ color: '#7d8590' }}>
+                <p style={{ color: 'var(--color-on-surface-variant)' }}>
                   {keyword ? `"${keyword}"에 대한 검색 결과가 없습니다.` : '에셋이 없습니다.'}
                 </p>
                 {keyword && (
                   <button onClick={clearSearch}
                     className="text-sm font-bold hover:underline"
-                    style={{ color: '#2f81f7' }}>
+                    style={{ color: 'var(--color-primary)' }}>
                     전체 에셋 보기
                   </button>
                 )}

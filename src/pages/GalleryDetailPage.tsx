@@ -222,18 +222,18 @@ export default function GalleryDetailPage() {
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent" style={{ borderColor: '#2f81f7' }} />
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
+        <div className="animate-spin rounded-full w-10 h-10 border-2" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
 
   if (!post) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: '#0d1117', color: '#e6edf3' }}>
-        <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>image_not_supported</span>
-        <p style={{ color: '#7d8590' }}>작품을 찾을 수 없습니다.</p>
-        <Link to="/gallery/free" className="text-sm font-bold" style={{ color: '#2f81f7' }}>갤러리로 돌아가기</Link>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
+        <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>image_not_supported</span>
+        <p style={{ color: 'var(--color-on-surface-variant)' }}>작품을 찾을 수 없습니다.</p>
+        <Link to="/gallery/free" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>갤러리로 돌아가기</Link>
       </div>
     )
   }
@@ -266,10 +266,10 @@ export default function GalleryDetailPage() {
   ]
 
   return (
-    <div style={{ background: '#0d1117', color: '#e6edf3' }}>
+    <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       {/* 뷰어 */}
       <div className="flex flex-col items-center py-12 relative"
-        style={{ background: 'repeating-conic-gradient(#1c2128 0% 25%, #21262d 0% 50%) 0 0 / 16px 16px', minHeight: 480 }}>
+        style={{ background: 'repeating-conic-gradient(var(--color-surface-container-low) 0% 25%, var(--color-surface-container) 0% 50%) 0 0 / 16px 16px', minHeight: 480 }}>
         {isPhotoGallery ? (
           /* ── 자유 갤러리: 사진 캐러셀 (contain + 화살표 + 썸네일 스트립) ── */
           <>
@@ -286,7 +286,7 @@ export default function GalleryDetailPage() {
               <button type="button" onClick={() => setLightboxOpen(true)}
                 className="cursor-zoom-in" aria-label="사진 크게 보기">
                 <img src={activeImage ?? undefined} alt={post.title}
-                  className="max-w-full rounded-lg shadow-[0_0_80px_rgba(47,129,247,0.25)]"
+                  className="max-w-full rounded-lg shadow-[0_0_80px_color-mix(in srgb, var(--color-primary) 25%, transparent)]"
                   style={{ maxHeight: 600, objectFit: 'contain' }} />
               </button>
               {multiImage && (
@@ -309,7 +309,7 @@ export default function GalleryDetailPage() {
                   <button key={i} onClick={() => setActiveImageIdx(i)}
                     aria-label={`이미지 ${i + 1}`}
                     className="flex-shrink-0 rounded-lg overflow-hidden transition-all"
-                    style={{ width: 64, height: 64, outline: i === safeImageIdx ? '2px solid #2f81f7' : '2px solid transparent', outlineOffset: 2 }}>
+                    style={{ width: 64, height: 64, outline: i === safeImageIdx ? '2px solid var(--color-primary)' : '2px solid transparent', outlineOffset: 2 }}>
                     <img src={url} alt="" className="w-full h-full object-cover" />
                   </button>
                 ))}
@@ -324,13 +324,13 @@ export default function GalleryDetailPage() {
                 <img
                   src={post.thumbnailUrl}
                   alt={post.title}
-                  className="shadow-[0_0_80px_rgba(47,129,247,0.3)]"
+                  className="shadow-[0_0_80px_color-mix(in srgb, var(--color-primary) 30%, transparent)]"
                   style={{ width: (post.canvasWidth ?? 64) * zoom, height: (post.canvasHeight ?? 64) * zoom, imageRendering: 'pixelated', objectFit: 'cover' }}
                 />
               )
               : (
-                <div className="shadow-[0_0_80px_rgba(47,129,247,0.3)]"
-                  style={{ width: (post.canvasWidth ?? 64) * zoom, height: (post.canvasHeight ?? 64) * zoom, background: 'linear-gradient(135deg, #0a1628, #1a3a5c, #2f81f7)' }} />
+                <div className="shadow-[0_0_80px_color-mix(in srgb, var(--color-primary) 30%, transparent)]"
+                  style={{ width: (post.canvasWidth ?? 64) * zoom, height: (post.canvasHeight ?? 64) * zoom, background: 'linear-gradient(135deg, #0a1628, #1a3a5c, var(--color-primary))' }} />
               )
             }
             <span className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs text-white"
@@ -358,21 +358,21 @@ export default function GalleryDetailPage() {
 
       {/* 액션 바 */}
       <div className="border-y h-14 flex items-center px-8"
-        style={{ background: '#161b22', borderColor: '#30363d' }}>
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
         <div className="max-w-[1440px] mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-6">
             <button onClick={handleLike}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl transition-colors hover:bg-[#1c2128]"
-              style={{ color: post.isLiked ? '#e11d48' : '#7d8590' }}>
+              className="flex items-center gap-2 px-4 py-2 rounded-xl transition-colors hover:bg-surface-container-low"
+              style={{ color: post.isLiked ? '#e11d48' : 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base"
                 style={{ fontVariationSettings: post.isLiked ? "'FILL' 1" : "'FILL' 0" }}>favorite</span>
               <span className="text-sm font-medium">{post.likeCount.toLocaleString()}</span>
             </button>
-            <span className="flex items-center gap-2 text-sm" style={{ color: '#7d8590' }}>
+            <span className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base">visibility</span>
               {post.viewCount.toLocaleString()}
             </span>
-            <span className="flex items-center gap-2 text-sm" style={{ color: '#7d8590' }}>
+            <span className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base">chat_bubble</span>
               {post.commentCount}
             </span>
@@ -380,8 +380,8 @@ export default function GalleryDetailPage() {
           <div className="flex items-center gap-2">
             <div className="relative">
                 <button onClick = {() => setIsMenuOpen(!isMenuOpen)}
-                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" 
-                  style={{color: '#7d8590'}}>
+                  className="p-2 rounded-xl hover:bg-surface-container-low transition-colors" 
+                  style={{color: 'var(--color-on-surface-variant)'}}>
                   <span className="material-symbols-outlined">more_horiz</span>
                 </button>
                 {/* 드롭다운 컴포넌트 활용 */}
@@ -392,10 +392,10 @@ export default function GalleryDetailPage() {
                 </Dropdown>
             </div>
 
-            <button className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" style={{ color: '#7d8590' }}>
+            <button type="button" className="p-2 rounded-xl hover:bg-surface-container-low transition-colors" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined">share</span>
             </button>
-            <button className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors" style={{ color: '#7d8590' }}>
+            <button type="button" className="p-2 rounded-xl hover:bg-surface-container-low transition-colors" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined">flag</span>
             </button>
             {/* 작성자 본인만 수정/삭제 버튼 표시 */}
@@ -403,16 +403,16 @@ export default function GalleryDetailPage() {
               <>
                 <button
                   onClick={() => setShowEditModal(true)}
-                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
+                  className="p-2 rounded-xl hover:bg-surface-container-low transition-colors"
                   title="게시글 수정"
-                  style={{ color: '#7d8590' }}>
+                  style={{ color: 'var(--color-on-surface-variant)' }}>
                   <span className="material-symbols-outlined">edit</span>
                 </button>
                 <button
                   onClick={handleDeletePost}
-                  className="p-2 rounded-xl hover:bg-[#1c2128] transition-colors"
+                  className="p-2 rounded-xl hover:bg-surface-container-low transition-colors"
                   title="게시글 삭제"
-                  style={{ color: '#f85149' }}>
+                  style={{ color: 'var(--color-error)' }}>
                   <span className="material-symbols-outlined">delete</span>
                 </button>
               </>
@@ -428,22 +428,22 @@ export default function GalleryDetailPage() {
           {/* 작품 정보 */}
           <div>
             <h1 className="text-3xl font-bold mb-2">{post.title}</h1>
-            <Link to={`/profile/${post.authorNickname}`} className="text-sm font-medium hover:underline" style={{ color: '#2f81f7' }}>
+            <Link to={`/profile/${post.authorNickname}`} className="text-sm font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
               @{post.authorNickname}
             </Link>
             {post.description && (
-              <p className="mt-3 text-base leading-relaxed" style={{ color: '#7d8590' }}>{post.description}</p>
+              <p className="mt-3 text-base leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>{post.description}</p>
             )}
             {post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {post.tags.map(tag => (
                   <div key={tag} className="flex items-center gap-0.5 rounded-full"
                     style={isTagBlocked(tag)
-                      ? { background: 'rgba(248,81,73,0.08)', border: '1px solid rgba(248,81,73,0.3)' }
-                      : { background: '#21262d', border: '1px solid #30363d' }}>
+                      ? { background: 'color-mix(in srgb, var(--color-error) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-error) 30%, transparent)' }
+                      : { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)' }}>
                     <Link to={`/gallery/free?tag=${encodeURIComponent(tag)}`}
                       className="pl-3 pr-1 py-1 text-sm hover:underline transition-colors"
-                      style={{ color: isTagBlocked(tag) ? '#f85149' : '#7d8590' }}>
+                      style={{ color: isTagBlocked(tag) ? 'var(--color-error)' : 'var(--color-on-surface-variant)' }}>
                       #{tag}
                     </Link>
                     {isLoggedIn && (
@@ -457,8 +457,8 @@ export default function GalleryDetailPage() {
                           }
                         }}
                         title={isTagBlocked(tag) ? '태그 차단 해제' : '태그 차단'}
-                        className="pr-2 py-1 transition-colors hover:text-[#f85149]"
-                        style={{ color: isTagBlocked(tag) ? '#f85149' : '#484f58' }}>
+                        className="pr-2 py-1 transition-colors hover:text-error"
+                        style={{ color: isTagBlocked(tag) ? 'var(--color-error)' : 'var(--color-outline-strong)' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: 12 }}>
                           {isTagBlocked(tag) ? 'close' : 'block'}
                         </span>
@@ -470,8 +470,8 @@ export default function GalleryDetailPage() {
             )}
             <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
               {infoItems.map(([k, v]) => (
-                <div key={k} className="rounded-xl p-3" style={{ background: '#161b22', border: '1px solid #30363d' }}>
-                  <p style={{ color: '#7d8590' }}>{k}</p>
+                <div key={k} className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
+                  <p style={{ color: 'var(--color-on-surface-variant)' }}>{k}</p>
                   <p className="font-bold mt-0.5">{v}</p>
                 </div>
               ))}
@@ -483,7 +483,7 @@ export default function GalleryDetailPage() {
             <h3 className="font-bold mb-6">댓글 {post.commentCount}</h3>
             {/* 댓글 입력 */}
             <div className="flex gap-3 mb-8">
-              <div className="w-9 h-9 rounded-full shrink-0" style={{ background: 'linear-gradient(135deg, #2f81f7, #1a3a6b)' }} />
+              <div className="w-9 h-9 rounded-full shrink-0" style={{ background: 'linear-gradient(135deg, var(--color-primary), #1a3a6b)' }} />
               <div className="flex-1">
                 <textarea
                   rows={3}
@@ -492,7 +492,7 @@ export default function GalleryDetailPage() {
                   placeholder={isLoggedIn ? '댓글을 입력하세요...' : '로그인 후 댓글을 남길 수 있습니다.'}
                   disabled={!isLoggedIn}
                   className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none disabled:opacity-50"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
                 {isLoggedIn && (
                   <div className="flex justify-end mt-2">
@@ -500,7 +500,7 @@ export default function GalleryDetailPage() {
                       onClick={handleComment}
                       disabled={submitting || !commentText.trim()}
                       className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
-                      style={{ background: '#2f81f7', color: '#fff' }}>
+                      style={{ background: 'var(--color-primary)', color: '#fff' }}>
                       {submitting ? '등록 중...' : '등록'}
                     </button>
                   </div>
@@ -513,29 +513,29 @@ export default function GalleryDetailPage() {
               {comments.map(c => (
                 <div key={c.commentId} className="flex gap-3">
                   <div className="w-9 h-9 rounded-full shrink-0"
-                    style={{ background: c.authorProfileImageUrl ? `url(${c.authorProfileImageUrl})` : 'linear-gradient(135deg, #2f81f7, #1a3a6b)', backgroundSize: 'cover' }} />
+                    style={{ background: c.authorProfileImageUrl ? `url(${c.authorProfileImageUrl})` : 'linear-gradient(135deg, var(--color-primary), #1a3a6b)', backgroundSize: 'cover' }} />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-bold text-sm">@{c.authorNickname}</span>
-                      <span className="text-xs" style={{ color: '#7d8590' }}>
+                      <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                         {new Date(c.createdAt).toLocaleDateString('ko-KR')}
                       </span>
-                      {!c.isDeleted && isLoggedIn && (
-                        <button onClick={() => handleDeleteComment(c.commentId)}
-                          className="ml-auto text-xs transition-colors hover:text-[#f85149]"
-                          style={{ color: '#484f58' }}>
+                      {!c.isDeleted && isLoggedIn && c.authorId === user?.userId && (
+                        <button type="button" onClick={() => handleDeleteComment(c.commentId)}
+                          className="ml-auto text-xs transition-colors hover:text-error"
+                          style={{ color: 'var(--color-outline-strong)' }}>
                           삭제
                         </button>
                       )}
                     </div>
-                    <p className="text-sm leading-relaxed" style={{ color: c.isDeleted ? '#484f58' : '#7d8590', fontStyle: c.isDeleted ? 'italic' : 'normal' }}>
+                    <p className="text-sm leading-relaxed" style={{ color: c.isDeleted ? 'var(--color-outline-strong)' : 'var(--color-on-surface-variant)', fontStyle: c.isDeleted ? 'italic' : 'normal' }}>
                       {c.content}
                     </p>
                   </div>
                 </div>
               ))}
               {comments.length === 0 && (
-                <p className="text-sm text-center py-8" style={{ color: '#484f58' }}>첫 댓글을 남겨보세요!</p>
+                <p className="text-sm text-center py-8" style={{ color: 'var(--color-outline-strong)' }}>첫 댓글을 남겨보세요!</p>
               )}
             </div>
           </div>
@@ -543,7 +543,7 @@ export default function GalleryDetailPage() {
 
         {/* 오른쪽 사이드바 */}
         <div className="w-72 shrink-0 space-y-5">
-          <div className="rounded-2xl border p-5" style={{ background: '#21262d', borderColor: '#30363d' }}>
+          <div className="rounded-2xl border p-5" style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full overflow-hidden"
                 style={{
@@ -556,7 +556,7 @@ export default function GalleryDetailPage() {
             <div className="flex gap-2">
               <Link to={`/profile/${post.authorNickname}`}
                 className="flex-1 py-2 rounded-xl font-bold text-sm text-center"
-                style={{ background: '#2f81f7', color: '#fff' }}>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>
                 프로필 보기
               </Link>
               {isLoggedIn && user?.userId !== post.authorId && (
@@ -576,8 +576,8 @@ export default function GalleryDetailPage() {
                   }}
                   className="px-3 py-2 rounded-xl text-xs font-bold transition-colors"
                   style={isUserBlocked(post.authorId)
-                    ? { background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.3)', color: '#f85149' }
-                    : { background: '#1c2128', border: '1px solid #30363d', color: '#7d8590' }}>
+                    ? { background: 'color-mix(in srgb, var(--color-error) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-error) 30%, transparent)', color: 'var(--color-error)' }
+                    : { background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   {isUserBlocked(post.authorId) ? '차단됨' : '차단'}
                 </button>
               )}
@@ -586,12 +586,12 @@ export default function GalleryDetailPage() {
 
           {/* ── 전용 갤러리: 팔레트 ── */}
           {showPalette && (
-            <div className="rounded-2xl border p-5" style={{ background: '#21262d', borderColor: '#30363d' }}>
+            <div className="rounded-2xl border p-5" style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
               <div className="flex items-center justify-between mb-3">
                 <p className="font-bold">
                   팔레트{post.palette?.name ? ` · ${post.palette.name}` : ''}
                 </p>
-                <span className="text-xs" style={{ color: '#7d8590' }}>{paletteColors.length}색</span>
+                <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{paletteColors.length}색</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {paletteColors.map((c, i) => (
@@ -602,7 +602,7 @@ export default function GalleryDetailPage() {
                     title={`${c} (클릭하여 복사)`}
                     aria-label={`색상 ${c} 복사`}
                     className="w-7 h-7 rounded-md transition-transform hover:scale-110"
-                    style={{ background: c, border: '1px solid #30363d' }}
+                    style={{ background: c, border: '1px solid var(--color-outline)' }}
                   />
                 ))}
               </div>
@@ -612,7 +612,7 @@ export default function GalleryDetailPage() {
                 disabled
                 title="에디터 연동 준비 중"
                 className="w-full mt-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 opacity-40 cursor-not-allowed"
-                style={{ background: '#1c2128', border: '1px solid #30363d', color: '#7d8590' }}>
+                style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base">download_for_offline</span>
                 이 팔레트 가져오기 (준비 중)
               </button>
@@ -621,7 +621,7 @@ export default function GalleryDetailPage() {
 
           {/* ── 전용 갤러리: .ppit 다운로드 ── */}
           {isDedicated && (
-            <div className="rounded-2xl border p-5" style={{ background: '#21262d', borderColor: '#30363d' }}>
+            <div className="rounded-2xl border p-5" style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
               <p className="font-bold mb-3">원본 파일</p>
               {post.fileUrl ? (
                 <div className="space-y-2">
@@ -630,7 +630,7 @@ export default function GalleryDetailPage() {
                     onClick={handleDownloadPpit}
                     disabled={downloading}
                     className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-60"
-                    style={{ background: '#f0883e', color: '#fff' }}>
+                    style={{ background: 'var(--color-accent)', color: '#fff' }}>
                     <span className={`material-symbols-outlined text-base${downloading ? ' animate-spin' : ''}`}>
                       {downloading ? 'progress_activity' : 'download'}
                     </span>
@@ -642,8 +642,8 @@ export default function GalleryDetailPage() {
                       type="button"
                       onClick={() => openInEditor(isOwner ? undefined : post.postId)}
                       className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors"
-                      style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}>
-                      <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>
+                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
+                      <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-primary)' }}>
                         {isOwner ? 'edit' : 'fork_right'}
                       </span>
                       {isOwner ? '에디터에서 편집' : '리믹스'}
@@ -651,8 +651,8 @@ export default function GalleryDetailPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-sm" style={{ color: '#7d8590' }}>
-                  <span className="material-symbols-outlined text-base" style={{ color: '#484f58' }}>lock</span>
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+                  <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-outline-strong)' }}>lock</span>
                   작성자가 원본 다운로드를 비공개로 설정했습니다.
                 </div>
               )}

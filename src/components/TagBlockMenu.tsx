@@ -89,9 +89,9 @@ export default function TagBlockMenu({ tags }: TagBlockMenuProps) {
         <div
           role="menu"
           className="absolute top-9 right-0 w-48 rounded-xl shadow-xl overflow-hidden"
-          style={{ background: '#161b22', border: '1px solid #30363d' }}
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
         >
-          <p className="px-3 py-2 text-xs font-bold" style={{ color: '#7d8590', borderBottom: '1px solid #30363d' }}>
+          <p className="px-3 py-2 text-xs font-bold" style={{ color: 'var(--color-on-surface-variant)', borderBottom: '1px solid var(--color-outline)' }}>
             태그 차단
           </p>
           <ul className="max-h-56 overflow-auto py-1">
@@ -104,13 +104,13 @@ export default function TagBlockMenu({ tags }: TagBlockMenuProps) {
                     disabled={blocked}
                     onClick={e => handleBlock(e, tag)}
                     role="menuitem"
-                    className="w-full px-3 py-2 text-left text-sm flex items-center justify-between gap-2 transition-colors disabled:opacity-50 hover:bg-[#21262d]"
-                    style={{ color: blocked ? '#484f58' : '#e6edf3' }}
+                    className="w-full px-3 py-2 text-left text-sm flex items-center justify-between gap-2 transition-colors disabled:opacity-50 hover:bg-surface-container"
+                    style={{ color: blocked ? 'var(--color-outline-strong)' : 'var(--color-on-surface)' }}
                   >
                     <span className="truncate">
-                      <span style={{ color: '#484f58' }}>#</span>{tag}
+                      <span style={{ color: 'var(--color-outline-strong)' }}>#</span>{tag}
                     </span>
-                    <span className="text-xs flex-shrink-0" style={{ color: blocked ? '#484f58' : '#f85149' }}>
+                    <span className="text-xs flex-shrink-0" style={{ color: blocked ? 'var(--color-outline-strong)' : 'var(--color-error)' }}>
                       {blocked ? '차단됨' : '차단'}
                     </span>
                   </button>

@@ -31,9 +31,9 @@ const REQUEST_SORTS: [string, string][] = [
 
 // 아바타 색상 팔레트 (서비스 ID 기반으로 일관된 색상 선택)
 const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg,#1a1a3a,#2f81f7)',
+  'linear-gradient(135deg,#1a1a3a,var(--color-primary))',
   'linear-gradient(135deg,#1a0a2e,#8b2de0)',
-  'linear-gradient(135deg,#0a1628,#f0883e)',
+  'linear-gradient(135deg,#0a1628,var(--color-accent))',
   'linear-gradient(135deg,#2c1810,#6b3020)',
   'linear-gradient(135deg,#0a2a1a,#3abf6b)',
   'linear-gradient(135deg,#0a0a1a,#3a3a6b)',
@@ -54,7 +54,7 @@ function ArtistCard({ service, portfolio, portfolioLoaded }: {
 
   return (
     <div className="rounded-2xl overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-0.5"
-      style={{ background: '#161b22', borderColor: '#30363d' }}>
+      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
       {/* 포트폴리오 이미지 영역 */}
       <div className="relative h-36 overflow-hidden">
@@ -72,13 +72,13 @@ function ArtistCard({ service, portfolio, portfolioLoaded }: {
         )}
         {/* 하단 페이드 */}
         <div className="absolute inset-0"
-          style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(22,27,34,0.9))' }} />
+          style={{ background: 'linear-gradient(to bottom, transparent 40%, color-mix(in srgb, var(--color-surface) 90%, transparent))' }} />
         {/* 상태 배지 */}
         <div className="absolute top-3 right-3">
           <span className="px-2.5 py-1 rounded-full text-xs font-bold border"
             style={isOpen
-              ? { background: 'rgba(63,185,80,0.2)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-              : { background: 'rgba(0,0,0,0.5)', color: '#7d8590', borderColor: '#30363d' }}>
+              ? { background: 'color-mix(in srgb, var(--color-success) 20%, transparent)', color: 'var(--color-success)', borderColor: 'color-mix(in srgb, var(--color-success) 30%, transparent)' }
+              : { background: 'rgba(0,0,0,0.5)', color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }}>
             {isOpen ? '모집 중' : '마감'}
           </span>
         </div>
@@ -87,10 +87,10 @@ function ArtistCard({ service, portfolio, portfolioLoaded }: {
           {service.artistProfileImageUrl ? (
             <img src={service.artistProfileImageUrl} alt={service.artistNickname ?? ''}
               className="w-12 h-12 rounded-xl object-cover border-2"
-              style={{ borderColor: '#161b22' }} />
+              style={{ borderColor: 'var(--color-surface)' }} />
           ) : (
             <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold border-2"
-              style={{ background: gradient, color: '#fff', borderColor: '#161b22' }}>
+              style={{ background: gradient, color: '#fff', borderColor: 'var(--color-surface)' }}>
               {(service.artistNickname?.trim()?.[0] ?? '?').toUpperCase()}
             </div>
           )}
@@ -102,25 +102,25 @@ function ArtistCard({ service, portfolio, portfolioLoaded }: {
         <div className="mb-2">
           <span className="font-bold">{service.artistNickname?.trim() || '알 수 없음'}</span>
           <span className="ml-2 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+            style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
             {service.serviceType === 'OPTION' ? '가격 고정형' : '가격 협의형'}
           </span>
         </div>
 
         {/* 서비스 제목 */}
-        <h3 className="text-sm font-bold mb-4 line-clamp-2" style={{ color: '#e6edf3' }}>{service.title}</h3>
+        <h3 className="text-sm font-bold mb-4 line-clamp-2" style={{ color: 'var(--color-on-surface)' }}>{service.title}</h3>
 
         {/* 가격 + 기간 + 버튼 */}
-        <div className="flex items-end justify-between pt-4 border-t" style={{ borderColor: '#30363d' }}>
+        <div className="flex items-end justify-between pt-4 border-t" style={{ borderColor: 'var(--color-outline)' }}>
           <div>
-            <span className="text-xs block mb-0.5" style={{ color: '#7d8590' }}>
+            <span className="text-xs block mb-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
               {service.estimatedDays ? `예상 ${service.estimatedDays}일` : '기간 협의'}
             </span>
-            <p className="font-bold text-lg" style={{ color: '#2f81f7' }}>{formatServicePriceLabel(service)}</p>
+            <p className="font-bold text-lg" style={{ color: 'var(--color-primary)' }}>{formatServicePriceLabel(service)}</p>
           </div>
           <Link to={`/artist-services/${service.serviceId}`}
             className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-            style={{ background: '#2f81f7', color: '#fff' }}>
+            style={{ background: 'var(--color-primary)', color: '#fff' }}>
             서비스 보기
           </Link>
         </div>
@@ -422,21 +422,21 @@ export default function CommissionPage() {
   const filteredRequests = requests
 
   return (
-    <div style={{ background: '#0d1117', color: '#e6edf3' }}>
+    <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       {/* 헤더 */}
-      <div className="border-b px-8 pt-10 pb-8" style={{ borderColor: '#30363d' }}>
+      <div className="border-b px-8 pt-10 pb-8" style={{ borderColor: 'var(--color-outline)' }}>
         <div className="max-w-[1440px] mx-auto">
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-4xl font-bold mb-2">커미션</h1>
-              <p style={{ color: '#7d8590' }}>원하는 픽셀아트를 작가에게 의뢰하거나, 서비스를 등록하세요</p>
+              <p style={{ color: 'var(--color-on-surface-variant)' }}>원하는 픽셀아트를 작가에게 의뢰하거나, 서비스를 등록하세요</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={gate(handleOpenModal)}
                 {...gateProps}
-                className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#21262d]'}`}
-                style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-surface-container'}`}
+                style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                 {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
                 의뢰 등록하기
               </button>
@@ -444,21 +444,21 @@ export default function CommissionPage() {
                 onClick={gate(handleOpenServiceModal)}
                 {...gateProps}
                 className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-sm ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
-                style={{ background: '#2f81f7', color: '#fff' }}>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>
                 {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
                 서비스 등록하기
               </button>
             </div>
           </div>
           {/* 탭 */}
-          <div className="flex gap-1 rounded-xl p-1 w-fit mt-8" style={{ background: '#1c2128' }}>
+          <div className="flex gap-1 rounded-xl p-1 w-fit mt-8" style={{ background: 'var(--color-surface-container-low)' }}>
             {([['artists', '작가 찾기'], ['requests', '의뢰 찾기'],
                ...(isLoggedIn ? [['mine', '내 커미션']] : [])] as [string, string][]).map(([key, label]) => (
               <button key={key} onClick={() => handleTabChange(key as typeof tab)}
                 className="px-8 py-2.5 rounded-lg font-bold text-sm transition-colors"
                 style={tab === key
-                  ? { background: '#292f38', color: '#2f81f7' }
-                  : { color: '#7d8590' }}>
+                  ? { background: 'var(--color-surface-container-high)', color: 'var(--color-primary)' }
+                  : { color: 'var(--color-on-surface-variant)' }}>
                 {label}
               </button>
             ))}
@@ -472,8 +472,8 @@ export default function CommissionPage() {
         {tab !== 'mine' && (
         <div className="flex items-center gap-3 mb-8 flex-wrap">
           {searchKeyword ? (
-            <p className="text-sm" style={{ color: '#7d8590' }}>
-              <span style={{ color: '#e6edf3' }}>"{searchKeyword}"</span> 검색 결과&nbsp;
+            <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span style={{ color: 'var(--color-on-surface)' }}>"{searchKeyword}"</span> 검색 결과&nbsp;
               {tab === 'artists'
                 ? `${filteredArtists.length}개`
                 : `${filteredRequests.length}건`}
@@ -485,8 +485,8 @@ export default function CommissionPage() {
                 <button key={c} onClick={() => setActiveCategory(c)}
                   className="px-5 py-2.5 rounded-full font-bold text-sm transition-colors"
                   style={activeCategory === c
-                    ? { background: '#2f81f7', color: '#fff' }
-                    : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                    ? { background: 'var(--color-primary)', color: '#fff' }
+                    : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
                   {c}
                 </button>
               ))}
@@ -499,19 +499,19 @@ export default function CommissionPage() {
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base"
-                  style={{ color: '#7d8590' }}>search</span>
+                  style={{ color: 'var(--color-on-surface-variant)' }}>search</span>
                 <input
                   ref={searchRef}
                   value={searchInput}
                   onChange={e => setSearchInput(e.target.value)}
                   placeholder={tab === 'artists' ? '작가 검색...' : '의뢰 검색...'}
                   className="pl-10 pr-8 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', width: 200 }}
+                  style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)', width: 200 }}
                 />
                 {(searchInput || searchKeyword) && (
                   <button type="button" onClick={clearSearch}
                     className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-white"
-                    style={{ color: '#7d8590' }}>
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
                 )}
@@ -522,7 +522,7 @@ export default function CommissionPage() {
                 value={sort}
                 onChange={e => setSort(e.target.value)}
                 className="appearance-none px-5 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3' }}>
+                style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                 {(tab === 'artists' ? ARTIST_SORTS : REQUEST_SORTS).map(([label, value]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
@@ -538,41 +538,41 @@ export default function CommissionPage() {
             <div className="grid grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="rounded-2xl border animate-pulse overflow-hidden"
-                  style={{ background: '#161b22', borderColor: '#30363d' }}>
-                  <div style={{ height: 144, background: '#21262d' }} />
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+                  <div style={{ height: 144, background: 'var(--color-surface-container)' }} />
                   <div className="p-5 pt-9 space-y-3">
-                    <div className="h-4 rounded" style={{ background: '#21262d', width: '55%' }} />
-                    <div className="h-3 rounded" style={{ background: '#21262d', width: '80%' }} />
-                    <div className="h-3 rounded" style={{ background: '#21262d', width: '65%' }} />
-                    <div className="h-8 rounded mt-4" style={{ background: '#21262d' }} />
+                    <div className="h-4 rounded" style={{ background: 'var(--color-surface-container)', width: '55%' }} />
+                    <div className="h-3 rounded" style={{ background: 'var(--color-surface-container)', width: '80%' }} />
+                    <div className="h-3 rounded" style={{ background: 'var(--color-surface-container)', width: '65%' }} />
+                    <div className="h-8 rounded mt-4" style={{ background: 'var(--color-surface-container)' }} />
                   </div>
                 </div>
               ))}
             </div>
           ) : filteredArtists.length === 0 ? (
             <div className="flex items-center justify-center py-24 rounded-2xl border"
-              style={{ borderColor: '#30363d', color: '#7d8590', borderStyle: 'dashed' }}>
+              style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
               <div className="text-center">
                 {searchKeyword ? (
                   <>
-                    <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: '#30363d' }}>search_off</span>
+                    <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: 'var(--color-outline)' }}>search_off</span>
                     <p className="font-bold mb-1">"{searchKeyword}"에 해당하는 서비스가 없습니다</p>
                     <button onClick={clearSearch}
                       className="mt-4 text-sm font-bold hover:underline"
-                      style={{ color: '#2f81f7' }}>
+                      style={{ color: 'var(--color-primary)' }}>
                       전체 서비스 보기
                     </button>
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: '#30363d' }}>brush</span>
+                    <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: 'var(--color-outline)' }}>brush</span>
                     <p className="font-bold mb-1">등록된 작가 서비스가 없습니다</p>
                     <p className="text-sm">첫 번째로 서비스를 등록해보세요</p>
                     <button
                       onClick={gate(handleOpenServiceModal)}
                       {...gateProps}
                       className={`mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-sm ${gateBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
-                      style={{ background: '#2f81f7', color: '#fff' }}>
+                      style={{ background: 'var(--color-primary)', color: '#fff' }}>
                       {gateBlocked && <span className="material-symbols-outlined text-base">lock</span>}
                       서비스 등록하기
                     </button>
@@ -595,8 +595,8 @@ export default function CommissionPage() {
                   <button
                     onClick={() => fetchArtists(artistPage + 1)}
                     disabled={artistLoading}
-                    className="px-8 py-3 rounded-xl font-bold text-sm transition-all hover:bg-[#21262d] disabled:opacity-50"
-                    style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                    className="px-8 py-3 rounded-xl font-bold text-sm transition-all hover:bg-surface-container disabled:opacity-50"
+                    style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                     {artistLoading ? '불러오는 중...' : '더 보기'}
                   </button>
                 </div>
@@ -612,31 +612,31 @@ export default function CommissionPage() {
               <div className="grid grid-cols-3 gap-6">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="rounded-2xl border animate-pulse"
-                    style={{ background: '#161b22', borderColor: '#30363d', height: 180 }} />
+                    style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)', height: 180 }} />
                 ))}
               </div>
             ) : filteredRequests.length === 0 ? (
               <div className="flex items-center justify-center py-24 rounded-2xl border"
-                style={{ borderColor: '#30363d', color: '#7d8590', borderStyle: 'dashed' }}>
+                style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
                 <div className="text-center">
                   {searchKeyword ? (
                     <>
-                      <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: '#30363d' }}>search_off</span>
+                      <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: 'var(--color-outline)' }}>search_off</span>
                       <p className="font-bold mb-1">"{searchKeyword}"에 대한 의뢰가 없습니다</p>
                       <button onClick={clearSearch}
                         className="mt-4 text-sm font-bold hover:underline"
-                        style={{ color: '#2f81f7' }}>
+                        style={{ color: 'var(--color-primary)' }}>
                         전체 의뢰 보기
                       </button>
                     </>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: '#30363d' }}>inbox</span>
+                      <span className="material-symbols-outlined text-5xl mb-3 block" style={{ color: 'var(--color-outline)' }}>inbox</span>
                       <p className="font-bold mb-1">등록된 의뢰가 없습니다</p>
                       <p className="text-sm">첫 번째로 의뢰를 등록해보세요</p>
                       <button onClick={handleOpenModal}
                         className="mt-4 px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90"
-                        style={{ background: '#2f81f7', color: '#fff' }}>
+                        style={{ background: 'var(--color-primary)', color: '#fff' }}>
                         의뢰 등록하기
                       </button>
                     </>
@@ -653,44 +653,44 @@ export default function CommissionPage() {
                       : null
                     return (
                       <Link key={req.requestPostId} to={`/request-posts/${req.requestPostId}`}
-                        className="rounded-2xl border p-5 flex flex-col gap-3 transition-shadow hover:shadow-lg hover:border-[#58a6ff] group"
-                        style={{ background: '#161b22', borderColor: '#30363d' }}>
+                        className="rounded-2xl border p-5 flex flex-col gap-3 transition-shadow hover:shadow-lg hover:border-primary-hover group"
+                        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
                         {/* 상단: 상태 + D-day */}
                         <div className="flex items-center justify-between">
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold border"
                             style={isOpen
-                              ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-                              : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
+                              ? { background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)', borderColor: 'color-mix(in srgb, var(--color-success) 30%, transparent)' }
+                              : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }}>
                             {isOpen ? '모집 중' : '마감'}
                           </span>
                           {dDay !== null && (
                             <span className="text-xs font-bold"
-                              style={{ color: dDay <= 3 ? '#f85149' : '#7d8590' }}>
+                              style={{ color: dDay <= 3 ? 'var(--color-error)' : 'var(--color-on-surface-variant)' }}>
                               {dDay > 0 ? `D-${dDay}` : dDay === 0 ? 'D-Day' : '마감'}
                             </span>
                           )}
                         </div>
 
                         {/* 제목 */}
-                        <h3 className="font-bold text-sm line-clamp-2 group-hover:text-[#2f81f7] transition-colors">
+                        <h3 className="font-bold text-sm line-clamp-2 group-hover:text-primary transition-colors">
                           {req.title}
                         </h3>
 
                         {/* 의뢰자 */}
-                        <div className="flex items-center gap-2 text-xs" style={{ color: '#7d8590' }}>
+                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                           <span className="material-symbols-outlined text-xs">person</span>
                           <span>@{req.clientNickname ?? '알 수 없음'}</span>
                         </div>
 
                         {/* 예산 + 마감 */}
-                        <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: '#30363d' }}>
+                        <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--color-outline)' }}>
                           <div>
-                            <span className="text-xs block" style={{ color: '#7d8590' }}>예산</span>
+                            <span className="text-xs block" style={{ color: 'var(--color-on-surface-variant)' }}>예산</span>
                             <span className="font-bold text-sm">{formatBudget(req.budgetMin, req.budgetMax)}</span>
                           </div>
                           {req.deadline && (
                             <div className="text-right">
-                              <span className="text-xs block" style={{ color: '#7d8590' }}>마감일</span>
+                              <span className="text-xs block" style={{ color: 'var(--color-on-surface-variant)' }}>마감일</span>
                               <span className="text-sm font-bold">
                                 {new Date(req.deadline).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
                               </span>
@@ -707,8 +707,8 @@ export default function CommissionPage() {
                     <button
                       onClick={() => fetchRequests(reqPage + 1)}
                       disabled={reqLoading}
-                      className="px-8 py-3 rounded-xl font-bold text-sm transition-all hover:bg-[#21262d] disabled:opacity-50"
-                      style={{ border: '1px solid #30363d', color: '#e6edf3' }}>
+                      className="px-8 py-3 rounded-xl font-bold text-sm transition-all hover:bg-surface-container disabled:opacity-50"
+                      style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                       {reqLoading ? '불러오는 중...' : '더 보기'}
                     </button>
                   </div>
@@ -722,24 +722,24 @@ export default function CommissionPage() {
         {tab === 'mine' && (
           <div>
             {/* 의뢰자/작가 서브탭 — 역할을 라벨에 명시 */}
-            <div className="flex gap-1.5 mb-4 p-1 rounded-xl w-fit" style={{ background: '#1c2128' }}>
+            <div className="flex gap-1.5 mb-4 p-1 rounded-xl w-fit" style={{ background: 'var(--color-surface-container-low)' }}>
               {(['client', 'artist'] as const).map(sub => {
                 const active = mySubTab === sub
                 const count = sub === 'client' ? myCommissions.client.length : myCommissions.artist.length
                 return (
                   <button key={sub} onClick={() => setMySubTab(sub)}
                     className="flex items-center gap-2.5 px-4 py-2 rounded-lg transition-colors"
-                    style={{ background: active ? '#292f38' : 'transparent' }}>
+                    style={{ background: active ? 'var(--color-surface-container-high)' : 'transparent' }}>
                     <span className="material-symbols-outlined text-lg"
-                      style={{ color: active ? '#2f81f7' : '#7d8590' }}>
+                      style={{ color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
                       {sub === 'client' ? 'shopping_bag' : 'brush'}
                     </span>
                     <span className="text-left leading-tight">
-                      <span className="block text-sm font-bold" style={{ color: active ? '#e6edf3' : '#7d8590' }}>
+                      <span className="block text-sm font-bold" style={{ color: active ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}>
                         {sub === 'client' ? '내가 맡긴' : '내가 맡은'}
-                        <span className="ml-1.5" style={{ color: active ? '#2f81f7' : '#7d8590' }}>{count}</span>
+                        <span className="ml-1.5" style={{ color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>{count}</span>
                       </span>
-                      <span className="block text-xs" style={{ color: '#7d8590' }}>
+                      <span className="block text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                         {sub === 'client' ? '의뢰자' : '작가'}
                       </span>
                     </span>
@@ -750,9 +750,9 @@ export default function CommissionPage() {
 
             {/* 현재 서브탭이 무엇인지 한 줄 안내 */}
             <div className="flex items-center gap-2 mb-6 px-3.5 py-2.5 rounded-xl text-sm"
-              style={{ background: 'rgba(47,129,247,0.08)', border: '1px solid rgba(47,129,247,0.2)' }}>
-              <span className="material-symbols-outlined text-base" style={{ color: '#2f81f7' }}>info</span>
-              <span style={{ color: '#7d8590' }}>
+              style={{ background: 'color-mix(in srgb, var(--color-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)' }}>
+              <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-primary)' }}>info</span>
+              <span style={{ color: 'var(--color-on-surface-variant)' }}>
                 {mySubTab === 'client'
                   ? '내가 다른 작가에게 맡긴 커미션이에요. 의뢰글과 성사된 계약을 나눠서 보여줍니다.'
                   : '다른 사람이 나에게 맡긴 작업이에요.'}
@@ -761,11 +761,11 @@ export default function CommissionPage() {
 
             {myError && !myLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>error</span>
-                <p className="text-sm" style={{ color: '#7d8590' }}>커미션을 불러오지 못했습니다.</p>
+                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>error</span>
+                <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>커미션을 불러오지 못했습니다.</p>
                 <button onClick={loadMyCommissions}
                   className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   다시 시도
                 </button>
               </div>
@@ -776,13 +776,13 @@ export default function CommissionPage() {
                   <div className="mb-8">
                     <div className="flex items-baseline gap-2 mb-3">
                       <h3 className="font-bold text-sm">내 의뢰글</h3>
-                      <span className="text-xs" style={{ color: '#7d8590' }}>
+                      <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                         게시판에 올린 의뢰{myRequestPosts.length > 0 ? ` · ${myRequestPosts.length}` : ''}
                       </span>
                     </div>
                     {myRequestPosts.length === 0 ? (
                       <p className="text-sm py-6 text-center rounded-xl border"
-                        style={{ borderColor: '#30363d', borderStyle: 'dashed', color: '#7d8590' }}>
+                        style={{ borderColor: 'var(--color-outline)', borderStyle: 'dashed', color: 'var(--color-on-surface-variant)' }}>
                         아직 올린 의뢰글이 없습니다.
                       </p>
                     ) : (
@@ -791,19 +791,19 @@ export default function CommissionPage() {
                           const open = rp.status === 'OPEN'
                           return (
                             <Link key={rp.requestPostId} to={`/request-posts/${rp.requestPostId}`}
-                              className="rounded-xl border p-4 flex items-center justify-between gap-3 transition-colors hover:border-[#58a6ff]"
-                              style={{ background: '#161b22', borderColor: '#30363d' }}>
+                              className="rounded-xl border p-4 flex items-center justify-between gap-3 transition-colors hover:border-primary-hover"
+                              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
                               <div className="min-w-0">
-                                <p className="font-bold text-sm truncate" style={{ color: '#e6edf3' }}>{rp.title}</p>
-                                <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                                <p className="font-bold text-sm truncate" style={{ color: 'var(--color-on-surface)' }}>{rp.title}</p>
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
                                   {formatBudget(rp.budgetMin, rp.budgetMax)}
                                   {rp.deadline && ` · ~${new Date(rp.deadline).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}`}
                                 </p>
                               </div>
                               <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border"
                                 style={open
-                                  ? { background: 'rgba(63,185,80,0.1)', color: '#3fb950', borderColor: 'rgba(63,185,80,0.3)' }
-                                  : { background: '#21262d', color: '#7d8590', borderColor: '#30363d' }}>
+                                  ? { background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)', borderColor: 'color-mix(in srgb, var(--color-success) 30%, transparent)' }
+                                  : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }}>
                                 {open ? '모집 중' : '마감'}
                               </span>
                             </Link>
@@ -811,10 +811,10 @@ export default function CommissionPage() {
                         })}
                       </div>
                     )}
-                    <div className="h-px mt-8" style={{ background: '#30363d' }} />
+                    <div className="h-px mt-8" style={{ background: 'var(--color-surface-container-highest)' }} />
                     <div className="flex items-baseline gap-2 mt-8 mb-3">
                       <h3 className="font-bold text-sm">성사된 계약</h3>
-                      <span className="text-xs" style={{ color: '#7d8590' }}>작가가 정해진 거래 · 진행/완료 포함</span>
+                      <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>작가가 정해진 거래 · 진행/완료 포함</span>
                     </div>
                   </div>
                 )}
@@ -836,19 +836,19 @@ export default function CommissionPage() {
           role="dialog" aria-modal="true" aria-labelledby="request-modal-title"
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div className="w-full max-w-lg rounded-2xl border p-6"
-            style={{ background: '#161b22', borderColor: '#30363d' }}>
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-between mb-6">
               <h2 id="request-modal-title" className="text-lg font-bold">의뢰 등록하기</h2>
               <button onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d]"
-                style={{ color: '#7d8590' }}>
+                className="p-1.5 rounded-lg transition-colors hover:bg-surface-container"
+                style={{ color: 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>제목 *</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>제목 *</label>
                 <input
                   type="text"
                   value={form.title}
@@ -856,25 +856,25 @@ export default function CommissionPage() {
                   placeholder="의뢰 제목을 입력하세요"
                   maxLength={100}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>설명</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>설명</label>
                 <textarea
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="원하시는 스타일, 참고 레퍼런스, 용도 등을 적어주세요"
                   rows={4}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최소 예산 (원)</label>
+                  <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>최소 예산 (원)</label>
                   <input
                     type="number"
                     value={form.budgetMin ?? ''}
@@ -882,11 +882,11 @@ export default function CommissionPage() {
                     placeholder="예: 30000"
                     min={0}
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                    style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최대 예산 (원)</label>
+                  <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>최대 예산 (원)</label>
                   <input
                     type="number"
                     value={form.budgetMax ?? ''}
@@ -894,13 +894,13 @@ export default function CommissionPage() {
                     placeholder="예: 100000"
                     min={0}
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                    style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>마감일</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>마감일</label>
                 <DateField
                   value={form.deadline ?? ''}
                   onChange={v => setForm(f => ({ ...f, deadline: v }))}
@@ -909,18 +909,18 @@ export default function CommissionPage() {
               </div>
 
               {formError && (
-                <p className="text-sm" style={{ color: '#f85149' }}>{formError}</p>
+                <p className="text-sm" style={{ color: 'var(--color-error)' }}>{formError}</p>
               )}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
-                  style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-surface-container"
+                  style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   취소
                 </button>
                 <button type="submit" disabled={submitting}
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   {submitting ? '등록 중...' : '의뢰 등록'}
                 </button>
               </div>
@@ -936,12 +936,12 @@ export default function CommissionPage() {
           role="dialog" aria-modal="true" aria-labelledby="service-modal-title"
           onClick={e => { if (e.target === e.currentTarget) setShowServiceModal(false) }}>
           <div className="w-full max-w-lg rounded-2xl border p-6 max-h-[90vh] overflow-y-auto"
-            style={{ background: '#161b22', borderColor: '#30363d' }}>
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-between mb-6">
               <h2 id="service-modal-title" className="text-lg font-bold">서비스 등록하기</h2>
               <button onClick={() => setShowServiceModal(false)}
-                className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d]"
-                style={{ color: '#7d8590' }}>
+                className="p-1.5 rounded-lg transition-colors hover:bg-surface-container"
+                style={{ color: 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
@@ -949,7 +949,7 @@ export default function CommissionPage() {
             <form onSubmit={handleServiceSubmit} className="space-y-4">
               {/* 제목 */}
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>제목 *</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>제목 *</label>
                 <input
                   type="text"
                   value={serviceForm.title}
@@ -957,46 +957,46 @@ export default function CommissionPage() {
                   placeholder="예: 16x16 캐릭터 스프라이트 제작"
                   maxLength={100}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               {/* 카테고리 */}
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>카테고리</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>카테고리</label>
                 <select
                   value={serviceForm.category}
                   onChange={e => setServiceForm(f => ({ ...f, category: e.target.value }))}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}>
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                   {SERVICE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
 
               {/* 설명 */}
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>설명</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>설명</label>
                 <textarea
                   value={serviceForm.description}
                   onChange={e => setServiceForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="작업 범위, 스타일, 제공 항목, 유의사항 등을 적어주세요"
                   rows={4}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               {/* 가격 유형 */}
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>가격 유형</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>가격 유형</label>
                 <div className="flex gap-2">
                   {([['OPTION', '가격 고정형'], ['QUOTE', '가격 협의형']] as const).map(([val, label]) => (
                     <button key={val} type="button"
                       onClick={() => setServiceForm(f => ({ ...f, serviceType: val }))}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors"
                       style={serviceForm.serviceType === val
-                        ? { background: '#2f81f7', color: '#fff' }
-                        : { background: '#0d1117', border: '1px solid #30363d', color: '#7d8590' }}>
+                        ? { background: 'var(--color-primary)', color: '#fff' }
+                        : { background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                       {label}
                     </button>
                   ))}
@@ -1006,7 +1006,7 @@ export default function CommissionPage() {
               {/* 가격 — 유형별 분기 */}
               {serviceForm.serviceType === 'OPTION' ? (
                 <div>
-                  <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>기본 가격 (원) *</label>
+                  <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>기본 가격 (원) *</label>
                   <input
                     type="number"
                     value={serviceForm.basePrice ?? ''}
@@ -1014,13 +1014,13 @@ export default function CommissionPage() {
                     placeholder="예: 30000"
                     min={0}
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                    style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                   />
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최소 가격 (원)</label>
+                    <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>최소 가격 (원)</label>
                     <input
                       type="number"
                       value={serviceForm.priceMin ?? ''}
@@ -1028,11 +1028,11 @@ export default function CommissionPage() {
                       placeholder="예: 30000"
                       min={0}
                       className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                      style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                      style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>최대 가격 (원)</label>
+                    <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>최대 가격 (원)</label>
                     <input
                       type="number"
                       value={serviceForm.priceMax ?? ''}
@@ -1040,7 +1040,7 @@ export default function CommissionPage() {
                       placeholder="예: 100000"
                       min={0}
                       className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                      style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                      style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                     />
                   </div>
                 </div>
@@ -1048,7 +1048,7 @@ export default function CommissionPage() {
 
               {/* 예상 작업 기간 */}
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#7d8590' }}>예상 작업 기간 (일)</label>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>예상 작업 기간 (일)</label>
                 <input
                   type="number"
                   value={serviceForm.estimatedDays ?? ''}
@@ -1056,23 +1056,23 @@ export default function CommissionPage() {
                   placeholder="예: 7"
                   min={1}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 />
               </div>
 
               {serviceError && (
-                <p className="text-sm" style={{ color: '#f85149' }}>{serviceError}</p>
+                <p className="text-sm" style={{ color: 'var(--color-error)' }}>{serviceError}</p>
               )}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowServiceModal(false)}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
-                  style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-surface-container"
+                  style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   취소
                 </button>
                 <button type="submit" disabled={serviceSubmitting}
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   {serviceSubmitting ? '등록 중...' : '서비스 등록'}
                 </button>
               </div>

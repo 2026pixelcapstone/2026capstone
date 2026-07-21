@@ -735,8 +735,8 @@ export default function EditorPage() {
 
   // 툴 버튼 공통 스타일
   const toolBtn = (id: string) => ({
-    background: activeTool === id ? 'rgba(47,129,247,0.15)' : 'transparent',
-    color: activeTool === id ? '#2f81f7' : '#7d8590',
+    background: activeTool === id ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'transparent',
+    color: activeTool === id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
   })
 
   // 팔레트 컬러 칩을 클릭했을 때 색상을 반영하는 함수
@@ -1042,7 +1042,7 @@ export default function EditorPage() {
 
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
-    <div className="fixed inset-0 top-0 flex flex-col" style={{ background: '#0d1117', color: '#e6edf3', zIndex: 60 }}>
+    <div className="fixed inset-0 top-0 flex flex-col" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', zIndex: 60 }}>
       <EditorSaveProjectModal
         isOpen={saveIsModalOpen}
         onClose={() => setSaveIsModalOpen(false)}
@@ -1071,18 +1071,18 @@ export default function EditorPage() {
 
       {/* ── TOP BAR (Photoshop 스타일 메뉴 툴바) ─────── */}
       <header className="h-10 flex items-center flex-shrink-0 border-b select-none"
-        style={{ background: '#161b22', borderColor: '#30363d' }}>
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
         {/* 좌: 로고 + 메뉴바 */}
         <div ref={menuRef} className="flex items-center h-full">
           {/* 로고 */}
-          <a href="/" className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-[#21262d] transition-colors"
-            style={{ color: '#2f81f7' }}>
+          <a href="/" className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-surface-container transition-colors"
+            style={{ color: 'var(--color-primary)' }}>
             <span className="material-symbols-outlined text-base">grid_view</span>
             PixelHub
           </a>
 
-          <div className="w-px h-5 mx-1" style={{ background: '#30363d' }} />
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
 
           {/* 메뉴 항목들 */}
           {MENU_DEFS.map(menu => (
@@ -1091,31 +1091,31 @@ export default function EditorPage() {
                 onClick={() => setOpenMenu(openMenu === menu.id ? null : menu.id)}
                 className="px-3 h-full text-sm transition-colors"
                 style={{
-                  color: openMenu === menu.id ? '#e6edf3' : '#c9d1d9',
-                  background: openMenu === menu.id ? '#21262d' : 'transparent',
+                  color: openMenu === menu.id ? 'var(--color-on-surface)' : 'var(--color-on-surface)',
+                  background: openMenu === menu.id ? 'var(--color-surface-container)' : 'transparent',
                 }}>
                 {menu.label}
               </button>
 
               {openMenu === menu.id && (
                 <div className="absolute top-full left-0 rounded-b-lg border shadow-2xl py-1 z-50 min-w-[220px]"
-                  style={{ background: '#21262d', borderColor: '#30363d', borderTopColor: 'transparent' }}>
+                  style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', borderTopColor: 'transparent' }}>
                   {menu.items.map((item, idx) => {
                     if ('separator' in item) {
-                      return <div key={idx} className="my-1 border-t" style={{ borderColor: '#30363d' }} />
+                      return <div key={idx} className="my-1 border-t" style={{ borderColor: 'var(--color-outline)' }} />
                     }
                     return (
                       <button key={idx}
                         onClick={item.action ?? (() => setOpenMenu(null))}
                         disabled={item.disabled}
-                        className="w-full flex items-center gap-2.5 px-4 py-1.5 text-sm text-left transition-colors hover:bg-[#292f38] disabled:opacity-40 disabled:cursor-default">
+                        className="w-full flex items-center gap-2.5 px-4 py-1.5 text-sm text-left transition-colors hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-default">
                         {item.icon && (
                           <span className="material-symbols-outlined text-sm w-4 flex-shrink-0"
-                            style={{ color: '#7d8590' }}>{item.icon}</span>
+                            style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
                         )}
-                        <span className="flex-1" style={{ color: '#e6edf3' }}>{item.label}</span>
+                        <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{item.label}</span>
                         {item.shortcut && (
-                          <span className="text-xs ml-4" style={{ color: '#7d8590' }}>{item.shortcut}</span>
+                          <span className="text-xs ml-4" style={{ color: 'var(--color-on-surface-variant)' }}>{item.shortcut}</span>
                         )}
                       </button>
                     )
@@ -1129,7 +1129,7 @@ export default function EditorPage() {
         {/* 우: 파일명 + 저장 */}
         <div className="ml-auto flex items-center gap-2 pr-3">
           <div className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm" style={{ color: '#7d8590' }}>description</span>
+            <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>description</span>
             {editingTitle ? (
               <input
                 autoFocus
@@ -1139,7 +1139,7 @@ export default function EditorPage() {
                 onBlur={() => setEditingTitle(false)}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTitle(false) }}
                 className="text-sm font-bold rounded px-1 outline-none"
-                style={{ background: '#1c2128', border: '1px solid #2f81f7', color: '#e6edf3', width: 160 }}
+                style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-primary)', color: 'var(--color-on-surface)', width: 160 }}
               />
             ) : (
               <span
@@ -1150,12 +1150,12 @@ export default function EditorPage() {
             )}
             {unsaved && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="미저장 변경사항" />}
           </div>
-          <div className="w-px h-5 mx-1" style={{ background: '#30363d' }} />
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
           <button
             onClick={openSaveModal}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-[#1c2128] disabled:opacity-50"
-            style={{ color: saving ? '#2f81f7' : '#7d8590' }}>
+            className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-surface-container-low disabled:opacity-50"
+            style={{ color: saving ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
             <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -1167,10 +1167,10 @@ export default function EditorPage() {
 
         {/* ── 좌측 툴바 ── */}
         <aside className="flex flex-col items-center py-3 gap-1 flex-shrink-0 border-r"
-          style={{ width: 84, background: '#161b22', borderColor: '#30363d' }}>
+          style={{ width: 84, background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
           {/* 그리기 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {DRAW_TOOLS.map(t => (
               <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
@@ -1181,7 +1181,7 @@ export default function EditorPage() {
           </div>
 
           {/* 선택 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SELECT_TOOLS.map(t => (
               <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
@@ -1192,7 +1192,7 @@ export default function EditorPage() {
           </div>
 
           {/* 도형 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SHAPE_TOOLS.map(t => (
               <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
@@ -1290,34 +1290,34 @@ export default function EditorPage() {
 
           {/* 줌 컨트롤 (하단 중앙 플로팅) */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
-            style={{ background: '#21262d', borderColor: '#30363d' }}>
+            style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
             <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#292f38]"
-              style={{ color: '#7d8590' }}>
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-sm">remove</span>
             </button>
             <span className="text-xs font-bold w-12 text-center">x{zoom}</span>
             <button onClick={() => setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#292f38]"
-              style={{ color: '#7d8590' }}>
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-sm">add</span>
             </button>
           </div>
 
           {/* 커서 위치 (우하단 플로팅) */}
           <div className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 shadow border text-xs font-bold"
-            style={{ background: 'rgba(33,38,45,0.9)', borderColor: '#30363d', color: '#7d8590' }}>
+            style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
             {cursorPos.x >= 0 ? `x: ${cursorPos.x}  y: ${cursorPos.y}` : 'x: —  y: —'}
           </div>
         </main>
 
          {/* ── 애니메이션 패널 ─────────────────────────────── */}
         <div className="flex flex-col flex-shrink-0 border-l"
-          style={{ width: showAnim ? 160 : 36, background: '#161b22', borderColor: '#30363d', transition: 'width 0.2s' }}>
+          style={{ width: showAnim ? 160 : 36, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', transition: 'width 0.2s' }}>
           {/* 토글 버튼 */}
           <button onClick={() => setShowAnim(v => !v)}
-            className="w-9 h-9 flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[#21262d]"
-            style={{ color: showAnim ? '#2f81f7' : '#7d8590' }}
+            className="w-9 h-9 flex items-center justify-center flex-shrink-0 transition-colors hover:bg-surface-container"
+            style={{ color: showAnim ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}
             title="Animation">
             <span className="material-symbols-outlined text-xl">animation</span>
           </button>
@@ -1325,7 +1325,7 @@ export default function EditorPage() {
           {showAnim && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
-                style={{ color: '#7d8590', borderColor: '#30363d' }} > 
+                style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} > 
                 <span>Anim</span>
                 <span className='text-[10px]'>{state.frames.length} frame{state.frames.length > 1 ? 's' : ''}</span>  
               </div>
@@ -1340,8 +1340,8 @@ export default function EditorPage() {
                         onClick={() => handleSelectFrame(index)} // 프레임 선택 기능
                         className='relative group rounded-lg border-2 p-1 cursor-pointer'
                         style={{
-                          borderColor: isActive ? '#2f81f7' : '#30363d',
-                          background: isActive ? '#1c2128' : 'transparent'
+                          borderColor: isActive ? 'var(--color-primary)' : 'var(--color-outline)',
+                          background: isActive ? 'var(--color-surface-container-low)' : 'transparent'
                         }}>
 
                         <button onClick={(e) => {
@@ -1407,15 +1407,15 @@ export default function EditorPage() {
                 {/* 프레임 추가 버튼 */}
                 <button
                   onClick={() => addFrame()}
-                  className='w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-[#21262d] hover:border-[#7d8590]'
-                  style={{ borderColor: '#30363d', color: '#7d8590' }}>
+                  className='w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-surface-container hover:border-on-surface-variant'
+                  style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   <span className="material-symbols-outlined text-lg">add</span>
                 </button>
               </div>
 
               {/* 재생 컨트롤 */}
               <div className="flex items-center justify-center gap-4 p-3 border-t" 
-                  style={{ borderColor: '#30363d' }}>
+                  style={{ borderColor: 'var(--color-outline)' }}>
                 
                   {/* 이전 프레임으로 이동 */}
                   <button 
@@ -1423,16 +1423,16 @@ export default function EditorPage() {
                       const nextIdx = state.currentFrameIdx > 0 ? state.currentFrameIdx - 1 : state.frames.length - 1;
                       handleSelectFrame(nextIdx);
                     }}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-lg">skip_previous</span>
                   </button>
 
                   {/* 재생 / 일시정지 */}
                   <button 
                     onClick={() => setIsPlaying(!isPlaying)}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
-                    style={{ color: isPlaying ? '#2f81f7' : '#7d8590' }}>
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
+                    style={{ color: isPlaying ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-lg">
                       {isPlaying ? 'pause' : 'play_arrow'}
                     </span>
@@ -1444,8 +1444,8 @@ export default function EditorPage() {
                       const nextIdx = (state.currentFrameIdx + 1) % state.frames.length;
                       handleSelectFrame(nextIdx); 
                     }}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-lg">skip_next</span>
                   </button>
               </div>
@@ -1455,31 +1455,31 @@ export default function EditorPage() {
 
         {/* ── 우측 패널 ──────── */}
         <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"
-          style={{ width: 300, background: '#161b22', borderColor: '#30363d',
-            scrollbarWidth: 'thin', scrollbarColor: '#21262d transparent' }}>
+          style={{ width: 300, background: 'var(--color-surface)', borderColor: 'var(--color-outline)',
+            scrollbarWidth: 'thin', scrollbarColor: 'var(--color-surface-container) transparent' }}>
 
           {/* 색상 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#7d8590' }}>Color</div>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Color</div>
             {/* FG / BG 색상 */}
             <div className="flex items-center gap-4 mb-4 px-1">
               <div className="relative">
                 <div className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
-                  style={{ background: fgColor, borderColor: '#30363d' }} 
+                  style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
                   title="Foreground"
                   onClick={() => setIsHexModal(true)} 
                 />
                 <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm"
-                  style={{ background: '#161b22', borderColor: '#30363d' }} title="Background" />
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }} title="Background" />
               </div>
               <div className="flex-1">
-                <div className="text-xs mb-1" style={{ color: '#7d8590' }}>HEX</div>
+                <div className="text-xs mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>HEX</div>
                 <input type="text" value={hexInput}
                   onChange={e => setHexInput(e.target.value)}
                   onBlur={applyHex}
                   onKeyDown={e => e.key === 'Enter' && applyHex()}
                   className="w-full text-sm font-bold rounded-lg px-2 py-1.5 outline-none"
-                  style={{ background: '#1c2128', border: 'none', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-surface-container-low)', border: 'none', color: 'var(--color-on-surface)' }} />
               </div>
             </div>
             {/* RGB 슬라이더 */}
@@ -1500,21 +1500,21 @@ export default function EditorPage() {
                     className={`flex-1 h-1.5 cursor-pointer ${accent}`} 
                     onChange={(e) => handleRgbChange(ch.toLowerCase() as 'r' | 'g' | 'b', Number(e.target.value))}
                     />
-                  <span className="text-xs font-bold w-7 text-right" style={{ color: '#7d8590' }}>{val}</span>
+                  <span className="text-xs font-bold w-7 text-right" style={{ color: 'var(--color-on-surface-variant)' }}>{val}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* 팔레트 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>Palette</div>
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>Palette</div>
               <div className="flex gap-1">
                 {[['add','색상 추가'],['upload','팔레트 가져오기']].map(([icon,tip]) => (
                   <button key={icon} title={tip}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">{icon}</span>
                   </button>
                 ))}
@@ -1526,40 +1526,40 @@ export default function EditorPage() {
                   key={c} 
                   onClick={() => { selectPaletteColor(c) }}
                   className="w-8 h-8 rounded cursor-pointer transition-all border-2 hover:scale-110"
-                  style={{ background: c, borderColor: fgColor === c ? '#e6edf3' : 'transparent' }} />
+                  style={{ background: c, borderColor: fgColor === c ? 'var(--color-on-surface)' : 'transparent' }} />
               ))}
             </div>
             <button className="mt-3 text-xs font-bold hover:underline px-1"
-              style={{ color: '#2f81f7' }}>Browse Lospec palettes…</button>
+              style={{ color: 'var(--color-primary)' }}>Browse Lospec palettes…</button>
           </div>
 
           {/* 툴 옵션 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#7d8590' }}>Tool Options</div>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Tool Options</div>
             <div className="space-y-4 px-1">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm" style={{ color: '#7d8590' }}>Brush Size</span>
+                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Brush Size</span>
                   <span className="text-sm font-bold">{brushSize}px</span>
                 </div>
                 <input type="range" min={1} max={16} value={brushSize}
                   onChange={e => setBrushSize(Number(e.target.value))}
-                  className="w-full h-1.5 cursor-pointer accent-[#2f81f7]" />
+                  className="w-full h-1.5 cursor-pointer accent-primary" />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm" style={{ color: '#7d8590' }}>Opacity</span>
+                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Opacity</span>
                   <span className="text-sm font-bold">{opacity}%</span>
                 </div>
                 <input type="range" min={0} max={100} value={opacity}
                   onChange={e => setOpacity(Number(e.target.value))}
-                  className="w-full h-1.5 cursor-pointer accent-[#2f81f7]" />
+                  className="w-full h-1.5 cursor-pointer accent-primary" />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: '#7d8590' }}>Pixel Perfect</span>
+                <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Pixel Perfect</span>
                 <button onClick={() => setPixelPerfect(v => !v)}
                   className="w-11 h-6 rounded-full relative transition-all flex-shrink-0"
-                  style={{ background: pixelPerfect ? '#2f81f7' : '#30363d' }}>
+                  style={{ background: pixelPerfect ? 'var(--color-primary)' : 'var(--color-surface-container-highest)' }}>
                   <span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
                     style={{ left: pixelPerfect ? 'calc(100% - 22px)' : '2px' }} />
                 </button>
@@ -1568,8 +1568,8 @@ export default function EditorPage() {
           </div>
 
           {/* 캔버스 크기 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#7d8590' }}>Canvas Size</div>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Canvas Size</div>
             <div className="px-1 space-y-2">
 
               {/* 1. 프리셋 버튼 grid */}
@@ -1587,9 +1587,9 @@ export default function EditorPage() {
                       }}
                       className="py-1 text-xs rounded-lg font-bold transition-all border"
                       style={{
-                        background: active ? 'rgba(47,129,247,0.15)' : '#1c2128',
-                        borderColor: active ? '#2f81f7' : '#30363d',
-                        color: active ? '#2f81f7' : '#7d8590',
+                        background: active ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'var(--color-surface-container-low)',
+                        borderColor: active ? 'var(--color-primary)' : 'var(--color-outline)',
+                        color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
                       }}>{p}</button>
                   )
                 })}
@@ -1600,15 +1600,15 @@ export default function EditorPage() {
                 <input type="number" value={customW} min={1} max={512}
                   onChange={e => setCustomW(Number(e.target.value))}
                   className="w-16 px-2 py-1 rounded text-xs outline-none text-center font-bold"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }} />
-                <span className="text-xs" style={{ color: '#7d8590' }}>×</span>
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
+                <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>×</span>
                 <input type="number" value={customH} min={1} max={512}
                   onChange={e => setCustomH(Number(e.target.value))}
                   className="w-16 px-2 py-1 rounded text-xs outline-none text-center font-bold"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
                 <button onClick={() => applyCanvasSize(customW, customH)}
                   className="flex-1 py-1 rounded text-xs font-bold transition-all hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff' }}>Apply</button>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>Apply</button>
               </div>
               
               {/*3. 이미지 비율 보정 체크 박스*/}
@@ -1620,17 +1620,17 @@ export default function EditorPage() {
                   id="scale-image-toggle"
                   checked={isScaleImage}
                   onChange={(e) => setIsScaleImage(e.target.checked)}
-                  className="rounded cursor-pointer accent-[#2f81f7] bg-[#1c2128]" 
+                  className="rounded cursor-pointer accent-primary bg-surface-container-low" 
                   style={{ 
                     width: '13px', 
                     height: '13px',
-                    border: '1px solid #30363d'
+                    border: '1px solid var(--color-outline)'
                   }}
                 />
                 <label
                   htmlFor="scale-image-toggle"
                   className="text-[11px] font-semibold cursor-pointer" // 전체 UI 비율에 맞춰 폰트 크기를 약간 슬림하게 조절
-                  style={{ color: '#7d8590' }}
+                  style={{ color: 'var(--color-on-surface-variant)' }}
                 >
                   크기 변경 시 기존 이미지 비율 보정
                 </label>
@@ -1641,7 +1641,7 @@ export default function EditorPage() {
           {/* ⏳레이어 섹션 */}
           <div className="p-4 flex-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>Layers</div>
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>Layers</div>
               <div className="flex gap-1">
                 {layerButtons.map(([icon,tip, handler]) => (
                   <button key={icon} title={tip}
@@ -1654,8 +1654,8 @@ export default function EditorPage() {
                         handler(state.currentFrameIdx, activeLayer);
                       }
                     }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">{icon}</span>
                   </button>
                 ))}
@@ -1679,8 +1679,8 @@ export default function EditorPage() {
                   }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
                   style={{
-                    background: activeLayer === layer.id ? 'rgba(47,129,247,0.1)' : 'transparent',
-                    color: activeLayer === layer.id ? '#2f81f7' : '#7d8590',
+                    background: activeLayer === layer.id ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)' : 'transparent',
+                    color: activeLayer === layer.id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
                     fontWeight: activeLayer === layer.id ? 700 : 400,
                   }}>
                   
@@ -1690,8 +1690,8 @@ export default function EditorPage() {
                       e.stopPropagation(); // 💡 중요: 버튼을 누를 때 부모 div의 selectLayer가 트리거되는 것을 방지!
                       toggleVisibility(state.currentFrameIdx, layer.id);
                     }}
-                    className="flex items-center justify-center p-0.5 rounded hover:bg-[#30363d] transition-colors"
-                    style={{ color: layer.isVisible ? '#2f81f7' : '#484f58' }}
+                    className="flex items-center justify-center p-0.5 rounded hover:bg-surface-container-highest transition-colors"
+                    style={{ color: layer.isVisible ? 'var(--color-primary)' : 'var(--color-outline-strong)' }}
                   >
                     <span className="material-symbols-outlined text-sm">
                       {layer.isVisible ? 'visibility' : 'visibility_off'}
@@ -1700,7 +1700,7 @@ export default function EditorPage() {
                   {/* 레이어 썸네일 박스 */}
                   <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none"
                     style={{
-                      borderColor: activeLayer === layer.id ? '#2f81f7' : '#30363d',
+                      borderColor: activeLayer === layer.id ? 'var(--color-primary)' : 'var(--color-outline)',
                     }} />
                     
                   <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
@@ -1720,18 +1720,18 @@ export default function EditorPage() {
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
           style={{ 
             width: showAIGuide ? 350 : 0, // AI 가이드 온오프 상태에 따라 너비 조절
-            background: '#0d1117',        // 메인 패널보다 살짝 더 어두운 배경 (구분감)
-            borderColor: '#30363d',
+            background: 'var(--color-background)',        // 메인 패널보다 살짝 더 어두운 배경 (구분감)
+            borderColor: 'var(--color-outline)',
             opacity: showAIGuide ? 1 : 0  // 닫혔을 때 잔상 방지
           }}>
           
           {/* 헤더: VS Code 패널 느낌 */}
-          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#2f81f7] text-lg">auto_awesome</span>
-              <span className="text-xs font-bold uppercase tracking-widest text-[#e6edf3]">AI Assistant</span>
+              <span className="material-symbols-outlined text-primary text-lg">auto_awesome</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-on-surface">AI Assistant</span>
             </div>
-            <button onClick={() => setShowAIGuide(false)} className="hover:text-[#e6edf3] text-[#7d8590]">
+            <button onClick={() => setShowAIGuide(false)} className="hover:text-on-surface text-on-surface-variant">
               <span className="material-symbols-outlined text-sm">close</span>
             </button>
           </div>
@@ -1739,16 +1739,16 @@ export default function EditorPage() {
           {/* 컨텐츠: 큼직한 가이드 영역 */}
           <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
             {/* 여기에 광고나 AI 분석 결과 렌더링 */}
-            <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-[#30363d] flex items-center justify-center bg-[#161b22]">
-              <p className="text-[11px] text-[#484f58] text-center">
+            <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-outline flex items-center justify-center bg-surface">
+              <p className="text-[11px] text-outline-strong text-center">
                 캔버스 분석 중...<br/>(광고 또는 AI 가이드 이미지)
               </p>
             </div>
             
             <div className="space-y-4">
-              <div className="p-3 rounded-lg bg-[#1c2128] border border-[#30363d]">
-                <p className="text-xs leading-relaxed text-[#8b949e]">
-                  <strong className="text-[#2f81f7]">💡 조언:</strong> 현재 캐릭터의 실루엣이 불분명합니다. 외곽선(Outline) 레이어에 좀 더 어두운 색을 사용해 보세요.
+              <div className="p-3 rounded-lg bg-surface-container-low border border-outline">
+                <p className="text-xs leading-relaxed text-on-surface-variant">
+                  <strong className="text-primary">💡 조언:</strong> 현재 캐릭터의 실루엣이 불분명합니다. 외곽선(Outline) 레이어에 좀 더 어두운 색을 사용해 보세요.
                 </p>
               </div>
             </div>
@@ -1758,22 +1758,22 @@ export default function EditorPage() {
 
       {/* ── 하단 상태바 ──────────── */}
       <footer className="flex items-center gap-6 px-5 flex-shrink-0 border-t text-sm font-bold"
-        style={{ height: 42, background: '#161b22', borderColor: '#30363d', color: '#7d8590' }}>
+        style={{ height: 42, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
         <span>Canvas: {canvasW} × {canvasH}</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Zoom: {zoom * 100}%</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>{cursorPos.x >= 0 ? `Cursor: ${cursorPos.x}, ${cursorPos.y}` : 'Cursor: —'}</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Tool: {activeTool.charAt(0).toUpperCase() + activeTool.slice(1)}</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Active: {state.frames[state.currentFrameIdx].layers.find(l => String(l.id) === String(activeLayer))?.name || '-'}</span>
         <div className="ml-auto flex items-center gap-4">
           <span>{state.frames[state.currentFrameIdx].layers.length} layers</span>
-          <span className="w-px h-4" style={{ background: '#30363d' }} />
+          <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
           {unsaved
             ? <span style={{ color: '#f59e0b' }}>● Unsaved</span>
-            : <span style={{ color: '#3fb950' }}>● Saved</span>}
+            : <span style={{ color: 'var(--color-success)' }}>● Saved</span>}
         </div>
       </footer>
     </div>
