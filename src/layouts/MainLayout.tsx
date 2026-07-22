@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import EmailVerificationBanner from '../components/EmailVerificationBanner'
 import { useAuthStore } from '../store/authStore'
@@ -58,12 +59,14 @@ export default function MainLayout() {
   }, [location.pathname, isLoggedIn])
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
       <Navbar />
       <main className="pt-20">
         <EmailVerificationBanner />
         <Outlet />
       </main>
+      {/* 에디터는 자체 전체화면 레이아웃이라 푸터 제외 */}
+      {!location.pathname.startsWith('/editor') && <Footer />}
       <Toast />
     </div>
   )

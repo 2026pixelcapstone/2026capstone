@@ -179,8 +179,8 @@ export default function AssetUpdatePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent" style={{ borderColor: '#2f81f7' }} />
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
+        <div className="animate-spin rounded-full w-10 h-10 border-2" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
@@ -202,7 +202,7 @@ export default function AssetUpdatePage() {
               value={title}
               onChange={e => setTitle(e.target.value)}
               maxLength={100}
-              className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -212,12 +212,12 @@ export default function AssetUpdatePage() {
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={4}
-              className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+              className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
             />
           </div>
 
           {/* 다운로드 파일 안내 */}
-          <div className="text-xs text-gray-500 bg-[#1a1a2e] border border-gray-700 rounded-lg px-4 py-3">
+          <div className="text-xs text-gray-500 bg-surface-container border border-gray-700 rounded-lg px-4 py-3">
             ※ 다운로드 파일 교체는 현재 지원하지 않습니다. 제목·설명·이미지·가격·태그만 수정됩니다.
           </div>
 
@@ -227,11 +227,11 @@ export default function AssetUpdatePage() {
             <div className="flex gap-3 mb-3">
               <button type="button" onClick={() => setIsFree(true)}
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  isFree ? 'bg-green-600 text-white' : 'bg-[#1a1a2e] border border-gray-600 text-gray-400 hover:border-green-500'
+                  isFree ? 'bg-green-600 text-white' : 'bg-surface-container border border-gray-600 text-gray-400 hover:border-green-500'
                 }`}>무료</button>
               <button type="button" onClick={() => setIsFree(false)}
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  !isFree ? 'bg-yellow-600 text-white' : 'bg-[#1a1a2e] border border-gray-600 text-gray-400 hover:border-yellow-500'
+                  !isFree ? 'bg-yellow-600 text-white' : 'bg-surface-container border border-gray-600 text-gray-400 hover:border-yellow-500'
                 }`}>유료</button>
             </div>
             {!isFree && (
@@ -239,7 +239,7 @@ export default function AssetUpdatePage() {
                 <span className="text-gray-400">₩</span>
                 <input type="number" value={price} onChange={e => setPrice(e.target.value)} min={0}
                   placeholder="가격 입력"
-                  className="flex-1 bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500" />
+                  className="flex-1 bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500" />
               </div>
             )}
           </div>
@@ -249,7 +249,7 @@ export default function AssetUpdatePage() {
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-300 mb-1">카테고리</label>
               <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
-                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
                 <option value="">선택 안 함</option>
                 {categories.map(c => (<option key={c.categoryId} value={c.categoryId}>{c.name}</option>))}
               </select>
@@ -257,7 +257,7 @@ export default function AssetUpdatePage() {
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-300 mb-1">라이선스</label>
               <select value={licenseTypeId} onChange={e => setLicenseTypeId(e.target.value)}
-                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
                 <option value="">선택 안 함</option>
                 {licenseTypes.map(l => (<option key={l.licenseTypeId} value={l.licenseTypeId}>{l.name}</option>))}
               </select>
@@ -290,7 +290,7 @@ export default function AssetUpdatePage() {
             onDrop={handleImageDrop}
             onClick={() => imageInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors h-48 ${
-              dragging ? 'border-blue-400 bg-blue-900/20' : 'border-gray-600 hover:border-gray-400 bg-[#1a1a2e]'
+              dragging ? 'border-blue-400 bg-blue-900/20' : 'border-gray-600 hover:border-gray-400 bg-surface-container'
             } ${images.length >= MAX_IMAGES ? 'opacity-50 pointer-events-none' : ''}`}
           >
             <div className="text-4xl mb-2">🖼️</div>
@@ -320,7 +320,7 @@ export default function AssetUpdatePage() {
               {submitting ? '수정 중...' : '수정 완료'}
             </button>
             <button type="button" onClick={() => navigate(`/assets/${assetId}`)}
-              className="w-full py-2.5 rounded-xl text-sm text-gray-400 border border-gray-600 hover:bg-[#1a1a2e] transition-colors">
+              className="w-full py-2.5 rounded-xl text-sm text-gray-400 border border-gray-600 hover:bg-surface-container transition-colors">
               취소
             </button>
           </div>

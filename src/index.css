@@ -14,11 +14,17 @@
   --color-on-surface: #e6edf3;
   --color-on-surface-variant: #7d8590;
   --color-primary: #2f81f7;
+  --color-primary-hover: #58a6ff;
+  --color-primary-pressed: #246cd0;
   --color-on-primary: #ffffff;
+  --color-secondary: #6366f1;
   --color-accent: #f0883e;
   --color-outline: #30363d;
   --color-outline-variant: #21262d;
+  --color-outline-strong: #484f58;
   --color-error: #f85149;
+  --color-success: #3fb950;
+  --color-warning: #f59e0b;
 
   --font-headline: 'Galmuri11', sans-serif;
   --font-body: 'Galmuri11', sans-serif;
@@ -31,8 +37,8 @@
 }
 
 body {
-  background-color: #0d1117;
-  color: #e6edf3;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
   font-family: var(--site-font, 'Pretendard Variable', 'Pretendard', sans-serif);
 }
 
@@ -48,15 +54,15 @@ body {
 
 /* 체커보드 배경 */
 .checkerboard {
-  background-image: repeating-conic-gradient(#1c2128 0% 25%, #21262d 0% 50%);
+  background-image: repeating-conic-gradient(var(--color-surface-container-low) 0% 25%, var(--color-surface-container) 0% 50%);
   background-size: 16px 16px;
 }
 
 /* 스크롤바 */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0d1117; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #484f58; }
+::-webkit-scrollbar-track { background: var(--color-background); }
+::-webkit-scrollbar-thumb { background: var(--color-surface-container-highest); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-outline-strong); }
 
 /* 가로 스크롤 숨김 */
 .no-scrollbar::-webkit-scrollbar { display: none; }

@@ -7,9 +7,9 @@ const ICONS = {
 }
 
 const COLORS = {
-  success: { bg: '#1a2e1a', border: 'rgba(63,185,80,0.4)',  icon: '#3fb950' },
-  error:   { bg: '#2e1a1a', border: 'rgba(248,81,73,0.4)',  icon: '#f85149' },
-  info:    { bg: '#1a2233', border: 'rgba(47,129,247,0.4)', icon: '#2f81f7' },
+  success: { bg: 'color-mix(in srgb, var(--color-success) 12%, var(--color-surface))',  border: 'color-mix(in srgb, var(--color-success) 40%, transparent)',  icon: 'var(--color-success)' },
+  error:   { bg: 'color-mix(in srgb, var(--color-error) 12%, var(--color-surface))',    border: 'color-mix(in srgb, var(--color-error) 40%, transparent)',  icon: 'var(--color-error)' },
+  info:    { bg: 'color-mix(in srgb, var(--color-primary) 12%, var(--color-surface))',  border: 'color-mix(in srgb, var(--color-primary) 40%, transparent)', icon: 'var(--color-primary)' },
 }
 
 export default function Toast() {
@@ -28,7 +28,7 @@ export default function Toast() {
             style={{
               background: c.bg,
               border: `1px solid ${c.border}`,
-              color: '#e6edf3',
+              color: 'var(--color-on-surface)',
               minWidth: 260,
               maxWidth: 360,
             }}
@@ -43,7 +43,7 @@ export default function Toast() {
             <button
               onClick={() => dismiss(t.id)}
               className="flex-shrink-0 transition-opacity hover:opacity-70"
-              style={{ color: '#7d8590' }}
+              style={{ color: 'var(--color-on-surface-variant)' }}
             >
               <span className="material-symbols-outlined text-base">close</span>
             </button>

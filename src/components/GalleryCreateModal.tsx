@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   galleryApi, type GalleryType, type Visibility, type TagResponse, type DedicatedVisibility,
+  type GalleryPostResponse,
 } from '../api/galleryApi'
 import { tagApi } from '../api/tagApi'
 import { fileApi } from '../api/fileApi'
@@ -46,11 +47,14 @@ interface Props {
   type: GalleryType
   isOpen: boolean
   onClose: () => void
+  editPost?: GalleryPostResponse        // 있으면 수정 모드 (없으면 등록)
+  onUpdated?: (post: GalleryPostResponse) => void
 }
 
-export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
+export default function GalleryCreateModal({ type, isOpen, onClose, editPost, onUpdated }: Props) {
   const navigate = useNavigate()
   const isFree = type === 'FREE'
+  const isEdit = !!editPost
 
   // ── 폼 상태 ──
   const [title, setTitle] = useState('')
@@ -76,6 +80,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const [draggingImg, setDraggingImg] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // 수정 모드: 유지할 기존 이미지 URL들(FREE). 최종 imageUrls = 유지 + 신규 업로드
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([])
+  // 수정 모드: 기존 .ppit(DEDICATED). 새 .ppit을 올리지 않으면 이걸 그대로 유지
+  const [existingPpit, setExistingPpit] = useState<
+    { fileUrl: string | null; thumbnailUrl: string | null; canvasWidth: number | null; canvasHeight: number | null } | null
+  >(null)
 
   // ── 전용 갤러리: .ppit 파일 ──
   const [ppitInfo, setPpitInfo] = useState<PpitInfo | null>(null)
@@ -89,19 +99,35 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   const tagInputRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 모달 열릴 때 상태 초기화
+  // 모달 열릴 때 상태 초기화 (수정 모드면 기존값 prefill)
   useEffect(() => {
     if (!isOpen) return
-    setTitle(''); setDescription(''); setVisibility('PUBLIC')
-    setSelectedTags([]); setTagInput(''); setSubmitting(false)
+    setSubmitting(false)
     setTagSuggestions([]); setShowSuggest(false); setActiveSuggestIdx(-1)
-    // 이미지 ObjectURL revoke 후 초기화 (메모리 누수 방지)
+    // 신규 업로드 이미지 ObjectURL revoke 후 초기화 (메모리 누수 방지)
     setImages(prev => { prev.forEach(img => URL.revokeObjectURL(img.previewUrl)); return [] })
     setDraggingImg(false); setActiveIdx(0)
     setPpitInfo(null); setDraggingFile(false); setParseError(null)
-    setDedVis(DEFAULT_VISIBILITY)
+    if (editPost) {
+      setTitle(editPost.title)
+      setDescription(editPost.description ?? '')
+      setVisibility(editPost.visibility)
+      setSelectedTags(editPost.tags ?? [])
+      setTagInput('')
+      setExistingImageUrls(editPost.imageUrls ?? [])
+      setExistingPpit({
+        fileUrl: editPost.fileUrl, thumbnailUrl: editPost.thumbnailUrl,
+        canvasWidth: editPost.canvasWidth, canvasHeight: editPost.canvasHeight,
+      })
+      setDedVis({ ...DEFAULT_VISIBILITY, ...(editPost.dedicatedVisibility ?? {}) })
+    } else {
+      setTitle(''); setDescription(''); setVisibility('PUBLIC')
+      setSelectedTags([]); setTagInput('')
+      setExistingImageUrls([]); setExistingPpit(null)
+      setDedVis(DEFAULT_VISIBILITY)
+    }
     if (scrollRef.current) scrollRef.current.scrollTop = 0
-  }, [isOpen])
+  }, [isOpen, editPost])
 
   // ESC 닫기
   useEffect(() => {
@@ -197,7 +223,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
       toast.error(`${oversized.length}개 이미지가 ${MAX_UPLOAD_MB}MB를 초과해 제외했습니다.`)
       arr = arr.filter(f => f.size <= MAX_UPLOAD_BYTES)
     }
-    const remaining = MAX_IMAGES - images.length
+    // 수정 모드: 유지 중인 기존 이미지 + 신규 합산으로 상한 계산
+    const remaining = MAX_IMAGES - images.length - (isEdit ? existingImageUrls.length : 0)
+    if (remaining <= 0) {
+      toast.error(`이미지는 최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다.`)
+      return
+    }
     const toAdd = arr.slice(0, remaining).map(file => ({
       id: `${Date.now()}-${Math.random()}`,
       file,
@@ -205,7 +236,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     }))
     setImages(prev => [...prev, ...toAdd])
     if (arr.length > remaining) toast.error(`이미지는 최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다.`)
-  }, [images.length])
+  }, [images.length, isEdit, existingImageUrls.length])
 
   const removeImage = (id: string) => {
     setImages(prev => {
@@ -276,17 +307,84 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
   }
 
   // ── 제출 ──
+  // 수정 저장 (handleSubmit의 try 안에서 호출 — 보상삭제 uploaded 공유)
+  const handleUpdate = async (post: GalleryPostResponse, uploaded: string[]) => {
+    const common = {
+      title: title.trim(),
+      description: description.trim() || undefined,
+      visibility,
+      tags: selectedTags,
+    }
+    if (isFree) {
+      // 신규 업로드분만 올리고, 유지한 기존 URL과 합침
+      let newUrls: string[] = []
+      if (images.length > 0) {
+        toast.info(`이미지 ${images.length}장 업로드 중...`)
+        newUrls = await fileApi.uploadImages(images.map(i => i.file), 'gallery/images', setUploadProgress)
+        uploaded.push(...newUrls)
+      }
+      const imageUrls = [...existingImageUrls, ...newUrls]
+      const res = await galleryApi.updatePost(post.postId, { ...common, imageUrls, thumbnailUrl: imageUrls[0] })
+      toast.success('게시글이 수정되었습니다.')
+      onUpdated?.(res.data.data); onClose()
+      return
+    }
+    // 전용(.ppit): 새 .ppit을 올렸으면 교체 렌더·업로드, 아니면 기존 유지
+    if (ppitInfo) {
+      const { ppit, text, name, frameCanvases } = ppitInfo
+      const animated = frameCanvases.length > 1
+      toast.info('미리보기 생성 중...')
+      let thumbBlob: Blob, thumbExt: string
+      if (animated) {
+        const gif = await renderGifBlob(ppit, frameCanvases)
+        thumbBlob = gif ?? await renderThumbnailBlob(ppit); thumbExt = gif ? 'gif' : 'png'
+      } else { thumbBlob = await renderThumbnailBlob(ppit); thumbExt = 'png' }
+      const baseName = name.replace(/\.(ppit|json)$/i, '') || 'artwork'
+      toast.info('파일 업로드 중...')
+      const thumbnailUrl = await fileApi.uploadImage(new File([thumbBlob], `${baseName}.${thumbExt}`, { type: thumbBlob.type }), 'gallery/dedicated')
+      uploaded.push(thumbnailUrl)
+      const fileUrl = await fileApi.uploadImage(ppitTextToFile(text, baseName), 'gallery/dedicated')
+      uploaded.push(fileUrl)
+      const res = await galleryApi.updatePost(post.postId, {
+        ...common, thumbnailUrl, fileUrl,
+        canvasWidth: ppit.canvas.width, canvasHeight: ppit.canvas.height,
+        palette: ppit.palette, dedicatedVisibility: dedVis,
+      })
+      toast.success('게시글이 수정되었습니다.')
+      onUpdated?.(res.data.data); onClose()
+      return
+    }
+    // 기존 .ppit 유지 (메타/공개토글만 변경) — 전용 필드는 전부 다시 보내야 덮어쓰기 안전
+    const res = await galleryApi.updatePost(post.postId, {
+      ...common,
+      thumbnailUrl: existingPpit?.thumbnailUrl ?? undefined,
+      fileUrl: existingPpit?.fileUrl ?? undefined,
+      canvasWidth: existingPpit?.canvasWidth ?? undefined,
+      canvasHeight: existingPpit?.canvasHeight ?? undefined,
+      palette: post.palette ?? undefined,
+      dedicatedVisibility: dedVis,
+    })
+    toast.success('게시글이 수정되었습니다.')
+    onUpdated?.(res.data.data); onClose()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
     if (!title.trim()) { toast.error('제목을 입력해주세요.'); return }
-    if (isFree && images.length === 0) { toast.error('이미지를 1장 이상 업로드해주세요.'); return }
-    if (!isFree && !ppitInfo) { toast.error('.ppit 파일을 업로드해주세요.'); return }
+    const freeTotal = images.length + (isEdit ? existingImageUrls.length : 0)
+    if (isFree && freeTotal === 0) { toast.error('이미지를 1장 이상 업로드해주세요.'); return }
+    if (!isFree && !ppitInfo && !(isEdit && existingPpit?.fileUrl)) { toast.error('.ppit 파일을 업로드해주세요.'); return }
     setSubmitting(true)
     setUploadProgress(0)
     // 전용 업로드 실패 시 보상 삭제용
     const uploaded: string[] = []
     try {
+      // ── 수정 모드 ──
+      if (isEdit && editPost) {
+        await handleUpdate(editPost, uploaded)
+        return
+      }
       if (isFree) {
         // ── 자유 갤러리: 이미지 업로드 → 게시글 ──
         toast.info(`이미지 ${images.length}장 업로드 중...`)
@@ -352,7 +450,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
     } catch (err) {
       // 게시글 생성 전 업로드된 R2 파일 보상 삭제 (베스트 에포트)
       if (uploaded.length > 0) fileApi.deleteFiles(uploaded).catch(() => {})
-      toast.error(getErrorMessage(err, '게시글 등록에 실패했습니다.'))
+      toast.error(getErrorMessage(err, isEdit ? '게시글 수정에 실패했습니다.' : '게시글 등록에 실패했습니다.'))
     } finally {
       setSubmitting(false)
       setUploadProgress(0)
@@ -361,9 +459,13 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
 
   if (!isOpen) return null
 
-  const accentColor = isFree ? '#2f81f7' : '#f0883e'
-  const accentBg = isFree ? 'rgba(47,129,247,0.12)' : 'rgba(240,136,62,0.12)'
-  const accentBorder = isFree ? 'rgba(47,129,247,0.3)' : 'rgba(240,136,62,0.3)'
+  const accentColor = isFree ? 'var(--color-primary)' : 'var(--color-accent)'
+  const accentBg = isFree
+    ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
+    : 'color-mix(in srgb, var(--color-accent) 12%, transparent)'
+  const accentBorder = isFree
+    ? 'color-mix(in srgb, var(--color-primary) 30%, transparent)'
+    : 'color-mix(in srgb, var(--color-accent) 30%, transparent)'
 
   return (
     <div
@@ -373,23 +475,23 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
 
       <div
         className="relative flex flex-col rounded-2xl overflow-hidden w-full"
-        style={{ maxWidth: 1100, height: '90vh', background: '#161b22', border: '1px solid #30363d' }}>
+        style={{ maxWidth: 1100, height: '90vh', background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
 
         {/* ── 헤더 ── */}
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-          style={{ borderBottom: '1px solid #30363d' }}>
+          style={{ borderBottom: '1px solid var(--color-outline)' }}>
           <div className="flex items-center gap-3">
             <div className="w-2 h-5 rounded-full" style={{ background: accentColor }} />
             <div>
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: accentColor }}>
                 {isFree ? '자유 갤러리' : '전용 갤러리'}
               </span>
-              <h2 className="text-lg font-bold leading-tight">게시글 등록</h2>
+              <h2 className="text-lg font-bold leading-tight">{isEdit ? '게시글 수정' : '게시글 등록'}</h2>
             </div>
           </div>
           <button onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[#21262d]"
-            style={{ color: '#7d8590' }}>
+            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-surface-container"
+            style={{ color: 'var(--color-on-surface-variant)' }}>
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
@@ -399,12 +501,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
 
           {/* 왼쪽: 폼 (스크롤) */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-7"
-            style={{ borderRight: '1px solid #30363d' }}>
+            style={{ borderRight: '1px solid var(--color-outline)' }}>
 
             {/* 제목 */}
             <div>
               <label className="block text-sm font-bold mb-2">
-                제목 <span style={{ color: '#f85149' }}>*</span>
+                제목 <span style={{ color: 'var(--color-error)' }}>*</span>
               </label>
               <input
                 value={title}
@@ -414,14 +516,14 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 autoFocus
                 className="w-full px-4 py-3 rounded-xl text-base outline-none transition-colors"
                 style={{
-                  background: '#0d1117',
-                  border: '1px solid #30363d',
-                  color: '#e6edf3',
+                  background: 'var(--color-background)',
+                  border: '1px solid var(--color-outline)',
+                  color: 'var(--color-on-surface)',
                 }}
                 onFocus={e => e.currentTarget.style.borderColor = accentColor}
-                onBlur={e => e.currentTarget.style.borderColor = '#30363d'}
+                onBlur={e => e.currentTarget.style.borderColor = 'var(--color-outline)'}
               />
-              <p className="text-xs mt-1.5 text-right" style={{ color: '#484f58' }}>{title.length}/100</p>
+              <p className="text-xs mt-1.5 text-right" style={{ color: 'var(--color-outline-strong)' }}>{title.length}/100</p>
             </div>
 
             {/* 태그 */}
@@ -438,7 +540,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
               <div className="relative">
                 <div
                   className="flex flex-wrap gap-1.5 px-3 py-2.5 rounded-xl min-h-[46px] cursor-text transition-colors"
-                  style={{ background: '#0d1117', border: '1px solid #30363d' }}
+                  style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)' }}
                   onClick={() => tagInputRef.current?.focus()}>
                   {selectedTags.map(tag => (
                     <span key={tag}
@@ -460,7 +562,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                       onBlur={() => { tagInput.trim() && addTag(tagInput) }}
                       placeholder={selectedTags.length === 0 ? '예: 픽셀아트, 판타지, 풍경 (Enter로 추가)' : ''}
                       className="flex-1 min-w-[180px] bg-transparent outline-none text-sm"
-                      style={{ color: '#e6edf3' }}
+                      style={{ color: 'var(--color-on-surface)' }}
                       autoComplete="off"
                     />
                   )}
@@ -470,7 +572,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 {showSuggest && tagSuggestions.length > 0 && (
                   <ul role="listbox"
                     className="absolute z-30 mt-1 w-full max-h-52 overflow-auto rounded-xl shadow-xl"
-                    style={{ background: '#161b22', border: '1px solid #30363d' }}>
+                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
                     {tagSuggestions.map((s, idx) => (
                       <li key={s.tagId} role="option" aria-selected={idx === activeSuggestIdx}
                         onMouseEnter={() => setActiveSuggestIdx(idx)}
@@ -478,8 +580,8 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                         className="px-4 py-2 text-sm cursor-pointer flex items-center gap-1"
                         style={idx === activeSuggestIdx
                           ? { background: accentBg, color: accentColor }
-                          : { color: '#e6edf3' }}>
-                        <span style={{ color: '#484f58' }}>#</span>{s.tagName}
+                          : { color: 'var(--color-on-surface)' }}>
+                        <span style={{ color: 'var(--color-outline-strong)' }}>#</span>{s.tagName}
                       </li>
                     ))}
                   </ul>
@@ -489,7 +591,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
               {/* 인기 태그 — Suggested tags */}
               {topTags.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs mb-2" style={{ color: '#484f58' }}>인기 태그</p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--color-outline-strong)' }}>인기 태그</p>
                   <div className="flex flex-wrap gap-1.5">
                     {topTags.slice(0, 15).map(tag => {
                       const selected = selectedTags.includes(tag.tagName)
@@ -502,7 +604,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                           className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all disabled:opacity-30"
                           style={selected
                             ? { background: accentColor, color: '#fff' }
-                            : { background: '#21262d', color: '#7d8590', border: '1px solid #30363d' }}>
+                            : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
                           {!selected && (
                             <span className="material-symbols-outlined" style={{ fontSize: 12 }}>add</span>
                           )}
@@ -525,11 +627,11 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 rows={5}
                 placeholder="작품에 대한 이야기를 들려주세요 (선택)"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-colors"
-                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3' }}
+                style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                 onFocus={e => e.currentTarget.style.borderColor = accentColor}
-                onBlur={e => e.currentTarget.style.borderColor = '#30363d'}
+                onBlur={e => e.currentTarget.style.borderColor = 'var(--color-outline)'}
               />
-              <p className="text-xs mt-1.5 text-right" style={{ color: '#484f58' }}>{description.length}/2000</p>
+              <p className="text-xs mt-1.5 text-right" style={{ color: 'var(--color-outline-strong)' }}>{description.length}/2000</p>
             </div>
 
             {/* 공개 범위 */}
@@ -548,18 +650,18 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
                     style={visibility === opt.value
                       ? { background: accentBg, border: `1px solid ${accentColor}` }
-                      : { background: '#0d1117', border: '1px solid #30363d' }}>
+                      : { background: 'var(--color-background)', border: '1px solid var(--color-outline)' }}>
                     <span className="material-symbols-outlined text-xl flex-shrink-0"
-                      style={{ color: visibility === opt.value ? accentColor : '#484f58' }}>
+                      style={{ color: visibility === opt.value ? accentColor : 'var(--color-outline-strong)' }}>
                       {opt.icon}
                     </span>
                     <div className="flex-1">
                       <p className="text-sm font-bold">{opt.label}</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>{opt.desc}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{opt.desc}</p>
                     </div>
                     <div className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center"
                       style={{
-                        border: visibility === opt.value ? `2px solid ${accentColor}` : '2px solid #484f58',
+                        border: visibility === opt.value ? `2px solid ${accentColor}` : '2px solid var(--color-outline-strong)',
                         background: visibility === opt.value ? accentColor : 'transparent',
                       }}>
                       {visibility === opt.value && (
@@ -575,7 +677,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
             {!isFree && (
               <div>
                 <label className="block text-sm font-bold mb-1">공개 항목</label>
-                <p className="text-xs mb-3" style={{ color: '#7d8590' }}>
+                <p className="text-xs mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>
                   작품 뷰어는 항상 공개됩니다. 아래 항목만 공개 여부를 선택하세요.
                 </p>
                 <div className="space-y-2">
@@ -589,20 +691,20 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                         className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-all"
                         style={on
                           ? { background: accentBg, border: `1px solid ${accentColor}` }
-                          : { background: '#0d1117', border: '1px solid #30363d' }}>
+                          : { background: 'var(--color-background)', border: '1px solid var(--color-outline)' }}>
                         <span className="material-symbols-outlined text-lg flex-shrink-0"
-                          style={{ color: on ? accentColor : '#484f58' }}>{opt.icon}</span>
+                          style={{ color: on ? accentColor : 'var(--color-outline-strong)' }}>{opt.icon}</span>
                         <div className="flex-1">
                           <p className="text-sm font-bold">{opt.label}</p>
                           {opt.key === 'download' && (
-                            <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
                               켜면 다른 사용자가 .ppit 원본을 내려받아 리믹스/편집할 수 있습니다
                             </p>
                           )}
                         </div>
                         {/* 토글 스위치 */}
                         <div className="w-9 h-5 rounded-full flex-shrink-0 flex items-center transition-all px-0.5"
-                          style={{ background: on ? accentColor : '#30363d', justifyContent: on ? 'flex-end' : 'flex-start' }}>
+                          style={{ background: on ? accentColor : 'var(--color-surface-container-highest)', justifyContent: on ? 'flex-end' : 'flex-start' }}>
                           <div className="w-4 h-4 rounded-full" style={{ background: '#fff' }} />
                         </div>
                       </button>
@@ -622,9 +724,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
               <>
                 {/* 상단 바 */}
                 <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-                  style={{ borderBottom: '1px solid #30363d' }}>
-                  <span className="text-sm font-bold" style={{ color: '#7d8590' }}>
-                    {images.length}/{MAX_IMAGES} 파일
+                  style={{ borderBottom: '1px solid var(--color-outline)' }}>
+                  <span className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    {images.length + (isEdit ? existingImageUrls.length : 0)}/{MAX_IMAGES} 파일
                   </span>
                   {images.length > 0 && (
                     <button
@@ -638,9 +740,28 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                   )}
                 </div>
 
+                {/* 수정 모드: 기존 이미지(유지/제거) */}
+                {isEdit && existingImageUrls.length > 0 && (
+                  <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--color-outline)' }}>
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>기존 이미지 (×로 제거, 아래에서 새 이미지 추가)</p>
+                    <div className="flex flex-wrap gap-2">
+                      {existingImageUrls.map((url, i) => (
+                        <div key={url + i} className="relative w-16 h-16 rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-outline)' }}>
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <button type="button" aria-label="이미지 제거"
+                            onClick={() => setExistingImageUrls(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white">
+                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* 메인 미리보기 */}
                 <div className="flex-1 flex items-center justify-center relative overflow-hidden"
-                  style={{ background: '#0d1117' }}
+                  style={{ background: 'var(--color-background)' }}
                   onDrop={e => { e.preventDefault(); setDraggingImg(false); addImages(e.dataTransfer.files) }}
                   onDragOver={e => { e.preventDefault(); setDraggingImg(true) }}
                   onDragLeave={() => setDraggingImg(false)}>
@@ -650,17 +771,17 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                       onClick={() => fileInputRef.current?.click()}
                       className="flex flex-col items-center gap-4 cursor-pointer select-none p-8 text-center rounded-2xl transition-all"
                       style={{
-                        border: `2px dashed ${draggingImg ? accentColor : '#30363d'}`,
+                        border: `2px dashed ${draggingImg ? accentColor : 'var(--color-outline)'}`,
                         background: draggingImg ? accentBg : 'transparent',
                       }}>
-                      <span className="material-symbols-outlined text-5xl" style={{ color: draggingImg ? accentColor : '#30363d' }}>
+                      <span className="material-symbols-outlined text-5xl" style={{ color: draggingImg ? accentColor : 'var(--color-surface-container-highest)' }}>
                         add_photo_alternate
                       </span>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: draggingImg ? accentColor : '#7d8590' }}>
+                        <p className="text-sm font-bold" style={{ color: draggingImg ? accentColor : 'var(--color-on-surface-variant)' }}>
                           {draggingImg ? '여기에 놓으세요' : '이미지를 드래그하거나 클릭하세요'}
                         </p>
-                        <p className="text-xs mt-1" style={{ color: '#484f58' }}>PNG, JPG, GIF, WEBP · 최대 {MAX_IMAGES}장</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-outline-strong)' }}>PNG, JPG, GIF, WEBP · 최대 {MAX_IMAGES}장</p>
                       </div>
                     </div>
                   ) : (
@@ -676,7 +797,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                         type="button"
                         onClick={() => removeImage(images[activeIdx].id)}
                         className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-                        style={{ background: 'rgba(248,81,73,0.85)' }}>
+                        style={{ background: 'color-mix(in srgb, var(--color-error) 85%, transparent)' }}>
                         <span className="material-symbols-outlined text-base text-white">delete</span>
                       </button>
                       {images[activeIdx] && activeIdx === 0 && (
@@ -690,7 +811,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 {/* 하단 썸네일 스트립 */}
                 {images.length > 0 && (
                   <div className="flex gap-2 px-4 py-3 overflow-x-auto flex-shrink-0"
-                    style={{ borderTop: '1px solid #30363d' }}>
+                    style={{ borderTop: '1px solid var(--color-outline)' }}>
                     {images.map((img, idx) => (
                       <button
                         key={img.id}
@@ -710,9 +831,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex-shrink-0 rounded-lg flex items-center justify-center transition-colors hover:border-[#2f81f7]"
-                        style={{ width: 56, height: 56, border: '2px dashed #30363d' }}>
-                        <span className="material-symbols-outlined text-lg" style={{ color: '#484f58' }}>add</span>
+                        className="flex-shrink-0 rounded-lg flex items-center justify-center transition-colors hover:border-primary"
+                        style={{ width: 56, height: 56, border: '2px dashed var(--color-outline)' }}>
+                        <span className="material-symbols-outlined text-lg" style={{ color: 'var(--color-outline-strong)' }}>add</span>
                       </button>
                     )}
                   </div>
@@ -723,8 +844,8 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
               <>
                 {/* 상단 바 */}
                 <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-                  style={{ borderBottom: '1px solid #30363d' }}>
-                  <span className="text-sm font-bold" style={{ color: '#7d8590' }}>
+                  style={{ borderBottom: '1px solid var(--color-outline)' }}>
+                  <span className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>
                     {ppitInfo
                       ? (ppitInfo.frameCanvases.length > 1 ? `애니메이션 · ${ppitInfo.frameCanvases.length}프레임` : '파일 로드됨')
                       : '파일 없음'}
@@ -743,40 +864,57 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
 
                 {/* 메인 영역 */}
                 <div className="flex-1 flex items-center justify-center relative overflow-y-auto p-6"
-                  style={{ background: '#0d1117' }}
+                  style={{ background: 'var(--color-background)' }}
                   onDrop={e => { e.preventDefault(); setDraggingFile(false); const f = e.dataTransfer.files[0]; if (f) processFile(f) }}
                   onDragOver={e => { e.preventDefault(); setDraggingFile(true) }}
                   onDragLeave={() => setDraggingFile(false)}>
 
                   {!ppitInfo ? (
+                    isEdit && existingPpit?.thumbnailUrl ? (
+                      /* 수정 모드: 기존 .ppit 유지(교체하려면 새 파일 업로드) */
+                      <div className="w-full flex flex-col items-center gap-4">
+                        <img src={existingPpit.thumbnailUrl} alt="현재 작품"
+                          className="rounded-lg" style={{ maxHeight: 320, imageRendering: 'pixelated', border: '1px solid var(--color-outline)' }} />
+                        <p className="text-xs text-center" style={{ color: 'var(--color-on-surface-variant)' }}>
+                          현재 .ppit 유지 중 · 교체하려면 새 파일을 올리세요
+                        </p>
+                        <button type="button" onClick={() => ppitInputRef.current?.click()}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container-low"
+                          style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
+                          <span className="material-symbols-outlined text-base">upload_file</span>
+                          .ppit 교체
+                        </button>
+                      </div>
+                    ) : (
                     <div
                       onClick={() => ppitInputRef.current?.click()}
                       className="flex flex-col items-center gap-4 cursor-pointer select-none p-8 text-center rounded-2xl transition-all w-full"
                       style={{
-                        border: `2px dashed ${draggingFile ? accentColor : '#30363d'}`,
+                        border: `2px dashed ${draggingFile ? accentColor : 'var(--color-outline)'}`,
                         background: draggingFile ? accentBg : 'transparent',
                       }}>
                       <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
                         style={{ background: accentBg, border: `1px solid ${accentBorder}` }}>
                         <span className="material-symbols-outlined text-3xl"
-                          style={{ color: draggingFile ? accentColor : '#7d8590' }}>upload_file</span>
+                          style={{ color: draggingFile ? accentColor : 'var(--color-on-surface-variant)' }}>upload_file</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: draggingFile ? accentColor : '#7d8590' }}>
+                        <p className="text-sm font-bold" style={{ color: draggingFile ? accentColor : 'var(--color-on-surface-variant)' }}>
                           {draggingFile ? '여기에 놓으세요' : '.ppit 파일을 드래그하거나 클릭하세요'}
                         </p>
-                        <p className="text-xs mt-1" style={{ color: '#484f58' }}>PixelPilot 전용 포맷 (.ppit)</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-outline-strong)' }}>PixelPilot 전용 포맷 (.ppit)</p>
                       </div>
                     </div>
+                    )
                   ) : (
                     <div className="w-full flex flex-col items-center gap-4">
                       {/* 파일 정보 */}
                       <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl"
-                        style={{ background: '#161b22', border: '1px solid #30363d' }}>
+                        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
                         <span className="material-symbols-outlined text-xl" style={{ color: accentColor }}>description</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate">{ppitInfo.name}</p>
-                          <p className="text-xs" style={{ color: '#7d8590' }}>
+                          <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                             {ppitInfo.ppit.canvas.width}×{ppitInfo.ppit.canvas.height}px
                             {' · '}레이어 {ppitInfo.ppit.frames[0]?.layers.length ?? 0}개
                             {ppitInfo.frameCanvases.length > 1 && ` · ${ppitInfo.frameCanvases.length}프레임 @ ${ppitInfo.ppit.canvas.fps}fps`}
@@ -786,7 +924,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                       {/* 합성 미리보기 캔버스 (체커보드 배경) */}
                       <div className="rounded-xl overflow-hidden flex items-center justify-center"
                         style={{
-                          background: '#161b22', border: '1px solid #30363d', padding: 12,
+                          background: 'var(--color-surface)', border: '1px solid var(--color-outline)', padding: 12,
                           backgroundImage: 'linear-gradient(45deg,#1a1a1a 25%,transparent 25%,transparent 75%,#1a1a1a 75%),linear-gradient(45deg,#1a1a1a 25%,#222 25%,#222 75%,#1a1a1a 75%)',
                           backgroundSize: '16px 16px', backgroundPosition: '0 0,8px 8px',
                         }}>
@@ -796,7 +934,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                       {/* 팔레트 스와치 */}
                       {ppitInfo.ppit.palette && ppitInfo.ppit.palette.colors.length > 0 && (
                         <div className="w-full">
-                          <p className="text-xs font-bold mb-2" style={{ color: '#7d8590' }}>
+                          <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
                             팔레트{ppitInfo.ppit.palette.name ? ` · ${ppitInfo.ppit.palette.name}` : ''}
                             {' '}({ppitInfo.ppit.palette.colors.length})
                           </p>
@@ -804,7 +942,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                             {ppitInfo.ppit.palette.colors.map((c, i) => (
                               <div key={`${c}-${i}`} title={c}
                                 className="w-6 h-6 rounded-md flex-shrink-0"
-                                style={{ background: c, border: '1px solid #30363d' }} />
+                                style={{ background: c, border: '1px solid var(--color-outline)' }} />
                             ))}
                           </div>
                         </div>
@@ -816,9 +954,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 {/* 에러 */}
                 {parseError && (
                   <div className="mx-4 mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl flex-shrink-0"
-                    style={{ background: 'rgba(248,81,73,0.08)', border: '1px solid rgba(248,81,73,0.3)' }}>
-                    <span className="material-symbols-outlined text-base mt-0.5" style={{ color: '#f85149' }}>error</span>
-                    <p className="text-xs" style={{ color: '#f85149' }}>{parseError}</p>
+                    style={{ background: 'color-mix(in srgb, var(--color-error) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-error) 30%, transparent)' }}>
+                    <span className="material-symbols-outlined text-base mt-0.5" style={{ color: 'var(--color-error)' }}>error</span>
+                    <p className="text-xs" style={{ color: 'var(--color-error)' }}>{parseError}</p>
                   </div>
                 )}
 
@@ -826,8 +964,8 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                 <div className="mx-4 mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl flex-shrink-0"
                   style={{ background: accentBg, border: `1px solid ${accentBorder}` }}>
                   <span className="material-symbols-outlined text-base mt-0.5" style={{ color: accentColor }}>info</span>
-                  <p className="text-xs leading-relaxed" style={{ color: '#7d8590' }}>
-                    에디터에서 작업 후 <strong style={{ color: '#e6edf3' }}>내보내기 → .ppit</strong>으로 저장하여 업로드하세요.
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    에디터에서 작업 후 <strong style={{ color: 'var(--color-on-surface)' }}>내보내기 → .ppit</strong>으로 저장하여 업로드하세요.
                     썸네일·애니메이션·팔레트는 업로드 시 자동 생성됩니다.
                   </p>
                 </div>
@@ -843,19 +981,19 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
 
         {/* ── 하단 고정 액션바 ── */}
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-          style={{ borderTop: '1px solid #30363d', background: '#161b22' }}>
+          style={{ borderTop: '1px solid var(--color-outline)', background: 'var(--color-surface)' }}>
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl font-bold text-sm transition-colors hover:bg-[#21262d]"
-            style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+            className="px-6 py-2.5 rounded-xl font-bold text-sm transition-colors hover:bg-surface-container"
+            style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
             취소
           </button>
           <button
             type="submit"
             form=""
             onClick={handleSubmit}
-            disabled={submitting || !title.trim() || (!isFree && !ppitInfo)}
+            disabled={submitting || !title.trim() || (!isFree && !ppitInfo && !(isEdit && existingPpit?.fileUrl))}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 transition-opacity hover:opacity-90"
             style={{ background: accentColor, color: '#fff' }}>
             {submitting
@@ -863,9 +1001,9 @@ export default function GalleryCreateModal({ type, isOpen, onClose }: Props) {
                   <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
                   {isFree && uploadProgress > 0 && uploadProgress < 100
                     ? `업로드 중 ${uploadProgress}%`
-                    : '등록 중...'}
+                    : (isEdit ? '저장 중...' : '등록 중...')}
                 </span>
-              : '게시글 등록'}
+              : (isEdit ? '수정 저장' : '게시글 등록')}
           </button>
         </div>
 

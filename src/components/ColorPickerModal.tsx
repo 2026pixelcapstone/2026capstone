@@ -38,15 +38,15 @@ return (
       <div className="absolute inset-0" onClick={onClose} />
       
       {/* 모달 윈도우 본체 */}
-      <div className="relative z-10 bg-[#161b22] p-5 rounded-xl border border-[#30363d] shadow-2xl flex flex-col gap-4 scale-105 transition-all">
-        <div className="text-xs font-bold uppercase tracking-widest text-[#7d8590]">Advanced Color Picker</div>
+      <div className="relative z-10 bg-surface p-5 rounded-xl border border-outline shadow-2xl flex flex-col gap-4 scale-105 transition-all">
+        <div className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Advanced Color Picker</div>
         
         <HexColorPicker color={color} onChange={onChange} />
         
         <button 
           type="button"
           onClick={onClose}
-          className="w-full py-2 text-xs font-bold text-white bg-[#2f81f7] hover:bg-[#246cd0] rounded-lg transition-all shadow-md"
+          className="w-full py-2 text-xs font-bold text-on-primary bg-primary hover:bg-primary-pressed rounded-lg transition-all shadow-md"
         >
           Select Color
         </button>

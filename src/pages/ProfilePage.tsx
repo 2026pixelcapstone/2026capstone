@@ -18,8 +18,8 @@ const TABS = [
 function EmptyTab({ icon, text }: { icon: string; text: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-3">
-      <span className="material-symbols-outlined text-4xl" style={{ color: '#30363d' }}>{icon}</span>
-      <p className="text-sm" style={{ color: '#7d8590' }}>{text}</p>
+      <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>{icon}</span>
+      <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{text}</p>
     </div>
   )
 }
@@ -129,18 +129,18 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent" style={{ borderColor: '#2f81f7' }} />
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
+        <div className="animate-spin rounded-full w-10 h-10 border-2" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
 
   if (notFound || !profile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: '#0d1117', color: '#e6edf3' }}>
-        <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>person_off</span>
-        <p style={{ color: '#7d8590' }}>존재하지 않는 사용자입니다.</p>
-        <Link to="/" className="text-sm font-bold" style={{ color: '#2f81f7' }}>메인으로 돌아가기</Link>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
+        <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>person_off</span>
+        <p style={{ color: 'var(--color-on-surface-variant)' }}>존재하지 않는 사용자입니다.</p>
+        <Link to="/" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>메인으로 돌아가기</Link>
       </div>
     )
   }
@@ -148,11 +148,11 @@ export default function ProfilePage() {
   const isMyProfile = me?.userId === profile.userId
 
   return (
-    <div className="min-h-screen" style={{ background: '#0d1117', color: '#e6edf3' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
 
       {/* 커버 배너 */}
       <div className="relative h-44 overflow-hidden"
-        style={{ background: 'linear-gradient(90deg,#2f81f7cc,#2f81f7,#818cf8)' }}>
+        style={{ background: 'linear-gradient(90deg,color-mix(in srgb, var(--color-primary) 80%, transparent),var(--color-primary),var(--color-secondary))' }}>
         <div className="absolute inset-0 opacity-20" style={{
           backgroundImage: [
             'repeating-linear-gradient(0deg,transparent,transparent 20px,rgba(255,255,255,0.2) 20px,rgba(255,255,255,0.2) 21px)',
@@ -162,19 +162,19 @@ export default function ProfilePage() {
       </div>
 
       {/* 프로필 인포 바 */}
-      <div className="border-b" style={{ background: '#161b22', borderColor: '#30363d' }}>
+      <div className="border-b" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
         <div className="max-w-screen-xl mx-auto px-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 pt-2" style={{ marginTop: -32 }}>
             {/* 아바타 + 이름 */}
             <div className="flex items-end gap-4">
               <div className="relative flex-shrink-0">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-bold text-2xl border-4 shadow-xl overflow-hidden"
-                  style={{ borderColor: '#0d1117' }}>
+                  style={{ borderColor: 'var(--color-background)' }}>
                   {profile.profileImageUrl
                     ? <img src={profile.profileImageUrl} alt={profile.nickname} className="w-full h-full object-cover" />
                     : (
                       <div className="w-full h-full flex items-center justify-center font-bold text-2xl"
-                        style={{ background: 'linear-gradient(135deg,#2f81f7,#6366f1)', color: '#fff' }}>
+                        style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
                         {profile.nickname.slice(0, 2).toUpperCase()}
                       </div>
                     )
@@ -185,9 +185,9 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                   <h1 className="text-xl font-bold">{profile.nickname}</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-                    style={{ background: 'rgba(47,129,247,0.1)', color: '#2f81f7' }}>{profile.role}</span>
+                    style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', color: 'var(--color-primary)' }}>{profile.role}</span>
                 </div>
-                <p className="text-xs" style={{ color: '#7d8590' }}>
+                <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                   가입 {new Date(profile.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short' })}
                 </p>
               </div>
@@ -197,8 +197,8 @@ export default function ProfilePage() {
             <div className="flex gap-2 sm:mb-1">
               {isMyProfile ? (
                 <Link to="/mypage"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:bg-[#292f38]"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}>
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:bg-surface-container-high"
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                   <span className="material-symbols-outlined text-base">edit</span>
                   프로필 편집
                 </Link>
@@ -209,16 +209,16 @@ export default function ProfilePage() {
                     disabled={!isLoggedIn || followLoading}
                     className="flex items-center gap-1.5 px-5 py-2 rounded-xl font-bold text-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
                     style={followed
-                      ? { background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }
-                      : { background: '#2f81f7', color: '#fff' }}>
+                      ? { background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }
+                      : { background: 'var(--color-primary)', color: '#fff' }}>
                     <span className="material-symbols-outlined text-base">
                       {followed ? 'person_check' : 'person_add'}
                     </span>
                     {followLoading ? '처리 중...' : followed ? '팔로잉' : '팔로우'}
                   </button>
-                  <button className="p-2 rounded-xl transition-all hover:bg-[#1c2128]"
-                    style={{ border: '1px solid #30363d' }}>
-                    <span className="material-symbols-outlined text-base" style={{ color: '#7d8590' }}>more_horiz</span>
+                  <button className="p-2 rounded-xl transition-all hover:bg-surface-container-low"
+                    style={{ border: '1px solid var(--color-outline)' }}>
+                    <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-on-surface-variant)' }}>more_horiz</span>
                   </button>
                 </>
               )}
@@ -229,27 +229,27 @@ export default function ProfilePage() {
           {(profile.bio || profile.websiteUrl) && (
             <div className="pb-4 max-w-2xl">
               {profile.bio && (
-                <p className="text-sm leading-relaxed" style={{ color: '#7d8590' }}>{profile.bio}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>{profile.bio}</p>
               )}
               {profile.websiteUrl && (
-                <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: '#7d8590' }}>
+                <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                   <span className="material-symbols-outlined text-xs">link</span>
                   <a href={profile.websiteUrl} target="_blank" rel="noopener noreferrer"
-                    className="hover:underline" style={{ color: '#2f81f7' }}>{profile.websiteUrl}</a>
+                    className="hover:underline" style={{ color: 'var(--color-primary)' }}>{profile.websiteUrl}</a>
                 </div>
               )}
             </div>
           )}
 
           {/* 통계 */}
-          <div className="flex flex-wrap gap-6 py-3 border-t text-sm" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-wrap gap-6 py-3 border-t text-sm" style={{ borderColor: 'var(--color-outline)' }}>
             {[
               [profile.followerCount.toLocaleString(), '팔로워'],
               [profile.followingCount.toLocaleString(), '팔로잉'],
             ].map(([val, label]) => (
               <div key={label}>
                 <span className="font-bold">{val}</span>
-                <span className="ml-1" style={{ color: '#7d8590' }}>{label}</span>
+                <span className="ml-1" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
               </div>
             ))}
           </div>
@@ -265,8 +265,8 @@ export default function ProfilePage() {
             <button key={t.key} onClick={() => setTab(t.key)}
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-left transition-all"
               style={tab === t.key
-                ? { background: 'rgba(47,129,247,0.12)', color: '#2f81f7' }
-                : { color: '#7d8590' }}>
+                ? { background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }
+                : { color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base flex-shrink-0"
                 style={{ fontVariationSettings: tab === t.key ? "'FILL' 1" : "'FILL' 0" }}>
                 {t.icon}
@@ -284,8 +284,8 @@ export default function ProfilePage() {
               <button key={t.key} onClick={() => setTab(t.key)}
                 className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                 style={tab === t.key
-                  ? { background: 'rgba(47,129,247,0.15)', color: '#2f81f7' }
-                  : { background: '#21262d', color: '#7d8590' }}>
+                  ? { background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }
+                  : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
                 {t.label}
               </button>
             ))}
@@ -300,8 +300,8 @@ export default function ProfilePage() {
                   <button key={s} onClick={() => setSort(s)}
                     className="px-3 py-1 rounded-lg text-xs font-bold transition-colors"
                     style={sort === s
-                      ? { background: 'rgba(47,129,247,0.15)', color: '#2f81f7' }
-                      : { background: '#21262d', color: '#7d8590' }}>
+                      ? { background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }
+                      : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
                     {s === 'recent' ? '최신순' : '인기순'}
                   </button>
                 ))}
@@ -313,7 +313,7 @@ export default function ProfilePage() {
           {tabLoading ? (
             <div className="grid grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: '#21262d' }} />
+                <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
               ))}
             </div>
           ) : (
@@ -326,10 +326,10 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-3 gap-4">
                     {works.map(w => (
                       <Link key={w.postId} to={`/gallery/${w.postId}`}
-                        className="group aspect-square rounded-xl overflow-hidden relative" style={{ background: '#21262d' }}>
+                        className="group aspect-square rounded-xl overflow-hidden relative" style={{ background: 'var(--color-surface-container)' }}>
                         {w.thumbnailUrl
                           ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                          : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />}
+                          : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-2">
                           <p className="text-xs font-bold text-white text-center line-clamp-2">{w.title}</p>
                           <div className="flex items-center gap-2 text-xs" style={{ color: '#ccc' }}>
@@ -350,20 +350,20 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-3 gap-4">
                     {assets.map(a => (
                       <Link key={a.assetId} to={`/assets/${a.assetId}`}
-                        className="group rounded-xl overflow-hidden border transition-all hover:-translate-y-0.5 hover:border-[#2f81f7]"
-                        style={{ background: '#21262d', borderColor: '#30363d' }}>
+                        className="group rounded-xl overflow-hidden border transition-all hover:-translate-y-0.5 hover:border-primary"
+                        style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
                         <div className="aspect-square overflow-hidden">
                           {a.thumbnailUrl
                             ? <img src={a.thumbnailUrl} alt={a.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                            : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />}
+                            : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />}
                         </div>
                         <div className="p-2">
                           <p className="text-xs font-bold truncate">{a.title}</p>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-xs font-bold" style={{ color: a.isFree ? '#3fb950' : '#2f81f7' }}>
+                            <span className="text-xs font-bold" style={{ color: a.isFree ? 'var(--color-success)' : 'var(--color-primary)' }}>
                               {a.isFree ? '무료' : `₩${a.price.toLocaleString()}`}
                             </span>
-                            <span className="text-xs" style={{ color: '#7d8590' }}>♥ {a.likeCount}</span>
+                            <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>♥ {a.likeCount}</span>
                           </div>
                         </div>
                       </Link>
@@ -380,10 +380,10 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-3 gap-4">
                     {liked.map(w => (
                       <Link key={w.postId} to={`/gallery/${w.postId}`}
-                        className="group aspect-square rounded-xl overflow-hidden relative" style={{ background: '#21262d' }}>
+                        className="group aspect-square rounded-xl overflow-hidden relative" style={{ background: 'var(--color-surface-container)' }}>
                         {w.thumbnailUrl
                           ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                          : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,#161b22,#21262d)' }} />}
+                          : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-2">
                           <p className="text-xs font-bold text-white text-center line-clamp-2">{w.title}</p>
                           <p className="text-xs" style={{ color: '#ccc' }}>by {w.authorNickname}</p>
@@ -405,16 +405,16 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                       {users.map(u => (
                         <Link key={u.userId} to={`/profile/${u.nickname}`}
-                          className="rounded-xl border p-4 text-center hover:shadow-md hover:border-[#2f81f7] transition-all"
-                          style={{ background: '#21262d', borderColor: '#30363d' }}>
+                          className="rounded-xl border p-4 text-center hover:shadow-md hover:border-primary transition-all"
+                          style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
                           <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-2 overflow-hidden"
-                            style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,#2f81f7,#6366f1)' }}>
+                            style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))' }}>
                             {u.profileImageUrl
                               ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
                               : u.nickname.slice(0, 2).toUpperCase()}
                           </div>
                           <div className="font-bold text-sm truncate">{u.nickname}</div>
-                          <div className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                          <div className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
                             팔로워 {u.followerCount.toLocaleString()}
                           </div>
                         </Link>
