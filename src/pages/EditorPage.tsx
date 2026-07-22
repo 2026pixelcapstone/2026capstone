@@ -254,7 +254,6 @@ export default function EditorPage() {
       ctx.clearRect(x, y, brushSize, brushSize)
     }
     // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘] -> 여러번 쓰면 화면 멈춤 현상이 일어남──────────
-    /*
     else if (activeTool === 'fill') {
       // 32비트 정수 배열(Uint32Array) 단위로 조작하여 JavaScript 연산 속도를 극한으로 끌어올립니다.
       const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
@@ -291,7 +290,7 @@ export default function EditorPage() {
         commitLayerChanges();
       }
     }
-    */
+  
     // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
     else if (activeTool === 'eyedrop') {
       const imgData = ctx.getImageData(x, y, 1, 1).data;
