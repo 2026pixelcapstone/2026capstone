@@ -268,8 +268,8 @@ export default function EditorPage() {
     const r = parseInt(fgColor.slice(1, 3), 16);
     const g = parseInt(fgColor.slice(3, 5), 16);
     const b = parseInt(fgColor.slice(5, 7), 16);
-    // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성
-    const fillColor = (255 << 24) | (b << 16) | (g << 8) | r;
+    // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성, >>> 0 추가하여 Uint32 형태의 양수로 반환
+    const fillColor = (255 << 24) | (b << 16) | (g << 8) | r >>> 0;
     
     if (targetColor !== fillColor) {
       const totalPixels = canvasW * canvasH;
@@ -331,7 +331,6 @@ export default function EditorPage() {
       
       // 메모리에 변경된 픽셀 데이터를 캔버스에 한 번에 렌더링
       ctx.putImageData(imgData, 0, 0);
-      commitLayerChanges();
     }
   }
   
