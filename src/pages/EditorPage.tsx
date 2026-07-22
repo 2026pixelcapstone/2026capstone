@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import {useSearchParams } from 'react-router-dom'
+import {data, useSearchParams } from 'react-router-dom'
 import { LayerData } from '../constants/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
@@ -253,43 +253,87 @@ export default function EditorPage() {
     else if (activeTool === 'eraser') {
       ctx.clearRect(x, y, brushSize, brushSize)
     }
-    // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘] -> 여러번 쓰면 화면 멈춤 현상이 일어남──────────
-    else if (activeTool === 'fill') {
-      // 32비트 정수 배열(Uint32Array) 단위로 조작하여 JavaScript 연산 속도를 극한으로 끌어올립니다.
-      const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
-      const data32 = new Uint32Array(imgData.data.buffer);
-      
-      // 시작점의 색상 추출
-      const targetColor = data32[y * canvasW + x];
-      
-      // 채우고자 하는 fgColor를 32비트 정수(ABGR 구조)로 변환
-      // (예: #818cf8 파싱 후 비트 시프트)
-      const r = parseInt(fgColor.slice(1, 3), 16);
-      const g = parseInt(fgColor.slice(3, 5), 16);
-      const b = parseInt(fgColor.slice(5, 7), 16);
-      const fillColor = (255 << 24) | (b << 16) | (g << 8) | r; // 알파값 255 완전 불투명
-      
-      if (targetColor !== fillColor) {
-        // 큐(Queue) 기반의 Flood Fill (스택 오버플로우 방지)
-        const queue: [number, number][] = [[x, y]];
+  // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
+  else if (activeTool === 'fill') {
+    // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
+    const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
+    // R/G/B/A 4바이트를 32비트 정수 1개 단위로 재해석 (픽셀당 1개 인덱스로 대응)
+    const data32 = new Uint32Array(imgData.data.buffer);
+    
+    // 시작점의 색상 추출
+    // y * canvasW + x -> 2차원 좌표를 1차원 메모리 주소(인덱스)로 변환
+    const targetColor = data32[y * canvasW + x]; 
+    
+    // 채우고자 하는 fgColor(Hex 문자열)를 32비트 정수(ABGR 구조)로 변환
+    const r = parseInt(fgColor.slice(1, 3), 16);
+    const g = parseInt(fgColor.slice(3, 5), 16);
+    const b = parseInt(fgColor.slice(5, 7), 16);
+    // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성
+    const fillColor = (255 << 24) | (b << 16) | (g << 8) | r;
+    
+    if (targetColor !== fillColor) {
+      const totalPixels = canvasW * canvasH;
+      // 고정 크기 인덱스 큐 (최대 픽셀 수만큼 미리 메모리를 할당하여 GC 과부하 방지)
+      const queue = new Int32Array(totalPixels);
+      let head = 0; // 읽기 포인터 (pop 연산 시 증가)
+      let tail = 0; // 쓰기 포인터 (push 연산 시 증가)
+
+      const startIdx = y * canvasW + x; // 시작 픽셀 주소
+      queue[tail++] = startIdx; // 시작 주소를 큐에 push
+      data32[startIdx] = fillColor; // push 하자마자 즉시 색상 변경 (중복 방문 원천 차단)
+
+      // 큐에 처리할 픽셀이 남아있는 동안 BFS 탐색 반복
+      while (head < tail) { 
+        const idx = queue[head++]; // 큐의 맨 앞에서 현재 처리할 픽셀 주소를 하나 꺼내옴 (O(1) Pop)
         
-        while (queue.length > 0) {
-          const [cx, cy] = queue.shift()!;
-          const idx = cy * canvasW + cx;
-          
-          if (data32[idx] === targetColor) {
-            data32[idx] = fillColor;
-            
-            if (cx > 0) queue.push([cx - 1, cy]);
-            if (cx < canvasW - 1) queue.push([cx + 1, cy]);
-            if (cy > 0) queue.push([cx, cy - 1]);
-            if (cy < canvasH - 1) queue.push([cx, cy + 1]);
+        // 1차원 주소 idx를 2차원 좌표(cx, cy)로 복원하여 캔버스 경계 판단에 활용
+        const cx = idx % canvasW; 
+        const cy = Math.floor(idx / canvasW); // 소수점 버림 함수
+        
+        // 상/하/좌/우 이웃 검사 -> targetColor와 같은 색상을 가진 픽셀만 색칠 후 큐에 적재
+        
+        // 1. 좌측 이웃 검사
+        if (cx > 0) { // 왼쪽 벽에 붙어있지 않다면
+          const nIdx = idx - 1; // 현재 위치 기준 '좌'측 이웃 주소
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor; // 즉시 색 변경 (중복 방문 방지)
+            queue[tail++] = nIdx;     // 큐에 추가 (Push)
           }
         }
-        ctx.putImageData(imgData, 0, 0);
-        commitLayerChanges();
+        
+        // 2. 우측 이웃 검사
+        if (cx < canvasW - 1) { // 오른쪽 벽에 붙어있지 않다면
+          const nIdx = idx + 1; // 현재 위치 기준 '우'측 이웃 주소
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor;
+            queue[tail++] = nIdx;
+          }
+        }
+        
+        // 3. 상단 이웃 검사
+        if (cy > 0) { // 위쪽 벽에 붙어있지 않다면
+          const nIdx = idx - canvasW; // 현재 위치 기준 '상'측 이웃 주소 (한 줄 위)
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor;
+            queue[tail++] = nIdx;
+          }
+        }
+        
+        // 4. 하단 이웃 검사
+        if (cy < canvasH - 1) { // 아래쪽 벽에 붙어있지 않다면
+          const nIdx = idx + canvasW; // 현재 위치 기준 '하'측 이웃 주소 (한 줄 아래)
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor;
+            queue[tail++] = nIdx;
+          }
+        }
       }
+      
+      // 메모리에 변경된 픽셀 데이터를 캔버스에 한 번에 렌더링
+      ctx.putImageData(imgData, 0, 0);
+      commitLayerChanges();
     }
+  }
   
     // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
     else if (activeTool === 'eyedrop') {
