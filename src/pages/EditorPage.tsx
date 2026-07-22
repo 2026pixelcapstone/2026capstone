@@ -106,6 +106,7 @@ export default function EditorPage() {
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
   const isDrawing = useRef(false)
+  const isDirty =  useRef(false); 
 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
@@ -248,30 +249,34 @@ export default function EditorPage() {
       ctx.fillStyle = fgColor
       ctx.fillRect(x, y, brushSize, brushSize)
       ctx.globalAlpha = 1
+      isDirty.current = true; // 픽셀이 변경되었음을 표시
     }
     // ─── [지우개 도구] ────────────────────────────────────────
     else if (activeTool === 'eraser') {
       ctx.clearRect(x, y, brushSize, brushSize)
+      isDirty.current = true; // 픽셀이 변경되었음을 표시
     }
-  // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
-  else if (activeTool === 'fill') {
-    // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
-    const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
-    // R/G/B/A 4바이트를 32비트 정수 1개 단위로 재해석 (픽셀당 1개 인덱스로 대응)
-    const data32 = new Uint32Array(imgData.data.buffer);
-    
-    // 시작점의 색상 추출
-    // y * canvasW + x -> 2차원 좌표를 1차원 메모리 주소(인덱스)로 변환
-    const targetColor = data32[y * canvasW + x]; 
-    
-    // 채우고자 하는 fgColor(Hex 문자열)를 32비트 정수(ABGR 구조)로 변환
-    const r = parseInt(fgColor.slice(1, 3), 16);
-    const g = parseInt(fgColor.slice(3, 5), 16);
-    const b = parseInt(fgColor.slice(5, 7), 16);
-    // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성, >>> 0 추가하여 Uint32 형태의 양수로 반환
-    const fillColor = (255 << 24) | (b << 16) | (g << 8) | r >>> 0;
-    
-    if (targetColor !== fillColor) {
+    // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
+    else if (activeTool === 'fill') {
+      // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
+      const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
+      // R/G/B/A 4바이트를 32비트 정수 1개 단위로 재해석 (픽셀당 1개 인덱스로 대응)
+      const data32 = new Uint32Array(imgData.data.buffer);
+      
+      // 시작점의 색상 추출
+      // y * canvasW + x -> 2차원 좌표를 1차원 메모리 주소(인덱스)로 변환
+      const targetColor = data32[y * canvasW + x]; 
+      
+      // 채우고자 하는 fgColor(Hex 문자열)를 32비트 정수(ABGR 구조)로 변환
+      const r = parseInt(fgColor.slice(1, 3), 16);
+      const g = parseInt(fgColor.slice(3, 5), 16);
+      const b = parseInt(fgColor.slice(5, 7), 16);
+      // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성, >>> 0 추가하여 Uint32 형태의 양수로 반환
+      const fillColor = (255 << 24) | (b << 16) | (g << 8) | r >>> 0;
+      
+      if (targetColor === fillColor) {
+        return;
+      }
       const totalPixels = canvasW * canvasH;
       // 고정 크기 인덱스 큐 (최대 픽셀 수만큼 미리 메모리를 할당하여 GC 과부하 방지)
       const queue = new Int32Array(totalPixels);
@@ -329,10 +334,9 @@ export default function EditorPage() {
         }
       }
       
-      // 메모리에 변경된 픽셀 데이터를 캔버스에 한 번에 렌더링
       ctx.putImageData(imgData, 0, 0);
+      isDirty.current = true; // 픽셀이 변경되었음을 표시
     }
-  }
   
     // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
     else if (activeTool === 'eyedrop') {
@@ -1300,7 +1304,11 @@ export default function EditorPage() {
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
                 isDrawing.current = false
-                commitLayerChanges();
+                // 실제로 변경이 발생했을 때만 커밋 호출
+                if(isDirty.current){
+                  commitLayerChanges();
+                  isDirty.current = false;
+                }
                }}
               onMouseLeave={() => { 
                 if(isDrawing.current) commitLayerChanges();
