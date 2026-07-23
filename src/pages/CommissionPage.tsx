@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
   artistServiceApi, type ArtistServiceSummary, type ArtistServiceCreateRequest,
@@ -170,7 +170,15 @@ function formatBudget(min?: number | null, max?: number | null) {
 
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
-  const [tab, setTab] = useState<'artists' | 'requests' | 'mine'>('artists')
+  // ?tab=mine|requests 로 직접 진입 지원 (메인 "내 커미션 전체" 링크 등). mine은 로그인 시에만
+  const [searchParams] = useSearchParams()
+  const initialTab = (() => {
+    const t = searchParams.get('tab')
+    if (t === 'mine') return isLoggedIn ? 'mine' : 'artists'
+    if (t === 'requests') return 'requests'
+    return 'artists'
+  })()
+  const [tab, setTab] = useState<'artists' | 'requests' | 'mine'>(initialTab)
   const [activeCategory, setActiveCategory] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
 
