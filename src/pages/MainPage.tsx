@@ -119,10 +119,14 @@ export default function MainPage() {
   // 진행 중 거래 (로그인 시) — 의뢰자/작가 양쪽 합산, IN_PROGRESS/REVIEW만
   useEffect(() => {
     if (!isLoggedIn) { setActive([]); return }
+    // 로그아웃(또는 계정 전환)으로 effect가 재실행되면 이전 요청 결과는 버린다.
+    // (안 그러면 뒤늦게 도착한 이전 사용자의 거래 정보가 로그아웃 후 노출될 수 있음)
+    let ignore = false
     Promise.allSettled([
       commissionApi.getMyListAsClient({ size: 20 }),
       commissionApi.getMyListAsArtist({ size: 20 }),
     ]).then(([c, a]) => {
+      if (ignore) return
       const merged: ActiveCommission[] = []
       if (c.status === 'fulfilled')
         merged.push(...c.value.data.data.content.map(x => ({ ...x, role: 'client' as const })))
@@ -136,6 +140,7 @@ export default function MainPage() {
           .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
       )
     })
+    return () => { ignore = true }
   }, [isLoggedIn])
 
   const visibleHot = useMemo(() => filterPosts(hot), [hot, filterPosts])
@@ -228,7 +233,12 @@ export default function MainPage() {
         <section aria-label="추천 작품">
           {showSkeleton ? (
             <SkeletonCard className="h-80 rounded-2xl" />
-          ) : hero && (
+          ) : !hero ? (
+            <div className="h-80 rounded-2xl flex items-center justify-center"
+              style={{ background: 'var(--color-surface-container)' }}>
+              <p style={{ color: 'var(--color-on-surface-variant)' }}>아직 인기 작품이 없습니다.</p>
+            </div>
+          ) : (
             <div className="relative h-80 rounded-2xl overflow-hidden"
               style={{ background: hero.thumbnailUrl ? undefined : gradientOf(hero.postId) }}>
               {hero.thumbnailUrl && (

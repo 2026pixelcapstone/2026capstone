@@ -13,6 +13,9 @@ import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 import { useEmailGate } from '../hooks/useEmailGate'
 
+// 커미션 페이지 상단 탭
+type CommissionTab = 'artists' | 'requests' | 'mine'
+
 // 서비스 카테고리 — 등록 폼 선택지 (백엔드 저장값과 정확히 일치해야 함)
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
 // 작가 탭 필터 칩 (전체 + 카테고리)
@@ -168,17 +171,25 @@ function formatBudget(min?: number | null, max?: number | null) {
   return `~ ₩${max!.toLocaleString()}`
 }
 
+// URL ?tab 값을 실제 탭으로 해석 (mine은 로그인 시에만, 그 외/미지정은 작가 찾기)
+function resolveTab(param: string | null, isLoggedIn: boolean): CommissionTab {
+  if (param === 'mine') return isLoggedIn ? 'mine' : 'artists'
+  if (param === 'requests') return 'requests'
+  return 'artists'
+}
+
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
-  // ?tab=mine|requests 로 직접 진입 지원 (메인 "내 커미션 전체" 링크 등). mine은 로그인 시에만
+  // ?tab=mine|requests 로 직접 진입 지원 (메인 "내 커미션 전체" 링크 등)
   const [searchParams] = useSearchParams()
-  const initialTab = (() => {
-    const t = searchParams.get('tab')
-    if (t === 'mine') return isLoggedIn ? 'mine' : 'artists'
-    if (t === 'requests') return 'requests'
-    return 'artists'
-  })()
-  const [tab, setTab] = useState<'artists' | 'requests' | 'mine'>(initialTab)
+  const [tab, setTab] = useState<CommissionTab>(() => resolveTab(searchParams.get('tab'), isLoggedIn))
+
+  // URL ?tab 또는 로그인 상태(hydration으로 false→true)가 바뀌면 탭 재동기화.
+  // tab 파라미터가 없으면 사용자가 수동 선택한 탭을 그대로 유지한다.
+  useEffect(() => {
+    const param = searchParams.get('tab')
+    if (param) setTab(resolveTab(param, isLoggedIn))
+  }, [searchParams, isLoggedIn])
   const [activeCategory, setActiveCategory] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
 
@@ -268,7 +279,7 @@ export default function CommissionPage() {
   }, [tab, myLoaded, loadMyCommissions])
 
   // 탭 전환 시 필터/정렬/검색 초기화
-  const handleTabChange = (next: 'artists' | 'requests' | 'mine') => {
+  const handleTabChange = (next: CommissionTab) => {
     if (next === tab) return
     setTab(next)
     setActiveCategory('전체')
