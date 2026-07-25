@@ -284,11 +284,12 @@ export default function CommissionPage() {
       .finally(() => { if (gen === sessionRef.current) setMyLoading(false) })
   }, [isLoggedIn])
 
-  // 내 커미션 탭 — 진입 시 로드 (로그인 상태 + 아직 성공 로드 전이면)
+  // 내 커미션 탭 — 진입 시 로드. 로딩 중(myLoading)이면 중복 요청 방지,
+  // 실패(myError) 시 자동 재요청 루프 방지(재시도는 "다시 시도" 버튼이 담당).
   useEffect(() => {
-    if (!isLoggedIn || tab !== 'mine' || myLoaded) return
+    if (!isLoggedIn || tab !== 'mine' || myLoaded || myLoading || myError) return
     loadMyCommissions()
-  }, [isLoggedIn, tab, myLoaded, loadMyCommissions])
+  }, [isLoggedIn, tab, myLoaded, myLoading, myError, loadMyCommissions])
 
   // 탭 전환 시 필터/정렬/검색 초기화
   const handleTabChange = (next: CommissionTab) => {
