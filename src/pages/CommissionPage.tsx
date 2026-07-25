@@ -250,6 +250,7 @@ export default function CommissionPage() {
 
   // 내 커미션 로드 (재시도 버튼에서도 호출)
   const loadMyCommissions = useCallback(() => {
+    if (!isLoggedIn) return   // 로그아웃 상태면 아예 요청하지 않음(로그아웃 렌더에서 재호출돼 새 세대를 캡처하는 것 차단)
     // 로드 시작 시점의 세션 세대를 캡처. 로그아웃/계정 전환으로 세대가 바뀌면
     // 뒤늦게 도착한 이전 사용자의 응답을 상태에 반영하지 않는다(개인정보 노출 방지).
     const gen = sessionRef.current
@@ -281,13 +282,13 @@ export default function CommissionPage() {
         setMyLoaded(true)
       })
       .finally(() => { if (gen === sessionRef.current) setMyLoading(false) })
-  }, [])
+  }, [isLoggedIn])
 
-  // 내 커미션 탭 — 진입 시 로드 (아직 성공 로드 전이면)
+  // 내 커미션 탭 — 진입 시 로드 (로그인 상태 + 아직 성공 로드 전이면)
   useEffect(() => {
-    if (tab !== 'mine' || myLoaded) return
+    if (!isLoggedIn || tab !== 'mine' || myLoaded) return
     loadMyCommissions()
-  }, [tab, myLoaded, loadMyCommissions])
+  }, [isLoggedIn, tab, myLoaded, loadMyCommissions])
 
   // 탭 전환 시 필터/정렬/검색 초기화
   const handleTabChange = (next: CommissionTab) => {
@@ -307,6 +308,7 @@ export default function CommissionPage() {
     setMyRequestPosts([])
     setMyLoaded(false)
     setMyError(false)
+    setMyLoading(false)
     if (tab === 'mine') handleTabChange('artists')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, tab])
