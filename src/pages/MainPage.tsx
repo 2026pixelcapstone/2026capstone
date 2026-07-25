@@ -98,8 +98,9 @@ export default function MainPage() {
   // 공개 콘텐츠 로드 (갤러리 인기/최근 + 신규 에셋 + 모집 중 커미션)
   useEffect(() => {
     Promise.allSettled([
-      galleryApi.getList({ page: 0, size: 7, sort: 'likeCount,desc' }),
-      galleryApi.getList({ page: 0, size: 6, sort: 'createdAt,desc' }),
+      // 자유 갤러리만 — 히어로/최근 카드의 "전체 보기"가 /gallery/free 로 가므로 콘텐츠도 FREE로 일치
+      galleryApi.getList({ type: 'FREE', page: 0, size: 7, sort: 'likeCount,desc' }),
+      galleryApi.getList({ type: 'FREE', page: 0, size: 6, sort: 'createdAt,desc' }),
       assetApi.getList({ page: 0, size: 4, sort: 'createdAt,desc' }),
       artistServiceApi.getOpenList({ page: 0, size: 4, sort: 'createdAt,desc' }),
     ])

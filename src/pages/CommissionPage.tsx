@@ -188,8 +188,15 @@ export default function CommissionPage() {
   // tab 파라미터가 없으면 사용자가 수동 선택한 탭을 그대로 유지한다.
   useEffect(() => {
     const param = searchParams.get('tab')
-    if (param) setTab(resolveTab(param, isLoggedIn))
+    // 파라미터가 아예 없으면(null) 수동 선택 탭 유지, 있으면(빈 문자열 포함) URL 기준으로 해석
+    if (param !== null) setTab(resolveTab(param, isLoggedIn))
   }, [searchParams, isLoggedIn])
+
+  // 세션 세대 — 로그인 상태가 바뀌면 증가시켜, 진행 중이던 내 커미션 요청을 무효화한다.
+  const sessionRef = useRef(0)
+  useEffect(() => {
+    sessionRef.current++
+  }, [isLoggedIn])
   const [activeCategory, setActiveCategory] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
 
@@ -243,6 +250,9 @@ export default function CommissionPage() {
 
   // 내 커미션 로드 (재시도 버튼에서도 호출)
   const loadMyCommissions = useCallback(() => {
+    // 로드 시작 시점의 세션 세대를 캡처. 로그아웃/계정 전환으로 세대가 바뀌면
+    // 뒤늦게 도착한 이전 사용자의 응답을 상태에 반영하지 않는다(개인정보 노출 방지).
+    const gen = sessionRef.current
     setMyLoading(true)
     setMyError(false)
     Promise.allSettled([
@@ -251,6 +261,7 @@ export default function CommissionPage() {
       requestPostApi.getMyList({ size: 50 }),
     ])
       .then(([c, a, r]) => {
+        if (gen !== sessionRef.current) return   // 무효화된 세션의 응답 폐기
         const cOk = c.status === 'fulfilled'
         const aOk = a.status === 'fulfilled'
         const rOk = r.status === 'fulfilled'
@@ -269,7 +280,7 @@ export default function CommissionPage() {
         setMyRequestPosts(rOk ? r.value.data.data.content : [])
         setMyLoaded(true)
       })
-      .finally(() => setMyLoading(false))
+      .finally(() => { if (gen === sessionRef.current) setMyLoading(false) })
   }, [])
 
   // 내 커미션 탭 — 진입 시 로드 (아직 성공 로드 전이면)
