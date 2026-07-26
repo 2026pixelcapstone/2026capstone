@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
   artistServiceApi, type ArtistServiceSummary, type ArtistServiceCreateRequest,
@@ -12,6 +12,9 @@ import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 import { useEmailGate } from '../hooks/useEmailGate'
+
+// 커미션 페이지 상단 탭
+type CommissionTab = 'artists' | 'requests' | 'mine'
 
 // 서비스 카테고리 — 등록 폼 선택지 (백엔드 저장값과 정확히 일치해야 함)
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
@@ -168,9 +171,32 @@ function formatBudget(min?: number | null, max?: number | null) {
   return `~ ₩${max!.toLocaleString()}`
 }
 
+// URL ?tab 값을 실제 탭으로 해석 (mine은 로그인 시에만, 그 외/미지정은 작가 찾기)
+function resolveTab(param: string | null, isLoggedIn: boolean): CommissionTab {
+  if (param === 'mine') return isLoggedIn ? 'mine' : 'artists'
+  if (param === 'requests') return 'requests'
+  return 'artists'
+}
+
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
-  const [tab, setTab] = useState<'artists' | 'requests' | 'mine'>('artists')
+  // ?tab=mine|requests 로 직접 진입 지원 (메인 "내 커미션 전체" 링크 등)
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<CommissionTab>(() => resolveTab(searchParams.get('tab'), isLoggedIn))
+
+  // URL ?tab 또는 로그인 상태(hydration으로 false→true)가 바뀌면 탭 재동기화.
+  // tab 파라미터가 없으면 사용자가 수동 선택한 탭을 그대로 유지한다.
+  useEffect(() => {
+    const param = searchParams.get('tab')
+    // 파라미터가 아예 없으면(null) 수동 선택 탭 유지, 있으면(빈 문자열 포함) URL 기준으로 해석
+    if (param !== null) setTab(resolveTab(param, isLoggedIn))
+  }, [searchParams, isLoggedIn])
+
+  // 세션 세대 — 로그인 상태가 바뀌면 증가시켜, 진행 중이던 내 커미션 요청을 무효화한다.
+  const sessionRef = useRef(0)
+  useEffect(() => {
+    sessionRef.current++
+  }, [isLoggedIn])
   const [activeCategory, setActiveCategory] = useState('전체')
   const [sort, setSort] = useState('createdAt,desc')
 
@@ -224,6 +250,10 @@ export default function CommissionPage() {
 
   // 내 커미션 로드 (재시도 버튼에서도 호출)
   const loadMyCommissions = useCallback(() => {
+    if (!isLoggedIn) return   // 로그아웃 상태면 아예 요청하지 않음(로그아웃 렌더에서 재호출돼 새 세대를 캡처하는 것 차단)
+    // 로드 시작 시점의 세션 세대를 캡처. 로그아웃/계정 전환으로 세대가 바뀌면
+    // 뒤늦게 도착한 이전 사용자의 응답을 상태에 반영하지 않는다(개인정보 노출 방지).
+    const gen = sessionRef.current
     setMyLoading(true)
     setMyError(false)
     Promise.allSettled([
@@ -232,6 +262,7 @@ export default function CommissionPage() {
       requestPostApi.getMyList({ size: 50 }),
     ])
       .then(([c, a, r]) => {
+        if (gen !== sessionRef.current) return   // 무효화된 세션의 응답 폐기
         const cOk = c.status === 'fulfilled'
         const aOk = a.status === 'fulfilled'
         const rOk = r.status === 'fulfilled'
@@ -250,17 +281,18 @@ export default function CommissionPage() {
         setMyRequestPosts(rOk ? r.value.data.data.content : [])
         setMyLoaded(true)
       })
-      .finally(() => setMyLoading(false))
-  }, [])
+      .finally(() => { if (gen === sessionRef.current) setMyLoading(false) })
+  }, [isLoggedIn])
 
-  // 내 커미션 탭 — 진입 시 로드 (아직 성공 로드 전이면)
+  // 내 커미션 탭 — 진입 시 로드. 로딩 중(myLoading)이면 중복 요청 방지,
+  // 실패(myError) 시 자동 재요청 루프 방지(재시도는 "다시 시도" 버튼이 담당).
   useEffect(() => {
-    if (tab !== 'mine' || myLoaded) return
+    if (!isLoggedIn || tab !== 'mine' || myLoaded || myLoading || myError) return
     loadMyCommissions()
-  }, [tab, myLoaded, loadMyCommissions])
+  }, [isLoggedIn, tab, myLoaded, myLoading, myError, loadMyCommissions])
 
   // 탭 전환 시 필터/정렬/검색 초기화
-  const handleTabChange = (next: 'artists' | 'requests' | 'mine') => {
+  const handleTabChange = (next: CommissionTab) => {
     if (next === tab) return
     setTab(next)
     setActiveCategory('전체')
@@ -277,6 +309,7 @@ export default function CommissionPage() {
     setMyRequestPosts([])
     setMyLoaded(false)
     setMyError(false)
+    setMyLoading(false)
     if (tab === 'mine') handleTabChange('artists')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, tab])

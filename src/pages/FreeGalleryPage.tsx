@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore'
 import GalleryCreateModal from '../components/GalleryCreateModal'
 import { useEmailGate } from '../hooks/useEmailGate'
 import TagBlockMenu from '../components/TagBlockMenu'
+import GalleryTypeTabs from '../components/GalleryTypeTabs'
 
 const TAGS = ['전체', '풍경', '인물', '아이소메트릭', '애니메이션', '판타지', '사이버펑크', '귀여운']
 
@@ -145,6 +146,9 @@ export default function FreeGalleryPage() {
       )}
 
       <div className="max-w-[1440px] mx-auto px-8 pb-16">
+
+        {/* 자유 ↔ 전용 전환 탭 */}
+        <GalleryTypeTabs current="free" />
 
         {/* 필터 바 + 검색창 (항상 표시) */}
         <div className="flex items-center gap-4 mb-12 flex-wrap">

@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore'
 import GalleryCreateModal from '../components/GalleryCreateModal'
 import { useEmailGate } from '../hooks/useEmailGate'
 import TagBlockMenu from '../components/TagBlockMenu'
+import GalleryTypeTabs from '../components/GalleryTypeTabs'
 
 export default function ExGalleryPage() {
   const { blockedUserIds, blockedTags, loaded: blocksLoaded } = useBlockStore()
@@ -111,6 +112,9 @@ export default function ExGalleryPage() {
       )}
 
       <div className="max-w-[1440px] mx-auto px-8 pb-16 space-y-12">
+
+        {/* 자유 ↔ 전용 전환 탭 */}
+        <GalleryTypeTabs current="dedicated" />
 
         {/* 필터 바 + 검색창 (항상 표시) */}
         <div className="flex items-center gap-4 flex-wrap">
