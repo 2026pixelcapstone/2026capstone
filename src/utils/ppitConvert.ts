@@ -52,7 +52,6 @@ export function ppitToCanvasData(ppit: PpitFile): CanvasData {
   return {
     width: ppit.canvas.width,
     height: ppit.canvas.height,
-    currentFrameIdx: 0,
     frames: ppit.frames.map((f, fi) => ({
       id: f.id || `frame-${fi}`,
       layers: [...f.layers]

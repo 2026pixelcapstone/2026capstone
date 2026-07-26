@@ -16,7 +16,7 @@ import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
-import { getCacheKey, isCanvasBlank } from '../utils/editorUtils'
+import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
@@ -141,6 +141,23 @@ export default function EditorPage() {
     if (openMenu) document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu])
+
+  // ── 현재 프레임 인덱스 최신 정보 보장하는 기능 ──────────────
+
+  // 1. Safe Index 가드 (렌더링 시 undefined 에러 방지)
+  /*
+  const safeFrameIdx = Math.min(
+    currentFrameIdx,
+    Math.max(0, state.frames.length - 1)
+  );*/
+
+  // 2. frames가 줄어들어서 currentFrameIdx가 범위를 벗어나면 자동으로 안전한 위치로 보정
+  useEffect(() => {
+    if (currentFrameIdx > state.frames.length - 1) {
+      setCurrentFrameIdx(Math.max(0, state.frames.length - 1));
+    }
+  }, [state.frames.length, currentFrameIdx]);
+
 
   // ── 캔버스 그리기 로직 ──────────────
 
@@ -578,6 +595,8 @@ export default function EditorPage() {
   const loadPpitText = useCallback((text: string, title: string) => {
     const ppit = parsePpit(text)
     const cd = ppitToCanvasData(ppit)
+
+    setCurrentFrameIdx(0);
     setCanvasW(cd.width); setCanvasH(cd.height)
     setCustomW(cd.width); setCustomH(cd.height)
     setWithHistory(() => cd)
@@ -867,7 +886,7 @@ export default function EditorPage() {
 
     // 최적화 수정: 무겁고 잔상이 남을 수 있는 Node.toCanvas() 대신 
     // 우리가 실시간으로 낙서하던 진짜 가상 오프스크린 캔버스 캐시에서 직접 순수 PNG 소스를 주출합니다.
-    const layerImageData = cachedCanvas.toDataURL('image/png');
+    const layerImageData = getLayerImageData(cachedCanvas);
 
     setWithHistory((prev) => {
       // 프레임 데이터
@@ -907,7 +926,7 @@ export default function EditorPage() {
         const cacheKey = getCacheKey(frameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
-          const layerImageData = isCanvasBlank(cachedCanvas) ? '' : cachedCanvas.toDataURL();
+          const layerImageData = getLayerImageData(cachedCanvas);
           
           setWithHistory((prev) => ({
             ...prev,
@@ -940,7 +959,7 @@ export default function EditorPage() {
       const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
      if (cachedCanvas) {
-        const layerImageData = cachedCanvas.toDataURL('image/png');
+        const layerImageData = getLayerImageData(cachedCanvas)
         setWithHistory((prev) => {
           const updatedFrames = prev.frames.map((frame, fIdx) => {
             if (fIdx !== frameIdx) return frame;
