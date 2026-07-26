@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import {data, useSearchParams } from 'react-router-dom'
+import {useSearchParams } from 'react-router-dom'
 import { LayerData } from '../constants/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
