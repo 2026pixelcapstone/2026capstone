@@ -52,7 +52,7 @@ export default function EditorPage() {
 
   // ── 히스토리 훅 ──────────────────────────
   const initialCanvasData = createInitialCanvasData();
-  const {state, setWithHistory, setWithoutHistory, undo, redo, reset} = useHistory(initialCanvasData);
+  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const[currentFrameIdx, setCurrentFrameIdx] = useState(0) 
