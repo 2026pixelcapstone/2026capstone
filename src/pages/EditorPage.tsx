@@ -55,7 +55,13 @@ export default function EditorPage() {
   const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
-  const[currentFrameIdx, setCurrentFrameIdx] = useState(0) 
+  const[currentFrameIdx, setCurrentFrameIdx] = useState(0);
+
+  const safeFrameIdx = Math.min(
+    currentFrameIdx,
+    Math.max(0, state.frames.length - 1)
+  );
+
   const{addFrame, deleteFrame} = useAnimation({
     frames: state.frames,
     currentFrameIdx: currentFrameIdx,
@@ -143,24 +149,13 @@ export default function EditorPage() {
   }, [openMenu])
 
   // ── 현재 프레임 인덱스 최신 정보 보장하는 기능 ──────────────
-
-  // 1. Safe Index 가드 (렌더링 시 undefined 에러 방지)
-  /*
-  const safeFrameIdx = Math.min(
-    currentFrameIdx,
-    Math.max(0, state.frames.length - 1)
-  );*/
-
-  // 2. frames가 줄어들어서 currentFrameIdx가 범위를 벗어나면 자동으로 안전한 위치로 보정
   useEffect(() => {
-    if (currentFrameIdx > state.frames.length - 1) {
+    if (currentFrameIdx !== safeFrameIdx) {
       setCurrentFrameIdx(Math.max(0, state.frames.length - 1));
     }
-  }, [state.frames.length, currentFrameIdx]);
-
+  }, [state.frames.length, safeFrameIdx]);
 
   // ── 캔버스 그리기 로직 ──────────────
-
   // -------- Stage 컨텍스트 튜닝 훅 추가 -----------
   useEffect(() => {
     if (!stageRef.current) return;
