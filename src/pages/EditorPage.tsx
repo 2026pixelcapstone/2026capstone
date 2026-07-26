@@ -52,7 +52,7 @@ export default function EditorPage() {
 
   // ── 히스토리 훅 ──────────────────────────
   const initialCanvasData = createInitialCanvasData();
-  const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
+  const {state, setWithHistory, setWithoutHistory, undo, redo, reset, canUndo, canRedo, historyLength} = useHistory(initialCanvasData);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
@@ -498,7 +498,7 @@ export default function EditorPage() {
     })()
 
     return () => { cancelled = true }
-  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
+  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setWithoutHistory]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -823,7 +823,7 @@ export default function EditorPage() {
   useEffect(() => {
     if(!isPlaying) return;
     const interval = setInterval(() => {
-      setState((prev) => {
+      setWithoutHistory((prev) => {
         const total = prev.frames.length;
         if(total <= 1) return prev;
 
@@ -836,7 +836,7 @@ export default function EditorPage() {
       });
     }, 100)
     return () => clearInterval(interval);
-  }, [isPlaying, setState]);
+  }, [isPlaying, setWithoutHistory]);
 
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
@@ -909,7 +909,7 @@ export default function EditorPage() {
         } 
     } 
     else {
-      setState((prev) => ({
+      setWithoutHistory((prev) => ({
         ...prev,
         currentFrameIdx: nextIndex,
       }));
