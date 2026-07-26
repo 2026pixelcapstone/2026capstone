@@ -2,7 +2,7 @@ import { LayerData } from "../../constants/editorType";
 import { useCallback, useRef } from "react";
 
 export const useLayers = (
-    state: { frames: any[]; currentFrameIdx: number },
+    state: { frames: any[]; },
     setWithHistory: React.Dispatch<React.SetStateAction<any>>,
     activeLayer: string | null,
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>

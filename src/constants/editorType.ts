@@ -3,7 +3,6 @@ import Konva from "konva";
 //  ── Editor ──────────────────────────────────────────────
 export interface CanvasData{
   frames: Frame[];
-  currentFrameIdx: number;
   width : number;
   height: number;
 }
