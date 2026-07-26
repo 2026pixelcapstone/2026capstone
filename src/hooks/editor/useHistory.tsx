@@ -1,4 +1,4 @@
-import { useState, useCallback, useReducer } from "react";
+import { useCallback, useReducer } from "react";
 import {MAX_HISTORY_SIZE} from '../../constants/editor'
 
 // 1. 상태 타입 정의
