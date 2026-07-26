@@ -52,7 +52,7 @@ export default function EditorPage() {
 
   // ── 히스토리 훅 ──────────────────────────
   const initialCanvasData = createInitialCanvasData();
-  const {state, setWithHistory, setWithoutHistory, undo, redo} = useHistory(initialCanvasData);
+  const {state, setWithHistory, setWithoutHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const{addFrame, deleteFrame} = useAnimation({
@@ -487,7 +487,12 @@ export default function EditorPage() {
         setCustomW(proj.width)
         setCustomH(proj.height)
         if (restoredFrames.length > 0) {
-          setWithHistory((prev) => ({ ...prev, frames: restoredFrames, currentFrameIdx: 0 }))
+          reset({
+            frames: restoredFrames,
+            currentFrameIdx: 0,
+            width: proj.width,
+            height: proj.height,
+          })
           const firstLayerId = restoredFrames[0]?.layers[0]?.id
           if (firstLayerId) setActiveLayer(firstLayerId)
         }
@@ -498,7 +503,7 @@ export default function EditorPage() {
     })()
 
     return () => { cancelled = true }
-  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setWithoutHistory]) // 의존성 배열 보완
+  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, reset]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -732,7 +737,7 @@ export default function EditorPage() {
       pixelData: ''
     }
     // 히스토리 초기화
-    setWithHistory({
+    reset({
       frames: [
         {
           id: `frame-${crypto.randomUUID().slice(0, 8)}`,

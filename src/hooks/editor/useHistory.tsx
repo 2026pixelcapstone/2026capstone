@@ -23,8 +23,7 @@ function historyReducer<T>(state: HistoryState<T>, action: HistoryAction<T>): Hi
     switch (action.type){
         // 새로운 현재가 들어왔을 때 발생하는 과거/현재/미래의 변경
         case "SET": { 
-            // *질문1: 왜 함수로 받을까 말까가 나뉠까요?
-            // *질문2: 왜 참일 때와 거짓일 때 둘다 newPresent를 쓰는가
+
             const resolvedPresent = action.newPresent instanceof Function
                 ? action.newPresent(present) : action.newPresent;
             // 현재 값과 동일하면 상태를 변경하지 않음
@@ -58,7 +57,7 @@ function historyReducer<T>(state: HistoryState<T>, action: HistoryAction<T>): Hi
 
             return {
                 past: newPast,
-                present: previous, // *질문3: past[past.length -1]이라면 배열은 0부터 시작하니까 undo 하지 않았을 때의 현재 모습 아닌가요?
+                present: previous, 
                 future: [present, ...future], // 현재 상태는 future의 맨 앞으로
             }
         }
@@ -86,10 +85,6 @@ function historyReducer<T>(state: HistoryState<T>, action: HistoryAction<T>): Hi
 }
 
 export function useHistory<T>(initialState: T){
-    // *질문4: useReducer은 어떻게 작동하나요? 
-    // ***새로 알게된 것
-    // -> 외부에서는 state를 주는게 아니라 가공할 로직을 준다
-    // -> useReducer은 함수 고유 내용을 커스텀할 수 있으며, 정의한 상태 객체를 매개변수화 시켜 컨트롤한다
     const [history, dispatch] = useReducer(historyReducer<T>, {
         past: [],
         present: initialState,
@@ -125,7 +120,6 @@ export function useHistory<T>(initialState: T){
         undo,
         redo,
         reset,
-        // *질문5: canUndo/canRedo는 이게 유효한 지 확인하는 용도로 쓰이나요? 
         canUndo: history.past.length > 0,
         canRedo: history.future.length > 0,
         historyLength: history.past.length,
