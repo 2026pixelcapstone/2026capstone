@@ -16,7 +16,7 @@ import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
-import { getCacheKey } from '../utils/editorUtils'
+import { getCacheKey, isCanvasBlank } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
@@ -60,17 +60,27 @@ export default function EditorPage() {
     frames: state.frames,
     currentFrameIdx: currentFrameIdx,
     onChange: (newFrames, nextIdx) => {
+      // 1. 이동할 인덱스 결정 (nextIdx가 없으면 현재 인덱스 사용)
       const targetIdx = nextIdx ?? currentFrameIdx;
+
+      // 2. UI 상태인 currentFrameIdx를 새 인덱스로 업데이트
+      setCurrentFrameIdx(targetIdx)
+      
+      // 3. 변경될 프레임의 첫 번째 레이어 선택
       const targetFrame = newFrames[targetIdx];
       const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
       
+      // 4. 히스토리 스냅샷 저장 (frames만 저장, currentFrameIdx는 제외됨)
       setWithHistory((prev) => ({
         ...prev,
         frames: newFrames,
       }));
 
-      setActiveLayer(targetActiveLayerId)
-      setUnsaved(false);
+      if(targetActiveLayerId){
+        setActiveLayer(targetActiveLayerId)
+      }
+      
+      setUnsaved(true); 
     }
   });
   const [isPlaying, setIsPlaying] = useState(false);
@@ -386,6 +396,7 @@ export default function EditorPage() {
     setUnsaved(true);
     setOpenMenu(null);
   }
+
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
   useEffect(() => {
@@ -818,6 +829,8 @@ export default function EditorPage() {
     setHexInput(nextHex);  // 눈에 보이는 HEX 입력창 글자도 동기화
   };
   // ── 애니메이션 ───────────────────────────────────
+
+  
   useEffect(() => {
     framesCountRef.current = state.frames.length;
   }, [state.frames.length]);
@@ -825,23 +838,16 @@ export default function EditorPage() {
   // 재생 로직
   useEffect(() => {
     if(!isPlaying) return;
+
+    const totalFrames = state.frames.length;
+    if(totalFrames <= 1) return;
+
     const interval = setInterval(() => {
-      setWithoutHistory((prev) => {
-        const total = prev.frames.length;
-
-        if(total <= 1) return prev;
-
-        const nextIdx = (currentFrameIdx + 1) % total;
-        setCurrentFrameIdx(nextIdx);
-        
-        return{
-          ...prev,
-        };
-      });
-
+      setCurrentFrameIdx((prevIdx) => (prevIdx + 1) % totalFrames);
     }, 100)
+
     return () => clearInterval(interval);
-  }, [isPlaying, setWithoutHistory]);
+  }, [isPlaying, state.frames.length]);
 
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
@@ -887,6 +893,7 @@ export default function EditorPage() {
 
   }, [currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
+  
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
     const canvas = stageRef.current;
@@ -900,7 +907,7 @@ export default function EditorPage() {
         const cacheKey = getCacheKey(frameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
-          const layerImageData = cachedCanvas.toDataURL();
+          const layerImageData = isCanvasBlank(cachedCanvas) ? '' : cachedCanvas.toDataURL();
           
           setWithHistory((prev) => ({
             ...prev,
@@ -910,14 +917,13 @@ export default function EditorPage() {
                 : f
             ),
           }));
-          setActiveLayer(nextActiveLayerId);
+
           setUnsaved(false);
         } 
     } 
-    else {
-      setCurrentFrameIdx(nextIndex);
-      setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
-    }
+    setCurrentFrameIdx(nextIndex);
+    setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
+    
   }
   // ── 레이어 ───────────────────────────────────
   const selectLayer = useCallback((frameIdx: number, layerIdToSelect: string) => {
@@ -997,7 +1003,7 @@ export default function EditorPage() {
     if (sourceIndex >= layerCount || targetIndex < 0 || targetIndex >= layerCount) return;
 
     if(sourceIndex !== targetIndex){
-      reorderLayers(sourceIndex, targetIndex)
+      reorderLayers(currentFrameIdx, sourceIndex, targetIndex)
     }
   }
   // drop 이벤트를 허용하기 위해 기본 동작을 막습니다.
