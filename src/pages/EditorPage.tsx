@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import {useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { LayerData } from '../constants/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
@@ -16,7 +16,7 @@ import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
-import { getCacheKey } from '../utils/editorUtils'
+import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
@@ -52,29 +52,44 @@ export default function EditorPage() {
 
   // ── 히스토리 훅 ──────────────────────────
   const initialCanvasData = createInitialCanvasData();
-  const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
+  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
+  const[currentFrameIdx, setCurrentFrameIdx] = useState(0);
+
+  const safeFrameIdx = Math.min(
+    currentFrameIdx,
+    Math.max(0, state.frames.length - 1)
+  );
+
   const{addFrame, deleteFrame} = useAnimation({
     frames: state.frames,
-    currentFrameIdx: state.currentFrameIdx,
+    currentFrameIdx: safeFrameIdx,
     onChange: (newFrames, nextIdx) => {
-      const targetIdx = nextIdx ?? state.currentFrameIdx;
+      // 1. 이동할 인덱스 결정 (nextIdx가 없으면 현재 인덱스 사용)
+      const targetIdx = nextIdx ?? safeFrameIdx;
+
+      // 2. UI 상태인 currentFrameIdx를 새 인덱스로 업데이트
+      setCurrentFrameIdx(targetIdx)
+      
+      // 3. 변경될 프레임의 첫 번째 레이어 선택
       const targetFrame = newFrames[targetIdx];
       const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
       
+      // 4. 히스토리 스냅샷 저장 (frames만 저장, currentFrameIdx는 제외됨)
       setWithHistory((prev) => ({
         ...prev,
         frames: newFrames,
-        currentFrameIdx: targetIdx
       }));
 
-      setActiveLayer(targetActiveLayerId)
-      setUnsaved(false);
+      if(targetActiveLayerId){
+        setActiveLayer(targetActiveLayerId)
+      }
+      
+      setUnsaved(true); 
     }
   });
   const [isPlaying, setIsPlaying] = useState(false);
-  const framesCountRef = useRef(state.frames.length);  // 최신 프레임 개수를 실시간으로 추적할 Ref 생성
 
   // ── AI 가이드 상태 ──────────────────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
@@ -132,8 +147,22 @@ export default function EditorPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu])
 
-  // ── 캔버스 그리기 로직 ──────────────
+  // ── 현재 프레임 및 레이어 인덱스 동기화 ────────────────
+  useEffect(() => {
+    if (currentFrameIdx !== safeFrameIdx) {
+      setCurrentFrameIdx(safeFrameIdx);
+    }
+    // 현재 바라보는 프레임의 레이어 목록에 activeLayer가 없는 경우 첫 번째 레이어로 보정
+    const currentFrame = state.frames[safeFrameIdx];
+    if (currentFrame && currentFrame.layers.length > 0) {
+      const hasActiveLayer = currentFrame.layers.some((l) => l.id === activeLayer);
+      if (!hasActiveLayer) {
+        setActiveLayer(currentFrame.layers[0].id);
+      }
+    }
+  }, [state.frames.length, safeFrameIdx]);
 
+  // ── 캔버스 그리기 로직 ──────────────
   // -------- Stage 컨텍스트 튜닝 훅 추가 -----------
   useEffect(() => {
     if (!stageRef.current) return;
@@ -161,7 +190,7 @@ export default function EditorPage() {
     // 브라우저 렌더링 프레임 단위로 한 번 더 쐐기 박기
     const rafId = requestAnimationFrame(disableSmoothing);
     return () => cancelAnimationFrame(rafId);
-  }, [activeLayer, state.currentFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
+  }, [activeLayer, safeFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
   
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
   const getPixel = useCallback(() => {
@@ -230,10 +259,10 @@ export default function EditorPage() {
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
   const drawPixel = useCallback(() => {
     const stage = stageRef.current;
-    const currentFrameIdx = state.currentFrameIdx;
+    const frameIdx = safeFrameIdx
     if(!stage || !activeLayer) return;
     
-    const cacheKey = getCacheKey(currentFrameIdx, activeLayer)
+    const cacheKey = getCacheKey(frameIdx, activeLayer)
     const nativeCanvas = getLayerCanvas(cacheKey);
     if(!nativeCanvas) return;
 
@@ -360,7 +389,7 @@ export default function EditorPage() {
       activeLayerNode.getLayer()?.batchDraw();
     }
     setUnsaved(true)
-  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas, state.currentFrameIdx])
+  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas, safeFrameIdx])
 
   const handleMouseMove = () => {
     const pos = getPixel()
@@ -386,6 +415,7 @@ export default function EditorPage() {
     setUnsaved(true);
     setOpenMenu(null);
   }
+
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
   useEffect(() => {
@@ -487,7 +517,11 @@ export default function EditorPage() {
         setCustomW(proj.width)
         setCustomH(proj.height)
         if (restoredFrames.length > 0) {
-          setWithHistory((prev) => ({ ...prev, frames: restoredFrames, currentFrameIdx: 0 }))
+          reset({
+            frames: restoredFrames,
+            width: proj.width,
+            height: proj.height,
+          })
           const firstLayerId = restoredFrames[0]?.layers[0]?.id
           if (firstLayerId) setActiveLayer(firstLayerId)
         }
@@ -498,7 +532,7 @@ export default function EditorPage() {
     })()
 
     return () => { cancelled = true }
-  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
+  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, reset]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -563,9 +597,11 @@ export default function EditorPage() {
   const loadPpitText = useCallback((text: string, title: string) => {
     const ppit = parsePpit(text)
     const cd = ppitToCanvasData(ppit)
+
+    setCurrentFrameIdx(0);
     setCanvasW(cd.width); setCanvasH(cd.height)
     setCustomW(cd.width); setCustomH(cd.height)
-    setWithHistory(() => cd)
+    reset(cd)
     setActiveLayer(cd.frames[0]?.layers[0]?.id ?? null)
     setProjectId(null)   // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
     setProjectTitle(title || 'Untitled Project')
@@ -577,7 +613,7 @@ export default function EditorPage() {
       return p
     }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCanvasW, setCanvasH, setWithHistory, setActiveLayer, setProjectId, setSearchParams])
+  }, [setCanvasW, setCanvasH, reset, setActiveLayer, setProjectId, setSearchParams])
 
   const handleImportPpit = useCallback(async (file: File) => {
     // 미저장 변경 확인 (New Project와 동일)
@@ -712,7 +748,7 @@ export default function EditorPage() {
     const blob = new Blob([gif.bytes()], { type: 'image/gif' })
     downloadBlob(blob, `${safeTitle}.gif`)
     
-  }, [projectTitle, state.frames, state.currentFrameIdx, canvasW, canvasH])
+  }, [projectTitle, state.frames, safeFrameIdx, canvasW, canvasH])
 
   // ── 새 프로젝트 ───────────────────────────────────
   const handleNewProject = useCallback(() => {
@@ -732,14 +768,13 @@ export default function EditorPage() {
       pixelData: ''
     }
     // 히스토리 초기화
-    setWithHistory({
+    reset({
       frames: [
         {
           id: `frame-${crypto.randomUUID().slice(0, 8)}`,
           layers: [defaultLayer] // 진짜 원본 프레임 내부에 레이어 안착
         }
       ],
-      currentFrameIdx: 0,
       width: canvasW,
       height: canvasH
     });
@@ -762,7 +797,7 @@ export default function EditorPage() {
 
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
-  }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, setWithHistory])
+  }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, reset])
 
   // ── RGB ─────────────────
  
@@ -814,29 +849,21 @@ export default function EditorPage() {
     setFgColor(nextHex);   // 에디터 메인 색상 변경 (도화지에 그려질 색)
     setHexInput(nextHex);  // 눈에 보이는 HEX 입력창 글자도 동기화
   };
-  // ── 애니메이션 ───────────────────────────────────
-  useEffect(() => {
-    framesCountRef.current = state.frames.length;
-  }, [state.frames.length]);
 
+  // ── 애니메이션 ───────────────────────────────────
   // 재생 로직
   useEffect(() => {
     if(!isPlaying) return;
+
+    const totalFrames = state.frames.length;
+    if(totalFrames <= 1) return;
+
     const interval = setInterval(() => {
-      setState((prev) => {
-        const total = prev.frames.length;
-        if(total <= 1) return prev;
-
-        const nextIdx = (prev.currentFrameIdx + 1) % total;
-
-        return{
-          ...prev,
-          currentFrameIdx: nextIdx,
-        };
-      });
+      setCurrentFrameIdx((prevIdx) => (prevIdx + 1) % totalFrames);
     }, 100)
+
     return () => clearInterval(interval);
-  }, [isPlaying, setState]);
+  }, [isPlaying, state.frames.length]);
 
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
@@ -846,7 +873,7 @@ export default function EditorPage() {
     const stage = stageRef.current;
     if(!stage || !activeLayer) return;
 
-    const capturedFrameIdx = state.currentFrameIdx;
+    const capturedFrameIdx = safeFrameIdx;
     if(!state.frames[capturedFrameIdx]) return;
     
     // [핵심 수정]: 마우스를 뗄 때도 현재 지목된 고유한 프레임_레이어 상자에서 그림을 도려냅니다.
@@ -856,7 +883,7 @@ export default function EditorPage() {
 
     // 최적화 수정: 무겁고 잔상이 남을 수 있는 Node.toCanvas() 대신 
     // 우리가 실시간으로 낙서하던 진짜 가상 오프스크린 캔버스 캐시에서 직접 순수 PNG 소스를 주출합니다.
-    const layerImageData = cachedCanvas.toDataURL('image/png');
+    const layerImageData = getLayerImageData(cachedCanvas);
 
     setWithHistory((prev) => {
       // 프레임 데이터
@@ -880,8 +907,9 @@ export default function EditorPage() {
     });
     setUnsaved(false);
 
-  }, [state.currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
+  }, [safeFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
+  
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
     const canvas = stageRef.current;
@@ -891,30 +919,27 @@ export default function EditorPage() {
     const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
 
     if (unsaved) {
-        const cacheKey = getCacheKey(state.currentFrameIdx, activeLayer);
+        const frameIdx = safeFrameIdx;
+        const cacheKey = getCacheKey(frameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
-          const layerImageData = cachedCanvas.toDataURL();
+          const layerImageData = getLayerImageData(cachedCanvas);
           
           setWithHistory((prev) => ({
             ...prev,
             frames: prev.frames.map((f, i) =>
-              i === prev.currentFrameIdx 
+              i === frameIdx
                 ? { ...f, layers: f.layers.map(l => l.id === activeLayer ? {...l, pixelData: layerImageData}: l) }
                 : f
             ),
           }));
-          setActiveLayer(nextActiveLayerId);
+
           setUnsaved(false);
         } 
     } 
-    else {
-      setState((prev) => ({
-        ...prev,
-        currentFrameIdx: nextIndex,
-      }));
-      setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
-    }
+    setCurrentFrameIdx(nextIndex);
+    setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
+    
   }
   // ── 레이어 ───────────────────────────────────
   const selectLayer = useCallback((frameIdx: number, layerIdToSelect: string) => {
@@ -931,7 +956,7 @@ export default function EditorPage() {
       const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
      if (cachedCanvas) {
-        const layerImageData = cachedCanvas.toDataURL('image/png');
+        const layerImageData = getLayerImageData(cachedCanvas)
         setWithHistory((prev) => {
           const updatedFrames = prev.frames.map((frame, fIdx) => {
             if (fIdx !== frameIdx) return frame;
@@ -970,10 +995,10 @@ export default function EditorPage() {
   
   // 순서가 뒤집힌 배열을 다루기 위해 실제 원본 인덱스를 포함한 객체 배열을 만듭니다.
   const reversedLayersWithIdx = useMemo(() => { // UI용 역순 배열을 useMemo로 감싸서 최신 상태와 동기화
-    return (state.frames[state.currentFrameIdx]?.layers ?? [])
+    return (state.frames[safeFrameIdx]?.layers ?? [])
       .map((layer, index) => ({ layer, originalIndex: index }))
       .reverse();
-  }, [state.frames, state.currentFrameIdx]);
+  }, [state.frames, safeFrameIdx]);
 
   // 드래그하는 레이어의 '원본 인덱스'를 저장합니다.
   // 레이어 드래그 시작
@@ -989,12 +1014,12 @@ export default function EditorPage() {
     if (!/^\d+$/.test(rawSourceIndex)) return;
 
     const sourceIndex = Number(rawSourceIndex);
-    const layerCount = state.frames[state.currentFrameIdx]?.layers.length ?? 0;
+    const layerCount = state.frames[safeFrameIdx]?.layers.length ?? 0;
     
     if (sourceIndex >= layerCount || targetIndex < 0 || targetIndex >= layerCount) return;
 
     if(sourceIndex !== targetIndex){
-      reorderLayers(sourceIndex, targetIndex)
+      reorderLayers(safeFrameIdx, sourceIndex, targetIndex)
     }
   }
   // drop 이벤트를 허용하기 위해 기본 동작을 막습니다.
@@ -1316,7 +1341,7 @@ export default function EditorPage() {
                 setCursorPos({ x: -1, y: -1 }) 
               }}
             >
-              {(state.frames[state.currentFrameIdx]?.layers ?? [])
+              {(state.frames[safeFrameIdx]?.layers ?? [])
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .filter((layer) => layer.isVisible)
                 .map((layer) => (
@@ -1329,7 +1354,7 @@ export default function EditorPage() {
                       pixelData={layer.pixelData}
                       canvasW={canvasW}
                       canvasH={canvasH}
-                      currentFrameIdx={state.currentFrameIdx}
+                      currentFrameIdx={safeFrameIdx}
                       layerCanvasRefs={layerCanvasRefs}
                       isScaleImage = {isScaleImage}
                     />
@@ -1383,7 +1408,7 @@ export default function EditorPage() {
               {/* 프레임 목록 */}
               <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                 {state.frames.map((frame, index) => {
-                    const isActive = state.currentFrameIdx === index;
+                    const isActive = safeFrameIdx === index;
                     return(
                       <div
                         key = {frame.id}
@@ -1470,7 +1495,7 @@ export default function EditorPage() {
                   {/* 이전 프레임으로 이동 */}
                   <button 
                     onClick={() => {
-                      const nextIdx = state.currentFrameIdx > 0 ? state.currentFrameIdx - 1 : state.frames.length - 1;
+                      const nextIdx = safeFrameIdx > 0 ? safeFrameIdx - 1 : state.frames.length - 1;
                       handleSelectFrame(nextIdx);
                     }}
                     className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
@@ -1491,7 +1516,7 @@ export default function EditorPage() {
                   {/* 다음 프레임으로 이동 */}
                   <button 
                     onClick={() => {
-                      const nextIdx = (state.currentFrameIdx + 1) % state.frames.length;
+                      const nextIdx = (safeFrameIdx + 1) % state.frames.length;
                       handleSelectFrame(nextIdx); 
                     }}
                     className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
@@ -1698,10 +1723,10 @@ export default function EditorPage() {
                     onClick={() => {
                       if(!handler) return;
                       if (icon === 'add') {
-                        handler(state.currentFrameIdx);
+                        handler(safeFrameIdx);
                       } else if (icon === 'delete') {
                         // deleteLayer는 (frameIdx, layerId) 두 개를 받으므로 맞춰서 전달
-                        handler(state.currentFrameIdx, activeLayer);
+                        handler(safeFrameIdx, activeLayer);
                       }
                     }}
                     className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
@@ -1720,11 +1745,11 @@ export default function EditorPage() {
                   onDragStart={(e) => handleDragStart(e, originalIndex)}
                   onDragOver={(e) => handleDragOver(e)}
                   onDrop={(e) => handleDrop(e, originalIndex)}
-                  onClick={() => selectLayer(state.currentFrameIdx, layer.id)}
+                  onClick={() => selectLayer(safeFrameIdx, layer.id)}
                   onKeyDown={(e) => {
                     if(e.key === 'Enter' || e.key === ' '){
                       e.preventDefault();
-                      selectLayer(state.currentFrameIdx, layer.id);
+                      selectLayer(safeFrameIdx, layer.id);
                     }
                   }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
@@ -1738,7 +1763,7 @@ export default function EditorPage() {
                   <button 
                     onClick={(e) => {
                       e.stopPropagation(); // 💡 중요: 버튼을 누를 때 부모 div의 selectLayer가 트리거되는 것을 방지!
-                      toggleVisibility(state.currentFrameIdx, layer.id);
+                      toggleVisibility(safeFrameIdx, layer.id);
                     }}
                     className="flex items-center justify-center p-0.5 rounded hover:bg-surface-container-highest transition-colors"
                     style={{ color: layer.isVisible ? 'var(--color-primary)' : 'var(--color-outline-strong)' }}
@@ -1811,15 +1836,15 @@ export default function EditorPage() {
         style={{ height: 42, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
         <span>Canvas: {canvasW} × {canvasH}</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-        <span>Zoom: {zoom * 100}%</span>
+        <span>Zoom: {Math.round(zoom * 100)}%</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>{cursorPos.x >= 0 ? `Cursor: ${cursorPos.x}, ${cursorPos.y}` : 'Cursor: —'}</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Tool: {activeTool.charAt(0).toUpperCase() + activeTool.slice(1)}</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-        <span>Active: {state.frames[state.currentFrameIdx].layers.find(l => String(l.id) === String(activeLayer))?.name || '-'}</span>
+        <span>Active: {state.frames[safeFrameIdx]?.layers.find(l => String(l.id) === String(activeLayer))?.name || '-'}</span>
         <div className="ml-auto flex items-center gap-4">
-          <span>{state.frames[state.currentFrameIdx].layers.length} layers</span>
+          <span>{state.frames[safeFrameIdx]?.layers.length} layers</span>
           <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
           {unsaved
             ? <span style={{ color: '#f59e0b' }}>● Unsaved</span>
