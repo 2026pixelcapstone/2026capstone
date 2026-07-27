@@ -2,7 +2,7 @@ import { LayerData } from "../../constants/editorType";
 import { useCallback, useRef } from "react";
 
 export const useLayers = (
-    state: { frames: any[]; currentFrameIdx: number },
+    state: { frames: any[]; },
     setWithHistory: React.Dispatch<React.SetStateAction<any>>,
     activeLayer: string | null,
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>
@@ -107,13 +107,12 @@ export const useLayers = (
     }, [setWithHistory]);
     
     // ── 레이어의 순서 바꾸기 ───────────────────────────────────
-    const reorderLayers = useCallback((layerStartIndex: number , layerEndIndex: number) => {
+    const reorderLayers = useCallback((frameIdx: number, layerStartIndex: number , layerEndIndex: number) => {
         
         setWithHistory((prev: any) => {
-            const currentFrameIdx = prev.currentFrameIdx;
 
             const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
-                if (fIdx !== currentFrameIdx) return frame;
+                if (fIdx !== frameIdx) return frame;
 
                 const newLayers = [...frame.layers];
 

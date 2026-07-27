@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import {useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { LayerData } from '../constants/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
@@ -16,7 +16,7 @@ import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/LayerImageRender'
-import { getCacheKey } from '../utils/editorUtils'
+import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
@@ -52,29 +52,44 @@ export default function EditorPage() {
 
   // ── 히스토리 훅 ──────────────────────────
   const initialCanvasData = createInitialCanvasData();
-  const {state, setState, setWithHistory, undo, redo} = useHistory(initialCanvasData);
+  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
+  const[currentFrameIdx, setCurrentFrameIdx] = useState(0);
+
+  const safeFrameIdx = Math.min(
+    currentFrameIdx,
+    Math.max(0, state.frames.length - 1)
+  );
+
   const{addFrame, deleteFrame} = useAnimation({
     frames: state.frames,
-    currentFrameIdx: state.currentFrameIdx,
+    currentFrameIdx: safeFrameIdx,
     onChange: (newFrames, nextIdx) => {
-      const targetIdx = nextIdx ?? state.currentFrameIdx;
+      // 1. 이동할 인덱스 결정 (nextIdx가 없으면 현재 인덱스 사용)
+      const targetIdx = nextIdx ?? safeFrameIdx;
+
+      // 2. UI 상태인 currentFrameIdx를 새 인덱스로 업데이트
+      setCurrentFrameIdx(targetIdx)
+      
+      // 3. 변경될 프레임의 첫 번째 레이어 선택
       const targetFrame = newFrames[targetIdx];
       const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
       
+      // 4. 히스토리 스냅샷 저장 (frames만 저장, currentFrameIdx는 제외됨)
       setWithHistory((prev) => ({
         ...prev,
         frames: newFrames,
-        currentFrameIdx: targetIdx
       }));
 
-      setActiveLayer(targetActiveLayerId)
-      setUnsaved(false);
+      if(targetActiveLayerId){
+        setActiveLayer(targetActiveLayerId)
+      }
+      
+      setUnsaved(true); 
     }
   });
   const [isPlaying, setIsPlaying] = useState(false);
-  const framesCountRef = useRef(state.frames.length);  // 최신 프레임 개수를 실시간으로 추적할 Ref 생성
 
   // ── AI 가이드 상태 ──────────────────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
@@ -106,6 +121,7 @@ export default function EditorPage() {
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false)
   const isDrawing = useRef(false)
+  const isDirty =  useRef(false); 
 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
@@ -131,8 +147,22 @@ export default function EditorPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu])
 
-  // ── 캔버스 그리기 로직 ──────────────
+  // ── 현재 프레임 및 레이어 인덱스 동기화 ────────────────
+  useEffect(() => {
+    if (currentFrameIdx !== safeFrameIdx) {
+      setCurrentFrameIdx(safeFrameIdx);
+    }
+    // 현재 바라보는 프레임의 레이어 목록에 activeLayer가 없는 경우 첫 번째 레이어로 보정
+    const currentFrame = state.frames[safeFrameIdx];
+    if (currentFrame && currentFrame.layers.length > 0) {
+      const hasActiveLayer = currentFrame.layers.some((l) => l.id === activeLayer);
+      if (!hasActiveLayer) {
+        setActiveLayer(currentFrame.layers[0].id);
+      }
+    }
+  }, [state.frames.length, safeFrameIdx]);
 
+  // ── 캔버스 그리기 로직 ──────────────
   // -------- Stage 컨텍스트 튜닝 훅 추가 -----------
   useEffect(() => {
     if (!stageRef.current) return;
@@ -160,7 +190,7 @@ export default function EditorPage() {
     // 브라우저 렌더링 프레임 단위로 한 번 더 쐐기 박기
     const rafId = requestAnimationFrame(disableSmoothing);
     return () => cancelAnimationFrame(rafId);
-  }, [activeLayer, state.currentFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
+  }, [activeLayer, safeFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
   
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
   const getPixel = useCallback(() => {
@@ -229,10 +259,10 @@ export default function EditorPage() {
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
   const drawPixel = useCallback(() => {
     const stage = stageRef.current;
-    const currentFrameIdx = state.currentFrameIdx;
+    const frameIdx = safeFrameIdx
     if(!stage || !activeLayer) return;
     
-    const cacheKey = getCacheKey(currentFrameIdx, activeLayer)
+    const cacheKey = getCacheKey(frameIdx, activeLayer)
     const nativeCanvas = getLayerCanvas(cacheKey);
     if(!nativeCanvas) return;
 
@@ -248,50 +278,95 @@ export default function EditorPage() {
       ctx.fillStyle = fgColor
       ctx.fillRect(x, y, brushSize, brushSize)
       ctx.globalAlpha = 1
+      isDirty.current = true; // 픽셀이 변경되었음을 표시
     }
     // ─── [지우개 도구] ────────────────────────────────────────
     else if (activeTool === 'eraser') {
       ctx.clearRect(x, y, brushSize, brushSize)
+      isDirty.current = true; // 픽셀이 변경되었음을 표시
     }
-    // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘] -> 여러번 쓰면 화면 멈춤 현상이 일어남──────────
-    /*
+    // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
     else if (activeTool === 'fill') {
-      // 32비트 정수 배열(Uint32Array) 단위로 조작하여 JavaScript 연산 속도를 극한으로 끌어올립니다.
+      // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
       const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
+      // R/G/B/A 4바이트를 32비트 정수 1개 단위로 재해석 (픽셀당 1개 인덱스로 대응)
       const data32 = new Uint32Array(imgData.data.buffer);
       
       // 시작점의 색상 추출
-      const targetColor = data32[y * canvasW + x];
+      // y * canvasW + x -> 2차원 좌표를 1차원 메모리 주소(인덱스)로 변환
+      const targetColor = data32[y * canvasW + x]; 
       
-      // 채우고자 하는 fgColor를 32비트 정수(ABGR 구조)로 변환
-      // (예: #818cf8 파싱 후 비트 시프트)
+      // 채우고자 하는 fgColor(Hex 문자열)를 32비트 정수(ABGR 구조)로 변환
       const r = parseInt(fgColor.slice(1, 3), 16);
       const g = parseInt(fgColor.slice(3, 5), 16);
       const b = parseInt(fgColor.slice(5, 7), 16);
-      const fillColor = (255 << 24) | (b << 16) | (g << 8) | r; // 알파값 255 완전 불투명
+      // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성, >>> 0 추가하여 Uint32 형태의 양수로 반환
+      const fillColor = (255 << 24) | (b << 16) | (g << 8) | r >>> 0;
       
-      if (targetColor !== fillColor) {
-        // 큐(Queue) 기반의 Flood Fill (스택 오버플로우 방지)
-        const queue: [number, number][] = [[x, y]];
+      if (targetColor === fillColor) {
+        return;
+      }
+      const totalPixels = canvasW * canvasH;
+      // 고정 크기 인덱스 큐 (최대 픽셀 수만큼 미리 메모리를 할당하여 GC 과부하 방지)
+      const queue = new Int32Array(totalPixels);
+      let head = 0; // 읽기 포인터 (pop 연산 시 증가)
+      let tail = 0; // 쓰기 포인터 (push 연산 시 증가)
+
+      const startIdx = y * canvasW + x; // 시작 픽셀 주소
+      queue[tail++] = startIdx; // 시작 주소를 큐에 push
+      data32[startIdx] = fillColor; // push 하자마자 즉시 색상 변경 (중복 방문 원천 차단)
+
+      // 큐에 처리할 픽셀이 남아있는 동안 BFS 탐색 반복
+      while (head < tail) { 
+        const idx = queue[head++]; // 큐의 맨 앞에서 현재 처리할 픽셀 주소를 하나 꺼내옴 (O(1) Pop)
         
-        while (queue.length > 0) {
-          const [cx, cy] = queue.shift()!;
-          const idx = cy * canvasW + cx;
-          
-          if (data32[idx] === targetColor) {
-            data32[idx] = fillColor;
-            
-            if (cx > 0) queue.push([cx - 1, cy]);
-            if (cx < canvasW - 1) queue.push([cx + 1, cy]);
-            if (cy > 0) queue.push([cx, cy - 1]);
-            if (cy < canvasH - 1) queue.push([cx, cy + 1]);
+        // 1차원 주소 idx를 2차원 좌표(cx, cy)로 복원하여 캔버스 경계 판단에 활용
+        const cx = idx % canvasW; 
+        const cy = Math.floor(idx / canvasW); // 소수점 버림 함수
+        
+        // 상/하/좌/우 이웃 검사 -> targetColor와 같은 색상을 가진 픽셀만 색칠 후 큐에 적재
+        
+        // 1. 좌측 이웃 검사
+        if (cx > 0) { // 왼쪽 벽에 붙어있지 않다면
+          const nIdx = idx - 1; // 현재 위치 기준 '좌'측 이웃 주소
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor; // 즉시 색 변경 (중복 방문 방지)
+            queue[tail++] = nIdx;     // 큐에 추가 (Push)
           }
         }
-        ctx.putImageData(imgData, 0, 0);
-        commitLayerChanges();
+        
+        // 2. 우측 이웃 검사
+        if (cx < canvasW - 1) { // 오른쪽 벽에 붙어있지 않다면
+          const nIdx = idx + 1; // 현재 위치 기준 '우'측 이웃 주소
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor;
+            queue[tail++] = nIdx;
+          }
+        }
+        
+        // 3. 상단 이웃 검사
+        if (cy > 0) { // 위쪽 벽에 붙어있지 않다면
+          const nIdx = idx - canvasW; // 현재 위치 기준 '상'측 이웃 주소 (한 줄 위)
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor;
+            queue[tail++] = nIdx;
+          }
+        }
+        
+        // 4. 하단 이웃 검사
+        if (cy < canvasH - 1) { // 아래쪽 벽에 붙어있지 않다면
+          const nIdx = idx + canvasW; // 현재 위치 기준 '하'측 이웃 주소 (한 줄 아래)
+          if (data32[nIdx] === targetColor) {
+            data32[nIdx] = fillColor;
+            queue[tail++] = nIdx;
+          }
+        }
       }
+      
+      ctx.putImageData(imgData, 0, 0);
+      isDirty.current = true; // 픽셀이 변경되었음을 표시
     }
-    */
+  
     // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
     else if (activeTool === 'eyedrop') {
       const imgData = ctx.getImageData(x, y, 1, 1).data;
@@ -314,7 +389,7 @@ export default function EditorPage() {
       activeLayerNode.getLayer()?.batchDraw();
     }
     setUnsaved(true)
-  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas, state.currentFrameIdx])
+  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas, safeFrameIdx])
 
   const handleMouseMove = () => {
     const pos = getPixel()
@@ -340,6 +415,7 @@ export default function EditorPage() {
     setUnsaved(true);
     setOpenMenu(null);
   }
+
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
   useEffect(() => {
@@ -441,7 +517,11 @@ export default function EditorPage() {
         setCustomW(proj.width)
         setCustomH(proj.height)
         if (restoredFrames.length > 0) {
-          setWithHistory((prev) => ({ ...prev, frames: restoredFrames, currentFrameIdx: 0 }))
+          reset({
+            frames: restoredFrames,
+            width: proj.width,
+            height: proj.height,
+          })
           const firstLayerId = restoredFrames[0]?.layers[0]?.id
           if (firstLayerId) setActiveLayer(firstLayerId)
         }
@@ -452,7 +532,7 @@ export default function EditorPage() {
     })()
 
     return () => { cancelled = true }
-  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, setState]) // 의존성 배열 보완
+  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, reset]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -517,9 +597,11 @@ export default function EditorPage() {
   const loadPpitText = useCallback((text: string, title: string) => {
     const ppit = parsePpit(text)
     const cd = ppitToCanvasData(ppit)
+
+    setCurrentFrameIdx(0);
     setCanvasW(cd.width); setCanvasH(cd.height)
     setCustomW(cd.width); setCustomH(cd.height)
-    setWithHistory(() => cd)
+    reset(cd)
     setActiveLayer(cd.frames[0]?.layers[0]?.id ?? null)
     setProjectId(null)   // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
     setProjectTitle(title || 'Untitled Project')
@@ -531,7 +613,7 @@ export default function EditorPage() {
       return p
     }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCanvasW, setCanvasH, setWithHistory, setActiveLayer, setProjectId, setSearchParams])
+  }, [setCanvasW, setCanvasH, reset, setActiveLayer, setProjectId, setSearchParams])
 
   const handleImportPpit = useCallback(async (file: File) => {
     // 미저장 변경 확인 (New Project와 동일)
@@ -666,7 +748,7 @@ export default function EditorPage() {
     const blob = new Blob([gif.bytes()], { type: 'image/gif' })
     downloadBlob(blob, `${safeTitle}.gif`)
     
-  }, [projectTitle, state.frames, state.currentFrameIdx, canvasW, canvasH])
+  }, [projectTitle, state.frames, safeFrameIdx, canvasW, canvasH])
 
   // ── 새 프로젝트 ───────────────────────────────────
   const handleNewProject = useCallback(() => {
@@ -686,14 +768,13 @@ export default function EditorPage() {
       pixelData: ''
     }
     // 히스토리 초기화
-    setWithHistory({
+    reset({
       frames: [
         {
           id: `frame-${crypto.randomUUID().slice(0, 8)}`,
           layers: [defaultLayer] // 진짜 원본 프레임 내부에 레이어 안착
         }
       ],
-      currentFrameIdx: 0,
       width: canvasW,
       height: canvasH
     });
@@ -716,7 +797,7 @@ export default function EditorPage() {
 
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
-  }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, setWithHistory])
+  }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, reset])
 
   // ── RGB ─────────────────
  
@@ -735,8 +816,8 @@ export default function EditorPage() {
 
   // 툴 버튼 공통 스타일
   const toolBtn = (id: string) => ({
-    background: activeTool === id ? 'rgba(47,129,247,0.15)' : 'transparent',
-    color: activeTool === id ? '#2f81f7' : '#7d8590',
+    background: activeTool === id ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'transparent',
+    color: activeTool === id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
   })
 
   // 팔레트 컬러 칩을 클릭했을 때 색상을 반영하는 함수
@@ -768,29 +849,21 @@ export default function EditorPage() {
     setFgColor(nextHex);   // 에디터 메인 색상 변경 (도화지에 그려질 색)
     setHexInput(nextHex);  // 눈에 보이는 HEX 입력창 글자도 동기화
   };
-  // ── 애니메이션 ───────────────────────────────────
-  useEffect(() => {
-    framesCountRef.current = state.frames.length;
-  }, [state.frames.length]);
 
+  // ── 애니메이션 ───────────────────────────────────
   // 재생 로직
   useEffect(() => {
     if(!isPlaying) return;
+
+    const totalFrames = state.frames.length;
+    if(totalFrames <= 1) return;
+
     const interval = setInterval(() => {
-      setState((prev) => {
-        const total = prev.frames.length;
-        if(total <= 1) return prev;
-
-        const nextIdx = (prev.currentFrameIdx + 1) % total;
-
-        return{
-          ...prev,
-          currentFrameIdx: nextIdx,
-        };
-      });
+      setCurrentFrameIdx((prevIdx) => (prevIdx + 1) % totalFrames);
     }, 100)
+
     return () => clearInterval(interval);
-  }, [isPlaying, setState]);
+  }, [isPlaying, state.frames.length]);
 
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
@@ -800,7 +873,7 @@ export default function EditorPage() {
     const stage = stageRef.current;
     if(!stage || !activeLayer) return;
 
-    const capturedFrameIdx = state.currentFrameIdx;
+    const capturedFrameIdx = safeFrameIdx;
     if(!state.frames[capturedFrameIdx]) return;
     
     // [핵심 수정]: 마우스를 뗄 때도 현재 지목된 고유한 프레임_레이어 상자에서 그림을 도려냅니다.
@@ -810,7 +883,7 @@ export default function EditorPage() {
 
     // 최적화 수정: 무겁고 잔상이 남을 수 있는 Node.toCanvas() 대신 
     // 우리가 실시간으로 낙서하던 진짜 가상 오프스크린 캔버스 캐시에서 직접 순수 PNG 소스를 주출합니다.
-    const layerImageData = cachedCanvas.toDataURL('image/png');
+    const layerImageData = getLayerImageData(cachedCanvas);
 
     setWithHistory((prev) => {
       // 프레임 데이터
@@ -834,8 +907,9 @@ export default function EditorPage() {
     });
     setUnsaved(false);
 
-  }, [state.currentFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
+  }, [safeFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
 
+  
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextIndex: number) => {
     const canvas = stageRef.current;
@@ -845,30 +919,27 @@ export default function EditorPage() {
     const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
 
     if (unsaved) {
-        const cacheKey = getCacheKey(state.currentFrameIdx, activeLayer);
+        const frameIdx = safeFrameIdx;
+        const cacheKey = getCacheKey(frameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
-          const layerImageData = cachedCanvas.toDataURL();
+          const layerImageData = getLayerImageData(cachedCanvas);
           
           setWithHistory((prev) => ({
             ...prev,
             frames: prev.frames.map((f, i) =>
-              i === prev.currentFrameIdx 
+              i === frameIdx
                 ? { ...f, layers: f.layers.map(l => l.id === activeLayer ? {...l, pixelData: layerImageData}: l) }
                 : f
             ),
           }));
-          setActiveLayer(nextActiveLayerId);
+
           setUnsaved(false);
         } 
     } 
-    else {
-      setState((prev) => ({
-        ...prev,
-        currentFrameIdx: nextIndex,
-      }));
-      setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
-    }
+    setCurrentFrameIdx(nextIndex);
+    setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
+    
   }
   // ── 레이어 ───────────────────────────────────
   const selectLayer = useCallback((frameIdx: number, layerIdToSelect: string) => {
@@ -885,7 +956,7 @@ export default function EditorPage() {
       const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
      if (cachedCanvas) {
-        const layerImageData = cachedCanvas.toDataURL('image/png');
+        const layerImageData = getLayerImageData(cachedCanvas)
         setWithHistory((prev) => {
           const updatedFrames = prev.frames.map((frame, fIdx) => {
             if (fIdx !== frameIdx) return frame;
@@ -924,10 +995,10 @@ export default function EditorPage() {
   
   // 순서가 뒤집힌 배열을 다루기 위해 실제 원본 인덱스를 포함한 객체 배열을 만듭니다.
   const reversedLayersWithIdx = useMemo(() => { // UI용 역순 배열을 useMemo로 감싸서 최신 상태와 동기화
-    return (state.frames[state.currentFrameIdx]?.layers ?? [])
+    return (state.frames[safeFrameIdx]?.layers ?? [])
       .map((layer, index) => ({ layer, originalIndex: index }))
       .reverse();
-  }, [state.frames, state.currentFrameIdx]);
+  }, [state.frames, safeFrameIdx]);
 
   // 드래그하는 레이어의 '원본 인덱스'를 저장합니다.
   // 레이어 드래그 시작
@@ -943,12 +1014,12 @@ export default function EditorPage() {
     if (!/^\d+$/.test(rawSourceIndex)) return;
 
     const sourceIndex = Number(rawSourceIndex);
-    const layerCount = state.frames[state.currentFrameIdx]?.layers.length ?? 0;
+    const layerCount = state.frames[safeFrameIdx]?.layers.length ?? 0;
     
     if (sourceIndex >= layerCount || targetIndex < 0 || targetIndex >= layerCount) return;
 
     if(sourceIndex !== targetIndex){
-      reorderLayers(sourceIndex, targetIndex)
+      reorderLayers(safeFrameIdx, sourceIndex, targetIndex)
     }
   }
   // drop 이벤트를 허용하기 위해 기본 동작을 막습니다.
@@ -1042,7 +1113,7 @@ export default function EditorPage() {
 
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
-    <div className="fixed inset-0 top-0 flex flex-col" style={{ background: '#0d1117', color: '#e6edf3', zIndex: 60 }}>
+    <div className="fixed inset-0 top-0 flex flex-col" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', zIndex: 60 }}>
       <EditorSaveProjectModal
         isOpen={saveIsModalOpen}
         onClose={() => setSaveIsModalOpen(false)}
@@ -1071,18 +1142,18 @@ export default function EditorPage() {
 
       {/* ── TOP BAR (Photoshop 스타일 메뉴 툴바) ─────── */}
       <header className="h-10 flex items-center flex-shrink-0 border-b select-none"
-        style={{ background: '#161b22', borderColor: '#30363d' }}>
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
         {/* 좌: 로고 + 메뉴바 */}
         <div ref={menuRef} className="flex items-center h-full">
           {/* 로고 */}
-          <a href="/" className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-[#21262d] transition-colors"
-            style={{ color: '#2f81f7' }}>
+          <a href="/" className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-surface-container transition-colors"
+            style={{ color: 'var(--color-primary)' }}>
             <span className="material-symbols-outlined text-base">grid_view</span>
             PixelHub
           </a>
 
-          <div className="w-px h-5 mx-1" style={{ background: '#30363d' }} />
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
 
           {/* 메뉴 항목들 */}
           {MENU_DEFS.map(menu => (
@@ -1091,31 +1162,31 @@ export default function EditorPage() {
                 onClick={() => setOpenMenu(openMenu === menu.id ? null : menu.id)}
                 className="px-3 h-full text-sm transition-colors"
                 style={{
-                  color: openMenu === menu.id ? '#e6edf3' : '#c9d1d9',
-                  background: openMenu === menu.id ? '#21262d' : 'transparent',
+                  color: openMenu === menu.id ? 'var(--color-on-surface)' : 'var(--color-on-surface)',
+                  background: openMenu === menu.id ? 'var(--color-surface-container)' : 'transparent',
                 }}>
                 {menu.label}
               </button>
 
               {openMenu === menu.id && (
                 <div className="absolute top-full left-0 rounded-b-lg border shadow-2xl py-1 z-50 min-w-[220px]"
-                  style={{ background: '#21262d', borderColor: '#30363d', borderTopColor: 'transparent' }}>
+                  style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', borderTopColor: 'transparent' }}>
                   {menu.items.map((item, idx) => {
                     if ('separator' in item) {
-                      return <div key={idx} className="my-1 border-t" style={{ borderColor: '#30363d' }} />
+                      return <div key={idx} className="my-1 border-t" style={{ borderColor: 'var(--color-outline)' }} />
                     }
                     return (
                       <button key={idx}
                         onClick={item.action ?? (() => setOpenMenu(null))}
                         disabled={item.disabled}
-                        className="w-full flex items-center gap-2.5 px-4 py-1.5 text-sm text-left transition-colors hover:bg-[#292f38] disabled:opacity-40 disabled:cursor-default">
+                        className="w-full flex items-center gap-2.5 px-4 py-1.5 text-sm text-left transition-colors hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-default">
                         {item.icon && (
                           <span className="material-symbols-outlined text-sm w-4 flex-shrink-0"
-                            style={{ color: '#7d8590' }}>{item.icon}</span>
+                            style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
                         )}
-                        <span className="flex-1" style={{ color: '#e6edf3' }}>{item.label}</span>
+                        <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{item.label}</span>
                         {item.shortcut && (
-                          <span className="text-xs ml-4" style={{ color: '#7d8590' }}>{item.shortcut}</span>
+                          <span className="text-xs ml-4" style={{ color: 'var(--color-on-surface-variant)' }}>{item.shortcut}</span>
                         )}
                       </button>
                     )
@@ -1129,7 +1200,7 @@ export default function EditorPage() {
         {/* 우: 파일명 + 저장 */}
         <div className="ml-auto flex items-center gap-2 pr-3">
           <div className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm" style={{ color: '#7d8590' }}>description</span>
+            <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>description</span>
             {editingTitle ? (
               <input
                 autoFocus
@@ -1139,7 +1210,7 @@ export default function EditorPage() {
                 onBlur={() => setEditingTitle(false)}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTitle(false) }}
                 className="text-sm font-bold rounded px-1 outline-none"
-                style={{ background: '#1c2128', border: '1px solid #2f81f7', color: '#e6edf3', width: 160 }}
+                style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-primary)', color: 'var(--color-on-surface)', width: 160 }}
               />
             ) : (
               <span
@@ -1150,12 +1221,12 @@ export default function EditorPage() {
             )}
             {unsaved && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="미저장 변경사항" />}
           </div>
-          <div className="w-px h-5 mx-1" style={{ background: '#30363d' }} />
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
           <button
             onClick={openSaveModal}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-[#1c2128] disabled:opacity-50"
-            style={{ color: saving ? '#2f81f7' : '#7d8590' }}>
+            className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-surface-container-low disabled:opacity-50"
+            style={{ color: saving ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
             <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -1167,10 +1238,10 @@ export default function EditorPage() {
 
         {/* ── 좌측 툴바 ── */}
         <aside className="flex flex-col items-center py-3 gap-1 flex-shrink-0 border-r"
-          style={{ width: 84, background: '#161b22', borderColor: '#30363d' }}>
+          style={{ width: 84, background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
           {/* 그리기 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {DRAW_TOOLS.map(t => (
               <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
@@ -1181,7 +1252,7 @@ export default function EditorPage() {
           </div>
 
           {/* 선택 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SELECT_TOOLS.map(t => (
               <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
@@ -1192,7 +1263,7 @@ export default function EditorPage() {
           </div>
 
           {/* 도형 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SHAPE_TOOLS.map(t => (
               <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
@@ -1258,7 +1329,11 @@ export default function EditorPage() {
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
                 isDrawing.current = false
-                commitLayerChanges();
+                // 실제로 변경이 발생했을 때만 커밋 호출
+                if(isDirty.current){
+                  commitLayerChanges();
+                  isDirty.current = false;
+                }
                }}
               onMouseLeave={() => { 
                 if(isDrawing.current) commitLayerChanges();
@@ -1266,7 +1341,7 @@ export default function EditorPage() {
                 setCursorPos({ x: -1, y: -1 }) 
               }}
             >
-              {(state.frames[state.currentFrameIdx]?.layers ?? [])
+              {(state.frames[safeFrameIdx]?.layers ?? [])
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .filter((layer) => layer.isVisible)
                 .map((layer) => (
@@ -1279,7 +1354,7 @@ export default function EditorPage() {
                       pixelData={layer.pixelData}
                       canvasW={canvasW}
                       canvasH={canvasH}
-                      currentFrameIdx={state.currentFrameIdx}
+                      currentFrameIdx={safeFrameIdx}
                       layerCanvasRefs={layerCanvasRefs}
                       isScaleImage = {isScaleImage}
                     />
@@ -1290,34 +1365,34 @@ export default function EditorPage() {
 
           {/* 줌 컨트롤 (하단 중앙 플로팅) */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
-            style={{ background: '#21262d', borderColor: '#30363d' }}>
+            style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
             <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#292f38]"
-              style={{ color: '#7d8590' }}>
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-sm">remove</span>
             </button>
             <span className="text-xs font-bold w-12 text-center">x{zoom}</span>
             <button onClick={() => setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#292f38]"
-              style={{ color: '#7d8590' }}>
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-sm">add</span>
             </button>
           </div>
 
           {/* 커서 위치 (우하단 플로팅) */}
           <div className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 shadow border text-xs font-bold"
-            style={{ background: 'rgba(33,38,45,0.9)', borderColor: '#30363d', color: '#7d8590' }}>
+            style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
             {cursorPos.x >= 0 ? `x: ${cursorPos.x}  y: ${cursorPos.y}` : 'x: —  y: —'}
           </div>
         </main>
 
          {/* ── 애니메이션 패널 ─────────────────────────────── */}
         <div className="flex flex-col flex-shrink-0 border-l"
-          style={{ width: showAnim ? 160 : 36, background: '#161b22', borderColor: '#30363d', transition: 'width 0.2s' }}>
+          style={{ width: showAnim ? 160 : 36, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', transition: 'width 0.2s' }}>
           {/* 토글 버튼 */}
           <button onClick={() => setShowAnim(v => !v)}
-            className="w-9 h-9 flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[#21262d]"
-            style={{ color: showAnim ? '#2f81f7' : '#7d8590' }}
+            className="w-9 h-9 flex items-center justify-center flex-shrink-0 transition-colors hover:bg-surface-container"
+            style={{ color: showAnim ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}
             title="Animation">
             <span className="material-symbols-outlined text-xl">animation</span>
           </button>
@@ -1325,7 +1400,7 @@ export default function EditorPage() {
           {showAnim && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
-                style={{ color: '#7d8590', borderColor: '#30363d' }} > 
+                style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} > 
                 <span>Anim</span>
                 <span className='text-[10px]'>{state.frames.length} frame{state.frames.length > 1 ? 's' : ''}</span>  
               </div>
@@ -1333,15 +1408,15 @@ export default function EditorPage() {
               {/* 프레임 목록 */}
               <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                 {state.frames.map((frame, index) => {
-                    const isActive = state.currentFrameIdx === index;
+                    const isActive = safeFrameIdx === index;
                     return(
                       <div
                         key = {frame.id}
                         onClick={() => handleSelectFrame(index)} // 프레임 선택 기능
                         className='relative group rounded-lg border-2 p-1 cursor-pointer'
                         style={{
-                          borderColor: isActive ? '#2f81f7' : '#30363d',
-                          background: isActive ? '#1c2128' : 'transparent'
+                          borderColor: isActive ? 'var(--color-primary)' : 'var(--color-outline)',
+                          background: isActive ? 'var(--color-surface-container-low)' : 'transparent'
                         }}>
 
                         <button onClick={(e) => {
@@ -1407,32 +1482,32 @@ export default function EditorPage() {
                 {/* 프레임 추가 버튼 */}
                 <button
                   onClick={() => addFrame()}
-                  className='w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-[#21262d] hover:border-[#7d8590]'
-                  style={{ borderColor: '#30363d', color: '#7d8590' }}>
+                  className='w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-surface-container hover:border-on-surface-variant'
+                  style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   <span className="material-symbols-outlined text-lg">add</span>
                 </button>
               </div>
 
               {/* 재생 컨트롤 */}
               <div className="flex items-center justify-center gap-4 p-3 border-t" 
-                  style={{ borderColor: '#30363d' }}>
+                  style={{ borderColor: 'var(--color-outline)' }}>
                 
                   {/* 이전 프레임으로 이동 */}
                   <button 
                     onClick={() => {
-                      const nextIdx = state.currentFrameIdx > 0 ? state.currentFrameIdx - 1 : state.frames.length - 1;
+                      const nextIdx = safeFrameIdx > 0 ? safeFrameIdx - 1 : state.frames.length - 1;
                       handleSelectFrame(nextIdx);
                     }}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-lg">skip_previous</span>
                   </button>
 
                   {/* 재생 / 일시정지 */}
                   <button 
                     onClick={() => setIsPlaying(!isPlaying)}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
-                    style={{ color: isPlaying ? '#2f81f7' : '#7d8590' }}>
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
+                    style={{ color: isPlaying ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-lg">
                       {isPlaying ? 'pause' : 'play_arrow'}
                     </span>
@@ -1441,11 +1516,11 @@ export default function EditorPage() {
                   {/* 다음 프레임으로 이동 */}
                   <button 
                     onClick={() => {
-                      const nextIdx = (state.currentFrameIdx + 1) % state.frames.length;
+                      const nextIdx = (safeFrameIdx + 1) % state.frames.length;
                       handleSelectFrame(nextIdx); 
                     }}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-lg">skip_next</span>
                   </button>
               </div>
@@ -1455,31 +1530,31 @@ export default function EditorPage() {
 
         {/* ── 우측 패널 ──────── */}
         <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"
-          style={{ width: 300, background: '#161b22', borderColor: '#30363d',
-            scrollbarWidth: 'thin', scrollbarColor: '#21262d transparent' }}>
+          style={{ width: 300, background: 'var(--color-surface)', borderColor: 'var(--color-outline)',
+            scrollbarWidth: 'thin', scrollbarColor: 'var(--color-surface-container) transparent' }}>
 
           {/* 색상 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#7d8590' }}>Color</div>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Color</div>
             {/* FG / BG 색상 */}
             <div className="flex items-center gap-4 mb-4 px-1">
               <div className="relative">
                 <div className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
-                  style={{ background: fgColor, borderColor: '#30363d' }} 
+                  style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
                   title="Foreground"
                   onClick={() => setIsHexModal(true)} 
                 />
                 <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm"
-                  style={{ background: '#161b22', borderColor: '#30363d' }} title="Background" />
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }} title="Background" />
               </div>
               <div className="flex-1">
-                <div className="text-xs mb-1" style={{ color: '#7d8590' }}>HEX</div>
+                <div className="text-xs mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>HEX</div>
                 <input type="text" value={hexInput}
                   onChange={e => setHexInput(e.target.value)}
                   onBlur={applyHex}
                   onKeyDown={e => e.key === 'Enter' && applyHex()}
                   className="w-full text-sm font-bold rounded-lg px-2 py-1.5 outline-none"
-                  style={{ background: '#1c2128', border: 'none', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-surface-container-low)', border: 'none', color: 'var(--color-on-surface)' }} />
               </div>
             </div>
             {/* RGB 슬라이더 */}
@@ -1500,21 +1575,21 @@ export default function EditorPage() {
                     className={`flex-1 h-1.5 cursor-pointer ${accent}`} 
                     onChange={(e) => handleRgbChange(ch.toLowerCase() as 'r' | 'g' | 'b', Number(e.target.value))}
                     />
-                  <span className="text-xs font-bold w-7 text-right" style={{ color: '#7d8590' }}>{val}</span>
+                  <span className="text-xs font-bold w-7 text-right" style={{ color: 'var(--color-on-surface-variant)' }}>{val}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* 팔레트 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>Palette</div>
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>Palette</div>
               <div className="flex gap-1">
                 {[['add','색상 추가'],['upload','팔레트 가져오기']].map(([icon,tip]) => (
                   <button key={icon} title={tip}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">{icon}</span>
                   </button>
                 ))}
@@ -1526,40 +1601,40 @@ export default function EditorPage() {
                   key={c} 
                   onClick={() => { selectPaletteColor(c) }}
                   className="w-8 h-8 rounded cursor-pointer transition-all border-2 hover:scale-110"
-                  style={{ background: c, borderColor: fgColor === c ? '#e6edf3' : 'transparent' }} />
+                  style={{ background: c, borderColor: fgColor === c ? 'var(--color-on-surface)' : 'transparent' }} />
               ))}
             </div>
             <button className="mt-3 text-xs font-bold hover:underline px-1"
-              style={{ color: '#2f81f7' }}>Browse Lospec palettes…</button>
+              style={{ color: 'var(--color-primary)' }}>Browse Lospec palettes…</button>
           </div>
 
           {/* 툴 옵션 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#7d8590' }}>Tool Options</div>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Tool Options</div>
             <div className="space-y-4 px-1">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm" style={{ color: '#7d8590' }}>Brush Size</span>
+                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Brush Size</span>
                   <span className="text-sm font-bold">{brushSize}px</span>
                 </div>
                 <input type="range" min={1} max={16} value={brushSize}
                   onChange={e => setBrushSize(Number(e.target.value))}
-                  className="w-full h-1.5 cursor-pointer accent-[#2f81f7]" />
+                  className="w-full h-1.5 cursor-pointer accent-primary" />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm" style={{ color: '#7d8590' }}>Opacity</span>
+                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Opacity</span>
                   <span className="text-sm font-bold">{opacity}%</span>
                 </div>
                 <input type="range" min={0} max={100} value={opacity}
                   onChange={e => setOpacity(Number(e.target.value))}
-                  className="w-full h-1.5 cursor-pointer accent-[#2f81f7]" />
+                  className="w-full h-1.5 cursor-pointer accent-primary" />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: '#7d8590' }}>Pixel Perfect</span>
+                <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Pixel Perfect</span>
                 <button onClick={() => setPixelPerfect(v => !v)}
                   className="w-11 h-6 rounded-full relative transition-all flex-shrink-0"
-                  style={{ background: pixelPerfect ? '#2f81f7' : '#30363d' }}>
+                  style={{ background: pixelPerfect ? 'var(--color-primary)' : 'var(--color-surface-container-highest)' }}>
                   <span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
                     style={{ left: pixelPerfect ? 'calc(100% - 22px)' : '2px' }} />
                 </button>
@@ -1568,8 +1643,8 @@ export default function EditorPage() {
           </div>
 
           {/* 캔버스 크기 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: '#30363d' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#7d8590' }}>Canvas Size</div>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Canvas Size</div>
             <div className="px-1 space-y-2">
 
               {/* 1. 프리셋 버튼 grid */}
@@ -1587,9 +1662,9 @@ export default function EditorPage() {
                       }}
                       className="py-1 text-xs rounded-lg font-bold transition-all border"
                       style={{
-                        background: active ? 'rgba(47,129,247,0.15)' : '#1c2128',
-                        borderColor: active ? '#2f81f7' : '#30363d',
-                        color: active ? '#2f81f7' : '#7d8590',
+                        background: active ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'var(--color-surface-container-low)',
+                        borderColor: active ? 'var(--color-primary)' : 'var(--color-outline)',
+                        color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
                       }}>{p}</button>
                   )
                 })}
@@ -1600,15 +1675,15 @@ export default function EditorPage() {
                 <input type="number" value={customW} min={1} max={512}
                   onChange={e => setCustomW(Number(e.target.value))}
                   className="w-16 px-2 py-1 rounded text-xs outline-none text-center font-bold"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }} />
-                <span className="text-xs" style={{ color: '#7d8590' }}>×</span>
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
+                <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>×</span>
                 <input type="number" value={customH} min={1} max={512}
                   onChange={e => setCustomH(Number(e.target.value))}
                   className="w-16 px-2 py-1 rounded text-xs outline-none text-center font-bold"
-                  style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }} />
+                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
                 <button onClick={() => applyCanvasSize(customW, customH)}
                   className="flex-1 py-1 rounded text-xs font-bold transition-all hover:opacity-90"
-                  style={{ background: '#2f81f7', color: '#fff' }}>Apply</button>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>Apply</button>
               </div>
               
               {/*3. 이미지 비율 보정 체크 박스*/}
@@ -1620,17 +1695,17 @@ export default function EditorPage() {
                   id="scale-image-toggle"
                   checked={isScaleImage}
                   onChange={(e) => setIsScaleImage(e.target.checked)}
-                  className="rounded cursor-pointer accent-[#2f81f7] bg-[#1c2128]" 
+                  className="rounded cursor-pointer accent-primary bg-surface-container-low" 
                   style={{ 
                     width: '13px', 
                     height: '13px',
-                    border: '1px solid #30363d'
+                    border: '1px solid var(--color-outline)'
                   }}
                 />
                 <label
                   htmlFor="scale-image-toggle"
                   className="text-[11px] font-semibold cursor-pointer" // 전체 UI 비율에 맞춰 폰트 크기를 약간 슬림하게 조절
-                  style={{ color: '#7d8590' }}
+                  style={{ color: 'var(--color-on-surface-variant)' }}
                 >
                   크기 변경 시 기존 이미지 비율 보정
                 </label>
@@ -1641,21 +1716,21 @@ export default function EditorPage() {
           {/* ⏳레이어 섹션 */}
           <div className="p-4 flex-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7d8590' }}>Layers</div>
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>Layers</div>
               <div className="flex gap-1">
                 {layerButtons.map(([icon,tip, handler]) => (
                   <button key={icon} title={tip}
                     onClick={() => {
                       if(!handler) return;
                       if (icon === 'add') {
-                        handler(state.currentFrameIdx);
+                        handler(safeFrameIdx);
                       } else if (icon === 'delete') {
                         // deleteLayer는 (frameIdx, layerId) 두 개를 받으므로 맞춰서 전달
-                        handler(state.currentFrameIdx, activeLayer);
+                        handler(safeFrameIdx, activeLayer);
                       }
                     }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#21262d]"
-                    style={{ color: '#7d8590' }}>
+                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">{icon}</span>
                   </button>
                 ))}
@@ -1670,17 +1745,17 @@ export default function EditorPage() {
                   onDragStart={(e) => handleDragStart(e, originalIndex)}
                   onDragOver={(e) => handleDragOver(e)}
                   onDrop={(e) => handleDrop(e, originalIndex)}
-                  onClick={() => selectLayer(state.currentFrameIdx, layer.id)}
+                  onClick={() => selectLayer(safeFrameIdx, layer.id)}
                   onKeyDown={(e) => {
                     if(e.key === 'Enter' || e.key === ' '){
                       e.preventDefault();
-                      selectLayer(state.currentFrameIdx, layer.id);
+                      selectLayer(safeFrameIdx, layer.id);
                     }
                   }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
                   style={{
-                    background: activeLayer === layer.id ? 'rgba(47,129,247,0.1)' : 'transparent',
-                    color: activeLayer === layer.id ? '#2f81f7' : '#7d8590',
+                    background: activeLayer === layer.id ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)' : 'transparent',
+                    color: activeLayer === layer.id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
                     fontWeight: activeLayer === layer.id ? 700 : 400,
                   }}>
                   
@@ -1688,10 +1763,10 @@ export default function EditorPage() {
                   <button 
                     onClick={(e) => {
                       e.stopPropagation(); // 💡 중요: 버튼을 누를 때 부모 div의 selectLayer가 트리거되는 것을 방지!
-                      toggleVisibility(state.currentFrameIdx, layer.id);
+                      toggleVisibility(safeFrameIdx, layer.id);
                     }}
-                    className="flex items-center justify-center p-0.5 rounded hover:bg-[#30363d] transition-colors"
-                    style={{ color: layer.isVisible ? '#2f81f7' : '#484f58' }}
+                    className="flex items-center justify-center p-0.5 rounded hover:bg-surface-container-highest transition-colors"
+                    style={{ color: layer.isVisible ? 'var(--color-primary)' : 'var(--color-outline-strong)' }}
                   >
                     <span className="material-symbols-outlined text-sm">
                       {layer.isVisible ? 'visibility' : 'visibility_off'}
@@ -1700,7 +1775,7 @@ export default function EditorPage() {
                   {/* 레이어 썸네일 박스 */}
                   <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none"
                     style={{
-                      borderColor: activeLayer === layer.id ? '#2f81f7' : '#30363d',
+                      borderColor: activeLayer === layer.id ? 'var(--color-primary)' : 'var(--color-outline)',
                     }} />
                     
                   <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
@@ -1720,18 +1795,18 @@ export default function EditorPage() {
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
           style={{ 
             width: showAIGuide ? 350 : 0, // AI 가이드 온오프 상태에 따라 너비 조절
-            background: '#0d1117',        // 메인 패널보다 살짝 더 어두운 배경 (구분감)
-            borderColor: '#30363d',
+            background: 'var(--color-background)',        // 메인 패널보다 살짝 더 어두운 배경 (구분감)
+            borderColor: 'var(--color-outline)',
             opacity: showAIGuide ? 1 : 0  // 닫혔을 때 잔상 방지
           }}>
           
           {/* 헤더: VS Code 패널 느낌 */}
-          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#30363d' }}>
+          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#2f81f7] text-lg">auto_awesome</span>
-              <span className="text-xs font-bold uppercase tracking-widest text-[#e6edf3]">AI Assistant</span>
+              <span className="material-symbols-outlined text-primary text-lg">auto_awesome</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-on-surface">AI Assistant</span>
             </div>
-            <button onClick={() => setShowAIGuide(false)} className="hover:text-[#e6edf3] text-[#7d8590]">
+            <button onClick={() => setShowAIGuide(false)} className="hover:text-on-surface text-on-surface-variant">
               <span className="material-symbols-outlined text-sm">close</span>
             </button>
           </div>
@@ -1739,16 +1814,16 @@ export default function EditorPage() {
           {/* 컨텐츠: 큼직한 가이드 영역 */}
           <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
             {/* 여기에 광고나 AI 분석 결과 렌더링 */}
-            <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-[#30363d] flex items-center justify-center bg-[#161b22]">
-              <p className="text-[11px] text-[#484f58] text-center">
+            <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-outline flex items-center justify-center bg-surface">
+              <p className="text-[11px] text-outline-strong text-center">
                 캔버스 분석 중...<br/>(광고 또는 AI 가이드 이미지)
               </p>
             </div>
             
             <div className="space-y-4">
-              <div className="p-3 rounded-lg bg-[#1c2128] border border-[#30363d]">
-                <p className="text-xs leading-relaxed text-[#8b949e]">
-                  <strong className="text-[#2f81f7]">💡 조언:</strong> 현재 캐릭터의 실루엣이 불분명합니다. 외곽선(Outline) 레이어에 좀 더 어두운 색을 사용해 보세요.
+              <div className="p-3 rounded-lg bg-surface-container-low border border-outline">
+                <p className="text-xs leading-relaxed text-on-surface-variant">
+                  <strong className="text-primary">💡 조언:</strong> 현재 캐릭터의 실루엣이 불분명합니다. 외곽선(Outline) 레이어에 좀 더 어두운 색을 사용해 보세요.
                 </p>
               </div>
             </div>
@@ -1758,22 +1833,22 @@ export default function EditorPage() {
 
       {/* ── 하단 상태바 ──────────── */}
       <footer className="flex items-center gap-6 px-5 flex-shrink-0 border-t text-sm font-bold"
-        style={{ height: 42, background: '#161b22', borderColor: '#30363d', color: '#7d8590' }}>
+        style={{ height: 42, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
         <span>Canvas: {canvasW} × {canvasH}</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
-        <span>Zoom: {zoom * 100}%</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
+        <span>Zoom: {Math.round(zoom * 100)}%</span>
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>{cursorPos.x >= 0 ? `Cursor: ${cursorPos.x}, ${cursorPos.y}` : 'Cursor: —'}</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Tool: {activeTool.charAt(0).toUpperCase() + activeTool.slice(1)}</span>
-        <span className="w-px h-4" style={{ background: '#30363d' }} />
-        <span>Active: {state.frames[state.currentFrameIdx].layers.find(l => String(l.id) === String(activeLayer))?.name || '-'}</span>
+        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
+        <span>Active: {state.frames[safeFrameIdx]?.layers.find(l => String(l.id) === String(activeLayer))?.name || '-'}</span>
         <div className="ml-auto flex items-center gap-4">
-          <span>{state.frames[state.currentFrameIdx].layers.length} layers</span>
-          <span className="w-px h-4" style={{ background: '#30363d' }} />
+          <span>{state.frames[safeFrameIdx]?.layers.length} layers</span>
+          <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
           {unsaved
             ? <span style={{ color: '#f59e0b' }}>● Unsaved</span>
-            : <span style={{ color: '#3fb950' }}>● Saved</span>}
+            : <span style={{ color: 'var(--color-success)' }}>● Saved</span>}
         </div>
       </footer>
     </div>

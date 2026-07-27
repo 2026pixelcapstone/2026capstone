@@ -22,7 +22,7 @@ export default function StarRating({
       style={{
         fontSize: size,
         lineHeight: 1,
-        color: i <= filled ? '#f0883e' : '#30363d',
+        color: i <= filled ? 'var(--color-accent)' : 'var(--color-surface-container-highest)',
         fontVariationSettings: i <= filled ? "'FILL' 1" : "'FILL' 0",
         transition: 'color 0.1s',
       }}>

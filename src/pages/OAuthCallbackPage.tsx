@@ -41,11 +41,11 @@ export default function OAuthCallbackPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center"
-      style={{ background: '#0d1117', color: '#e6edf3' }}>
+      style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       <div className="flex flex-col items-center gap-4">
         <div className="animate-spin rounded-full w-10 h-10 border-2"
-          style={{ borderColor: '#2f81f7', borderTopColor: 'transparent' }} />
-        <p className="text-sm" style={{ color: '#7d8590' }}>로그인 처리 중…</p>
+          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
+        <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>로그인 처리 중…</p>
       </div>
     </div>
   )

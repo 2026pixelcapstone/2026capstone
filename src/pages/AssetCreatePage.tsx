@@ -170,7 +170,7 @@ export default function AssetCreatePage() {
               onChange={e => setTitle(e.target.value)}
               maxLength={100}
               placeholder="에셋 제목을 입력하세요"
-              className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -182,7 +182,7 @@ export default function AssetCreatePage() {
               onChange={e => setDescription(e.target.value)}
               rows={4}
               placeholder="에셋에 대한 설명을 입력하세요 (포함 파일, 해상도, 사용 방법 등)"
-              className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+              className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
             />
           </div>
 
@@ -193,7 +193,7 @@ export default function AssetCreatePage() {
               <span className="text-gray-500 text-xs ml-1">PNG, ZIP, PSD 등</span>
             </label>
             {assetFile ? (
-              <div className="flex items-center justify-between bg-[#1a1a2e] border border-green-600 rounded-lg px-4 py-3">
+              <div className="flex items-center justify-between bg-surface-container border border-green-600 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">📦</span>
                   <div>
@@ -222,7 +222,7 @@ export default function AssetCreatePage() {
                 className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors h-32 ${
                   fileDragging
                     ? 'border-green-400 bg-green-900/20'
-                    : 'border-gray-600 hover:border-gray-400 bg-[#1a1a2e]'
+                    : 'border-gray-600 hover:border-gray-400 bg-surface-container'
                 }`}
               >
                 <div className="text-3xl mb-1">📦</div>
@@ -247,7 +247,7 @@ export default function AssetCreatePage() {
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
                   isFree
                     ? 'bg-green-600 text-white'
-                    : 'bg-[#1a1a2e] border border-gray-600 text-gray-400 hover:border-green-500'
+                    : 'bg-surface-container border border-gray-600 text-gray-400 hover:border-green-500'
                 }`}
               >
                 무료
@@ -258,7 +258,7 @@ export default function AssetCreatePage() {
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
                   !isFree
                     ? 'bg-yellow-600 text-white'
-                    : 'bg-[#1a1a2e] border border-gray-600 text-gray-400 hover:border-yellow-500'
+                    : 'bg-surface-container border border-gray-600 text-gray-400 hover:border-yellow-500'
                 }`}
               >
                 유료
@@ -273,7 +273,7 @@ export default function AssetCreatePage() {
                   onChange={e => setPrice(e.target.value)}
                   min={0}
                   placeholder="가격 입력"
-                  className="flex-1 bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                  className="flex-1 bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
                 />
               </div>
             )}
@@ -286,7 +286,7 @@ export default function AssetCreatePage() {
               <select
                 value={categoryId}
                 onChange={e => setCategoryId(e.target.value)}
-                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
                 <option value="">선택 안 함</option>
                 {categories.map(c => (
                   <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
@@ -298,7 +298,7 @@ export default function AssetCreatePage() {
               <select
                 value={licenseTypeId}
                 onChange={e => setLicenseTypeId(e.target.value)}
-                className="w-full bg-[#1a1a2e] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
                 <option value="">선택 안 함</option>
                 {licenseTypes.map(l => (
                   <option key={l.licenseTypeId} value={l.licenseTypeId}>{l.name}</option>
@@ -333,7 +333,7 @@ export default function AssetCreatePage() {
             onDrop={handleImageDrop}
             onClick={() => imageInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors h-48 ${
-              dragging ? 'border-blue-400 bg-blue-900/20' : 'border-gray-600 hover:border-gray-400 bg-[#1a1a2e]'
+              dragging ? 'border-blue-400 bg-blue-900/20' : 'border-gray-600 hover:border-gray-400 bg-surface-container'
             } ${images.length >= MAX_IMAGES ? 'opacity-50 pointer-events-none' : ''}`}
           >
             <div className="text-4xl mb-2">🖼️</div>

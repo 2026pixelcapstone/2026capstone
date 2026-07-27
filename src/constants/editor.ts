@@ -14,7 +14,6 @@ export const createDefaultLayer = (): LayerData => ({
 
 export const createInitialCanvasData = (): CanvasData => ({
   frames: [{id: `frame-${crypto.randomUUID()}`, layers: [createDefaultLayer()]}],
-  currentFrameIdx: 0,
   width: 32,
   height: 32,
 });

@@ -59,7 +59,7 @@ export default function MainLayout() {
   }, [location.pathname, isLoggedIn])
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
       <Navbar />
       <main className="pt-20">
         <EmailVerificationBanner />

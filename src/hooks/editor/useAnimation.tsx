@@ -35,7 +35,18 @@ export function useAnimation({frames, currentFrameIdx: _currentFrameIdx, onChang
         if(frames.length <= 1) return;
 
         const nextFrames = frames.filter((_, i) => i !== index);
-        const nextIdx = Math.max(0, Math.min(index, nextFrames.length - 1));
+        
+        let nextIdx = _currentFrameIdx; // 기본적으로 현재 프레임 인덱스 유지
+
+        // 1. 현재 보고 있는 프레임 자체를 삭제한 경우
+        if(_currentFrameIdx === index){
+            nextIdx = Math.min(_currentFrameIdx, nextFrames.length - 1)
+        }
+        // 2. 현재 보고 있는 프레임 보다 '앞쪽' 프레임을 선택한 경우
+        else if(index < _currentFrameIdx){
+            nextIdx = _currentFrameIdx - 1;
+        }
+        // 3. 현재 보고 있는 프레임 보다 '뒤쪽' 프레임을 삭제한 경우: _currentFrameIdx 그대로 유지
 
         onChange(nextFrames, nextIdx);
     };

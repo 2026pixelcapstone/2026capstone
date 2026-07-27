@@ -119,18 +119,18 @@ export default function AssetDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0d1117' }}>
-        <div className="animate-spin rounded-full w-10 h-10 border-2 border-t-transparent" style={{ borderColor: '#2f81f7' }} />
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
+        <div className="animate-spin rounded-full w-10 h-10 border-2" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
 
   if (!asset) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: '#0d1117', color: '#e6edf3' }}>
-        <span className="material-symbols-outlined text-5xl" style={{ color: '#30363d' }}>inventory_2</span>
-        <p style={{ color: '#7d8590' }}>에셋을 찾을 수 없습니다.</p>
-        <Link to="/assets" className="text-sm font-bold" style={{ color: '#2f81f7' }}>에셋 스토어로 돌아가기</Link>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
+        <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>inventory_2</span>
+        <p style={{ color: 'var(--color-on-surface-variant)' }}>에셋을 찾을 수 없습니다.</p>
+        <Link to="/assets" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>에셋 스토어로 돌아가기</Link>
       </div>
     )
   }
@@ -144,13 +144,13 @@ export default function AssetDetailPage() {
   const canReview = isLoggedIn && !isAuthor && (isFreeAsset || asset.isPurchased)
 
   return (
-    <div style={{ background: '#0d1117', color: '#e6edf3' }}>
+    <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       <div className="max-w-[1440px] mx-auto px-8 py-8">
         {/* 브레드크럼 */}
-        <div className="flex items-center gap-2 mb-6 text-sm" style={{ color: '#7d8590' }}>
+        <div className="flex items-center gap-2 mb-6 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
           <Link to="/assets" className="hover:text-white transition-colors">에셋 스토어</Link>
           <span className="material-symbols-outlined text-sm">chevron_right</span>
-          <span style={{ color: '#e6edf3' }}>{asset.title}</span>
+          <span style={{ color: 'var(--color-on-surface)' }}>{asset.title}</span>
         </div>
 
         {/* 상단: 프리뷰 + 구매 패널 */}
@@ -158,12 +158,12 @@ export default function AssetDetailPage() {
           {/* 프리뷰 */}
           <div className="flex-1">
             <div className="checkerboard rounded-2xl border mb-3 flex items-center justify-center overflow-hidden"
-              style={{ height: 320, borderColor: '#30363d' }}>
+              style={{ height: 320, borderColor: 'var(--color-outline)' }}>
               {images[selectedThumb]
                 ? <img src={images[selectedThumb]} alt={asset.title}
                     className="max-w-full max-h-full object-contain"
                     style={{ imageRendering: 'pixelated' }} />
-                : <div className="w-48 h-48 rounded-xl" style={{ background: 'linear-gradient(135deg, #161b22, #21262d)' }} />
+                : <div className="w-48 h-48 rounded-xl" style={{ background: 'linear-gradient(135deg, var(--color-surface), var(--color-surface-container))' }} />
               }
             </div>
             {images.length > 1 && (
@@ -171,13 +171,13 @@ export default function AssetDetailPage() {
                 {images.slice(0, 7).map((url, i) => (
                   <button key={i} onClick={() => setSelectedThumb(i)}
                     className="w-16 h-16 checkerboard rounded-xl border-2 transition-all overflow-hidden"
-                    style={{ borderColor: selectedThumb === i ? '#2f81f7' : '#30363d' }}>
+                    style={{ borderColor: selectedThumb === i ? 'var(--color-primary)' : 'var(--color-outline)' }}>
                     <img src={url} alt="" className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
                   </button>
                 ))}
                 {images.length > 7 && (
                   <div className="w-16 h-16 checkerboard rounded-xl border-2 flex items-center justify-center text-sm font-bold"
-                    style={{ borderColor: '#30363d', color: '#7d8590' }}>
+                    style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                     +{images.length - 7}
                   </div>
                 )}
@@ -187,21 +187,21 @@ export default function AssetDetailPage() {
 
           {/* 구매 패널 */}
           <div className="w-80 shrink-0">
-            <div className="rounded-2xl border p-6" style={{ background: '#292f38', borderColor: '#30363d' }}>
+            <div className="rounded-2xl border p-6" style={{ background: 'var(--color-surface-container-high)', borderColor: 'var(--color-outline)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2 py-0.5 rounded-lg text-xs font-bold"
-                  style={{ background: 'rgba(63,185,80,0.1)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.2)' }}>
+                  style={{ background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)', border: '1px solid color-mix(in srgb, var(--color-success) 20%, transparent)' }}>
                   {isFreeAsset ? '무료' : '유료'}
                 </span>
                 {asset.licenseTypeName && (
                   <span className="px-2 py-0.5 rounded-lg text-xs font-bold"
-                    style={{ background: 'rgba(47,129,247,0.1)', color: '#2f81f7', border: '1px solid rgba(47,129,247,0.2)' }}>
+                    style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)' }}>
                     {asset.licenseTypeName}
                   </span>
                 )}
               </div>
               <h1 className="text-2xl font-bold mb-1">{asset.title}</h1>
-              <Link to={`/profile/${asset.authorNickname}`} className="text-sm hover:underline" style={{ color: '#2f81f7' }}>
+              <Link to={`/profile/${asset.authorNickname}`} className="text-sm hover:underline" style={{ color: 'var(--color-primary)' }}>
                 @{asset.authorNickname}
               </Link>
               <div className="grid grid-cols-3 gap-2 my-4 text-center">
@@ -210,15 +210,15 @@ export default function AssetDetailPage() {
                   [asset.downloadCount.toLocaleString(), '다운로드'],
                   [asset.commentCount.toString(), '댓글'],
                 ].map(([val, label]) => (
-                  <div key={label} className="rounded-xl py-2" style={{ background: '#21262d' }}>
+                  <div key={label} className="rounded-xl py-2" style={{ background: 'var(--color-surface-container)' }}>
                     <p className="font-bold text-sm">{val}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>{label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="py-4 border-y mb-4" style={{ borderColor: '#30363d' }}>
-                <p className="text-4xl font-bold" style={{ color: isFreeAsset ? '#3fb950' : '#2f81f7' }}>
+              <div className="py-4 border-y mb-4" style={{ borderColor: 'var(--color-outline)' }}>
+                <p className="text-4xl font-bold" style={{ color: isFreeAsset ? 'var(--color-success)' : 'var(--color-primary)' }}>
                   {isFreeAsset ? '무료' : `₩${asset.price.toLocaleString()}`}
                 </p>
               </div>
@@ -238,7 +238,7 @@ export default function AssetDetailPage() {
                     }
                   }}
                   className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity disabled:opacity-50"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   <span className="material-symbols-outlined text-base">download</span>
                   {downloading ? '다운로드 중...' : '다운로드'}
                 </button>
@@ -247,7 +247,7 @@ export default function AssetDetailPage() {
                 <button
                   onClick={() => navigate('/login')}
                   className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   <span className="material-symbols-outlined text-base">login</span>
                   로그인 후 다운로드
                 </button>
@@ -256,7 +256,7 @@ export default function AssetDetailPage() {
                   onClick={handlePurchase}
                   disabled={!isLoggedIn || purchasing}
                   className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity disabled:opacity-50"
-                  style={{ background: '#2f81f7', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   <span className="material-symbols-outlined text-base">shopping_cart</span>
                   {purchasing ? '처리 중...' : isLoggedIn ? '구매하기' : '로그인 후 구매'}
                 </button>
@@ -264,8 +264,8 @@ export default function AssetDetailPage() {
 
               <button
                 onClick={handleLike}
-                className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-[#21262d] flex items-center justify-center gap-2"
-                style={{ border: `1px solid ${asset.isLiked ? '#e11d48' : '#30363d'}`, color: asset.isLiked ? '#e11d48' : '#7d8590' }}>
+                className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container flex items-center justify-center gap-2"
+                style={{ border: `1px solid ${asset.isLiked ? '#e11d48' : 'var(--color-outline)'}`, color: asset.isLiked ? '#e11d48' : 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base"
                   style={{ fontVariationSettings: asset.isLiked ? "'FILL' 1" : "'FILL' 0" }}>favorite</span>
                 좋아요 {asset.likeCount.toLocaleString()}
@@ -276,15 +276,15 @@ export default function AssetDetailPage() {
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => navigate(`/assets/${assetId}/edit`)}
-                    className="flex-1 py-2.5 rounded-xl text-sm transition-colors hover:bg-[#21262d] flex items-center justify-center gap-1.5"
-                    style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+                    className="flex-1 py-2.5 rounded-xl text-sm transition-colors hover:bg-surface-container flex items-center justify-center gap-1.5"
+                    style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-base">edit</span>
                     수정
                   </button>
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="flex-1 py-2.5 rounded-xl text-sm transition-colors hover:bg-[#21262d] flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-xl text-sm transition-colors hover:bg-surface-container flex items-center justify-center gap-1.5 disabled:opacity-50"
                     style={{ border: '1px solid #e11d48', color: '#e11d48' }}>
                     <span className="material-symbols-outlined text-base">delete</span>
                     {deleting ? '삭제 중...' : '삭제'}
@@ -292,7 +292,7 @@ export default function AssetDetailPage() {
                 </div>
               )}
 
-              <div className="mt-4 space-y-1.5 text-xs" style={{ color: '#7d8590' }}>
+              <div className="mt-4 space-y-1.5 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                 <p className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm">update</span>
                   최종 업데이트: {new Date(asset.updatedAt).toLocaleDateString('ko-KR')}
@@ -314,14 +314,14 @@ export default function AssetDetailPage() {
               <section>
                 <h2 className="text-xl font-bold mb-4">에셋 설명</h2>
                 <div className="rounded-2xl border p-6 text-sm leading-relaxed"
-                  style={{ background: '#161b22', borderColor: '#30363d', color: '#7d8590' }}>
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   <p className="whitespace-pre-line">{asset.description}</p>
                   {asset.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-4">
                       {asset.tags.map(tag => (
                         <Link key={tag} to={`/assets?tag=${encodeURIComponent(tag)}`}
                           className="px-3 py-1 rounded-full text-xs hover:opacity-80 transition-opacity"
-                          style={{ background: '#21262d', border: '1px solid #30363d', color: '#7d8590' }}>
+                          style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                           #{tag}
                         </Link>
                       ))}
@@ -336,23 +336,23 @@ export default function AssetDetailPage() {
               <h2 className="text-xl font-bold mb-4">댓글 ({asset.commentCount})</h2>
 
               {/* 평점 요약 (실제 데이터) */}
-              <div className="rounded-2xl border p-5 mb-6" style={{ background: '#161b22', borderColor: '#30363d' }}>
+              <div className="rounded-2xl border p-5 mb-6" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
                 {ratingSummary && ratingSummary.count >= MIN_RATINGS ? (
                   <div className="flex items-center gap-6">
                     <div className="text-center shrink-0">
                       <p className="text-5xl font-bold">{ratingSummary.average.toFixed(1)}</p>
                       <div className="mt-1"><StarRating value={ratingSummary.average} size={16} /></div>
-                      <p className="text-xs mt-1" style={{ color: '#7d8590' }}>{ratingSummary.count}개 평가</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>{ratingSummary.count}개 평가</p>
                     </div>
                     <div className="flex-1 space-y-2">
                       {ratingSummary.distribution.map((cnt, i) => {
                         const star = 5 - i
                         const pct = ratingSummary.count > 0 ? Math.round((cnt / ratingSummary.count) * 100) : 0
                         return (
-                          <div key={star} className="flex items-center gap-3 text-xs" style={{ color: '#7d8590' }}>
+                          <div key={star} className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
                             <span className="w-5">{star}★</span>
-                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#21262d' }}>
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#f0883e' }} />
+                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-container)' }}>
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--color-accent)' }} />
                             </div>
                             <span className="w-8 text-right">{cnt}</span>
                           </div>
@@ -361,7 +361,7 @@ export default function AssetDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 py-2" style={{ color: '#7d8590' }}>
+                  <div className="flex items-center gap-3 py-2" style={{ color: 'var(--color-on-surface-variant)' }}>
                     <StarRating value={0} size={18} />
                     <span className="text-sm">
                       아직 평가가 충분하지 않습니다{ratingSummary && ratingSummary.count > 0 ? ` (${ratingSummary.count}개)` : ''}.
@@ -373,20 +373,20 @@ export default function AssetDetailPage() {
               {/* 리뷰 별점 입력 (평가 자격자만) */}
               {canReview && (
                 <div className="flex items-center gap-3 mb-3 px-1">
-                  <span className="text-sm font-bold" style={{ color: '#e6edf3' }}>
+                  <span className="text-sm font-bold" style={{ color: 'var(--color-on-surface)' }}>
                     {asset.myRating ? '내 평점' : '평점 남기기'}
                   </span>
                   <StarRating value={reviewRating} size={26} interactive onChange={setReviewRating} />
                   {reviewRating > 0 && (
                     <button type="button" onClick={() => setReviewRating(0)}
-                      className="text-xs hover:underline" style={{ color: '#7d8590' }}>지우기</button>
+                      className="text-xs hover:underline" style={{ color: 'var(--color-on-surface-variant)' }}>지우기</button>
                   )}
                 </div>
               )}
 
               {/* 댓글 입력 */}
               <div className="flex gap-3 mb-6">
-                <div className="w-9 h-9 rounded-full shrink-0" style={{ background: 'linear-gradient(135deg, #2f81f7, #1a3a6b)' }} />
+                <div className="w-9 h-9 rounded-full shrink-0" style={{ background: 'linear-gradient(135deg, var(--color-primary), #1a3a6b)' }} />
                 <div className="flex-1">
                   <textarea
                     rows={3}
@@ -395,7 +395,7 @@ export default function AssetDetailPage() {
                     placeholder={isLoggedIn ? '댓글을 입력하세요...' : '로그인 후 댓글을 남길 수 있습니다.'}
                     disabled={!isLoggedIn}
                     className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none disabled:opacity-50"
-                    style={{ background: '#1c2128', border: '1px solid #30363d', color: '#e6edf3' }}
+                    style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                   />
                   {isLoggedIn && (
                     <div className="flex justify-end mt-2">
@@ -403,7 +403,7 @@ export default function AssetDetailPage() {
                         onClick={handleComment}
                         disabled={submitting || !commentText.trim()}
                         className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
-                        style={{ background: '#2f81f7', color: '#fff' }}>
+                        style={{ background: 'var(--color-primary)', color: '#fff' }}>
                         {submitting ? '등록 중...' : (canReview && reviewRating > 0 ? '리뷰 등록' : '등록')}
                       </button>
                     </div>
@@ -415,29 +415,29 @@ export default function AssetDetailPage() {
               <div className="space-y-4">
                 {comments.map(c => (
                   <div key={c.commentId} className="rounded-2xl border p-5"
-                    style={{ background: '#161b22', borderColor: '#30363d' }}>
+                    style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full overflow-hidden shrink-0"
-                          style={{ background: c.authorProfileImageUrl ? `url(${c.authorProfileImageUrl}) center/cover` : 'linear-gradient(135deg, #2f81f7, #1a3a6b)' }} />
+                          style={{ background: c.authorProfileImageUrl ? `url(${c.authorProfileImageUrl}) center/cover` : 'linear-gradient(135deg, var(--color-primary), #1a3a6b)' }} />
                         <div>
                           <span className="font-bold text-sm">@{c.authorNickname}</span>
                           {c.rating != null && (
                             <span className="ml-2 align-middle"><StarRating value={c.rating} size={14} /></span>
                           )}
-                          <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
                             {new Date(c.createdAt).toLocaleDateString('ko-KR')}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <p className="text-sm" style={{ color: c.isDeleted ? '#484f58' : '#7d8590', fontStyle: c.isDeleted ? 'italic' : 'normal' }}>
+                    <p className="text-sm" style={{ color: c.isDeleted ? 'var(--color-outline-strong)' : 'var(--color-on-surface-variant)', fontStyle: c.isDeleted ? 'italic' : 'normal' }}>
                       {c.content}
                     </p>
                   </div>
                 ))}
                 {comments.length === 0 && (
-                  <p className="text-sm text-center py-8" style={{ color: '#484f58' }}>첫 댓글을 남겨보세요!</p>
+                  <p className="text-sm text-center py-8" style={{ color: 'var(--color-outline-strong)' }}>첫 댓글을 남겨보세요!</p>
                 )}
               </div>
             </section>
@@ -446,7 +446,7 @@ export default function AssetDetailPage() {
           {/* 사이드바 */}
           <div className="w-80 shrink-0 space-y-4">
             {/* 작가 정보 */}
-            <div className="rounded-2xl border p-4" style={{ background: '#161b22', borderColor: '#30363d' }}>
+            <div className="rounded-2xl border p-4" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
               <p className="font-bold mb-3 text-sm">작가</p>
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl overflow-hidden"
@@ -456,14 +456,14 @@ export default function AssetDetailPage() {
                 </div>
               </div>
               <Link to={`/profile/${asset.authorNickname}`}
-                className="block w-full text-center py-2 rounded-xl text-sm transition-colors hover:bg-[#21262d]"
-                style={{ border: '1px solid #30363d', color: '#7d8590' }}>
+                className="block w-full text-center py-2 rounded-xl text-sm transition-colors hover:bg-surface-container"
+                style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                 프로필 보기
               </Link>
             </div>
 
             {/* 에셋 상태 */}
-            <div className="rounded-2xl border p-4" style={{ background: '#161b22', borderColor: '#30363d' }}>
+            <div className="rounded-2xl border p-4" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
               <p className="font-bold mb-3 text-sm">에셋 정보</p>
               {[
                 ['상태', asset.status === 'ACTIVE' ? '판매 중' : asset.status],
@@ -473,9 +473,9 @@ export default function AssetDetailPage() {
                 ['라이선스', asset.licenseTypeName ?? '—'],
               ].map(([label, val]) => (
                 <div key={label} className="flex justify-between py-2 border-b last:border-0 text-sm"
-                  style={{ borderColor: '#30363d', color: '#7d8590' }}>
+                  style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   <span>{label}</span>
-                  <span style={{ color: '#e6edf3' }}>{val}</span>
+                  <span style={{ color: 'var(--color-on-surface)' }}>{val}</span>
                 </div>
               ))}
             </div>

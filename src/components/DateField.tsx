@@ -89,8 +89,8 @@ export default function DateField({ value, onChange, placeholder = '날짜 선�
           <button key={days} type="button" onClick={() => setQuick(days)}
             className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
             style={quickActive(days)
-              ? { background: '#2f81f7', color: '#fff' }
-              : { background: '#0d1117', border: '1px solid #30363d', color: '#7d8590' }}>
+              ? { background: 'var(--color-primary)', color: '#fff' }
+              : { background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
             {label} 후
           </button>
         ))}
@@ -98,10 +98,10 @@ export default function DateField({ value, onChange, placeholder = '날짜 선�
 
       {/* 선택값 표시 + 달력 토글 (버튼 중첩 방지를 위해 컨테이너는 div, 내부 컨트롤만 button) */}
       <div className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-colors"
-        style={{ background: '#0d1117', border: '1px solid #30363d' }}>
+        style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)' }}>
         <button type="button" onClick={() => setOpen(o => !o)}
           className="flex-1 text-left outline-none"
-          style={{ color: value ? '#e6edf3' : '#7d8590' }}>
+          style={{ color: value ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}>
           {value
             ? parseYmd(value).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
             : placeholder}
@@ -110,27 +110,27 @@ export default function DateField({ value, onChange, placeholder = '날짜 선�
           {value && (
             <button type="button" onClick={() => onChange('')} aria-label="날짜 지우기"
               className="material-symbols-outlined text-base hover:text-white"
-              style={{ color: '#7d8590' }}>close</button>
+              style={{ color: 'var(--color-on-surface-variant)' }}>close</button>
           )}
           <button type="button" onClick={() => setOpen(o => !o)} aria-label="달력 열기"
             className="material-symbols-outlined text-base"
-            style={{ color: '#7d8590' }}>calendar_month</button>
+            style={{ color: 'var(--color-on-surface-variant)' }}>calendar_month</button>
         </span>
       </div>
 
       {/* 달력 팝업 */}
       {open && (
         <div className="absolute z-20 mt-2 p-3 rounded-xl border w-72"
-          style={{ background: '#161b22', borderColor: '#30363d', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
           {/* 월 네비 */}
           <div className="flex items-center justify-between mb-2">
             <button type="button" onClick={() => setViewMonth(new Date(year, month - 1, 1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-container" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base">chevron_left</span>
             </button>
             <span className="font-bold text-sm">{year}년 {month + 1}월</span>
             <button type="button" onClick={() => setViewMonth(new Date(year, month + 1, 1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-container" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined text-base">chevron_right</span>
             </button>
           </div>
@@ -139,7 +139,7 @@ export default function DateField({ value, onChange, placeholder = '날짜 선�
           <div className="grid grid-cols-7 gap-1 mb-1">
             {WEEKDAYS.map((w, i) => (
               <div key={w} className="text-center text-xs font-bold py-1"
-                style={{ color: i === 0 ? '#f85149' : i === 6 ? '#2f81f7' : '#7d8590' }}>{w}</div>
+                style={{ color: i === 0 ? 'var(--color-error)' : i === 6 ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>{w}</div>
             ))}
           </div>
 
@@ -153,8 +153,8 @@ export default function DateField({ value, onChange, placeholder = '날짜 선�
               return (
                 <button key={i} type="button" disabled={disabled} onClick={() => pickDay(d)}
                   className="h-8 rounded-lg text-xs font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={selected ? { background: '#2f81f7', color: '#fff' } : { color: '#e6edf3', background: 'transparent' }}
-                  onMouseEnter={e => { if (!selected && !disabled) e.currentTarget.style.background = '#21262d' }}
+                  style={selected ? { background: 'var(--color-primary)', color: '#fff' } : { color: 'var(--color-on-surface)', background: 'transparent' }}
+                  onMouseEnter={e => { if (!selected && !disabled) e.currentTarget.style.background = 'var(--color-surface-container)' }}
                   onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent' }}>
                   {d.getDate()}
                 </button>

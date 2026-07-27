@@ -61,38 +61,38 @@ export default function EditorOpenProjectModal({ isOpen, onClose, onSelect }: Pr
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4"
       onClick={onClose} role="dialog" aria-modal="true" aria-label="프로젝트 열기">
       <div ref={modalRef} className="w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl overflow-hidden"
-        style={{ background: '#161b22', border: '1px solid #30363d' }}
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#30363d' }}>
-          <h2 className="text-base font-bold" style={{ color: '#e6edf3' }}>프로젝트 열기</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+          <h2 className="text-base font-bold" style={{ color: 'var(--color-on-surface)' }}>프로젝트 열기</h2>
           <button ref={closeRef} type="button" onClick={onClose} aria-label="닫기"
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#21262d]" style={{ color: '#7d8590' }}>
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container" style={{ color: 'var(--color-on-surface-variant)' }}>
             <span className="material-symbols-outlined text-base">close</span>
           </button>
         </div>
 
         <div className="p-5 overflow-y-auto">
           {loading ? (
-            <p className="text-sm text-center py-10" style={{ color: '#7d8590' }}>불러오는 중...</p>
+            <p className="text-sm text-center py-10" style={{ color: 'var(--color-on-surface-variant)' }}>불러오는 중...</p>
           ) : projects.length === 0 ? (
-            <p className="text-sm text-center py-10" style={{ color: '#7d8590' }}>저장된 프로젝트가 없습니다.</p>
+            <p className="text-sm text-center py-10" style={{ color: 'var(--color-on-surface-variant)' }}>저장된 프로젝트가 없습니다.</p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {projects.map(p => (
                 <button key={p.projectId} type="button" onClick={() => onSelect(p.projectId)}
-                  className="text-left rounded-xl overflow-hidden transition-colors hover:bg-[#1c2128]"
-                  style={{ border: '1px solid #30363d' }}>
-                  <div className="aspect-square flex items-center justify-center overflow-hidden" style={{ background: '#0d1117' }}>
+                  className="text-left rounded-xl overflow-hidden transition-colors hover:bg-surface-container-low"
+                  style={{ border: '1px solid var(--color-outline)' }}>
+                  <div className="aspect-square flex items-center justify-center overflow-hidden" style={{ background: 'var(--color-background)' }}>
                     {p.thumbnailUrl ? (
                       <img src={p.thumbnailUrl} alt={p.title}
                         className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} />
                     ) : (
-                      <span className="material-symbols-outlined" style={{ color: '#484f58', fontSize: 32 }}>image</span>
+                      <span className="material-symbols-outlined" style={{ color: 'var(--color-outline-strong)', fontSize: 32 }}>image</span>
                     )}
                   </div>
                   <div className="px-2.5 py-2">
-                    <p className="text-sm font-bold truncate" style={{ color: '#e6edf3' }}>{p.title}</p>
-                    <p className="text-xs" style={{ color: '#7d8590' }}>{p.width}×{p.height}</p>
+                    <p className="text-sm font-bold truncate" style={{ color: 'var(--color-on-surface)' }}>{p.title}</p>
+                    <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{p.width}×{p.height}</p>
                   </div>
                 </button>
               ))}
