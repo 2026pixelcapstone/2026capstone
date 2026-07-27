@@ -601,7 +601,7 @@ export default function EditorPage() {
     setCurrentFrameIdx(0);
     setCanvasW(cd.width); setCanvasH(cd.height)
     setCustomW(cd.width); setCustomH(cd.height)
-    setWithHistory(() => cd)
+    reset(cd)
     setActiveLayer(cd.frames[0]?.layers[0]?.id ?? null)
     setProjectId(null)   // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
     setProjectTitle(title || 'Untitled Project')
@@ -613,7 +613,7 @@ export default function EditorPage() {
       return p
     }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCanvasW, setCanvasH, setWithHistory, setActiveLayer, setProjectId, setSearchParams])
+  }, [setCanvasW, setCanvasH, reset, setActiveLayer, setProjectId, setSearchParams])
 
   const handleImportPpit = useCallback(async (file: File) => {
     // 미저장 변경 확인 (New Project와 동일)
