@@ -19,6 +19,11 @@ export default function Navbar() {
   const { active } = useActiveCommissions()
   const [dealsOpen, setDealsOpen] = useState(false)
   const dealsRef = useRef<HTMLDivElement>(null)
+  // 로그아웃하거나 진행 중 거래가 0이 되면 드롭다운을 닫는다
+  // (열린 채로 목록이 사라지면 dealsOpen이 true로 남아, 재로그인 시 자동으로 열리는 것 방지)
+  useEffect(() => {
+    if (!isLoggedIn || active.length === 0) setDealsOpen(false)
+  }, [isLoggedIn, active.length])
   useEffect(() => {
     if (!dealsOpen) return
     const onDown = (e: MouseEvent) => {
