@@ -44,15 +44,14 @@ export default function EditorPage() {
   const [pixelPerfect, setPixelPerfect] = useState(true)
   const [isHexModal, setIsHexModal] = useState(false)
 
+  // ── 히스토리 훅 ──────────────────────────
+  const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
+  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── View 상태 ──────────────────────────
-  const {canvasW, setCanvasW, canvasH, setCanvasH, zoom, setZoomIdx} = useCanvasView(32, 32)
+  const {zoom, setZoomIdx} = useCanvasView(state.width, state.height)
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
   const [isScaleImage, setIsScaleImage] = useState(false)
-
-  // ── 히스토리 훅 ──────────────────────────
-  const initialCanvasData = createInitialCanvasData();
-  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const[currentFrameIdx, setCurrentFrameIdx] = useState(0);
@@ -128,8 +127,6 @@ export default function EditorPage() {
   const {handleSave, projectId, setProjectId, saving} = useEditor({
     stageRef,
     layerCanvasRefs,
-    canvasW,
-    canvasH,
     state,
     isLoggedIn,
     setUnsaved,
@@ -190,7 +187,7 @@ export default function EditorPage() {
     // 브라우저 렌더링 프레임 단위로 한 번 더 쐐기 박기
     const rafId = requestAnimationFrame(disableSmoothing);
     return () => cancelAnimationFrame(rafId);
-  }, [activeLayer, safeFrameIdx, zoom, canvasW, canvasH]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
+  }, [activeLayer, safeFrameIdx, zoom, state.width, state.height]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
   
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
   const getPixel = useCallback(() => {
@@ -215,16 +212,16 @@ export default function EditorPage() {
     // 1. 이미 메모리에 존재하고 규격(크기)이 맞다면 기존 도화지 즉시 재사용
     if (
       existingCanvas &&
-      existingCanvas.width === canvasW &&
-      existingCanvas.height === canvasH
+      existingCanvas.width === state.width &&
+      existingCanvas.height === state.height
     ) {
       return existingCanvas;
     }
 
     // 2. 크기가 바뀌었거나 아예 처음 만든 방이라면 메모리에 가상 도화지 새로 생성
     const nextCanvas = document.createElement('canvas')
-    nextCanvas.width = canvasW
-    nextCanvas.height = canvasH
+    nextCanvas.width = state.width
+    nextCanvas.height = state.height
 
     const ctx = nextCanvas.getContext('2d')
     if (ctx) {
@@ -237,7 +234,7 @@ export default function EditorPage() {
     }
     layerCanvasRefs.current[id] = nextCanvas
     return nextCanvas;
-  }, [canvasW, canvasH])
+  }, [state.width, state.height])
 
   //-------- 캐시 캔버스 유실을 막는 역할을 함(청소부) -----------
   useEffect(() => {
@@ -271,7 +268,7 @@ export default function EditorPage() {
     if (!ctx || !pos) return
 
     const { x, y } = pos
-    if (x < 0 || x >= canvasW || y < 0 || y >= canvasH) return
+    if (x < 0 || x >= state.width || y < 0 || y >= state.height) return
 
     // ─── [연필 도구] ──────────────────────────────────────────
     if (activeTool === 'pencil') {
@@ -288,13 +285,13 @@ export default function EditorPage() {
     // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
     else if (activeTool === 'fill') {
       // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
-      const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
+      const imgData = ctx.getImageData(0, 0, state.width, state.height);
       // R/G/B/A 4바이트를 32비트 정수 1개 단위로 재해석 (픽셀당 1개 인덱스로 대응)
       const data32 = new Uint32Array(imgData.data.buffer);
       
       // 시작점의 색상 추출
       // y * canvasW + x -> 2차원 좌표를 1차원 메모리 주소(인덱스)로 변환
-      const targetColor = data32[y * canvasW + x]; 
+      const targetColor = data32[y * state.width + x]; 
       
       // 채우고자 하는 fgColor(Hex 문자열)를 32비트 정수(ABGR 구조)로 변환
       const r = parseInt(fgColor.slice(1, 3), 16);
@@ -306,13 +303,13 @@ export default function EditorPage() {
       if (targetColor === fillColor) {
         return;
       }
-      const totalPixels = canvasW * canvasH;
+      const totalPixels = state.width * state.height;
       // 고정 크기 인덱스 큐 (최대 픽셀 수만큼 미리 메모리를 할당하여 GC 과부하 방지)
       const queue = new Int32Array(totalPixels);
       let head = 0; // 읽기 포인터 (pop 연산 시 증가)
       let tail = 0; // 쓰기 포인터 (push 연산 시 증가)
 
-      const startIdx = y * canvasW + x; // 시작 픽셀 주소
+      const startIdx = y * state.width + x; // 시작 픽셀 주소
       queue[tail++] = startIdx; // 시작 주소를 큐에 push
       data32[startIdx] = fillColor; // push 하자마자 즉시 색상 변경 (중복 방문 원천 차단)
 
@@ -321,8 +318,8 @@ export default function EditorPage() {
         const idx = queue[head++]; // 큐의 맨 앞에서 현재 처리할 픽셀 주소를 하나 꺼내옴 (O(1) Pop)
         
         // 1차원 주소 idx를 2차원 좌표(cx, cy)로 복원하여 캔버스 경계 판단에 활용
-        const cx = idx % canvasW; 
-        const cy = Math.floor(idx / canvasW); // 소수점 버림 함수
+        const cx = idx % state.width; 
+        const cy = Math.floor(idx / state.width); // 소수점 버림 함수
         
         // 상/하/좌/우 이웃 검사 -> targetColor와 같은 색상을 가진 픽셀만 색칠 후 큐에 적재
         
@@ -336,7 +333,7 @@ export default function EditorPage() {
         }
         
         // 2. 우측 이웃 검사
-        if (cx < canvasW - 1) { // 오른쪽 벽에 붙어있지 않다면
+        if (cx < state.width - 1) { // 오른쪽 벽에 붙어있지 않다면
           const nIdx = idx + 1; // 현재 위치 기준 '우'측 이웃 주소
           if (data32[nIdx] === targetColor) {
             data32[nIdx] = fillColor;
@@ -346,7 +343,7 @@ export default function EditorPage() {
         
         // 3. 상단 이웃 검사
         if (cy > 0) { // 위쪽 벽에 붙어있지 않다면
-          const nIdx = idx - canvasW; // 현재 위치 기준 '상'측 이웃 주소 (한 줄 위)
+          const nIdx = idx - state.width; // 현재 위치 기준 '상'측 이웃 주소 (한 줄 위)
           if (data32[nIdx] === targetColor) {
             data32[nIdx] = fillColor;
             queue[tail++] = nIdx;
@@ -354,8 +351,8 @@ export default function EditorPage() {
         }
         
         // 4. 하단 이웃 검사
-        if (cy < canvasH - 1) { // 아래쪽 벽에 붙어있지 않다면
-          const nIdx = idx + canvasW; // 현재 위치 기준 '하'측 이웃 주소 (한 줄 아래)
+        if (cy < state.height - 1) { // 아래쪽 벽에 붙어있지 않다면
+          const nIdx = idx + state.width; // 현재 위치 기준 '하'측 이웃 주소 (한 줄 아래)
           if (data32[nIdx] === targetColor) {
             data32[nIdx] = fillColor;
             queue[tail++] = nIdx;
@@ -389,7 +386,7 @@ export default function EditorPage() {
       activeLayerNode.getLayer()?.batchDraw();
     }
     setUnsaved(true)
-  }, [activeTool, fgColor, brushSize, canvasW, canvasH, getPixel, activeLayer, getLayerCanvas, safeFrameIdx])
+  }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayer, getLayerCanvas, safeFrameIdx])
 
   const handleMouseMove = () => {
     const pos = getPixel()
@@ -399,11 +396,10 @@ export default function EditorPage() {
 
   // -------- 캔버스 크기 변경 -----------
   const applyCanvasSize = (w: number, h: number) => {
-    if(canvasW === w && canvasH === h){
+    if(state.width === w && state.height === h){
       setOpenMenu(null);
       return;
     }
-    setCanvasW(w); setCanvasH(h)
 
     setWithHistory((prev) => {
       return {
@@ -412,6 +408,7 @@ export default function EditorPage() {
         height: h,
       };
     })
+
     setUnsaved(true);
     setOpenMenu(null);
   }
@@ -512,8 +509,6 @@ export default function EditorPage() {
         if (cancelled) return
         setProjectId(proj.projectId)
         setProjectTitle(proj.title)
-        setCanvasW(proj.width)
-        setCanvasH(proj.height)
         setCustomW(proj.width)
         setCustomH(proj.height)
         if (restoredFrames.length > 0) {
@@ -532,7 +527,7 @@ export default function EditorPage() {
     })()
 
     return () => { cancelled = true }
-  }, [searchParams, isLoggedIn, projectId, setCanvasW, setCanvasH, reset]) // 의존성 배열 보완
+  }, [searchParams, isLoggedIn, projectId, reset]) // 의존성 배열 보완
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -599,7 +594,6 @@ export default function EditorPage() {
     const cd = ppitToCanvasData(ppit)
 
     setCurrentFrameIdx(0);
-    setCanvasW(cd.width); setCanvasH(cd.height)
     setCustomW(cd.width); setCustomH(cd.height)
     reset(cd)
     setActiveLayer(cd.frames[0]?.layers[0]?.id ?? null)
@@ -613,7 +607,7 @@ export default function EditorPage() {
       return p
     }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCanvasW, setCanvasH, reset, setActiveLayer, setProjectId, setSearchParams])
+  }, [reset, setActiveLayer, setProjectId, setSearchParams])
 
   const handleImportPpit = useCallback(async (file: File) => {
     // 미저장 변경 확인 (New Project와 동일)
@@ -694,14 +688,14 @@ export default function EditorPage() {
       
       // 가상 도화지(가상 캔버스) 생성 및 안전장치
       const frameCanvas = document.createElement('canvas')
-      frameCanvas.width = canvasW
-      frameCanvas.height = canvasH
+      frameCanvas.width = state.width
+      frameCanvas.height = state.height
       const fCtx = frameCanvas.getContext('2d')
       
       if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
       
       fCtx.imageSmoothingEnabled = false
-      fCtx.clearRect(0, 0, canvasW, canvasH)
+      fCtx.clearRect(0, 0, state.width, state.height)
 
       const currentFrameLayers = currentFrame.layers ?? [];
       
@@ -714,13 +708,13 @@ export default function EditorPage() {
         fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
 
         if(cachedCanvas){
-          fCtx.drawImage(cachedCanvas, 0, 0, canvasW, canvasH);
+          fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
         }else if(layer.pixelData && layer.pixelData.trim() !== ''){
           // 만약 메모리 캐시는 날아갔지만 백업용 pixelData 문자열이 살아있다면 이미지 객체로 복구
           const img = new Image();
           await new Promise<void>((resolve) => {
             img.onload = () => {
-              fCtx.drawImage(img, 0, 0, canvasW, canvasH);
+              fCtx.drawImage(img, 0, 0, state.width, state.height);
               resolve();
             };
             img.onerror = () => resolve(); // 에러 나더라도 막히지 않게 세이프 가드
@@ -730,13 +724,13 @@ export default function EditorPage() {
         fCtx.globalAlpha = 1.0; // 투명도 원상복구
       }
       // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
-      const imageData = fCtx.getImageData(0, 0, canvasW, canvasH)
+      const imageData = fCtx.getImageData(0, 0, state.width, state.height)
       
       // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
       const palette = quantize(imageData.data, 256)
       const indexed = applyPalette(imageData.data, palette)
 
-      gif.writeFrame(indexed, canvasW, canvasH, {
+      gif.writeFrame(indexed, state.width, state.height, {
         palette,
         delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
         repeat: 0,
@@ -748,7 +742,7 @@ export default function EditorPage() {
     const blob = new Blob([gif.bytes()], { type: 'image/gif' })
     downloadBlob(blob, `${safeTitle}.gif`)
     
-  }, [projectTitle, state.frames, safeFrameIdx, canvasW, canvasH])
+  }, [projectTitle, state.frames, safeFrameIdx, state.width, state.height])
 
   // ── 새 프로젝트 ───────────────────────────────────
   const handleNewProject = useCallback(() => {
@@ -775,8 +769,8 @@ export default function EditorPage() {
           layers: [defaultLayer] // 진짜 원본 프레임 내부에 레이어 안착
         }
       ],
-      width: canvasW,
-      height: canvasH
+      width: state.width,
+      height: state.height
     });
 
     setActiveLayer(defaultLayerId);
@@ -797,7 +791,7 @@ export default function EditorPage() {
 
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
-  }, [unsaved, canvasW, canvasH, setSearchParams, setActiveLayer, reset])
+  }, [unsaved, state.width, state.height, setSearchParams, setActiveLayer, reset])
 
   // ── RGB ─────────────────
  
@@ -901,13 +895,13 @@ export default function EditorPage() {
       return {
         ...prev,
         frames: updatedFrames,
-        width: canvasW,
-        height: canvasH
+        width: state.width,
+        height: state.height
       };
     });
     setUnsaved(false);
 
-  }, [safeFrameIdx, activeLayer, setWithHistory, canvasW, canvasH]);
+  }, [safeFrameIdx, activeLayer, setWithHistory, state.width, state.height]);
 
   
   /* 프레임 선택 시 실행되는 함수 */
@@ -1303,8 +1297,8 @@ export default function EditorPage() {
 
           {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
           <div className="relative shadow-2xl"
-              style={{ width: canvasW * zoom, 
-              height: canvasH * zoom, 
+              style={{ width: state.width * zoom, 
+              height: state.height * zoom, 
               backgroundColor: '#e8e8e8' ,
               imageRendering: 'pixelated'
             }}
@@ -1319,8 +1313,8 @@ export default function EditorPage() {
             )}
             <Stage
               ref={stageRef}
-              width={canvasW * zoom}
-              height={canvasH * zoom}
+              width={state.width * zoom}
+              height={state.height * zoom}
               scaleX={zoom}
               scaleY={zoom}
               pixelRatio={1}
@@ -1352,8 +1346,8 @@ export default function EditorPage() {
                     <LayerImageRenderer 
                       layerId={layer.id}
                       pixelData={layer.pixelData}
-                      canvasW={canvasW}
-                      canvasH={canvasH}
+                      canvasW={state.width}
+                      canvasH={state.height}
                       currentFrameIdx={safeFrameIdx}
                       layerCanvasRefs={layerCanvasRefs}
                       isScaleImage = {isScaleImage}
@@ -1651,7 +1645,7 @@ export default function EditorPage() {
               <div className="grid grid-cols-3 gap-1">
                 {CANVAS_PRESETS.map(p => {
                   const [w, h] = p.split('×').map(Number)
-                  const active = canvasW === w && canvasH === h
+                  const active = state.width === w && state.height === h
                   return (
                     <button 
                       key={p} 
@@ -1834,7 +1828,7 @@ export default function EditorPage() {
       {/* ── 하단 상태바 ──────────── */}
       <footer className="flex items-center gap-6 px-5 flex-shrink-0 border-t text-sm font-bold"
         style={{ height: 42, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
-        <span>Canvas: {canvasW} × {canvasH}</span>
+        <span>Canvas: {state.width} × {state.height}</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Zoom: {Math.round(zoom * 100)}%</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
