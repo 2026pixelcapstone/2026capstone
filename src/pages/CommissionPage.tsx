@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 import { useEmailGate } from '../hooks/useEmailGate'
+import { useActiveCommissions, ACTIVE_STATUS_LABEL } from '../hooks/useActiveCommissions'
 
 // 커미션 페이지 상단 탭
 type CommissionTab = 'artists' | 'requests' | 'mine'
@@ -191,6 +192,9 @@ export default function CommissionPage() {
     // 파라미터가 아예 없으면(null) 수동 선택 탭 유지, 있으면(빈 문자열 포함) URL 기준으로 해석
     if (param !== null) setTab(resolveTab(param, isLoggedIn))
   }, [searchParams, isLoggedIn])
+
+  // E-2 배너 — 진행 중 거래 상시 노출(어느 탭에서든). 내 커미션 탭 로더와 별개로 훅으로 조회.
+  const { active: activeDeals } = useActiveCommissions()
 
   // 세션 세대 — 로그인 상태가 바뀌면 증가시켜, 진행 중이던 내 커미션 요청을 무효화한다.
   const sessionRef = useRef(0)
@@ -496,6 +500,42 @@ export default function CommissionPage() {
               </button>
             ))}
           </div>
+
+          {/* E-2: 진행 중 거래 배너 — 로그인 + 진행 중 있을 때만, 거래룸 바로가기 */}
+          {isLoggedIn && activeDeals.length > 0 && (
+            <div className="flex items-center gap-3 mt-6 p-3 rounded-xl flex-wrap"
+              style={{ background: 'color-mix(in srgb, var(--color-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)' }}>
+              <span className="flex items-center gap-1.5 text-sm font-bold shrink-0" style={{ color: 'var(--color-primary)' }}>
+                <span className="material-symbols-outlined text-lg">handshake</span>
+                진행 중인 거래 {activeDeals.length}건
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {activeDeals.slice(0, 4).map(c => (
+                  <Link key={c.commissionId} to={`/commission/${c.commissionId}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-surface-container"
+                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
+                    <span style={{ color: c.status === 'REVIEW' ? 'var(--color-secondary)' : 'var(--color-primary)' }}>
+                      {ACTIVE_STATUS_LABEL[c.status] ?? c.status}
+                    </span>
+                    <span className="line-clamp-1 max-w-40">{c.title ?? '커미션 거래'}</span>
+                    {c.unreadCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full min-w-4 text-center"
+                        style={{ background: 'var(--color-error)', color: 'var(--color-on-primary)' }}>
+                        {c.unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+                {activeDeals.length > 4 && (
+                  <button type="button" onClick={() => handleTabChange('mine')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-surface-container"
+                    style={{ color: 'var(--color-primary)' }}>
+                    +{activeDeals.length - 4}건 더
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

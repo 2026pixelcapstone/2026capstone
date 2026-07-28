@@ -266,6 +266,10 @@ export const commissionApi = {
   getMyListAsArtist: (params?: { page?: number; size?: number }) =>
     api.get<{ success: boolean; data: PageResponse<CommissionSummary> }>('/api/commissions/my/artist', { params }),
 
+  // 진행 중(IN_PROGRESS/REVIEW) 거래 전체 — 양쪽 역할 합산, 서버에서 상태 필터 (거래룸 상시 진입점용)
+  getMyActive: () =>
+    api.get<{ success: boolean; data: CommissionSummary[] }>('/api/commissions/my/active'),
+
   // 상세
   getCommission: (commissionId: number) =>
     api.get<{ success: boolean; data: CommissionResponse }>(`/api/commissions/${commissionId}`),
