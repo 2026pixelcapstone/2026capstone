@@ -3,10 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
   artistServiceApi, type ArtistServiceSummary, type ArtistServiceCreateRequest,
-  commissionApi, type CommissionSummary,
+  commissionApi, type CommissionSummary, type ArtistRatingSummary,
 } from '../api/commissionApi'
 import { galleryApi } from '../api/galleryApi'
 import CommissionList from '../components/CommissionList'
+import ArtistTrustSignal from '../components/ArtistTrustSignal'
 import DateField from '../components/DateField'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -47,11 +48,12 @@ function getAvatarGradient(id: number) {
   return AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length]
 }
 
-// 작가 카드 — 표시 전용. 포트폴리오 썸네일은 부모가 배치 조회해 props로 전달 (카드별 N+1 제거)
-function ArtistCard({ service, portfolio, portfolioLoaded }: {
+// 작가 카드 — 표시 전용. 포트폴리오 썸네일·평점은 부모가 배치 조회해 props로 전달 (카드별 N+1 제거)
+function ArtistCard({ service, portfolio, portfolioLoaded, rating }: {
   service: ArtistServiceSummary
   portfolio: string[]
   portfolioLoaded: boolean
+  rating?: ArtistRatingSummary
 }) {
   const isOpen = service.status === 'OPEN'
   const gradient = getAvatarGradient(service.serviceId)
@@ -103,13 +105,16 @@ function ArtistCard({ service, portfolio, portfolioLoaded }: {
 
       <div className="p-5 pt-9">
         {/* 작가명 + 서비스 유형 */}
-        <div className="mb-2">
+        <div className="mb-1.5">
           <span className="font-bold">{service.artistNickname?.trim() || '알 수 없음'}</span>
           <span className="ml-2 text-xs px-2 py-0.5 rounded-full"
             style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
             {service.serviceType === 'OPTION' ? '가격 고정형' : '가격 협의형'}
           </span>
         </div>
+
+        {/* 신뢰 신호 — 평점 + 완료 건수 (배치 조회) */}
+        <ArtistTrustSignal summary={rating} className="mb-3" />
 
         {/* 서비스 제목 */}
         <h3 className="text-sm font-bold mb-4 line-clamp-2" style={{ color: 'var(--color-on-surface)' }}>{service.title}</h3>
@@ -216,6 +221,8 @@ export default function CommissionPage() {
   // 작가별 포트폴리오 썸네일 (배치 조회 결과) + 로드 완료 여부
   const [portfolioMap, setPortfolioMap] = useState<Record<number, string[]>>({})
   const [portfolioLoaded, setPortfolioLoaded] = useState(false)
+  // 작가별 평점/완료건수 (배치 조회 결과)
+  const [ratingMap, setRatingMap] = useState<Record<number, ArtistRatingSummary>>({})
 
   // 의뢰 찾기 상태
   const [requests, setRequests] = useState<RequestPostSummary[]>([])
@@ -331,7 +338,7 @@ export default function CommissionPage() {
       setArtistPage(page)
       setArtistHasMore(!d.last)
 
-      // 이 페이지 작가들의 포트폴리오를 한 번에 배치 조회 (카드별 N+1 제거)
+      // 이 페이지 작가들의 포트폴리오·평점을 한 번에 배치 조회 (카드별 N+1 제거)
       const authorIds = [...new Set(d.content.map(s => s.artistId))]
       if (authorIds.length > 0) {
         try {
@@ -350,8 +357,20 @@ export default function CommissionPage() {
         } catch (e) {
           console.error('[CommissionPage] 포트폴리오 배치 로드 실패:', e)
         }
+        try {
+          const rRes = await commissionApi.getArtistRatingSummaries(authorIds)
+          const rmap = rRes.data.data
+          setRatingMap(prev => {
+            const next = page === 0 ? {} : { ...prev }
+            for (const [id, summary] of Object.entries(rmap)) next[Number(id)] = summary
+            return next
+          })
+        } catch (e) {
+          console.error('[CommissionPage] 평점 배치 로드 실패:', e)
+        }
       } else if (page === 0) {
         setPortfolioMap({})
+        setRatingMap({})
       }
       setPortfolioLoaded(true)
     } catch {
@@ -659,7 +678,8 @@ export default function CommissionPage() {
                 {filteredArtists.map(service => (
                   <ArtistCard key={service.serviceId} service={service}
                     portfolio={portfolioMap[service.artistId] ?? []}
-                    portfolioLoaded={portfolioLoaded} />
+                    portfolioLoaded={portfolioLoaded}
+                    rating={ratingMap[service.artistId]} />
                 ))}
               </div>
 

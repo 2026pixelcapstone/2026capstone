@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { artistServiceApi, commissionApi, type ArtistServiceResponse } from '../api/commissionApi'
+import { artistServiceApi, commissionApi, type ArtistServiceResponse, type ArtistRatingSummary, type CommissionReviewResponse } from '../api/commissionApi'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import ArtistTrustSignal from '../components/ArtistTrustSignal'
+import StarRating from '../components/StarRating'
 
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
 
@@ -47,6 +49,9 @@ export default function ArtistServiceDetailPage() {
   // 작가 포트폴리오 (작가의 최신 작품)
   const [portfolio, setPortfolio] = useState<GalleryPostSummary[]>([])
   const [portfolioLoading, setPortfolioLoading] = useState(false)
+  // 작가 신뢰 신호(평점·완료건수) + 리뷰 목록
+  const [rating, setRating] = useState<ArtistRatingSummary | undefined>(undefined)
+  const [reviews, setReviews] = useState<CommissionReviewResponse[]>([])
 
   // 의뢰하기 모달
   // 수정 모달 (작성자)
@@ -97,15 +102,24 @@ export default function ArtistServiceDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  // 서비스 로드 후 작가 포트폴리오(최신 작품 6개) 단일 조회
+  // 서비스 로드 후 작가 포트폴리오(6개) + 신뢰 신호(평점/완료건수) + 리뷰 목록 조회
   useEffect(() => {
     if (!service) return
+    const artistId = service.artistId
     let cancelled = false
     setPortfolioLoading(true)
-    galleryApi.getList({ authorId: service.artistId, size: 6, sort: 'createdAt,desc' })
+    galleryApi.getList({ authorId: artistId, size: 6, sort: 'createdAt,desc' })
       .then(res => { if (!cancelled) setPortfolio(res.data.data.content) })
       .catch(() => { if (!cancelled) setPortfolio([]) })
       .finally(() => { if (!cancelled) setPortfolioLoading(false) })
+
+    commissionApi.getArtistRatingSummaries([artistId])
+      .then(res => { if (!cancelled) setRating(res.data.data[artistId]) })
+      .catch(() => { if (!cancelled) setRating(undefined) })
+    commissionApi.getArtistReviews(artistId, { size: 20 })
+      .then(res => { if (!cancelled) setReviews(res.data.data.content) })
+      .catch(() => { if (!cancelled) setReviews([]) })
+
     return () => { cancelled = true }
   }, [service?.artistId])
 
@@ -299,6 +313,7 @@ export default function ArtistServiceDetailPage() {
                   <div className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
                     {service.serviceType === 'OPTION' ? '가격 고정형' : '가격 협의형'}
                   </div>
+                  <ArtistTrustSignal summary={rating} className="mt-1.5" />
                 </div>
                 <span className="px-3 py-1 rounded-full text-xs font-bold border"
                   style={isOpen
@@ -361,6 +376,54 @@ export default function ArtistServiceDetailPage() {
                         <p className="text-xs font-bold text-white text-center line-clamp-2">{w.title}</p>
                       </div>
                     </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 작가 리뷰 */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="font-bold text-lg">작가 리뷰</h2>
+                {rating && rating.reviewCount > 0 && (
+                  <span className="flex items-center gap-1 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    <StarRating value={rating.average} size={16} />
+                    <span className="font-bold" style={{ color: 'var(--color-on-surface)' }}>{rating.average.toFixed(1)}</span>
+                    <span>({rating.reviewCount})</span>
+                  </span>
+                )}
+              </div>
+              {reviews.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl border"
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+                  <span className="material-symbols-outlined text-3xl" style={{ color: 'var(--color-outline)' }}>reviews</span>
+                  <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>아직 리뷰가 없습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map(r => (
+                    <div key={r.reviewId} className="rounded-2xl border p-4"
+                      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {r.reviewerProfileImageUrl ? (
+                          <img src={r.reviewerProfileImageUrl} alt={r.reviewerNickname ?? ''}
+                            className="w-7 h-7 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
+                            {(r.reviewerNickname ?? '?')[0].toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-sm font-bold">{r.reviewerNickname ?? '알 수 없음'}</span>
+                        <StarRating value={r.rating} size={14} />
+                        <span className="text-xs ml-auto" style={{ color: 'var(--color-on-surface-variant)' }}>
+                          {new Date(r.createdAt).toLocaleDateString('ko-KR')}
+                        </span>
+                      </div>
+                      {r.content && (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-on-surface)' }}>{r.content}</p>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
