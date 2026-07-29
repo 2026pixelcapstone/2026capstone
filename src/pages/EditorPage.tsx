@@ -25,6 +25,8 @@ type MenuItem =
   | { separator: true }
   | { label: string; shortcut?: string; icon?: string; action?: () => void; disabled?: boolean }
 
+const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
+
 // ── 컴포넌트 ──────────────────────────────────────────
 export default function EditorPage() {
   
@@ -45,13 +47,13 @@ export default function EditorPage() {
   const [isHexModal, setIsHexModal] = useState(false)
 
   // ── 히스토리 훅 ──────────────────────────
-  const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
+
   const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── View 상태 ──────────────────────────
-  const {zoom, setZoomIdx} = useCanvasView(state.width, state.height)
-  const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 })
-  const [isScaleImage, setIsScaleImage] = useState(false)
+  const {zoom, setZoomIdx} = useCanvasView();
+  const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 });
+  const [isScaleImage, setIsScaleImage] = useState(false);
 
   // ── 애니메이션 상태 및 훅 ──────────────────────────
   const[currentFrameIdx, setCurrentFrameIdx] = useState(0);
@@ -394,6 +396,12 @@ export default function EditorPage() {
     if (isDrawing.current) drawPixel()
   }
 
+  // --------  state.width/height 변경 시 CustomW/H 동기화 -----------
+  useEffect(() => {
+    setCustomW(state.width);
+    setCustomH(state.height);
+  }, [state.width, state.height])
+
   // -------- 캔버스 크기 변경 -----------
   const applyCanvasSize = (w: number, h: number) => {
     if(state.width === w && state.height === h){
@@ -511,15 +519,21 @@ export default function EditorPage() {
         setProjectTitle(proj.title)
         setCustomW(proj.width)
         setCustomH(proj.height)
-        if (restoredFrames.length > 0) {
-          reset({
-            frames: restoredFrames,
-            width: proj.width,
-            height: proj.height,
-          })
-          const firstLayerId = restoredFrames[0]?.layers[0]?.id
-          if (firstLayerId) setActiveLayer(firstLayerId)
-        }
+        
+        // 1. 프레임 데이터 결정 (불러온 프레임이 있으면 사용하고, 없으면 기본 프레임 생성 또는 기존 프레임 유지)
+        const framesToReset = restoredFrames.length > 0 
+          ? restoredFrames 
+          : createInitialCanvasData().frames; // 또는 prev/기존 frames 사용
+        
+        reset({
+          frames: framesToReset,
+          width: proj.width,
+          height: proj.height,
+        })
+
+        const firstLayerId = framesToReset[0]?.layers[0]?.id
+        if (firstLayerId) setActiveLayer(firstLayerId)
+          
         setUnsaved(false)
       } catch {
         if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
@@ -1339,7 +1353,6 @@ export default function EditorPage() {
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .filter((layer) => layer.isVisible)
                 .map((layer) => (
-                  //  <KonvaLayer key={`${layer.id}-${canvasW}-${canvasH}`} 
                   <KonvaLayer key={layer.id} id={layer.id} opacity={layer.opacity / 100}>
                     
                     {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
