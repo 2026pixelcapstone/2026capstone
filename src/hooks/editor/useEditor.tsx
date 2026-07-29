@@ -8,8 +8,6 @@ import api from "../../lib/axios";
 export const useEditor = ({
     stageRef,
     layerCanvasRefs,
-    canvasW,
-    canvasH,
     state,
     isLoggedIn,
     setUnsaved,
@@ -106,8 +104,8 @@ export const useEditor = ({
             if (!pid) {
                 const res = await editorApi.createProject({
                     title: nextTitle,
-                    width: canvasW,
-                    height: canvasH,
+                    width: state.width,
+                    height: state.height,
                     isPublic: nextIsPublic,
                     thumbnailUrl: uploadedThumbUrl
                 });
@@ -157,7 +155,7 @@ export const useEditor = ({
             setSaving(false); // 성공하든 실패하든 무조건 락을 해제하여 다음 저장을 허용합니다.
         }
 
-    }, [isLoggedIn, saving, projectId, projectTitle, canvasW, canvasH, stageRef, setSearchParams, state.frames, layerCanvasRefs])
+    }, [isLoggedIn, saving, projectId, projectTitle, state.width, state.height, stageRef, setSearchParams, state.frames, layerCanvasRefs])
 
     const openSaveModal = useCallback(() => {
         if (!isLoggedIn) {
