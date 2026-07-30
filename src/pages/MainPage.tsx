@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { assetApi, type AssetSummary } from '../api/assetApi'
-import { artistServiceApi, commissionApi, type ArtistServiceSummary, type CommissionSummary } from '../api/commissionApi'
+import { artistServiceApi, type ArtistServiceSummary } from '../api/commissionApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
+import { useActiveCommissions } from '../hooks/useActiveCommissions'
 
 // thumbnailUrl 없을 때 postId 기반 그라디언트 placeholder
 const GRADIENTS = [
@@ -32,11 +33,6 @@ function formatServicePrice(s: ArtistServiceSummary) {
   if (s.priceMin != null) return `₩${s.priceMin.toLocaleString()} ~`
   if (s.priceMax != null) return `~ ₩${s.priceMax.toLocaleString()}`
   return '가격 협의'
-}
-
-// 진행 중 거래 (역할 표시용)
-interface ActiveCommission extends CommissionSummary {
-  role: 'client' | 'artist'
 }
 
 // 스켈레톤 카드
@@ -76,8 +72,10 @@ export default function MainPage() {
   const [recent, setRecent] = useState<GalleryPostSummary[]>([])
   const [assets, setAssets] = useState<AssetSummary[]>([])
   const [services, setServices] = useState<ArtistServiceSummary[]>([])
-  const [active, setActive] = useState<ActiveCommission[]>([])
   const [loading, setLoading] = useState(true)
+
+  // 진행 중 거래 (E-3 카드) — Navbar/커미션 배너와 공유하는 스토어에서 조회 (요청 dedupe·race 가드 일원화)
+  const { active } = useActiveCommissions()
 
   // 로그인 사용자는 차단 목록 로드 완료까지 스켈레톤 유지 (차단 항목 flash 방지)
   const showSkeleton = loading || (isLoggedIn && !blocksLoaded)
@@ -116,33 +114,6 @@ export default function MainPage() {
       })
       .finally(() => setLoading(false))
   }, [])
-
-  // 진행 중 거래 (로그인 시) — 의뢰자/작가 양쪽 합산, IN_PROGRESS/REVIEW만
-  useEffect(() => {
-    if (!isLoggedIn) { setActive([]); return }
-    // 로그아웃(또는 계정 전환)으로 effect가 재실행되면 이전 요청 결과는 버린다.
-    // (안 그러면 뒤늦게 도착한 이전 사용자의 거래 정보가 로그아웃 후 노출될 수 있음)
-    let ignore = false
-    Promise.allSettled([
-      commissionApi.getMyListAsClient({ size: 20 }),
-      commissionApi.getMyListAsArtist({ size: 20 }),
-    ]).then(([c, a]) => {
-      if (ignore) return
-      const merged: ActiveCommission[] = []
-      if (c.status === 'fulfilled')
-        merged.push(...c.value.data.data.content.map(x => ({ ...x, role: 'client' as const })))
-      if (a.status === 'fulfilled')
-        merged.push(...a.value.data.data.content.map(x => ({ ...x, role: 'artist' as const })))
-      const seen = new Set<number>()
-      setActive(
-        merged
-          .filter(x => (x.status === 'IN_PROGRESS' || x.status === 'REVIEW'))
-          .filter(x => (seen.has(x.commissionId) ? false : (seen.add(x.commissionId), true)))
-          .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
-      )
-    })
-    return () => { ignore = true }
-  }, [isLoggedIn])
 
   const visibleHot = useMemo(() => filterPosts(hot), [hot, filterPosts])
   const visibleRecent = useMemo(() => filterPosts(recent), [recent, filterPosts])
