@@ -106,12 +106,16 @@ export default function ArtistServiceDetailPage() {
   }, [id])
 
   const REVIEW_PAGE_SIZE = 10
+  // 리뷰 요청 세대 — 작가(서비스)가 바뀔 때마다 증가. effect뿐 아니라 "더 보기"(별도 함수)도
+  // 이 토큰으로 무효화해, 이전 작가의 늦은 페이지 응답이 새 작가 목록에 섞이지 않게 한다.
+  const reviewGenRef = useRef(0)
 
   // 서비스 로드 후 작가 포트폴리오(6개) + 신뢰 신호(평점/완료건수) + 리뷰 첫 페이지 조회.
   // 작가가 바뀌면 이전 작가 데이터를 즉시 비워, 새 응답 도착 전 옛 정보가 보이지 않게 한다.
   useEffect(() => {
     if (!service) return
     const artistId = service.artistId
+    const gen = ++reviewGenRef.current   // 이 로드의 세대
     let cancelled = false
 
     setPortfolioLoading(true)
@@ -131,29 +135,31 @@ export default function ArtistServiceDetailPage() {
       .catch(() => { if (!cancelled) setRating(undefined) })
     commissionApi.getArtistReviews(artistId, { page: 0, size: REVIEW_PAGE_SIZE })
       .then(res => {
-        if (cancelled) return
+        if (gen !== reviewGenRef.current) return   // 그새 작가 바뀜 → 폐기
         setReviews(res.data.data.content)
         setReviewHasMore(!res.data.data.last)
       })
-      .catch(() => { if (!cancelled) { setReviews([]); setReviewHasMore(false) } })
+      .catch(() => { if (gen === reviewGenRef.current) { setReviews([]); setReviewHasMore(false) } })
 
     return () => { cancelled = true }
   }, [service?.artistId])
 
-  // 리뷰 더 보기 (다음 페이지 누적)
+  // 리뷰 더 보기 (다음 페이지 누적) — 세대 토큰으로 이전 작가 응답 섞임 방지
   const loadMoreReviews = async () => {
     if (!service || reviewLoadingMore) return
+    const gen = reviewGenRef.current
     const next = reviewPage + 1
     setReviewLoadingMore(true)
     try {
       const res = await commissionApi.getArtistReviews(service.artistId, { page: next, size: REVIEW_PAGE_SIZE })
+      if (gen !== reviewGenRef.current) return   // 로딩 중 작가 바뀜 → 응답 폐기
       setReviews(prev => [...prev, ...res.data.data.content])
       setReviewPage(next)
       setReviewHasMore(!res.data.data.last)
     } catch {
-      toast.error('리뷰를 더 불러오지 못했습니다.')
+      if (gen === reviewGenRef.current) toast.error('리뷰를 더 불러오지 못했습니다.')
     } finally {
-      setReviewLoadingMore(false)
+      if (gen === reviewGenRef.current) setReviewLoadingMore(false)
     }
   }
 
