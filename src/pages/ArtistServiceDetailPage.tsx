@@ -124,6 +124,7 @@ export default function ArtistServiceDetailPage() {
     setReviews([])
     setReviewPage(0)
     setReviewHasMore(false)
+    setReviewLoadingMore(false)   // 이전 작가에서 "더 보기" 진행 중 전환 시 버튼이 로딩 상태로 고착되는 것 방지
 
     galleryApi.getList({ authorId: artistId, size: 6, sort: 'createdAt,desc' })
       .then(res => { if (!cancelled) setPortfolio(res.data.data.content) })
