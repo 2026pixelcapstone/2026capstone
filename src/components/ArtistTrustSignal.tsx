@@ -1,8 +1,8 @@
 import StarRating from './StarRating'
 import type { ArtistRatingSummary } from '../api/commissionApi'
 
-// 리뷰 4개 미만이면 "평가 부족"(에셋 평점 정책과 동일)
-const MIN_REVIEWS = 4
+// 리뷰 이 개수 미만이면 평균을 숨기고 "평가 부족"으로 표시(에셋 평점 정책과 동일). 상세 화면도 이 기준 공유.
+export const MIN_REVIEWS = 4
 
 /**
  * 작가 신뢰 신호 — 별점+평균+리뷰수(또는 "평가 부족") + 완료 거래 건수.

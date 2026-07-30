@@ -84,6 +84,7 @@ export default function CommissionReviewModal({
               value={content}
               onChange={e => setContent(e.target.value)}
               maxLength={2000}
+              aria-label="리뷰 내용"
               placeholder="작업 퀄리티, 소통, 일정 등 후기를 남겨주세요. (선택)"
               className="w-full h-28 px-3 py-2 rounded-lg text-sm outline-none resize-none mb-1"
               style={{ background: 'var(--color-background)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}

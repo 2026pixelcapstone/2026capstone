@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { useFocusTrap } from '../hooks/useFocusTrap'
-import ArtistTrustSignal from '../components/ArtistTrustSignal'
+import ArtistTrustSignal, { MIN_REVIEWS } from '../components/ArtistTrustSignal'
 import StarRating from '../components/StarRating'
 
 const SERVICE_CATEGORIES = ['캐릭터', '배경/환경', '애니메이션', '게임 에셋', '초상화', '기타']
@@ -49,9 +49,12 @@ export default function ArtistServiceDetailPage() {
   // 작가 포트폴리오 (작가의 최신 작품)
   const [portfolio, setPortfolio] = useState<GalleryPostSummary[]>([])
   const [portfolioLoading, setPortfolioLoading] = useState(false)
-  // 작가 신뢰 신호(평점·완료건수) + 리뷰 목록
+  // 작가 신뢰 신호(평점·완료건수) + 리뷰 목록(페이지네이션)
   const [rating, setRating] = useState<ArtistRatingSummary | undefined>(undefined)
   const [reviews, setReviews] = useState<CommissionReviewResponse[]>([])
+  const [reviewPage, setReviewPage] = useState(0)
+  const [reviewHasMore, setReviewHasMore] = useState(false)
+  const [reviewLoadingMore, setReviewLoadingMore] = useState(false)
 
   // 의뢰하기 모달
   // 수정 모달 (작성자)
@@ -102,12 +105,22 @@ export default function ArtistServiceDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  // 서비스 로드 후 작가 포트폴리오(6개) + 신뢰 신호(평점/완료건수) + 리뷰 목록 조회
+  const REVIEW_PAGE_SIZE = 10
+
+  // 서비스 로드 후 작가 포트폴리오(6개) + 신뢰 신호(평점/완료건수) + 리뷰 첫 페이지 조회.
+  // 작가가 바뀌면 이전 작가 데이터를 즉시 비워, 새 응답 도착 전 옛 정보가 보이지 않게 한다.
   useEffect(() => {
     if (!service) return
     const artistId = service.artistId
     let cancelled = false
+
     setPortfolioLoading(true)
+    setPortfolio([])
+    setRating(undefined)
+    setReviews([])
+    setReviewPage(0)
+    setReviewHasMore(false)
+
     galleryApi.getList({ authorId: artistId, size: 6, sort: 'createdAt,desc' })
       .then(res => { if (!cancelled) setPortfolio(res.data.data.content) })
       .catch(() => { if (!cancelled) setPortfolio([]) })
@@ -116,12 +129,33 @@ export default function ArtistServiceDetailPage() {
     commissionApi.getArtistRatingSummaries([artistId])
       .then(res => { if (!cancelled) setRating(res.data.data[artistId]) })
       .catch(() => { if (!cancelled) setRating(undefined) })
-    commissionApi.getArtistReviews(artistId, { size: 20 })
-      .then(res => { if (!cancelled) setReviews(res.data.data.content) })
-      .catch(() => { if (!cancelled) setReviews([]) })
+    commissionApi.getArtistReviews(artistId, { page: 0, size: REVIEW_PAGE_SIZE })
+      .then(res => {
+        if (cancelled) return
+        setReviews(res.data.data.content)
+        setReviewHasMore(!res.data.data.last)
+      })
+      .catch(() => { if (!cancelled) { setReviews([]); setReviewHasMore(false) } })
 
     return () => { cancelled = true }
   }, [service?.artistId])
+
+  // 리뷰 더 보기 (다음 페이지 누적)
+  const loadMoreReviews = async () => {
+    if (!service || reviewLoadingMore) return
+    const next = reviewPage + 1
+    setReviewLoadingMore(true)
+    try {
+      const res = await commissionApi.getArtistReviews(service.artistId, { page: next, size: REVIEW_PAGE_SIZE })
+      setReviews(prev => [...prev, ...res.data.data.content])
+      setReviewPage(next)
+      setReviewHasMore(!res.data.data.last)
+    } catch {
+      toast.error('리뷰를 더 불러오지 못했습니다.')
+    } finally {
+      setReviewLoadingMore(false)
+    }
+  }
 
   const handleClose = async () => {
     if (!service) return
@@ -385,13 +419,16 @@ export default function ArtistServiceDetailPage() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <h2 className="font-bold text-lg">작가 리뷰</h2>
-                {rating && rating.reviewCount > 0 && (
+                {rating && rating.reviewCount >= MIN_REVIEWS ? (
                   <span className="flex items-center gap-1 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
                     <StarRating value={rating.average} size={16} />
                     <span className="font-bold" style={{ color: 'var(--color-on-surface)' }}>{rating.average.toFixed(1)}</span>
                     <span>({rating.reviewCount})</span>
                   </span>
-                )}
+                ) : rating && rating.reviewCount > 0 ? (
+                  // 4건 미만은 카드 정책과 동일하게 평균을 감추고 개수만 표기(과대평가 방지)
+                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>평가 부족 ({rating.reviewCount})</span>
+                ) : null}
               </div>
               {reviews.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl border"
@@ -425,6 +462,13 @@ export default function ArtistServiceDetailPage() {
                       )}
                     </div>
                   ))}
+                  {reviewHasMore && (
+                    <button type="button" onClick={loadMoreReviews} disabled={reviewLoadingMore}
+                      className="w-full py-3 rounded-xl font-bold text-sm transition-colors hover:bg-surface-container disabled:opacity-50"
+                      style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
+                      {reviewLoadingMore ? '불러오는 중…' : '리뷰 더 보기'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
