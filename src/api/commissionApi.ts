@@ -253,10 +253,46 @@ export interface CommissionCreateRequest {
   agreedDeadline?: string       // 'YYYY-MM-DD'
 }
 
+// ─── 리뷰 (commission_reviews) ───────────────────────────────────────────────
+
+export interface CommissionReviewResponse {
+  reviewId: number
+  commissionId: number
+  reviewerId: number
+  reviewerNickname: string | null
+  reviewerProfileImageUrl: string | null
+  artistId: number
+  rating: number
+  content: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+// 작가별 신뢰 신호 (카드/상세) — reviewCount 4 미만이면 프론트에서 "평가 부족"
+export interface ArtistRatingSummary {
+  average: number
+  reviewCount: number
+  completedCount: number
+}
+
 export const commissionApi = {
   // 의뢰 직접 생성 (작가 서비스에서 의뢰하기)
   createCommission: (data: CommissionCreateRequest) =>
     api.post<{ success: boolean; data: CommissionResponse }>('/api/commissions', data),
+
+  // ── 리뷰 ──
+  // 리뷰 작성/수정 (의뢰자·COMPLETED·거래당 1건)
+  writeReview: (commissionId: number, data: { rating: number; content?: string }) =>
+    api.post<{ success: boolean; data: CommissionReviewResponse }>(`/api/commissions/${commissionId}/review`, data),
+  // 내 리뷰 조회 (작성 폼 프리필) — 없으면 data=null
+  getMyReview: (commissionId: number) =>
+    api.get<{ success: boolean; data: CommissionReviewResponse | null }>(`/api/commissions/${commissionId}/review`),
+  // 작가 리뷰 목록 (공개)
+  getArtistReviews: (artistId: number, params?: { page?: number; size?: number }) =>
+    api.get<{ success: boolean; data: PageResponse<CommissionReviewResponse> }>(`/api/commissions/artists/${artistId}/reviews`, { params }),
+  // 작가별 평점+완료건수 배치 (공개, 카드용)
+  getArtistRatingSummaries: (artistIds: number[]) =>
+    api.get<{ success: boolean; data: Record<number, ArtistRatingSummary> }>('/api/commissions/artists/rating-summary', { params: { artistIds: artistIds.join(',') } }),
 
   // 내 계약 목록 (의뢰자)
   getMyListAsClient: (params?: { page?: number; size?: number }) =>
