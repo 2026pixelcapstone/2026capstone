@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
@@ -10,6 +10,7 @@ import CommissionList from '../components/CommissionList'
 import ArtistTrustSignal from '../components/ArtistTrustSignal'
 import DateField from '../components/DateField'
 import { useAuthStore } from '../store/authStore'
+import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 import { useEmailGate } from '../hooks/useEmailGate'
@@ -186,6 +187,8 @@ function resolveTab(param: string | null, isLoggedIn: boolean): CommissionTab {
 
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
+  // 탐색 목록(작가 찾기·의뢰 게시판)에서 차단한 사용자를 숨기기 위한 차단 목록.
+  const { blockedUserIds, loaded: blocksLoaded } = useBlockStore()
   // ?tab=mine|requests 로 직접 진입 지원 (메인 "내 커미션 전체" 링크 등)
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<CommissionTab>(() => resolveTab(searchParams.get('tab'), isLoggedIn))
@@ -473,9 +476,22 @@ export default function CommissionPage() {
     }
   }
 
-  // 검색·필터·정렬은 서버에서 처리하므로 목록을 그대로 사용
-  const filteredArtists = artists
-  const filteredRequests = requests
+  // 검색·필터·정렬은 서버에서 처리하므로 목록은 그대로 두고, 차단 사용자만 클라이언트에서 걸러낸다.
+  // 갤러리/에셋과 동일하게 로그인 + 차단목록 로드 완료일 때만 적용(로드 전 플래시 방지).
+  // ⚠️ 거래(내 커미션 탭·거래룸·E-2 진행 중 배너)는 계약 화면이라 차단을 적용하지 않는다 —
+  //    진행 중이던 상대를 차단해도 거래 접근을 잃어선 안 되므로 탐색 목록에만 건다.
+  const filteredArtists = useMemo(
+    () => (isLoggedIn && blocksLoaded
+      ? artists.filter(a => !blockedUserIds.includes(a.artistId))
+      : artists),
+    [artists, isLoggedIn, blocksLoaded, blockedUserIds],
+  )
+  const filteredRequests = useMemo(
+    () => (isLoggedIn && blocksLoaded
+      ? requests.filter(r => !blockedUserIds.includes(r.clientId))
+      : requests),
+    [requests, isLoggedIn, blocksLoaded, blockedUserIds],
+  )
 
   return (
     <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
