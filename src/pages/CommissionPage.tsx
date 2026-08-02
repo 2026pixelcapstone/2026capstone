@@ -657,7 +657,7 @@ export default function CommissionPage() {
                 </div>
               ))}
             </div>
-          ) : filteredArtists.length === 0 ? (
+          ) : artists.length === 0 ? (
             <div className="flex items-center justify-center py-24 rounded-2xl border"
               style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
               <div className="text-center">
@@ -690,6 +690,14 @@ export default function CommissionPage() {
             </div>
           ) : (
             <>
+              {/* 원본 목록엔 항목이 있으나 전부 차단 사용자라 필터로 비어버린 경우 —
+                  "없음" 오해를 막고, 다음 페이지 접근을 위해 더 보기 버튼을 유지한다. */}
+              {filteredArtists.length === 0 && (
+                <div className="flex items-center justify-center py-16 rounded-2xl border"
+                  style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
+                  <p className="text-sm text-center">차단한 사용자만 있어 이 페이지에 표시할 서비스가 없습니다.{artistHasMore ? ' 아래 "더 보기"로 다음 페이지를 확인하세요.' : ''}</p>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-6">
                 {filteredArtists.map(service => (
                   <ArtistCard key={service.serviceId} service={service}
@@ -724,7 +732,7 @@ export default function CommissionPage() {
                     style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)', height: 180 }} />
                 ))}
               </div>
-            ) : filteredRequests.length === 0 ? (
+            ) : requests.length === 0 ? (
               <div className="flex items-center justify-center py-24 rounded-2xl border"
                 style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
                 <div className="text-center">
@@ -754,6 +762,13 @@ export default function CommissionPage() {
               </div>
             ) : (
               <>
+                {/* 전부 차단 사용자라 필터로 비어버린 경우 — 더 보기 버튼 유지(작가 탭과 동일) */}
+                {filteredRequests.length === 0 && (
+                  <div className="flex items-center justify-center py-16 rounded-2xl border"
+                    style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
+                    <p className="text-sm text-center">차단한 사용자만 있어 이 페이지에 표시할 의뢰가 없습니다.{reqHasMore ? ' 아래 "더 보기"로 다음 페이지를 확인하세요.' : ''}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-3 gap-6">
                   {filteredRequests.map(req => {
                     const isOpen = req.status === 'OPEN'
