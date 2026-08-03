@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { LayerData } from '../constants/editorType'
-import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
+import { LayerData } from '../type/editorType'
+import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
-import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
-import EditorOpenProjectModal from '../components/EditorOpenProjectModal'
+import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
+import EditorOpenProjectModal from '../components/editor/EditorOpenProjectModal'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -20,10 +20,7 @@ import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
-
-type MenuItem =
-  | { separator: true }
-  | { label: string; shortcut?: string; icon?: string; action?: () => void; disabled?: boolean }
+import MenuBar from '../components/editor/MenuBar'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -421,7 +418,6 @@ export default function EditorPage() {
     setOpenMenu(null);
   }
 
-
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
   useEffect(() => {
     const stageContainer = stageRef.current?.container();
@@ -574,7 +570,6 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [openSaveModal, undo, redo])
 
-
   // ── PNG/GIF 내보내기 ──────────────────────────────────
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
@@ -586,6 +581,88 @@ export default function EditorPage() {
 
     URL.revokeObjectURL(url)
   }
+
+  const handleExportImage = useCallback(async() => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    const safeTitle = projectTitle.replace(/\s+/g, '_')
+
+    // 단일 프레임 처리
+    if(state.frames.length <= 1){
+      const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
+      const link = document.createElement('a');
+      link.download = `${safeTitle}.png`;
+      link.href = currentFullImage;
+      link.click();
+      return;
+    }
+    
+    // 멀티 프레임 일 때
+    const gif = GIFEncoder()
+
+    // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
+    for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
+      const currentFrame = state.frames[fIdx];
+      if (!currentFrame) continue;
+      
+      // 가상 도화지(가상 캔버스) 생성 및 안전장치
+      const frameCanvas = document.createElement('canvas')
+      frameCanvas.width = state.width
+      frameCanvas.height = state.height
+      const fCtx = frameCanvas.getContext('2d')
+      
+      if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
+      
+      fCtx.imageSmoothingEnabled = false
+      fCtx.clearRect(0, 0, state.width, state.height)
+
+      const currentFrameLayers = currentFrame.layers ?? [];
+      
+      for(const layer of currentFrameLayers){
+        if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
+        
+        const cacheKey = getCacheKey(fIdx, layer.id);
+        const cachedCanvas = layerCanvasRefs.current[cacheKey];
+
+        fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+
+        if(cachedCanvas){
+          fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
+        }else if(layer.pixelData && layer.pixelData.trim() !== ''){
+          // 만약 메모리 캐시는 날아갔지만 백업용 pixelData 문자열이 살아있다면 이미지 객체로 복구
+          const img = new Image();
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              fCtx.drawImage(img, 0, 0, state.width, state.height);
+              resolve();
+            };
+            img.onerror = () => resolve(); // 에러 나더라도 막히지 않게 세이프 가드
+            img.src = layer.pixelData;
+          });
+        }
+        fCtx.globalAlpha = 1.0; // 투명도 원상복구
+      }
+      // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
+      const imageData = fCtx.getImageData(0, 0, state.width, state.height)
+      
+      // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
+      const palette = quantize(imageData.data, 256)
+      const indexed = applyPalette(imageData.data, palette)
+
+      gif.writeFrame(indexed, state.width, state.height, {
+        palette,
+        delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
+        repeat: 0,
+      })
+    }
+
+    gif.finish()
+
+    const blob = new Blob([gif.bytes()], { type: 'image/gif' })
+    downloadBlob(blob, `${safeTitle}.gif`)
+    
+  }, [projectTitle, state.frames, safeFrameIdx, state.width, state.height])
 
   // ── .ppit 내보내기/불러오기 ───────────────────────────
   const safeFileName = (title: string) =>
@@ -675,88 +752,9 @@ export default function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, loadPpitText])
 
-  
-  const handleExportImage = useCallback(async() => {
-    const stage = stageRef.current
-    if (!stage) return
-
-    const safeTitle = projectTitle.replace(/\s+/g, '_')
-
-    // 단일 프레임 처리
-    if(state.frames.length <= 1){
-      const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
-      const link = document.createElement('a');
-      link.download = `${safeTitle}.png`;
-      link.href = currentFullImage;
-      link.click();
-      return;
-    }
-    
-    // 멀티 프레임 일 때
-    const gif = GIFEncoder()
-
-    // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
-    for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
-      const currentFrame = state.frames[fIdx];
-      if (!currentFrame) continue;
-      
-      // 가상 도화지(가상 캔버스) 생성 및 안전장치
-      const frameCanvas = document.createElement('canvas')
-      frameCanvas.width = state.width
-      frameCanvas.height = state.height
-      const fCtx = frameCanvas.getContext('2d')
-      
-      if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
-      
-      fCtx.imageSmoothingEnabled = false
-      fCtx.clearRect(0, 0, state.width, state.height)
-
-      const currentFrameLayers = currentFrame.layers ?? [];
-      
-      for(const layer of currentFrameLayers){
-        if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
-        
-        const cacheKey = getCacheKey(fIdx, layer.id);
-        const cachedCanvas = layerCanvasRefs.current[cacheKey];
-
-        fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
-
-        if(cachedCanvas){
-          fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
-        }else if(layer.pixelData && layer.pixelData.trim() !== ''){
-          // 만약 메모리 캐시는 날아갔지만 백업용 pixelData 문자열이 살아있다면 이미지 객체로 복구
-          const img = new Image();
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              fCtx.drawImage(img, 0, 0, state.width, state.height);
-              resolve();
-            };
-            img.onerror = () => resolve(); // 에러 나더라도 막히지 않게 세이프 가드
-            img.src = layer.pixelData;
-          });
-        }
-        fCtx.globalAlpha = 1.0; // 투명도 원상복구
-      }
-      // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
-      const imageData = fCtx.getImageData(0, 0, state.width, state.height)
-      
-      // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
-      const palette = quantize(imageData.data, 256)
-      const indexed = applyPalette(imageData.data, palette)
-
-      gif.writeFrame(indexed, state.width, state.height, {
-        palette,
-        delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
-        repeat: 0,
-      })
-    }
-
-    gif.finish()
-
-    const blob = new Blob([gif.bytes()], { type: 'image/gif' })
-    downloadBlob(blob, `${safeTitle}.gif`)
-    
-  }, [projectTitle, state.frames, safeFrameIdx, state.width, state.height])
+  const handleOpenPpit = () => {
+    ppitInputRef.current?.click();
+  }
 
   // ── 새 프로젝트 ───────────────────────────────────
   const handleNewProject = useCallback(() => {
@@ -1035,90 +1033,6 @@ export default function EditorPage() {
     e.preventDefault(); 
   };
 
-  // ── 메뉴 정의 (actions can reference state) ──
-  const MENU_DEFS: { id: string; label: string; items: MenuItem[] }[] = [
-    {
-      id: 'file', label: 'File',
-      items: [
-        { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
-        { label: 'Open Project…',     icon: 'folder',        action: () => { setOpenProjectModalOpen(true); setOpenMenu(null) } },
-        { label: 'Open .ppit…',       icon: 'folder_open',   action: () => { ppitInputRef.current?.click(); setOpenMenu(null) } },
-        { separator: true },
-        { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { openSaveModal(); setOpenMenu(null) } },
-        //{ label: 'Save As…',          icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },
-        { label: 'Browser Save',       icon: 'open_in_browser', shortcut: 'Ctrl + Shift + S'},
-        { separator: true },
-        { label: 'Export Image',      icon: 'image',         action: () => { handleExportImage(); setOpenMenu(null) } },
-        { label: 'Export Spritesheet',      icon: 'grid_on' },
-        { label: 'Download .ppit',          icon: 'download', action: () => { handleExportPpit(); setOpenMenu(null) } },
-        { separator: true },
-        { label: 'Back to Main',       icon: 'arrow_back', action: () => { window.location.href = '/' } },
-      ],
-    },
-    {
-      id: 'edit', label: 'Edit',
-      items: [
-        { label: 'Undo',       icon: 'undo',        shortcut: 'Ctrl+Z', action: () => {undo(); setOpenMenu(null)}},
-        { label: 'Redo',       icon: 'redo',        shortcut: 'Ctrl+Y', action: () => {redo(); setOpenMenu(null)}},
-        { separator: true },
-        { label: 'Cut',        icon: 'content_cut',  shortcut: 'Ctrl+X' },
-        { label: 'Copy',       icon: 'content_copy', shortcut: 'Ctrl+C' },
-        { label: 'Paste',      icon: 'content_paste',shortcut: 'Ctrl+V' },
-        { label: 'RESIZE',     icon: 'crop', shortcut: 'Ctrl + Alt + C'},
-        { separator: true },
-        { label: 'Select All', icon: 'select_all',   shortcut: 'Ctrl+A' },
-        { label: 'Deselect',   icon: 'deselect',     shortcut: 'Ctrl+D' },
-      ],
-    },
-    {
-      id: 'image', label: 'Image',
-      items: [
-        /*
-        { label: 'Canvas Size…',     icon: 'crop',      action: () => {} },
-        ...CANVAS_PRESETS.map(p => ({
-          label: p,
-          action: () => {
-            const [w, h] = p.split('×').map(Number)
-            applyCanvasSize(w, h)
-          },
-        })),*/
-        { separator: true },
-        { label: 'Flip Horizontal',  icon: 'flip' },
-        { label: 'Flip Vertical',    icon: 'flip', },
-        { label: 'Rotate 90° CW',    icon: 'rotate_right' },
-      ],
-    },
-    {
-      id: 'view', label: 'View',
-      items: [
-        { label: 'Fit Screen', icon: 'fit_screen',              action: () => { setZoomIdx(6); setOpenMenu(null) } },
-        { label: '100%',       icon: 'crop_free',               action: () => { setZoomIdx(ZOOM_LEVELS.indexOf(1) >= 0 ? ZOOM_LEVELS.indexOf(1) : 0); setOpenMenu(null) } },
-        { separator: true },
-        { label: showGridLines ? 'Hide Grid' : 'Show Grid', icon: 'grid_on', action: () => { setShowGridLines(v => !v); setOpenMenu(null) } },
-      ],
-    },
-    {
-      id: 'layer', label: 'Layer',
-      items: [
-        { label: 'Add Layer',    icon: 'add' },
-        { label: 'Delete Layer', icon: 'delete' },
-        { label: 'Duplicate',    icon: 'copy_all' },
-        { separator: true },
-        { label: 'Move Up',      icon: 'arrow_upward' },
-        { label: 'Move Down',    icon: 'arrow_downward' },
-        { separator: true },
-        { label: 'Merge Visible',icon: 'merge' },
-        { label: 'Flatten',      icon: 'layers_clear' },
-      ],
-    },
-    {
-      id: 'AI Assistant', label: 'AI Assistant',
-      items:[
-        {label: 'AI Guide', icon: 'auto_awesome', action: () => setShowAIGuide(!showAIGuide)},
-      ],
-    },
-  ]
-
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
     <div className="fixed inset-0 top-0 flex flex-col" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', zIndex: 60 }}>
@@ -1158,51 +1072,39 @@ export default function EditorPage() {
           <a href="/" className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-surface-container transition-colors"
             style={{ color: 'var(--color-primary)' }}>
             <span className="material-symbols-outlined text-base">grid_view</span>
-            PixelHub
+            PixelPilot
           </a>
 
-          <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
-
-          {/* 메뉴 항목들 */}
-          {MENU_DEFS.map(menu => (
-            <div key={menu.id} className="relative h-full flex items-center">
-              <button
-                onClick={() => setOpenMenu(openMenu === menu.id ? null : menu.id)}
-                className="px-3 h-full text-sm transition-colors"
-                style={{
-                  color: openMenu === menu.id ? 'var(--color-on-surface)' : 'var(--color-on-surface)',
-                  background: openMenu === menu.id ? 'var(--color-surface-container)' : 'transparent',
-                }}>
-                {menu.label}
-              </button>
-
-              {openMenu === menu.id && (
-                <div className="absolute top-full left-0 rounded-b-lg border shadow-2xl py-1 z-50 min-w-[220px]"
-                  style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', borderTopColor: 'transparent' }}>
-                  {menu.items.map((item, idx) => {
-                    if ('separator' in item) {
-                      return <div key={idx} className="my-1 border-t" style={{ borderColor: 'var(--color-outline)' }} />
-                    }
-                    return (
-                      <button key={idx}
-                        onClick={item.action ?? (() => setOpenMenu(null))}
-                        disabled={item.disabled}
-                        className="w-full flex items-center gap-2.5 px-4 py-1.5 text-sm text-left transition-colors hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-default">
-                        {item.icon && (
-                          <span className="material-symbols-outlined text-sm w-4 flex-shrink-0"
-                            style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
-                        )}
-                        <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{item.label}</span>
-                        {item.shortcut && (
-                          <span className="text-xs ml-4" style={{ color: 'var(--color-on-surface-variant)' }}>{item.shortcut}</span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+          <div 
+            className="w-px h-5 mx-1" // w -> 1픽셀, h -> 20px, mx -> 좌우 간격 4px씩
+            style={{ background: 'var(--color-surface-container-highest)' }} 
+          />
+              <MenuBar
+                fileActions={{
+                  handleNewProject,
+                  setOpenProjectModalOpen,
+                  handleOpenPpit,
+                  openSaveModal,
+                  handleExportImage,
+                  handleExportPpit,
+                }}
+                editActions={{
+                  undo,
+                  redo,
+                }}
+                viewActions={{
+                  setZoomIdx,
+                  showGridLines,
+                  setShowGridLines,
+                }}
+                layerActions={{
+                  addLayer,
+                }}
+                ai_Assistants={{
+                  showAIGuide,
+                  setShowAIGuide,
+                }}
+              />
         </div>
 
         {/* 우: 파일명 + 저장 */}

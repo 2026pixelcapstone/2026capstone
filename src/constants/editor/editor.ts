@@ -1,5 +1,6 @@
-import { CanvasData, LayerData } from "./editorType";
+import { CanvasData, LayerData } from "../../type/editorType";
 
+// ── 캔버스 기본 값 ──────────────────────────────────────────────
 export const createDefaultLayer = (): LayerData => ({
   id: `layer-${crypto.randomUUID().slice(0, 8)}`, // 레이어의 고유 ID
   name: 'Background',      // 첫 레이어 이름

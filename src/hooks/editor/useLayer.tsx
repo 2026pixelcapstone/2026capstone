@@ -1,4 +1,4 @@
-import { LayerData } from "../../constants/editorType";
+import { LayerData } from "../../type/editorType";
 import { useCallback, useRef } from "react";
 
 export const useLayers = (
