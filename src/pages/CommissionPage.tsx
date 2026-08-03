@@ -1,14 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
   artistServiceApi, type ArtistServiceSummary, type ArtistServiceCreateRequest,
-  commissionApi, type CommissionSummary,
+  commissionApi, type CommissionSummary, type ArtistRatingSummary,
 } from '../api/commissionApi'
 import { galleryApi } from '../api/galleryApi'
 import CommissionList from '../components/CommissionList'
+import ArtistTrustSignal from '../components/ArtistTrustSignal'
 import DateField from '../components/DateField'
 import { useAuthStore } from '../store/authStore'
+import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 import { useEmailGate } from '../hooks/useEmailGate'
@@ -47,11 +49,12 @@ function getAvatarGradient(id: number) {
   return AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length]
 }
 
-// 작가 카드 — 표시 전용. 포트폴리오 썸네일은 부모가 배치 조회해 props로 전달 (카드별 N+1 제거)
-function ArtistCard({ service, portfolio, portfolioLoaded }: {
+// 작가 카드 — 표시 전용. 포트폴리오 썸네일·평점은 부모가 배치 조회해 props로 전달 (카드별 N+1 제거)
+function ArtistCard({ service, portfolio, portfolioLoaded, rating }: {
   service: ArtistServiceSummary
   portfolio: string[]
   portfolioLoaded: boolean
+  rating?: ArtistRatingSummary
 }) {
   const isOpen = service.status === 'OPEN'
   const gradient = getAvatarGradient(service.serviceId)
@@ -103,13 +106,16 @@ function ArtistCard({ service, portfolio, portfolioLoaded }: {
 
       <div className="p-5 pt-9">
         {/* 작가명 + 서비스 유형 */}
-        <div className="mb-2">
+        <div className="mb-1.5">
           <span className="font-bold">{service.artistNickname?.trim() || '알 수 없음'}</span>
           <span className="ml-2 text-xs px-2 py-0.5 rounded-full"
             style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
             {service.serviceType === 'OPTION' ? '가격 고정형' : '가격 협의형'}
           </span>
         </div>
+
+        {/* 신뢰 신호 — 평점 + 완료 건수 (배치 조회) */}
+        <ArtistTrustSignal summary={rating} className="mb-3" />
 
         {/* 서비스 제목 */}
         <h3 className="text-sm font-bold mb-4 line-clamp-2" style={{ color: 'var(--color-on-surface)' }}>{service.title}</h3>
@@ -181,6 +187,8 @@ function resolveTab(param: string | null, isLoggedIn: boolean): CommissionTab {
 
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
+  // 탐색 목록(작가 찾기·의뢰 게시판)에서 차단한 사용자를 숨기기 위한 차단 목록.
+  const { blockedUserIds, loaded: blocksLoaded } = useBlockStore()
   // ?tab=mine|requests 로 직접 진입 지원 (메인 "내 커미션 전체" 링크 등)
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<CommissionTab>(() => resolveTab(searchParams.get('tab'), isLoggedIn))
@@ -216,6 +224,8 @@ export default function CommissionPage() {
   // 작가별 포트폴리오 썸네일 (배치 조회 결과) + 로드 완료 여부
   const [portfolioMap, setPortfolioMap] = useState<Record<number, string[]>>({})
   const [portfolioLoaded, setPortfolioLoaded] = useState(false)
+  // 작가별 평점/완료건수 (배치 조회 결과)
+  const [ratingMap, setRatingMap] = useState<Record<number, ArtistRatingSummary>>({})
 
   // 의뢰 찾기 상태
   const [requests, setRequests] = useState<RequestPostSummary[]>([])
@@ -331,7 +341,7 @@ export default function CommissionPage() {
       setArtistPage(page)
       setArtistHasMore(!d.last)
 
-      // 이 페이지 작가들의 포트폴리오를 한 번에 배치 조회 (카드별 N+1 제거)
+      // 이 페이지 작가들의 포트폴리오·평점을 한 번에 배치 조회 (카드별 N+1 제거)
       const authorIds = [...new Set(d.content.map(s => s.artistId))]
       if (authorIds.length > 0) {
         try {
@@ -350,8 +360,20 @@ export default function CommissionPage() {
         } catch (e) {
           console.error('[CommissionPage] 포트폴리오 배치 로드 실패:', e)
         }
+        try {
+          const rRes = await commissionApi.getArtistRatingSummaries(authorIds)
+          const rmap = rRes.data.data
+          setRatingMap(prev => {
+            const next = page === 0 ? {} : { ...prev }
+            for (const [id, summary] of Object.entries(rmap)) next[Number(id)] = summary
+            return next
+          })
+        } catch (e) {
+          console.error('[CommissionPage] 평점 배치 로드 실패:', e)
+        }
       } else if (page === 0) {
         setPortfolioMap({})
+        setRatingMap({})
       }
       setPortfolioLoaded(true)
     } catch {
@@ -454,9 +476,22 @@ export default function CommissionPage() {
     }
   }
 
-  // 검색·필터·정렬은 서버에서 처리하므로 목록을 그대로 사용
-  const filteredArtists = artists
-  const filteredRequests = requests
+  // 검색·필터·정렬은 서버에서 처리하므로 목록은 그대로 두고, 차단 사용자만 클라이언트에서 걸러낸다.
+  // 갤러리/에셋과 동일하게 로그인 + 차단목록 로드 완료일 때만 적용(로드 전 플래시 방지).
+  // ⚠️ 거래(내 커미션 탭·거래룸·E-2 진행 중 배너)는 계약 화면이라 차단을 적용하지 않는다 —
+  //    진행 중이던 상대를 차단해도 거래 접근을 잃어선 안 되므로 탐색 목록에만 건다.
+  const filteredArtists = useMemo(
+    () => (isLoggedIn && blocksLoaded
+      ? artists.filter(a => !blockedUserIds.includes(a.artistId))
+      : artists),
+    [artists, isLoggedIn, blocksLoaded, blockedUserIds],
+  )
+  const filteredRequests = useMemo(
+    () => (isLoggedIn && blocksLoaded
+      ? requests.filter(r => !blockedUserIds.includes(r.clientId))
+      : requests),
+    [requests, isLoggedIn, blocksLoaded, blockedUserIds],
+  )
 
   return (
     <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
@@ -622,7 +657,7 @@ export default function CommissionPage() {
                 </div>
               ))}
             </div>
-          ) : filteredArtists.length === 0 ? (
+          ) : artists.length === 0 ? (
             <div className="flex items-center justify-center py-24 rounded-2xl border"
               style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
               <div className="text-center">
@@ -655,11 +690,20 @@ export default function CommissionPage() {
             </div>
           ) : (
             <>
+              {/* 원본 목록엔 항목이 있으나 전부 차단 사용자라 필터로 비어버린 경우 —
+                  "없음" 오해를 막고, 다음 페이지 접근을 위해 더 보기 버튼을 유지한다. */}
+              {filteredArtists.length === 0 && (
+                <div className="flex items-center justify-center py-16 rounded-2xl border"
+                  style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
+                  <p className="text-sm text-center">차단한 사용자만 있어 이 페이지에 표시할 서비스가 없습니다.{artistHasMore ? ' 아래 "더 보기"로 다음 페이지를 확인하세요.' : ''}</p>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-6">
                 {filteredArtists.map(service => (
                   <ArtistCard key={service.serviceId} service={service}
                     portfolio={portfolioMap[service.artistId] ?? []}
-                    portfolioLoaded={portfolioLoaded} />
+                    portfolioLoaded={portfolioLoaded}
+                    rating={ratingMap[service.artistId]} />
                 ))}
               </div>
 
@@ -688,7 +732,7 @@ export default function CommissionPage() {
                     style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)', height: 180 }} />
                 ))}
               </div>
-            ) : filteredRequests.length === 0 ? (
+            ) : requests.length === 0 ? (
               <div className="flex items-center justify-center py-24 rounded-2xl border"
                 style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
                 <div className="text-center">
@@ -718,6 +762,13 @@ export default function CommissionPage() {
               </div>
             ) : (
               <>
+                {/* 전부 차단 사용자라 필터로 비어버린 경우 — 더 보기 버튼 유지(작가 탭과 동일) */}
+                {filteredRequests.length === 0 && (
+                  <div className="flex items-center justify-center py-16 rounded-2xl border"
+                    style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)', borderStyle: 'dashed' }}>
+                    <p className="text-sm text-center">차단한 사용자만 있어 이 페이지에 표시할 의뢰가 없습니다.{reqHasMore ? ' 아래 "더 보기"로 다음 페이지를 확인하세요.' : ''}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-3 gap-6">
                   {filteredRequests.map(req => {
                     const isOpen = req.status === 'OPEN'

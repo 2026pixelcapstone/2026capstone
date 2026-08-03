@@ -7,6 +7,7 @@ import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { validateFilesSize } from '../lib/fileValidation'
 import { downloadFileForced } from '../lib/download'
+import CommissionReviewModal from '../components/CommissionReviewModal'
 
 const STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: '작업 중',
@@ -40,6 +41,8 @@ export default function CommissionDetailPage() {
   const [downloading, setDownloading] = useState(false)
   const [activePreview, setActivePreview] = useState(0)   // 캐러셀 현재 인덱스
   const [lightboxOpen, setLightboxOpen] = useState(false) // 미리보기 확대
+  const [reviewOpen, setReviewOpen] = useState(false)     // 리뷰 작성/수정 모달
+  const [hasReviewed, setHasReviewed] = useState(false)   // 내가 이미 리뷰를 남겼는지(버튼 라벨)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const lightboxRef = useRef<HTMLDivElement>(null)
   const lightboxCloseRef = useRef<HTMLButtonElement>(null)
@@ -59,6 +62,19 @@ export default function CommissionDetailPage() {
       })
       .finally(() => setLoading(false))
   }, [id])
+
+  // 완료 거래 + 내가 의뢰자면 이미 리뷰했는지 조회 (버튼 라벨: 남기기 vs 수정)
+  useEffect(() => {
+    if (!commission || commission.status !== 'COMPLETED' || me?.userId !== commission.clientId) {
+      setHasReviewed(false)
+      return
+    }
+    let ignore = false
+    commissionApi.getMyReview(commission.commissionId)
+      .then(res => { if (!ignore) setHasReviewed(!!res.data.data) })
+      .catch(() => { if (!ignore) setHasReviewed(false) })
+    return () => { ignore = true }
+  }, [commission, me?.userId])
 
   // 작가: 작업물 전달 완료 → 검토 요청 (IN_PROGRESS → REVIEW)
   const handleRequestReview = async () => {
@@ -226,6 +242,7 @@ export default function CommissionDetailPage() {
   const canRequestReview = isArtist && commission.status === 'IN_PROGRESS'
   const canConfirmComplete = isClient && commission.status === 'REVIEW'
   const canCancel = (isClient || isArtist) && commission.status === 'IN_PROGRESS'
+  const canReview = isClient && commission.status === 'COMPLETED'
   const dDay = commission.agreedDeadline
     ? Math.ceil((new Date(commission.agreedDeadline).getTime() - Date.now()) / 86400000)
     : null
@@ -566,10 +583,20 @@ export default function CommissionDetailPage() {
               )}
 
               {commission.status === 'COMPLETED' && (
-                <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
-                  style={{ background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)' }}>
-                  <span className="material-symbols-outlined text-base">check_circle</span>
-                  거래 완료
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
+                    style={{ background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', color: 'var(--color-success)' }}>
+                    <span className="material-symbols-outlined text-base">check_circle</span>
+                    거래 완료
+                  </div>
+                  {canReview && (
+                    <button type="button" onClick={() => setReviewOpen(true)}
+                      className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                      style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
+                      <span className="material-symbols-outlined text-base">rate_review</span>
+                      {hasReviewed ? '내 리뷰 수정' : '리뷰 남기기'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -585,6 +612,15 @@ export default function CommissionDetailPage() {
 
         </div>
       </div>
+
+      {/* 리뷰 작성/수정 모달 (의뢰자·완료) */}
+      {reviewOpen && (
+        <CommissionReviewModal
+          commissionId={commission.commissionId}
+          onClose={() => setReviewOpen(false)}
+          onSaved={() => setHasReviewed(true)}
+        />
+      )}
 
       {/* 미리보기 라이트박스 */}
       {lightboxOpen && current && (
