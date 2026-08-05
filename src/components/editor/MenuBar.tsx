@@ -1,6 +1,6 @@
 import { MENU_DEFS } from "../../constants/editor/menuConfig";
 import { MENU_ACTION, MenuActionId } from "../../type/editorType";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface FileActions{
     handleNewProject: () => void;
@@ -9,6 +9,7 @@ interface FileActions{
     openSaveModal: () => void;
     handleExportImage: () => void;
     handleExportPpit: () => void;
+    handleBackToMain: () => void;
 }
 
 interface EditActions{
@@ -23,10 +24,11 @@ interface ViewActions{
 }
 
 interface LayerAction{
-    addLayer: (idx: number) => void;
+    handleAddLayer: () => void;
+    handleDeleteLayer: () => void;
 }
 
-interface Ai_Assistant_Action{
+interface PixelGuide{
     showAIGuide: boolean;
     setShowAIGuide: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -36,18 +38,32 @@ interface MenuBarProps {
    editActions: EditActions;
    viewActions: ViewActions;
    layerActions: LayerAction;
-   ai_Assistants: Ai_Assistant_Action 
+   pixelGuides: PixelGuide;
 }
 
 export default function MenuBar({
     fileActions,
     editActions,
     viewActions,
-    //layerActions, // <- 임시 주석
-    ai_Assistants,
+    layerActions, // <- 임시 주석
+    pixelGuides,
+
 }: MenuBarProps){
     const [openMenu, setOpenMenu] = useState<string | null>(null);
 
+    const menuContainerRef = useRef<HTMLDivElement>(null);
+
+      // 메뉴 외부 클릭 시 닫기
+      useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+          if (menuContainerRef.current && ! menuContainerRef.current.contains(e.target as Node)) {
+            setOpenMenu(null)
+          }
+        }
+        if (openMenu) document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+      }, [openMenu])
+    
     // 통합 액션 핸들러
     const handleAction = (actionId: MenuActionId) => {
 
@@ -77,7 +93,7 @@ export default function MenuBar({
                 fileActions.handleExportPpit();
                 break;
             case MENU_ACTION.BACK_TO_MAIN:
-                window.location.href = '/'
+                fileActions.handleBackToMain();
                 break;
             
             // Edit
@@ -116,10 +132,13 @@ export default function MenuBar({
             case MENU_ACTION.TOGGLE_GRID:
                 viewActions.setShowGridLines(!viewActions.showGridLines);
                 break;
+
             // layer
             case MENU_ACTION.ADD_LAYER:
+                layerActions.handleAddLayer();
                 break;
             case MENU_ACTION.DELETE_LAYER:
+                layerActions.handleDeleteLayer();
                 break;
             case MENU_ACTION.DUPLICATE:
                 break;
@@ -132,14 +151,20 @@ export default function MenuBar({
             case MENU_ACTION.FLATTEN:
                 break;
             
-            // AI 가이드
-            case MENU_ACTION.AI_GUIDE:
-                ai_Assistants.setShowAIGuide(!ai_Assistants.showAIGuide)
+            // pixel-guide
+            case MENU_ACTION.TOGGLE_PIXEL_COUNTER:
+                break;
+            case MENU_ACTION.TOGGLE_RATIO_GUIDE:
+                break;
+            case MENU_ACTION.TOGGLE_GRID_SNAP:
+                break;
+            case MENU_ACTION.TOGGLE_AI_GUIDE:
+                pixelGuides.setShowAIGuide(!pixelGuides.showAIGuide)
                 break;            
         }
     };
     return(
-        <div className="flex items-center h-full">
+        <div ref={menuContainerRef} className="flex items-center h-full">
             {/* 메뉴 그룹 루프 */}
             {MENU_DEFS.map(menu => (
                 // relative -> absolute의 기준점으로, 드롭다운 박스가 정확히 클릭한 메뉴 버튼의 바로 아래에 띄워지게 된다

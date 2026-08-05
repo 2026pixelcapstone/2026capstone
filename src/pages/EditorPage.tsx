@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LayerData } from '../type/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
@@ -27,10 +27,10 @@ const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초�
 // ── 컴포넌트 ──────────────────────────────────────────
 export default function EditorPage() {
   
-  const stageRef = useRef<Konva.Stage>(null)
-  const menuRef   = useRef<HTMLDivElement>(null) 
+  const stageRef = useRef<Konva.Stage>(null) 
   const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
-  
+  const navigate = useNavigate();
+
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
  
@@ -109,7 +109,6 @@ export default function EditorPage() {
 
   const [showAnim, setShowAnim]       = useState(false)
   const [unsaved, setUnsaved]         = useState(false)
-  const [openMenu, setOpenMenu]       = useState<string | null>(null)
   const [showGridLines, setShowGridLines] = useState(true)
 
   // ── 프로젝트 저장 관련 상태 ──────────────────────────
@@ -132,16 +131,12 @@ export default function EditorPage() {
     setSearchParams
   });
 
-  // 메뉴 외부 클릭 시 닫기
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenu(null)
-      }
-    }
-    if (openMenu) document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [openMenu])
+  // ── Navigation / Page Control ───────────────────────────────────
+  const handleBackToMain = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault();
+    if (unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 계속할까요?')) return;
+    navigate('/');
+  }, [unsaved, navigate])
 
   // ── 현재 프레임 및 레이어 인덱스 동기화 ────────────────
   useEffect(() => {
@@ -253,7 +248,7 @@ export default function EditorPage() {
   }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const drawPixel = useCallback(() => {
+  const applyCanvasTool = useCallback(() => {
     const stage = stageRef.current;
     const frameIdx = safeFrameIdx
     if(!stage || !activeLayer) return;
@@ -275,11 +270,13 @@ export default function EditorPage() {
       ctx.fillRect(x, y, brushSize, brushSize)
       ctx.globalAlpha = 1
       isDirty.current = true; // 픽셀이 변경되었음을 표시
+      setUnsaved(true);
     }
     // ─── [지우개 도구] ────────────────────────────────────────
     else if (activeTool === 'eraser') {
       ctx.clearRect(x, y, brushSize, brushSize)
       isDirty.current = true; // 픽셀이 변경되었음을 표시
+      setUnsaved(true);
     }
     // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
     else if (activeTool === 'fill') {
@@ -361,6 +358,7 @@ export default function EditorPage() {
       
       ctx.putImageData(imgData, 0, 0);
       isDirty.current = true; // 픽셀이 변경되었음을 표시
+      setUnsaved(true);
     }
   
     // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
@@ -384,13 +382,12 @@ export default function EditorPage() {
     if(activeLayerNode){
       activeLayerNode.getLayer()?.batchDraw();
     }
-    setUnsaved(true)
   }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayer, getLayerCanvas, safeFrameIdx])
 
   const handleMouseMove = () => {
     const pos = getPixel()
     if (pos) setCursorPos(pos)
-    if (isDrawing.current) drawPixel()
+    if (isDrawing.current) applyCanvasTool()
   }
 
   // --------  state.width/height 변경 시 CustomW/H 동기화 -----------
@@ -402,7 +399,7 @@ export default function EditorPage() {
   // -------- 캔버스 크기 변경 -----------
   const applyCanvasSize = (w: number, h: number) => {
     if(state.width === w && state.height === h){
-      setOpenMenu(null);
+      
       return;
     }
 
@@ -414,8 +411,7 @@ export default function EditorPage() {
       };
     })
 
-    setUnsaved(true);
-    setOpenMenu(null);
+    setUnsaved(true); // 서버 저장 여부
   }
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
@@ -527,10 +523,9 @@ export default function EditorPage() {
           height: proj.height,
         })
 
-        const firstLayerId = framesToReset[0]?.layers[0]?.id
-        if (firstLayerId) setActiveLayer(firstLayerId)
-          
-        setUnsaved(false)
+        const firstLayerId = framesToReset[0]?.layers[0]?.id;
+        if (firstLayerId) setActiveLayer(firstLayerId);
+        setUnsaved(true);
       } catch {
         if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
       }
@@ -799,7 +794,7 @@ export default function EditorPage() {
     // 기타 메타데이터 및 URL 초기화
     setProjectId(null)
     setProjectTitle('Untitled Project')
-    setUnsaved(false)
+    setUnsaved(true)
 
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
@@ -911,8 +906,6 @@ export default function EditorPage() {
         height: state.height
       };
     });
-    setUnsaved(false);
-
   }, [safeFrameIdx, activeLayer, setWithHistory, state.width, state.height]);
 
   
@@ -924,7 +917,7 @@ export default function EditorPage() {
     const nextFrame = state.frames[nextIndex];
     const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
 
-    if (unsaved) {
+    if (isDirty) {
         const frameIdx = safeFrameIdx;
         const cacheKey = getCacheKey(frameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
@@ -939,8 +932,6 @@ export default function EditorPage() {
                 : f
             ),
           }));
-
-          setUnsaved(false);
         } 
     } 
     setCurrentFrameIdx(nextIndex);
@@ -948,6 +939,13 @@ export default function EditorPage() {
     
   }
   // ── 레이어 ───────────────────────────────────
+  const handleAddLayer = () => {
+    addLayer(safeFrameIdx); 
+  }
+  const handleDeleteLayer = () => {
+    deleteLayer(safeFrameIdx, activeLayer)
+  }
+  
   const selectLayer = useCallback((frameIdx: number, layerIdToSelect: string) => {
     const stage = stageRef.current;
     if (!stage || !activeLayer) {
@@ -956,7 +954,7 @@ export default function EditorPage() {
         return;
     }
 
-    if(unsaved){
+    if(isDirty){
       // 현재 작업 중이던 고유한 프레임_레이어 전용 캔버스 캐시를 타깃으로 잡습니다.
       const cacheKey = getCacheKey(frameIdx, activeLayer);
       const cachedCanvas = layerCanvasRefs.current[cacheKey];
@@ -982,7 +980,6 @@ export default function EditorPage() {
         });
       }
       setActiveLayer(layerIdToSelect);
-      setUnsaved(false); // 저장 완료 상태로 플래그 클린업
     }
     else{
       setActiveLayer(layerIdToSelect);
@@ -992,8 +989,8 @@ export default function EditorPage() {
   
   // 1. 컴포넌트 내부 상단에 배열을 변수로 분리 (as const 적용)
   const layerButtons = [
-    ['add', '레이어 추가', addLayer],
-    ['delete', '레이어 삭제', deleteLayer]
+    ['add', '레이어 추가', handleAddLayer],
+    ['delete', '레이어 삭제', handleDeleteLayer]
   ] as const;
 
   // -------- 레이어 순서 변경 -----------
@@ -1067,9 +1064,9 @@ export default function EditorPage() {
         style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
         {/* 좌: 로고 + 메뉴바 */}
-        <div ref={menuRef} className="flex items-center h-full">
+        <div className="flex items-center h-full">
           {/* 로고 */}
-          <a href="/" className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-surface-container transition-colors"
+          <a href="/" onClick={handleBackToMain} className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-surface-container transition-colors"
             style={{ color: 'var(--color-primary)' }}>
             <span className="material-symbols-outlined text-base">grid_view</span>
             PixelPilot
@@ -1087,6 +1084,7 @@ export default function EditorPage() {
                   openSaveModal,
                   handleExportImage,
                   handleExportPpit,
+                  handleBackToMain
                 }}
                 editActions={{
                   undo,
@@ -1098,9 +1096,10 @@ export default function EditorPage() {
                   setShowGridLines,
                 }}
                 layerActions={{
-                  addLayer,
+                  handleAddLayer,
+                  handleDeleteLayer
                 }}
-                ai_Assistants={{
+                pixelGuides={{
                   showAIGuide,
                   setShowAIGuide,
                 }}
@@ -1235,7 +1234,7 @@ export default function EditorPage() {
               scaleY={zoom}
               pixelRatio={1}
               style={{imageRendering: 'pixelated'}}
-              onMouseDown={() => { isDrawing.current = true; drawPixel() }}
+              onMouseDown={() => { isDrawing.current = true; applyCanvasTool() }}
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
                 isDrawing.current = false
@@ -1632,10 +1631,10 @@ export default function EditorPage() {
                     onClick={() => {
                       if(!handler) return;
                       if (icon === 'add') {
-                        handler(safeFrameIdx);
+                        handler();
                       } else if (icon === 'delete') {
                         // deleteLayer는 (frameIdx, layerId) 두 개를 받으므로 맞춰서 전달
-                        handler(safeFrameIdx, activeLayer);
+                        handler();
                       }
                     }}
                     className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"

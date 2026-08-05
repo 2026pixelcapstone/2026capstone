@@ -82,10 +82,13 @@ import { MENU_ACTION, MENU_GROUP_ID, MenuGroup } from "../../type/editorType";
       ],
     },
     {
-      id: MENU_GROUP_ID.AI_ASSISTANT, 
-      label: 'AI Assistant',
+      id: MENU_GROUP_ID.DRAWING_GUIDE, 
+      label: 'drawing-guide',
       items:[
-        {id: MENU_ACTION.AI_GUIDE, label: 'AI Guide', icon: 'auto_awesome'},
+        {id:MENU_ACTION.TOGGLE_PIXEL_COUNTER, label: 'pixle_counter', icon: 'straighten'},
+        {id: MENU_ACTION.TOGGLE_RATIO_GUIDE, label: 'ratio-guide', icon: 'aspect_ratio'},
+        {id: MENU_ACTION.TOGGLE_GRID_SNAP, label: 'grid-snap', icon: 'grid_goldenratio'},
+        {id: MENU_ACTION.TOGGLE_AI_GUIDE, label: 'AI Guide', icon: 'auto_awesome'},
       ],
     },
   ]

@@ -59,7 +59,7 @@ export const MENU_GROUP_ID = {
   IMAGE: 'image',
   VIEW: 'view',
   LAYER: 'layer',
-  AI_ASSISTANT: 'ai_assistant',
+  DRAWING_GUIDE: 'guide',
 } as const;
 
 export type MenuGroupId = typeof MENU_GROUP_ID[keyof typeof MENU_GROUP_ID];
@@ -72,7 +72,7 @@ export const MENU_ACTION = {
   SAVE: 'SAVE',
   BROWSER_SAVE: 'BROWSER_SAVE',
   EXPORT_IMAGE: 'EXPORT_IMAGE',
-  EXPORT_SPRITESHEET: 'EEXPORT_SPRITESHEET',
+  EXPORT_SPRITESHEET: 'EXPORT_SPRITESHEET',
   DOWNLOAD_PPIT: 'DOWNLOAD_PPIT',
   BACK_TO_MAIN: 'BACK_TO_MAIN',
 
@@ -104,8 +104,11 @@ export const MENU_ACTION = {
   MERGE_VISIBLE: 'MERGE_VISIBLE',
   FLATTEN: 'FLATTEN',
   
-  // Menu -> AI guide
-  AI_GUIDE: 'AI_GUIDE',
+// Menu -> Pixel-Guide (기존 AI_GUIDE 대체 및 확장)
+  TOGGLE_PIXEL_COUNTER: 'TOGGLE_PIXEL_COUNTER', // 실시간 픽셀 수치/길이 표시 토글
+  TOGGLE_RATIO_GUIDE: 'TOGGLE_RATIO_GUIDE',     // 대각선 비율(2:1 등) 가이드 토글
+  TOGGLE_GRID_SNAP: 'TOGGLE_GRID_SNAP',         // 8/16/32px 단위 스냅 토글
+  TOGGLE_AI_GUIDE: 'TOGGLE_AI_GUIDE',           // AI 기반 스타일/드로잉 보조 가이드
 } as const;
 
 export type MenuActionId = typeof MENU_ACTION[keyof typeof MENU_ACTION];
