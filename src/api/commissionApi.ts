@@ -71,7 +71,7 @@ export const requestPostApi = {
 
 // ─── 계약 (commissions) ────────────────────────────────────────────────────
 
-export type CommissionStatus = 'IN_PROGRESS' | 'REVIEW' | 'COMPLETED' | 'CANCELLED'
+export type CommissionStatus = 'PENDING_PAYMENT' | 'IN_PROGRESS' | 'REVIEW' | 'COMPLETED' | 'CANCELLED'
 
 export interface CommissionSummary {
   commissionId: number

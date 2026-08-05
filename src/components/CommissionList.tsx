@@ -3,6 +3,7 @@ import type { CommissionSummary, CommissionStatus } from '../api/commissionApi'
 
 // CommissionStatus 전부를 키로 강제 → 매핑 누락을 컴파일 단계에서 잡음
 const STATUS_LABEL: Record<CommissionStatus, { label: string; color: string; bg: string }> = {
+  PENDING_PAYMENT: { label: '결제 대기', color: 'var(--color-warning)', bg: 'color-mix(in srgb, var(--color-warning) 12%, transparent)' },
   IN_PROGRESS: { label: '진행 중', color: 'var(--color-primary)', bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' },
   REVIEW:      { label: '검토 중', color: 'var(--color-accent)', bg: 'color-mix(in srgb, var(--color-accent) 10%, transparent)' },
   COMPLETED:   { label: '완료',    color: 'var(--color-success)', bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)' },

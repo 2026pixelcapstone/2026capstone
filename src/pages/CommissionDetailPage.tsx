@@ -8,14 +8,17 @@ import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { validateFilesSize } from '../lib/fileValidation'
 import { downloadFileForced } from '../lib/download'
 import CommissionReviewModal from '../components/CommissionReviewModal'
+import { startCommissionPayment } from '../lib/toss'
 
 const STATUS_LABEL: Record<string, string> = {
+  PENDING_PAYMENT: '결제 대기',
   IN_PROGRESS: '작업 중',
   REVIEW:      '검토 중',
   COMPLETED:   '완료',
   CANCELLED:   '취소됨',
 }
 const STATUS_COLOR: Record<string, { bg: string; color: string; border: string }> = {
+  PENDING_PAYMENT: { bg: 'color-mix(in srgb, var(--color-warning) 12%, transparent)', color: 'var(--color-warning)', border: 'color-mix(in srgb, var(--color-warning) 30%, transparent)' },
   IN_PROGRESS: { bg: 'color-mix(in srgb, var(--color-accent) 10%, transparent)',    color: 'var(--color-accent)',    border: 'color-mix(in srgb, var(--color-accent) 30%, transparent)' },
   REVIEW:      { bg: 'color-mix(in srgb, var(--color-secondary) 10%, transparent)', color: 'var(--color-secondary)', border: 'color-mix(in srgb, var(--color-secondary) 30%, transparent)' },
   COMPLETED:   { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',   color: 'var(--color-success)', border: 'color-mix(in srgb, var(--color-success) 30%, transparent)' },
@@ -37,6 +40,7 @@ export default function CommissionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [paying, setPaying] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [activePreview, setActivePreview] = useState(0)   // 캐러셀 현재 인덱스
@@ -190,6 +194,20 @@ export default function CommissionDetailPage() {
     }
   }
 
+  // 의뢰자: 결제하기 (PENDING_PAYMENT) → 토스 결제창 → successUrl에서 confirm
+  const handlePay = async () => {
+    if (!commission || paying) return
+    setPaying(true)
+    try {
+      // 성공 시 결제창이 successUrl로 리다이렉트하므로 이 아래로는 보통 오지 않는다.
+      await startCommissionPayment(commission.commissionId)
+    } catch (err) {
+      // 사용자가 결제창을 닫거나 준비 단계 실패 — 청구는 일어나지 않음
+      toast.error(getErrorMessage(err, '결제를 시작하지 못했습니다.'))
+      setPaying(false)
+    }
+  }
+
   const handleCancel = async () => {
     if (!commission) return
     if (!confirm('계약을 취소하시겠습니까?')) return
@@ -241,7 +259,9 @@ export default function CommissionDetailPage() {
     setActivePreview(i => (i + delta + previews.length) % previews.length)
   const canRequestReview = isArtist && commission.status === 'IN_PROGRESS'
   const canConfirmComplete = isClient && commission.status === 'REVIEW'
-  const canCancel = (isClient || isArtist) && commission.status === 'IN_PROGRESS'
+  const canPay = isClient && commission.status === 'PENDING_PAYMENT'
+  const canCancel = (isClient || isArtist)
+    && (commission.status === 'IN_PROGRESS' || commission.status === 'PENDING_PAYMENT')
   const canReview = isClient && commission.status === 'COMPLETED'
   const dDay = commission.agreedDeadline
     ? Math.ceil((new Date(commission.agreedDeadline).getTime() - Date.now()) / 86400000)
@@ -551,6 +571,24 @@ export default function CommissionDetailPage() {
               {/* 액션 버튼 */}
               {commission.status !== 'CANCELLED' && commission.status !== 'COMPLETED' && (
                 <div className="space-y-2">
+                  {canPay && (
+                    <>
+                      <button onClick={handlePay} disabled={paying}
+                        className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 disabled:opacity-50"
+                        style={{ background: 'var(--color-primary)', color: '#fff', boxShadow: '0 4px 16px color-mix(in srgb, var(--color-primary) 30%, transparent)' }}>
+                        {paying ? '결제창 여는 중…' : `결제하기 · ${commission.agreedPrice.toLocaleString()}원`}
+                      </button>
+                      <p className="text-xs text-center pb-1" style={{ color: 'var(--color-on-surface-variant)' }}>
+                        결제하면 대금을 플랫폼이 보관하고, 작가가 작업을 시작합니다. 완료 확정 시 작가에게 지급됩니다.
+                      </p>
+                    </>
+                  )}
+                  {/* 작가: 의뢰자 결제 대기 안내 */}
+                  {isArtist && commission.status === 'PENDING_PAYMENT' && (
+                    <p className="text-xs text-center py-2" style={{ color: 'var(--color-on-surface-variant)' }}>
+                      의뢰자의 결제를 기다리는 중입니다. 결제 완료 후 작업을 시작할 수 있습니다.
+                    </p>
+                  )}
                   {canRequestReview && (
                     <button onClick={handleRequestReview} disabled={actionLoading}
                       className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 disabled:opacity-50"
