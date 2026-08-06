@@ -196,7 +196,7 @@ export default function CommissionDetailPage() {
 
   // 의뢰자: 결제하기 (PENDING_PAYMENT) → 토스 결제창 → successUrl에서 confirm
   const handlePay = async () => {
-    if (!commission || paying) return
+    if (!commission || paying || actionLoading) return   // 취소 요청 진행 중이면 결제 시작 금지(상호 배타)
     setPaying(true)
     try {
       // 성공 시 결제창이 successUrl로 리다이렉트하므로 이 아래로는 보통 오지 않는다.
@@ -574,7 +574,7 @@ export default function CommissionDetailPage() {
                 <div className="space-y-2">
                   {canPay && (
                     <>
-                      <button onClick={handlePay} disabled={paying}
+                      <button onClick={handlePay} disabled={paying || actionLoading}
                         className="w-full py-3.5 rounded-xl font-bold text-base hover:opacity-90 disabled:opacity-50"
                         style={{ background: 'var(--color-primary)', color: '#fff', boxShadow: '0 4px 16px color-mix(in srgb, var(--color-primary) 30%, transparent)' }}>
                         {paying ? '결제창 여는 중…' : `결제하기 · ${commission.agreedPrice.toLocaleString()}원`}
