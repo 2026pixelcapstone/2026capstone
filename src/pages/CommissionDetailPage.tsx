@@ -209,7 +209,7 @@ export default function CommissionDetailPage() {
   }
 
   const handleCancel = async () => {
-    if (!commission) return
+    if (!commission || paying) return
     if (!confirm('계약을 취소하시겠습니까?')) return
     setActionLoading(true)
     try {
@@ -260,7 +260,8 @@ export default function CommissionDetailPage() {
   const canRequestReview = isArtist && commission.status === 'IN_PROGRESS'
   const canConfirmComplete = isClient && commission.status === 'REVIEW'
   const canPay = isClient && commission.status === 'PENDING_PAYMENT'
-  const canCancel = (isClient || isArtist)
+  // 결제창을 여는 중(paying)에는 취소 비활성 — 취소와 결제 승인이 엇갈리는 것 방지(서버도 상태로 재차단)
+  const canCancel = (isClient || isArtist) && !paying
     && (commission.status === 'IN_PROGRESS' || commission.status === 'PENDING_PAYMENT')
   const canReview = isClient && commission.status === 'COMPLETED'
   const dDay = commission.agreedDeadline

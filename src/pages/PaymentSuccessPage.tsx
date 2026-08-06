@@ -21,14 +21,15 @@ export default function PaymentSuccessPage() {
 
     const paymentKey = params.get('paymentKey')
     const orderId = params.get('orderId')
-    const amount = params.get('amount')
+    const amount = Number(params.get('amount'))
 
-    if (!paymentKey || !orderId || !amount) {
+    // 형식 검증(빈 값·비숫자·음수 차단). 실제 금액 위변조는 서버가 저장값과 대조해 최종 판정한다.
+    if (!paymentKey || !orderId || !Number.isSafeInteger(amount) || amount <= 0) {
       setError('결제 정보가 올바르지 않습니다.')
       return
     }
 
-    paymentApi.confirm({ paymentKey, orderId, amount: Number(amount) })
+    paymentApi.confirm({ paymentKey, orderId, amount })
       .then(res => {
         const { commissionId } = res.data.data
         toast.success('결제가 완료되었습니다. 작업이 시작됩니다.')
