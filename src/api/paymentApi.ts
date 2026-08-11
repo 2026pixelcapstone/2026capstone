@@ -8,10 +8,11 @@ export interface PaymentPrepareResponse {
   clientKey: string
 }
 
-/** 결제 승인 결과 — 거래룸으로 이동/갱신용. */
+/** 결제 승인 결과 — type으로 커미션/에셋 분기해 상세로 이동. */
 export interface PaymentConfirmResult {
-  commissionId: number
-  commissionStatus: string
+  type: 'COMMISSION' | 'ASSET'
+  commissionId: number | null
+  assetId: number | null
   paymentId: number
 }
 
@@ -20,6 +21,11 @@ export const paymentApi = {
   prepareCommission: (commissionId: number) =>
     api.post<{ success: boolean; data: PaymentPrepareResponse }>(
       `/api/payments/commission/${commissionId}/prepare`),
+
+  /** 에셋 결제 준비(유료·미구매) → orderId 발급 */
+  prepareAsset: (assetId: number) =>
+    api.post<{ success: boolean; data: PaymentPrepareResponse }>(
+      `/api/payments/asset/${assetId}/prepare`),
 
   /** 결제 승인 — 토스 인증 후 successUrl에서 돌아온 값 전달 */
   confirm: (body: { paymentKey: string; orderId: string; amount: number }) =>

@@ -31,9 +31,14 @@ export default function PaymentSuccessPage() {
 
     paymentApi.confirm({ paymentKey, orderId, amount })
       .then(res => {
-        const { commissionId } = res.data.data
-        toast.success('결제가 완료되었습니다. 작업이 시작됩니다.')
-        navigate(`/commission/${commissionId}`, { replace: true })
+        const { type, commissionId, assetId } = res.data.data
+        if (type === 'ASSET') {
+          toast.success('결제가 완료되었습니다. 이제 다운로드할 수 있습니다.')
+          navigate(`/assets/${assetId}`, { replace: true })
+        } else {
+          toast.success('결제가 완료되었습니다. 작업이 시작됩니다.')
+          navigate(`/commission/${commissionId}`, { replace: true })
+        }
       })
       .catch(err => {
         setError(getErrorMessage(err, '결제 승인에 실패했습니다.'))
