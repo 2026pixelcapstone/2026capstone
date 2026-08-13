@@ -15,7 +15,7 @@ import { useLayers as useLayer } from '../hooks/editor/useLayer'
 import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
-import { LayerImageRenderer } from '../components/LayerImageRender'
+import { LayerImageRenderer } from '../components/editor/LayerImageRender'
 import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { parsePpit, serializePpit } from '../lib/ppit'
@@ -448,7 +448,7 @@ export default function EditorPage() {
     // (레이어 저장 전에) 재로드가 현재 캔버스를 비우던 백지 버그 방지
     if (numId === projectId) return
 
-    let cancelled = false
+    let cancelled = false;
     ;(async () => {
       try {
         const res = await editorApi.getProject(numId)
@@ -525,7 +525,7 @@ export default function EditorPage() {
 
         const firstLayerId = framesToReset[0]?.layers[0]?.id;
         if (firstLayerId) setActiveLayer(firstLayerId);
-        setUnsaved(true);
+        setUnsaved(false);
       } catch {
         if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
       }
@@ -577,87 +577,135 @@ export default function EditorPage() {
     URL.revokeObjectURL(url)
   }
 
+  const loadImage = (src: string): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null); // 에러 발생 시 세이프가드로 null 반환
+      img.src = src;
+    });
+  };
+
   const handleExportImage = useCallback(async() => {
     const stage = stageRef.current
     if (!stage) return
 
     const safeTitle = projectTitle.replace(/\s+/g, '_')
-
-    // 단일 프레임 처리
+    
+    // 단일 프레임 처리 (PNG 저장)
     if(state.frames.length <= 1){
-      const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
-      const link = document.createElement('a');
-      link.download = `${safeTitle}.png`;
-      link.href = currentFullImage;
-      link.click();
+      try{
+        toast.info('PNG 이미지를 내보내는 중입니다...');
+        const currentFullImage = stage.toDataURL({pixelRatio: 1 / zoom}); // 원본 크기 1:1 유지
+        const link = document.createElement('a');
+        link.download = `${safeTitle}.png`;
+        link.href = currentFullImage;
+        link.click();
+        toast.success('PNG 내보내기 완료!');
+      } catch(err){
+        console.error(err);
+        toast.error('PNG 내보내기 중 오류가 발생했습니다.');
+      }
       return;
     }
     
-    // 멀티 프레임 일 때
-    const gif = GIFEncoder()
+    // 다중 프레임 처리(GIF 처리)
+    try{
+      toast.info('GIF 프레임 생성 및 변환을 시작합니다...');
 
-    // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
-    for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
-      const currentFrame = state.frames[fIdx];
-      if (!currentFrame) continue;
+      // GIF 추출 최적화 버전
+      // 모든 프레임/레이어의 un-cached pixelData를 미리 병렬로 로드
+      const uncachedLayers: { key: string; src: string }[] = [];
+
+      state.frames.forEach((frame, fIdx) => {
+        (frame.layers ?? []).forEach((layer) => {
+          const cachekey = getCacheKey(fIdx, layer.id);
+          const cachedCanvas = layerCanvasRefs.current[cachekey];
+
+          // 메모리 캐시가 없지만 pixelData 문자열이 존재하는 경우에만 로드 대상에 추가
+          if(!cachedCanvas && layer.pixelData && layer.pixelData.trim() !== ''){
+            uncachedLayers.push({ key: cachekey, src: layer.pixelData });
+          }
+        });
+      });
       
-      // 가상 도화지(가상 캔버스) 생성 및 안전장치
-      const frameCanvas = document.createElement('canvas')
-      frameCanvas.width = state.width
-      frameCanvas.height = state.height
-      const fCtx = frameCanvas.getContext('2d')
-      
-      if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
-      
-      fCtx.imageSmoothingEnabled = false
-      fCtx.clearRect(0, 0, state.width, state.height)
+      // 모든 이미지를 동시로 디코딩
+      const loadedEntries = await Promise.all(
+        uncachedLayers.map(async({ key, src }) => {
+          const img = await loadImage(src);
+          return [key, img] as const;
+        })
+      );
 
-      const currentFrameLayers = currentFrame.layers ?? [];
-      
-      for(const layer of currentFrameLayers){
-        if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
-        
-        const cacheKey = getCacheKey(fIdx, layer.id);
-        const cachedCanvas = layerCanvasRefs.current[cacheKey];
-
-        fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
-
-        if(cachedCanvas){
-          fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
-        }else if(layer.pixelData && layer.pixelData.trim() !== ''){
-          // 만약 메모리 캐시는 날아갔지만 백업용 pixelData 문자열이 살아있다면 이미지 객체로 복구
-          const img = new Image();
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              fCtx.drawImage(img, 0, 0, state.width, state.height);
-              resolve();
-            };
-            img.onerror = () => resolve(); // 에러 나더라도 막히지 않게 세이프 가드
-            img.src = layer.pixelData;
-          });
-        }
-        fCtx.globalAlpha = 1.0; // 투명도 원상복구
-      }
-      // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
-      const imageData = fCtx.getImageData(0, 0, state.width, state.height)
-      
-      // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
-      const palette = quantize(imageData.data, 256)
-      const indexed = applyPalette(imageData.data, palette)
-
-      gif.writeFrame(indexed, state.width, state.height, {
-        palette,
-        delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
-        repeat: 0,
-      })
-    }
-
-    gif.finish()
-
-    const blob = new Blob([gif.bytes()], { type: 'image/gif' })
-    downloadBlob(blob, `${safeTitle}.gif`)
+      // 빠르게 꺼내쓸 수 있도록 Map 객체로 변환
+      const imageMap = new Map<string, HTMLImageElement | null>(loadedEntries);
     
-  }, [projectTitle, state.frames, safeFrameIdx, state.width, state.height])
+      // 3. GIF 인코딩 프로세스
+      const gif = GIFEncoder()
+
+      // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
+      for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
+        const currentFrame = state.frames[fIdx];
+        if (!currentFrame) continue;
+        
+        // 가상 도화지(가상 캔버스) 생성 및 안전장치
+        const frameCanvas = document.createElement('canvas');
+        frameCanvas.width = state.width;
+        frameCanvas.height = state.height;
+        const fCtx = frameCanvas.getContext('2d');
+        
+        if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
+        
+        fCtx.imageSmoothingEnabled = false
+        fCtx.clearRect(0, 0, state.width, state.height)
+
+        const currentFrameLayers = currentFrame.layers ?? [];
+        
+        for(const layer of currentFrameLayers){
+          if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
+          
+          const cacheKey = getCacheKey(fIdx, layer.id);
+          const cachedCanvas = layerCanvasRefs.current[cacheKey];
+
+          fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+
+          if(cachedCanvas){
+            // 1순위: 메모리 캔버스 캐시 사용
+            fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
+          }
+          else {
+            // 2순위: 미리 로드해둔 imageMap에서 즉시 동기 추출
+            const img = imageMap.get(cacheKey);
+            if(img){
+              fCtx.drawImage(img, 0, 0, state.width, state.height);
+            }
+          }
+          fCtx.globalAlpha = 1.0; // 투명도 원상복구
+        }
+        // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
+        const imageData = fCtx.getImageData(0, 0, state.width, state.height)
+        // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
+        const palette = quantize(imageData.data, 256)
+        const indexed = applyPalette(imageData.data, palette)
+
+        gif.writeFrame(indexed, state.width, state.height, {
+          palette,
+          delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
+          repeat: 0,
+        })
+      }
+
+      gif.finish()
+
+      const blob = new Blob([gif.bytes()], { type: 'image/gif' });
+      downloadBlob(blob, `${safeTitle}.gif`);
+
+      toast.success('GIF 애니메이션 내보내기 완료!');
+    }catch(err){
+      console.error(err);
+      toast.error('GIF 내보내기 처리 중 오류가 발생했습니다.');
+    }
+  }, [projectTitle, state.frames, zoom, state.width, state.height])
 
   // ── .ppit 내보내기/불러오기 ───────────────────────────
   const safeFileName = (title: string) =>
@@ -801,7 +849,6 @@ export default function EditorPage() {
   }, [unsaved, state.width, state.height, setSearchParams, setActiveLayer, reset])
 
   // ── RGB ─────────────────
- 
   // HEX 입력 → 색상 반영
   const applyHex = () => {
     if (/^#[0-9a-fA-F]{6}$/.test(hexInput)) setFgColor(hexInput)
@@ -917,7 +964,7 @@ export default function EditorPage() {
     const nextFrame = state.frames[nextIndex];
     const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
 
-    if (isDirty) {
+    if (isDirty.current) {
         const frameIdx = safeFrameIdx;
         const cacheKey = getCacheKey(frameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
@@ -954,7 +1001,7 @@ export default function EditorPage() {
         return;
     }
 
-    if(isDirty){
+    if(isDirty.current){
       // 현재 작업 중이던 고유한 프레임_레이어 전용 캔버스 캐시를 타깃으로 잡습니다.
       const cacheKey = getCacheKey(frameIdx, activeLayer);
       const cachedCanvas = layerCanvasRefs.current[cacheKey];

@@ -1,4 +1,5 @@
 import Konva from "konva";
+import { SetURLSearchParams } from "react-router-dom";
 
 
 //  ── Canvas Object Type ──────────────────────────────────────────────
@@ -28,14 +29,14 @@ export interface LayerData{
 }
 
 
-export interface useEditorProps{
+export interface UseEditorProps{
     stageRef: React.RefObject<Konva.Stage | null>;
     layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
     state: CanvasData;
     //zoom: number;
     isLoggedIn: boolean;
     setUnsaved: (unsaved: boolean) => void;
-    setSearchParams: any;
+    setSearchParams: SetURLSearchParams;
 }
 
 export interface SaveData{

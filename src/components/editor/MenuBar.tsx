@@ -124,7 +124,7 @@ export default function MenuBar({
                 break;
             // view
             case MENU_ACTION.FIT_SCREEN:
-                viewActions.setZoomIdx(6);
+                //viewActions.setZoomIdx(6); -> 줌을 6으로 지정하지 않고 캔버스 크기 등을 고려해서 지정하게 설계 예정
                 break;
             /*case MENU_ACTION.100:
                 break;
