@@ -643,60 +643,59 @@ export default function EditorPage() {
       // 3. GIF 인코딩 프로세스
       const gif = GIFEncoder()
 
-      // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
-      for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
-        const currentFrame = state.frames[fIdx];
-        if (!currentFrame) continue;
-        
-        // 가상 도화지(가상 캔버스) 생성 및 안전장치
-        const frameCanvas = document.createElement('canvas');
-        frameCanvas.width = state.width;
-        frameCanvas.height = state.height;
-        const fCtx = frameCanvas.getContext('2d');
-        
-        if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
-        
-        fCtx.imageSmoothingEnabled = false
-        fCtx.clearRect(0, 0, state.width, state.height)
+      // 가상 도화지(가상 캔버스) 생성 및 안전장치
+      const frameCanvas = document.createElement('canvas');
+      frameCanvas.width = state.width;
+      frameCanvas.height = state.height;
+      const fCtx = frameCanvas.getContext('2d');
 
-        const currentFrameLayers = currentFrame.layers ?? [];
-        
-        for(const layer of currentFrameLayers){
-          if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
+      if(fCtx){
+        fCtx.imageSmoothingEnabled = false;
+        // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
+        for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
+          const currentFrame = state.frames[fIdx];
+          if (!currentFrame) continue;
           
-          const cacheKey = getCacheKey(fIdx, layer.id);
-          const cachedCanvas = layerCanvasRefs.current[cacheKey];
+          fCtx.clearRect(0, 0, state.width, state.height)
 
-          fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+          const currentFrameLayers = currentFrame.layers ?? [];
+          
+          for(const layer of currentFrameLayers){
+            if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
+            
+            const cacheKey = getCacheKey(fIdx, layer.id);
+            const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
-          if(cachedCanvas){
-            // 1순위: 메모리 캔버스 캐시 사용
-            fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
-          }
-          else {
-            // 2순위: 미리 로드해둔 imageMap에서 즉시 동기 추출
-            const img = imageMap.get(cacheKey);
-            if(img){
-              fCtx.drawImage(img, 0, 0, state.width, state.height);
+            fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+
+            if(cachedCanvas){
+              // 1순위: 메모리 캔버스 캐시 사용
+              fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
             }
+            else {
+              // 2순위: 미리 로드해둔 imageMap에서 즉시 동기 추출
+              const img = imageMap.get(cacheKey);
+              if(img){
+                fCtx.drawImage(img, 0, 0, state.width, state.height);
+              }
+            }
+            fCtx.globalAlpha = 1.0; // 투명도 원상복구
           }
-          fCtx.globalAlpha = 1.0; // 투명도 원상복구
+          // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
+          const imageData = fCtx.getImageData(0, 0, state.width, state.height)
+          // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
+          const palette = quantize(imageData.data, 256)
+          const indexed = applyPalette(imageData.data, palette)
+
+          gif.writeFrame(indexed, state.width, state.height, {
+            palette,
+            delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
+            repeat: 0,
+          });
         }
-        // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
-        const imageData = fCtx.getImageData(0, 0, state.width, state.height)
-        // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
-        const palette = quantize(imageData.data, 256)
-        const indexed = applyPalette(imageData.data, palette)
-
-        gif.writeFrame(indexed, state.width, state.height, {
-          palette,
-          delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
-          repeat: 0,
-        });
-
-        frameCanvas.width = 0;
-        frameCanvas.height = 0;
       }
+      frameCanvas.width = 0;
+      frameCanvas.height = 0;
 
       gif.finish()
 
