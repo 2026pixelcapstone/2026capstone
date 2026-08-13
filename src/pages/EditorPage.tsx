@@ -619,12 +619,12 @@ export default function EditorPage() {
 
       state.frames.forEach((frame, fIdx) => {
         (frame.layers ?? []).forEach((layer) => {
-          const cachekey = getCacheKey(fIdx, layer.id);
-          const cachedCanvas = layerCanvasRefs.current[cachekey];
+          const cacheKey = getCacheKey(fIdx, layer.id);
+          const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
           // 메모리 캐시가 없지만 pixelData 문자열이 존재하는 경우에만 로드 대상에 추가
           if(!cachedCanvas && layer.pixelData && layer.pixelData.trim() !== ''){
-            uncachedLayers.push({ key: cachekey, src: layer.pixelData });
+            uncachedLayers.push({ key: cacheKey, src: layer.pixelData });
           }
         });
       });
@@ -692,7 +692,10 @@ export default function EditorPage() {
           palette,
           delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
           repeat: 0,
-        })
+        });
+
+        frameCanvas.width = 0;
+        frameCanvas.height = 0;
       }
 
       gif.finish()
