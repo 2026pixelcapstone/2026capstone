@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { downloadFileForced } from '../lib/download'
+import { startAssetPayment } from '../lib/toss'
 import StarRating from '../components/StarRating'
 
 const MIN_RATINGS = 4   // 이 개수 미만이면 "평가 부족" 표시(유니티 방식)
@@ -71,16 +72,16 @@ export default function AssetDetailPage() {
     }
   }
 
+  // 유료 에셋 구매 = 토스 결제창 → success 콜백에서 confirm(구매 확정). 성공 시 결제창이
+  // successUrl로 리다이렉트하므로 이 아래로는 보통 안 온다.
   const handlePurchase = async () => {
-    if (!isLoggedIn || !asset) return
+    if (!isLoggedIn || !asset || purchasing) return
     setPurchasing(true)
     try {
-      await assetApi.purchase(assetId)
-      setAsset(prev => prev ? { ...prev, isPurchased: true, downloadCount: prev.downloadCount + 1 } : prev)
-      toast.success('구매가 완료되었습니다.')
+      await startAssetPayment(assetId)
     } catch (err) {
-      toast.error(getErrorMessage(err, '구매에 실패했습니다.'))
-    } finally {
+      // 결제창 닫기/준비 실패 — 청구는 일어나지 않음
+      toast.error(getErrorMessage(err, '결제를 시작하지 못했습니다.'))
       setPurchasing(false)
     }
   }
@@ -258,7 +259,7 @@ export default function AssetDetailPage() {
                   className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity disabled:opacity-50"
                   style={{ background: 'var(--color-primary)', color: '#fff' }}>
                   <span className="material-symbols-outlined text-base">shopping_cart</span>
-                  {purchasing ? '처리 중...' : isLoggedIn ? '구매하기' : '로그인 후 구매'}
+                  {purchasing ? '결제창 여는 중…' : `구매하기 · ₩${Number(asset.price).toLocaleString()}`}
                 </button>
               )}
 

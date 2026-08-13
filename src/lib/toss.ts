@@ -13,8 +13,20 @@ import { paymentApi } from '../api/paymentApi'
  */
 export async function startCommissionPayment(commissionId: number): Promise<void> {
   const { data } = await paymentApi.prepareCommission(commissionId)
-  const { orderId, amount, orderName, clientKey } = data.data
+  await openPaymentWindow(data.data)
+}
 
+/** 에셋 즉시판매 결제 시작 — 커미션과 동일한 결제창, prepare만 에셋용. */
+export async function startAssetPayment(assetId: number): Promise<void> {
+  const { data } = await paymentApi.prepareAsset(assetId)
+  await openPaymentWindow(data.data)
+}
+
+/** prepare 응답으로 토스 결제창을 연다(커미션·에셋 공통). */
+async function openPaymentWindow(
+  prep: { orderId: string; amount: number; orderName: string; clientKey: string },
+): Promise<void> {
+  const { orderId, amount, orderName, clientKey } = prep
   const tossPayments = await loadTossPayments(clientKey)
   const payment = tossPayments.payment({ customerKey: ANONYMOUS })
 
