@@ -979,7 +979,8 @@ export default function EditorPage() {
                 : f
             ),
           }));
-        } 
+        }
+        isDirty.current = false;
     } 
     setCurrentFrameIdx(nextIndex);
     setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
@@ -1027,6 +1028,7 @@ export default function EditorPage() {
         });
       }
       setActiveLayer(layerIdToSelect);
+      isDirty.current = false;
     }
     else{
       setActiveLayer(layerIdToSelect);
