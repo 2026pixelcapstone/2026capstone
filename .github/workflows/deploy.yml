@@ -33,6 +33,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_TOSS_CLIENT_KEY: ${{ secrets.VITE_TOSS_CLIENT_KEY }}
 
       - name: Deploy to Nginx
         run: rsync -a --delete dist/ /var/www/pixelart/

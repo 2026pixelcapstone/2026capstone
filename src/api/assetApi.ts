@@ -129,9 +129,7 @@ export const assetApi = {
   toggleLike: (assetId: number) =>
     api.post<{ success: boolean; data: boolean }>(`/api/assets/${assetId}/like`),
 
-  // 구매
-  purchase: (assetId: number) =>
-    api.post<{ success: boolean }>(`/api/assets/${assetId}/purchase`),
+  // 유료 구매는 결제(paymentApi.prepareAsset → confirm)로만. 직접 구매 엔드포인트 제거됨.
 
   // 다운로드 기록 (로그인 필수, 사람당 1회만 카운트) — 실제 파일 다운로드와 별개로 호출
   recordDownload: (assetId: number) =>

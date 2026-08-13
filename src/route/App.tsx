@@ -35,6 +35,8 @@ import ContentManagementPage from '../admin/page/ContentManagementPage'
 import PaletteManagementPage from '../admin/page/PaletteManagementPage'
 import TeamMemberPage from '../admin/page/TeamMemberPage'
 import CommissionManagementPage from '../admin/page/CommissionManagementPage'
+import PaymentSuccessPage from '../pages/PaymentSuccessPage'
+import PaymentFailPage from '../pages/PaymentFailPage'
 import SettlementManagementPage from '../admin/page/SettlementManagementPage'
 import AdminAuditLogPage from '../admin/page/AdminAuditLogPage'
 import EditorTechSettingPage from '../admin/page/EditorTechSettingPage'
@@ -48,6 +50,10 @@ export default function App() {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/oauth2/callback" element={<OAuthCallbackPage />} />
+
+      {/* 결제 콜백 — 레이아웃 없음(전환 페이지) */}
+      <Route path="/payments/success" element={<PaymentSuccessPage />} />
+      <Route path="/payments/fail" element={<PaymentFailPage />} />
 
       {/* 에러 페이지 — 레이아웃 없음 */}
       <Route path="/403" element={<ForbiddenPage />} />
