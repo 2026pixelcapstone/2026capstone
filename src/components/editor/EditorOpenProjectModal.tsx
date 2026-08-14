@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { editorApi, type ProjectSummary } from '../api/editorApi'
-import { toast } from '../store/toastStore'
+import { editorApi, type ProjectSummary } from '../../api/editorApi'
+import { toast } from '../../store/toastStore'
 
 interface Props {
   isOpen: boolean

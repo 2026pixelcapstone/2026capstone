@@ -1,6 +1,6 @@
 // src/components/useAnimation.tsx
-import { createDefaultLayer} from '../../constants/editor';
-import {Frame} from '../../constants/editorType'
+import { createDefaultLayer} from '../../constants/editor/editor';
+import {Frame} from '../../type/editorType'
 
 interface UseAnimationProps{
     frames: Frame[];

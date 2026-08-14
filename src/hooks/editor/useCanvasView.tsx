@@ -1,5 +1,5 @@
 import { useState } from "react"
-import {ZOOM_LEVELS} from "../../constants/editor"
+import {ZOOM_LEVELS} from "../../constants/editor/editor"
 
 export function useCanvasView() {
     const [zoomIdx, setZoomIdx] = useState(6);

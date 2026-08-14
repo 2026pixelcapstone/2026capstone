@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import {SaveProjectModeProps } from '../constants/editorType';
+import {SaveProjectModeProps } from '../../type/editorType';
 
 export default function EditorSaveProjectModal({
     isOpen,

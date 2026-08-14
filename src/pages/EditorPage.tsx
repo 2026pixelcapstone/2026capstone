@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { LayerData } from '../constants/editorType'
-import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { LayerData } from '../type/editorType'
+import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
-import EditorSaveProjectModal from '../components/EditorSaveProjectModal'
-import EditorOpenProjectModal from '../components/EditorOpenProjectModal'
+import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
+import EditorOpenProjectModal from '../components/editor/EditorOpenProjectModal'
 import { editorApi } from '../api/editorApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -15,25 +15,22 @@ import { useLayers as useLayer } from '../hooks/editor/useLayer'
 import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
-import { LayerImageRenderer } from '../components/LayerImageRender'
+import { LayerImageRenderer } from '../components/editor/LayerImageRender'
 import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
-
-type MenuItem =
-  | { separator: true }
-  | { label: string; shortcut?: string; icon?: string; action?: () => void; disabled?: boolean }
+import MenuBar from '../components/editor/MenuBar'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
 // ── 컴포넌트 ──────────────────────────────────────────
 export default function EditorPage() {
   
-  const stageRef = useRef<Konva.Stage>(null)
-  const menuRef   = useRef<HTMLDivElement>(null) 
+  const stageRef = useRef<Konva.Stage>(null) 
   const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
-  
+  const navigate = useNavigate();
+
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
  
@@ -112,7 +109,6 @@ export default function EditorPage() {
 
   const [showAnim, setShowAnim]       = useState(false)
   const [unsaved, setUnsaved]         = useState(false)
-  const [openMenu, setOpenMenu]       = useState<string | null>(null)
   const [showGridLines, setShowGridLines] = useState(true)
 
   // ── 프로젝트 저장 관련 상태 ──────────────────────────
@@ -135,16 +131,12 @@ export default function EditorPage() {
     setSearchParams
   });
 
-  // 메뉴 외부 클릭 시 닫기
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenu(null)
-      }
-    }
-    if (openMenu) document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [openMenu])
+  // ── Navigation / Page Control ───────────────────────────────────
+  const handleBackToMain = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault();
+    if (unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 계속할까요?')) return;
+    navigate('/');
+  }, [unsaved, navigate])
 
   // ── 현재 프레임 및 레이어 인덱스 동기화 ────────────────
   useEffect(() => {
@@ -256,7 +248,7 @@ export default function EditorPage() {
   }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const drawPixel = useCallback(() => {
+  const applyCanvasTool = useCallback(() => {
     const stage = stageRef.current;
     const frameIdx = safeFrameIdx
     if(!stage || !activeLayer) return;
@@ -278,11 +270,13 @@ export default function EditorPage() {
       ctx.fillRect(x, y, brushSize, brushSize)
       ctx.globalAlpha = 1
       isDirty.current = true; // 픽셀이 변경되었음을 표시
+      setUnsaved(true);
     }
     // ─── [지우개 도구] ────────────────────────────────────────
     else if (activeTool === 'eraser') {
       ctx.clearRect(x, y, brushSize, brushSize)
       isDirty.current = true; // 픽셀이 변경되었음을 표시
+      setUnsaved(true);
     }
     // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
     else if (activeTool === 'fill') {
@@ -364,6 +358,7 @@ export default function EditorPage() {
       
       ctx.putImageData(imgData, 0, 0);
       isDirty.current = true; // 픽셀이 변경되었음을 표시
+      setUnsaved(true);
     }
   
     // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
@@ -387,13 +382,12 @@ export default function EditorPage() {
     if(activeLayerNode){
       activeLayerNode.getLayer()?.batchDraw();
     }
-    setUnsaved(true)
   }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayer, getLayerCanvas, safeFrameIdx])
 
   const handleMouseMove = () => {
     const pos = getPixel()
     if (pos) setCursorPos(pos)
-    if (isDrawing.current) drawPixel()
+    if (isDrawing.current) applyCanvasTool()
   }
 
   // --------  state.width/height 변경 시 CustomW/H 동기화 -----------
@@ -405,7 +399,7 @@ export default function EditorPage() {
   // -------- 캔버스 크기 변경 -----------
   const applyCanvasSize = (w: number, h: number) => {
     if(state.width === w && state.height === h){
-      setOpenMenu(null);
+      
       return;
     }
 
@@ -417,10 +411,8 @@ export default function EditorPage() {
       };
     })
 
-    setUnsaved(true);
-    setOpenMenu(null);
+    setUnsaved(true); // 서버 저장 여부
   }
-
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
   useEffect(() => {
@@ -456,7 +448,7 @@ export default function EditorPage() {
     // (레이어 저장 전에) 재로드가 현재 캔버스를 비우던 백지 버그 방지
     if (numId === projectId) return
 
-    let cancelled = false
+    let cancelled = false;
     ;(async () => {
       try {
         const res = await editorApi.getProject(numId)
@@ -531,10 +523,9 @@ export default function EditorPage() {
           height: proj.height,
         })
 
-        const firstLayerId = framesToReset[0]?.layers[0]?.id
-        if (firstLayerId) setActiveLayer(firstLayerId)
-          
-        setUnsaved(false)
+        const firstLayerId = framesToReset[0]?.layers[0]?.id;
+        if (firstLayerId) setActiveLayer(firstLayerId);
+        setUnsaved(false);
       } catch {
         if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
       }
@@ -574,7 +565,6 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [openSaveModal, undo, redo])
 
-
   // ── PNG/GIF 내보내기 ──────────────────────────────────
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
@@ -586,6 +576,138 @@ export default function EditorPage() {
 
     URL.revokeObjectURL(url)
   }
+
+  const loadImage = (src: string): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null); // 에러 발생 시 세이프가드로 null 반환
+      img.src = src;
+    });
+  };
+
+  const handleExportImage = useCallback(async() => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    const safeTitle = projectTitle.replace(/\s+/g, '_')
+    
+    // 단일 프레임 처리 (PNG 저장)
+    if(state.frames.length <= 1){
+      try{
+        toast.info('PNG 이미지를 내보내는 중입니다...');
+        const currentFullImage = stage.toDataURL({pixelRatio: 1 / zoom}); // 원본 크기 1:1 유지
+        const link = document.createElement('a');
+        link.download = `${safeTitle}.png`;
+        link.href = currentFullImage;
+        link.click();
+        toast.success('PNG 내보내기 완료!');
+      } catch(err){
+        console.error(err);
+        toast.error('PNG 내보내기 중 오류가 발생했습니다.');
+      }
+      return;
+    }
+    
+    // 다중 프레임 처리(GIF 처리)
+    try{
+      toast.info('GIF 프레임 생성 및 변환을 시작합니다...');
+
+      // GIF 추출 최적화 버전
+      // 모든 프레임/레이어의 un-cached pixelData를 미리 병렬로 로드
+      const uncachedLayers: { key: string; src: string }[] = [];
+
+      state.frames.forEach((frame, fIdx) => {
+        (frame.layers ?? []).forEach((layer) => {
+          const cacheKey = getCacheKey(fIdx, layer.id);
+          const cachedCanvas = layerCanvasRefs.current[cacheKey];
+
+          // 메모리 캐시가 없지만 pixelData 문자열이 존재하는 경우에만 로드 대상에 추가
+          if(!cachedCanvas && layer.pixelData && layer.pixelData.trim() !== ''){
+            uncachedLayers.push({ key: cacheKey, src: layer.pixelData });
+          }
+        });
+      });
+      
+      // 모든 이미지를 동시로 디코딩
+      const loadedEntries = await Promise.all(
+        uncachedLayers.map(async({ key, src }) => {
+          const img = await loadImage(src);
+          return [key, img] as const;
+        })
+      );
+
+      // 빠르게 꺼내쓸 수 있도록 Map 객체로 변환
+      const imageMap = new Map<string, HTMLImageElement | null>(loadedEntries);
+    
+      // 3. GIF 인코딩 프로세스
+      const gif = GIFEncoder()
+
+      // 가상 도화지(가상 캔버스) 생성 및 안전장치
+      const frameCanvas = document.createElement('canvas');
+      frameCanvas.width = state.width;
+      frameCanvas.height = state.height;
+      const fCtx = frameCanvas.getContext('2d');
+
+      if(fCtx){
+        fCtx.imageSmoothingEnabled = false;
+        // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
+        for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
+          const currentFrame = state.frames[fIdx];
+          if (!currentFrame) continue;
+          
+          fCtx.clearRect(0, 0, state.width, state.height)
+
+          const currentFrameLayers = currentFrame.layers ?? [];
+          
+          for(const layer of currentFrameLayers){
+            if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
+            
+            const cacheKey = getCacheKey(fIdx, layer.id);
+            const cachedCanvas = layerCanvasRefs.current[cacheKey];
+
+            fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+
+            if(cachedCanvas){
+              // 1순위: 메모리 캔버스 캐시 사용
+              fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
+            }
+            else {
+              // 2순위: 미리 로드해둔 imageMap에서 즉시 동기 추출
+              const img = imageMap.get(cacheKey);
+              if(img){
+                fCtx.drawImage(img, 0, 0, state.width, state.height);
+              }
+            }
+            fCtx.globalAlpha = 1.0; // 투명도 원상복구
+          }
+          // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
+          const imageData = fCtx.getImageData(0, 0, state.width, state.height)
+          // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
+          const palette = quantize(imageData.data, 256)
+          const indexed = applyPalette(imageData.data, palette)
+
+          gif.writeFrame(indexed, state.width, state.height, {
+            palette,
+            delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
+            repeat: 0,
+          });
+        }
+      }
+      frameCanvas.width = 0;
+      frameCanvas.height = 0;
+
+      gif.finish()
+
+      const blob = new Blob([gif.bytes()], { type: 'image/gif' });
+      downloadBlob(blob, `${safeTitle}.gif`);
+
+      toast.success('GIF 애니메이션 내보내기 완료!');
+    }catch(err){
+      console.error(err);
+      toast.error('GIF 내보내기 처리 중 오류가 발생했습니다.');
+    }
+  }, [projectTitle, state.frames, zoom, state.width, state.height])
 
   // ── .ppit 내보내기/불러오기 ───────────────────────────
   const safeFileName = (title: string) =>
@@ -675,88 +797,9 @@ export default function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, loadPpitText])
 
-  
-  const handleExportImage = useCallback(async() => {
-    const stage = stageRef.current
-    if (!stage) return
-
-    const safeTitle = projectTitle.replace(/\s+/g, '_')
-
-    // 단일 프레임 처리
-    if(state.frames.length <= 1){
-      const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
-      const link = document.createElement('a');
-      link.download = `${safeTitle}.png`;
-      link.href = currentFullImage;
-      link.click();
-      return;
-    }
-    
-    // 멀티 프레임 일 때
-    const gif = GIFEncoder()
-
-    // 모든 프레임을 순서대로 필름 인코딩 루프 돌리기
-    for(let fIdx = 0; fIdx < state.frames.length; fIdx++){
-      const currentFrame = state.frames[fIdx];
-      if (!currentFrame) continue;
-      
-      // 가상 도화지(가상 캔버스) 생성 및 안전장치
-      const frameCanvas = document.createElement('canvas')
-      frameCanvas.width = state.width
-      frameCanvas.height = state.height
-      const fCtx = frameCanvas.getContext('2d')
-      
-      if(!fCtx) continue // GPU 메모리 부족 등 예외 상황 시 다음 프레임으로 스킵
-      
-      fCtx.imageSmoothingEnabled = false
-      fCtx.clearRect(0, 0, state.width, state.height)
-
-      const currentFrameLayers = currentFrame.layers ?? [];
-      
-      for(const layer of currentFrameLayers){
-        if(!layer.isVisible) continue // 보이지 않는 레이어는 합성에서 제외
-        
-        const cacheKey = getCacheKey(fIdx, layer.id);
-        const cachedCanvas = layerCanvasRefs.current[cacheKey];
-
-        fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
-
-        if(cachedCanvas){
-          fCtx.drawImage(cachedCanvas, 0, 0, state.width, state.height);
-        }else if(layer.pixelData && layer.pixelData.trim() !== ''){
-          // 만약 메모리 캐시는 날아갔지만 백업용 pixelData 문자열이 살아있다면 이미지 객체로 복구
-          const img = new Image();
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              fCtx.drawImage(img, 0, 0, state.width, state.height);
-              resolve();
-            };
-            img.onerror = () => resolve(); // 에러 나더라도 막히지 않게 세이프 가드
-            img.src = layer.pixelData;
-          });
-        }
-        fCtx.globalAlpha = 1.0; // 투명도 원상복구
-      }
-      // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
-      const imageData = fCtx.getImageData(0, 0, state.width, state.height)
-      
-      // 컬러 양자화 알고리즘 구동 (GIF 규격 압축)
-      const palette = quantize(imageData.data, 256)
-      const indexed = applyPalette(imageData.data, palette)
-
-      gif.writeFrame(indexed, state.width, state.height, {
-        palette,
-        delay: 100, // 나중에 타임라인 속도 조절(fps) 상태가 있다면 연동 가능
-        repeat: 0,
-      })
-    }
-
-    gif.finish()
-
-    const blob = new Blob([gif.bytes()], { type: 'image/gif' })
-    downloadBlob(blob, `${safeTitle}.gif`)
-    
-  }, [projectTitle, state.frames, safeFrameIdx, state.width, state.height])
+  const handleOpenPpit = () => {
+    ppitInputRef.current?.click();
+  }
 
   // ── 새 프로젝트 ───────────────────────────────────
   const handleNewProject = useCallback(() => {
@@ -801,14 +844,13 @@ export default function EditorPage() {
     // 기타 메타데이터 및 URL 초기화
     setProjectId(null)
     setProjectTitle('Untitled Project')
-    setUnsaved(false)
+    setUnsaved(true)
 
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
   }, [unsaved, state.width, state.height, setSearchParams, setActiveLayer, reset])
 
   // ── RGB ─────────────────
- 
   // HEX 입력 → 색상 반영
   const applyHex = () => {
     if (/^#[0-9a-fA-F]{6}$/.test(hexInput)) setFgColor(hexInput)
@@ -913,8 +955,6 @@ export default function EditorPage() {
         height: state.height
       };
     });
-    setUnsaved(false);
-
   }, [safeFrameIdx, activeLayer, setWithHistory, state.width, state.height]);
 
   
@@ -926,7 +966,7 @@ export default function EditorPage() {
     const nextFrame = state.frames[nextIndex];
     const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
 
-    if (unsaved) {
+    if (isDirty.current) {
         const frameIdx = safeFrameIdx;
         const cacheKey = getCacheKey(frameIdx, activeLayer);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
@@ -941,15 +981,21 @@ export default function EditorPage() {
                 : f
             ),
           }));
-
-          setUnsaved(false);
-        } 
+        }
+        isDirty.current = false;
     } 
     setCurrentFrameIdx(nextIndex);
     setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
     
   }
   // ── 레이어 ───────────────────────────────────
+  const handleAddLayer = () => {
+    addLayer(safeFrameIdx); 
+  }
+  const handleDeleteLayer = () => {
+    deleteLayer(safeFrameIdx, activeLayer)
+  }
+  
   const selectLayer = useCallback((frameIdx: number, layerIdToSelect: string) => {
     const stage = stageRef.current;
     if (!stage || !activeLayer) {
@@ -958,7 +1004,7 @@ export default function EditorPage() {
         return;
     }
 
-    if(unsaved){
+    if(isDirty.current){
       // 현재 작업 중이던 고유한 프레임_레이어 전용 캔버스 캐시를 타깃으로 잡습니다.
       const cacheKey = getCacheKey(frameIdx, activeLayer);
       const cachedCanvas = layerCanvasRefs.current[cacheKey];
@@ -984,7 +1030,7 @@ export default function EditorPage() {
         });
       }
       setActiveLayer(layerIdToSelect);
-      setUnsaved(false); // 저장 완료 상태로 플래그 클린업
+      isDirty.current = false;
     }
     else{
       setActiveLayer(layerIdToSelect);
@@ -994,8 +1040,8 @@ export default function EditorPage() {
   
   // 1. 컴포넌트 내부 상단에 배열을 변수로 분리 (as const 적용)
   const layerButtons = [
-    ['add', '레이어 추가', addLayer],
-    ['delete', '레이어 삭제', deleteLayer]
+    ['add', '레이어 추가', handleAddLayer],
+    ['delete', '레이어 삭제', handleDeleteLayer]
   ] as const;
 
   // -------- 레이어 순서 변경 -----------
@@ -1035,90 +1081,6 @@ export default function EditorPage() {
     e.preventDefault(); 
   };
 
-  // ── 메뉴 정의 (actions can reference state) ──
-  const MENU_DEFS: { id: string; label: string; items: MenuItem[] }[] = [
-    {
-      id: 'file', label: 'File',
-      items: [
-        { label: 'New Project',        icon: 'add',           shortcut: 'Ctrl+N', action: () => { handleNewProject(); setOpenMenu(null) } },
-        { label: 'Open Project…',     icon: 'folder',        action: () => { setOpenProjectModalOpen(true); setOpenMenu(null) } },
-        { label: 'Open .ppit…',       icon: 'folder_open',   action: () => { ppitInputRef.current?.click(); setOpenMenu(null) } },
-        { separator: true },
-        { label: 'Save',               icon: 'save',          shortcut: 'Ctrl+S', action: () => { openSaveModal(); setOpenMenu(null) } },
-        //{ label: 'Save As…',          icon: 'save_as',       shortcut: 'Ctrl+Shift+S' },
-        { label: 'Browser Save',       icon: 'open_in_browser', shortcut: 'Ctrl + Shift + S'},
-        { separator: true },
-        { label: 'Export Image',      icon: 'image',         action: () => { handleExportImage(); setOpenMenu(null) } },
-        { label: 'Export Spritesheet',      icon: 'grid_on' },
-        { label: 'Download .ppit',          icon: 'download', action: () => { handleExportPpit(); setOpenMenu(null) } },
-        { separator: true },
-        { label: 'Back to Main',       icon: 'arrow_back', action: () => { window.location.href = '/' } },
-      ],
-    },
-    {
-      id: 'edit', label: 'Edit',
-      items: [
-        { label: 'Undo',       icon: 'undo',        shortcut: 'Ctrl+Z', action: () => {undo(); setOpenMenu(null)}},
-        { label: 'Redo',       icon: 'redo',        shortcut: 'Ctrl+Y', action: () => {redo(); setOpenMenu(null)}},
-        { separator: true },
-        { label: 'Cut',        icon: 'content_cut',  shortcut: 'Ctrl+X' },
-        { label: 'Copy',       icon: 'content_copy', shortcut: 'Ctrl+C' },
-        { label: 'Paste',      icon: 'content_paste',shortcut: 'Ctrl+V' },
-        { label: 'RESIZE',     icon: 'crop', shortcut: 'Ctrl + Alt + C'},
-        { separator: true },
-        { label: 'Select All', icon: 'select_all',   shortcut: 'Ctrl+A' },
-        { label: 'Deselect',   icon: 'deselect',     shortcut: 'Ctrl+D' },
-      ],
-    },
-    {
-      id: 'image', label: 'Image',
-      items: [
-        /*
-        { label: 'Canvas Size…',     icon: 'crop',      action: () => {} },
-        ...CANVAS_PRESETS.map(p => ({
-          label: p,
-          action: () => {
-            const [w, h] = p.split('×').map(Number)
-            applyCanvasSize(w, h)
-          },
-        })),*/
-        { separator: true },
-        { label: 'Flip Horizontal',  icon: 'flip' },
-        { label: 'Flip Vertical',    icon: 'flip', },
-        { label: 'Rotate 90° CW',    icon: 'rotate_right' },
-      ],
-    },
-    {
-      id: 'view', label: 'View',
-      items: [
-        { label: 'Fit Screen', icon: 'fit_screen',              action: () => { setZoomIdx(6); setOpenMenu(null) } },
-        { label: '100%',       icon: 'crop_free',               action: () => { setZoomIdx(ZOOM_LEVELS.indexOf(1) >= 0 ? ZOOM_LEVELS.indexOf(1) : 0); setOpenMenu(null) } },
-        { separator: true },
-        { label: showGridLines ? 'Hide Grid' : 'Show Grid', icon: 'grid_on', action: () => { setShowGridLines(v => !v); setOpenMenu(null) } },
-      ],
-    },
-    {
-      id: 'layer', label: 'Layer',
-      items: [
-        { label: 'Add Layer',    icon: 'add' },
-        { label: 'Delete Layer', icon: 'delete' },
-        { label: 'Duplicate',    icon: 'copy_all' },
-        { separator: true },
-        { label: 'Move Up',      icon: 'arrow_upward' },
-        { label: 'Move Down',    icon: 'arrow_downward' },
-        { separator: true },
-        { label: 'Merge Visible',icon: 'merge' },
-        { label: 'Flatten',      icon: 'layers_clear' },
-      ],
-    },
-    {
-      id: 'AI Assistant', label: 'AI Assistant',
-      items:[
-        {label: 'AI Guide', icon: 'auto_awesome', action: () => setShowAIGuide(!showAIGuide)},
-      ],
-    },
-  ]
-
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
     <div className="fixed inset-0 top-0 flex flex-col" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', zIndex: 60 }}>
@@ -1153,56 +1115,46 @@ export default function EditorPage() {
         style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
         {/* 좌: 로고 + 메뉴바 */}
-        <div ref={menuRef} className="flex items-center h-full">
+        <div className="flex items-center h-full">
           {/* 로고 */}
-          <a href="/" className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-surface-container transition-colors"
+          <a href="/" onClick={handleBackToMain} className="flex items-center gap-1.5 font-bold text-sm px-4 h-full hover:bg-surface-container transition-colors"
             style={{ color: 'var(--color-primary)' }}>
             <span className="material-symbols-outlined text-base">grid_view</span>
-            PixelHub
+            PixelPilot
           </a>
 
-          <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
-
-          {/* 메뉴 항목들 */}
-          {MENU_DEFS.map(menu => (
-            <div key={menu.id} className="relative h-full flex items-center">
-              <button
-                onClick={() => setOpenMenu(openMenu === menu.id ? null : menu.id)}
-                className="px-3 h-full text-sm transition-colors"
-                style={{
-                  color: openMenu === menu.id ? 'var(--color-on-surface)' : 'var(--color-on-surface)',
-                  background: openMenu === menu.id ? 'var(--color-surface-container)' : 'transparent',
-                }}>
-                {menu.label}
-              </button>
-
-              {openMenu === menu.id && (
-                <div className="absolute top-full left-0 rounded-b-lg border shadow-2xl py-1 z-50 min-w-[220px]"
-                  style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', borderTopColor: 'transparent' }}>
-                  {menu.items.map((item, idx) => {
-                    if ('separator' in item) {
-                      return <div key={idx} className="my-1 border-t" style={{ borderColor: 'var(--color-outline)' }} />
-                    }
-                    return (
-                      <button key={idx}
-                        onClick={item.action ?? (() => setOpenMenu(null))}
-                        disabled={item.disabled}
-                        className="w-full flex items-center gap-2.5 px-4 py-1.5 text-sm text-left transition-colors hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-default">
-                        {item.icon && (
-                          <span className="material-symbols-outlined text-sm w-4 flex-shrink-0"
-                            style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
-                        )}
-                        <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{item.label}</span>
-                        {item.shortcut && (
-                          <span className="text-xs ml-4" style={{ color: 'var(--color-on-surface-variant)' }}>{item.shortcut}</span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+          <div 
+            className="w-px h-5 mx-1" // w -> 1픽셀, h -> 20px, mx -> 좌우 간격 4px씩
+            style={{ background: 'var(--color-surface-container-highest)' }} 
+          />
+              <MenuBar
+                fileActions={{
+                  handleNewProject,
+                  setOpenProjectModalOpen,
+                  handleOpenPpit,
+                  openSaveModal,
+                  handleExportImage,
+                  handleExportPpit,
+                  handleBackToMain
+                }}
+                editActions={{
+                  undo,
+                  redo,
+                }}
+                viewActions={{
+                  setZoomIdx,
+                  showGridLines,
+                  setShowGridLines,
+                }}
+                layerActions={{
+                  handleAddLayer,
+                  handleDeleteLayer
+                }}
+                pixelGuides={{
+                  showAIGuide,
+                  setShowAIGuide,
+                }}
+              />
         </div>
 
         {/* 우: 파일명 + 저장 */}
@@ -1333,7 +1285,7 @@ export default function EditorPage() {
               scaleY={zoom}
               pixelRatio={1}
               style={{imageRendering: 'pixelated'}}
-              onMouseDown={() => { isDrawing.current = true; drawPixel() }}
+              onMouseDown={() => { isDrawing.current = true; applyCanvasTool() }}
               onMouseMove={handleMouseMove}
               onMouseUp={() => {
                 isDrawing.current = false
@@ -1730,10 +1682,10 @@ export default function EditorPage() {
                     onClick={() => {
                       if(!handler) return;
                       if (icon === 'add') {
-                        handler(safeFrameIdx);
+                        handler();
                       } else if (icon === 'delete') {
                         // deleteLayer는 (frameIdx, layerId) 두 개를 받으므로 맞춰서 전달
-                        handler(safeFrameIdx, activeLayer);
+                        handler();
                       }
                     }}
                     className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
