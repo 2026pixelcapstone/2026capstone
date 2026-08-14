@@ -1,4 +1,4 @@
-import { getCacheKey } from "../utils/editorUtils";
+import { getCacheKey } from "../../utils/editorUtils";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Image as KonvaImage } from 'react-konva';
 
@@ -67,7 +67,6 @@ export const LayerImageRenderer = ({
                         ctx.drawImage(tempCanvas, offsetX, offsetY, tempCanvas.width, tempCanvas.height);
                     }
                 }
-                  
             }
         }
     },[cacheKey, canvasW, canvasH, layerCanvasRefs, isScaleImage])

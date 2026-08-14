@@ -1,6 +1,6 @@
 import { getCacheKey } from "../../utils/editorUtils";
 import { editorApi, LayerSaveRequest } from "../../api/editorApi";
-import { LayerData, SaveData, useEditorProps } from "../../constants/editorType";
+import { LayerData, SaveData, UseEditorProps } from "../../type/editorType";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
 import api from "../../lib/axios";
@@ -12,7 +12,7 @@ export const useEditor = ({
     isLoggedIn,
     setUnsaved,
     setSearchParams,
-}: useEditorProps) => {
+}: UseEditorProps) => {
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [projectId, setProjectId]       = useState<number | null>(null);
     const [projectTitle, setProjectTitle] = useState('Untitled Project');

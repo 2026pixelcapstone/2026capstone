@@ -1,6 +1,6 @@
 // 에디터 CanvasData ↔ .ppit(PpitFile) 변환
 // 🔴 opacity 스케일 차이: 에디터 레이어 = 0~100, .ppit 스펙 = 0.0~1.0
-import type { CanvasData, BlendMode } from '../constants/editorType'
+import type { CanvasData, BlendMode } from '../type/editorType'
 import { PPIT_DEFAULT_FPS, type PpitFile } from '../lib/ppit'
 
 const EDITOR_OPACITY_MAX = 100
