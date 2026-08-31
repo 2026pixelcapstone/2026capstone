@@ -72,6 +72,7 @@ export default function App() {
         <Route path="/request-posts/:id" element={<RequestPostDetailPage />} />
         <Route path="/artist-services/:id" element={<ArtistServiceDetailPage />} />
         <Route path="/profile/:username" element={<ProfilePage />} />
+        <Route path="/editor" element={<EditorPage />} />
         {/* 404 — MainLayout 내부 */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
@@ -79,7 +80,6 @@ export default function App() {
       {/* 로그인 필수 페이지 */}
       <Route element={<MainLayout />}>
         <Route element={<PrivateRoute />}>
-          <Route path="/editor" element={<EditorPage />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/notifications" element={<NotificationPage />} />
           <Route path="/assets/create" element={<AssetCreatePage />} />
