@@ -2,18 +2,18 @@ import api from '../lib/axios'
 import type { PageResponse } from './galleryApi'
 
 export interface CanvasResponse{
-  frames: FrameResponse[]
+  frameResponses: FrameResponse[]
 }
 
 export interface FrameResponse{
   frameId: number | null
   frameOrder: number | null
   duration: number | null
-  layers: LayerResponse[]
+  layerResponses: LayerResponse[]
 }
 
 export interface LayerResponse {
-  layerId: number
+  layerId: number | null
   name: string
   layerOrder: number
   blendMode: 'NORMAL' | 'MULTIPLY' | 'SCREEN' | 'OVERLAY' | 'DARKEN' | 'LIGHTEN'
@@ -61,14 +61,14 @@ export interface ProjectUpdateRequest {
 }
 
 export interface CanvasSaveRequest {
-  frames: FrameSaveRequest[]
+  frameSaveRequests: FrameSaveRequest[]
 }
 
 export interface FrameSaveRequest {
   frameId: number | null
   frameOrder?: number | null;
   duration?: number | null;
-  layers: LayerSaveRequest[];
+  layerSaveRequests: LayerSaveRequest[];
 }
 
 export interface LayerSaveRequest {
@@ -92,7 +92,7 @@ export const editorApi = {
   createProject: (data: ProjectCreateRequest) =>
     api.post<{ success: boolean; data: ProjectResponse }>('/api/editor/projects', data),
 
-  // 프로젝트 상세 (레이어 포함)
+  // 프로젝트 상세 (캔버스 데이터 포함)
   getProject: (projectId: number) =>
     api.get<{ success: boolean; data: ProjectResponse }>(`/api/editor/projects/${projectId}`),
 

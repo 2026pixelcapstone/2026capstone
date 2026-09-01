@@ -1,10 +1,10 @@
 // src/components/useAnimation.tsx
 import { useCallback } from 'react';
 import { createDefaultLayer} from '../../constants/editor/editor';
-import {Frame} from '../../type/editorType'
+import {FrameData} from '../../type/editorType'
 
 interface UseAnimationProps{
-    frames: Frame[];
+    frames: FrameData[];
     currentFrameIdx: number;
     setWithHistory: React.Dispatch<React.SetStateAction<any>>;
     setCurrentFrameIdx: React.Dispatch<React.SetStateAction<number>>;
@@ -26,7 +26,7 @@ export function useAnimation({
      * data - 복사할 이미지 데이터 (없으면 빈 프레임)
      */
     const addFrame = useCallback(() => {
-        const newFrame: Frame = {
+        const newFrame: FrameData = {
             id: `frame-${crypto.randomUUID()}`,
             frameOrder: frames.length, // 새 프레임은 현재 개수 기준으로 순서 부여
             layers: [createDefaultLayer()],
@@ -98,9 +98,10 @@ export function useAnimation({
         setUnsaved(true);
     }, [frames, setWithHistory, setCurrentFrameIdx, setActiveLayer, setUnsaved]);
 
+    /*
     const reorderFrames = useCallback((frameStartIndex: number, frameEndIndex: number) => {
         
-    }, []);
+    }, []);*/
 
-    return {addFrame, deleteFrame, reorderFrames};
+    return {addFrame, deleteFrame};
 }

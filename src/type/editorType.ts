@@ -4,12 +4,12 @@ import { SetURLSearchParams } from "react-router-dom";
 
 //  ── Canvas Object Type ──────────────────────────────────────────────
 export interface CanvasState{
-  frames: Frame[];
+  frames: FrameData[];
   width : number;
   height: number;
 }
 
-export interface Frame{
+export interface FrameData{
   id: string;
   frameOrder?: number;
   duration?: number;

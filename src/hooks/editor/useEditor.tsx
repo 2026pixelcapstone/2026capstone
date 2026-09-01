@@ -5,11 +5,12 @@ import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
 import api from "../../lib/axios";
 
+/*
 interface ApiResponse<T> {
   success: boolean;
   message: string | null;
   data: T;
-}
+}*/
 
 export const useEditor = ({
     stageRef,
@@ -82,7 +83,7 @@ export const useEditor = ({
 
             // 3. 파일 서버 대량(Bulk) 업로드 프로세스(이미지 저장)
             // uploadFormData 상태: pixel-art라는 경로에 thumbnail.webp과 여러 layer_${fIdx}_${layer.id}.webp가 저장됨
-            const uploadRes = await api.post<{ data: string[] }>("/api/files/upload/bulk", uploadFormData);
+            const uploadRes = await api.post<{data: string[]}>("/api/files/upload/bulk", uploadFormData);
             
             // 봇의 지적 반영: API 응답 구조 정규화 및 방어적 유효성 검증 추가
             const responseData = uploadRes.data.data as { data?: string[] } | string[];
@@ -131,20 +132,20 @@ export const useEditor = ({
             //step = '프레임 내부 레이어 저장 단계'
             // 5. 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브
             const frameToSave = state.frames.map((frame, fIdx): FrameSaveRequest => {
-                const cleanFrameId = String(frame.id).trim();
-                const isNewFrame = cleanFrameId.startsWith('frame-') || cleanFrameId === 'null' || cleanFrameId === 'undefined' || !cleanFrameId;
+                //const cleanFrameId = String(frame.id).trim();
+                //const isNewFrame = cleanFrameId.startsWith('frame-') || cleanFrameId === 'null' || cleanFrameId === 'undefined' || !cleanFrameId;
                 return{
                     // 추후 frameOrder와 duration도 채워넣어줘야 합니다.
-                    frameId: isNewFrame ? null : Number(cleanFrameId),
+                    frameId: null, // 나중에 협업 시나리오에서 서버에서 발급된 frameId를 매핑할 수 있도록 null로 초기화
                     frameOrder: frame.frameOrder,
                     duration: frame.duration || 1000, // 기본값 1000ms (추후 UI에서 조정 가능)
-                    layers: frame.layers.map((layer: LayerData): LayerSaveRequest => {
-                        const cleanId = String(layer.id).trim();
+                    layerSaveRequests: frame.layers.map((layer: LayerData): LayerSaveRequest => {
+                        //const cleanId = String(layer.id).trim();
                         // 임시 클라이언트용 ID('layer-xxxx') 분기 필터링 고도화
-                        const isNewLayer = cleanId.startsWith('layer-') || cleanId === 'null' || cleanId === 'undefined' || !cleanId;
+                        //const isNewLayer = cleanId.startsWith('layer-') || cleanId === 'null' || cleanId === 'undefined' || !cleanId;
                         const layerKey = getCacheKey(fIdx, layer.id);
                         return {
-                            layerId: isNewLayer ? null : Number(cleanId),
+                            layerId: null, // 나중에 협업 시나리오에서 서버에서 발급된 layerId를 매핑할 수 있도록 null로 초기화
                             name: layer.name,
                             layerOrder: layer.layerOrder,
                             blendMode: layer.blendMode,
@@ -158,8 +159,11 @@ export const useEditor = ({
                 }
             });
 
+            if(!frameToSave || frameToSave.length === 0) {
+                throw new Error('저장할 프레임 데이터가 없습니다.');
+            }
             const canvasSaveRequest : CanvasSaveRequest = {
-                frames: frameToSave
+                frameSaveRequests: frameToSave
             }
             
             await editorApi.saveCanvasData(pid, canvasSaveRequest);
