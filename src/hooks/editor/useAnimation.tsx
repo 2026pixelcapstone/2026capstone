@@ -102,5 +102,6 @@ export function useAnimation({
     const reorderFrames = useCallback((frameStartIndex: number, frameEndIndex: number) => {
         
     }, []);*/
+    
     return {addFrame, deleteFrame};
 }
