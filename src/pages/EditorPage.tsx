@@ -423,10 +423,12 @@ export default function EditorPage() {
   // ── URL 파라미터로 프로젝트 불러오기 ──────────────
   
   useEffect(() => {
+
     if (!rawProjectId || !isLoggedIn) return
     
     const numId = Number(rawProjectId)
     if (Number.isNaN(numId)) return
+
 
     // 이미 메모리에 로드된 프로젝트면 재로드 안 함 (백지 버그 방지)
     if (numId === lastLoadedIdRef.current) return
