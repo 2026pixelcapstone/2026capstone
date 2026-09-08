@@ -85,7 +85,6 @@ export const useEditor = ({
             // uploadFormData 상태: pixel-art라는 경로에 thumbnail.webp과 여러 layer_${fIdx}_${layer.id}.webp가 저장됨
             const uploadRes = await api.post<{data: string[]}>("/api/files/upload/bulk", uploadFormData);
             
-            console.log("업로드 응답:", uploadRes.data);
             // 봇의 지적 반영: API 응답 구조 정규화 및 방어적 유효성 검증 추가
             const responseData = uploadRes.data.data as { data?: string[] } | string[];
             const fileList = Array.isArray(responseData) 
@@ -130,6 +129,7 @@ export const useEditor = ({
                 });
             }
 
+            //step = '프레임 내부 레이어 저장 단계'
             // 5. 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브
             const frameToSave = state.frames.map((frame, fIdx): FrameSaveRequest => {
                 //const cleanFrameId = String(frame.id).trim();

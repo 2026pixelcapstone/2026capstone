@@ -98,13 +98,9 @@ export function useAnimation({
         setUnsaved(true);
     }, [frames, setWithHistory, setCurrentFrameIdx, setActiveLayer, setUnsaved]);
 
-    /**
-     * 두 프레임의 순서를 바꿉니다.
-     */
-    
+    /*
     const reorderFrames = useCallback((frameStartIndex: number, frameEndIndex: number) => {
         
-    }, []);
-
-    return {addFrame, deleteFrame, reorderFrames};
+    }, []);*/
+    return {addFrame, deleteFrame};
 }
