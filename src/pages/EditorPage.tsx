@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { LayerData } from '../type/editorType'
+import { FrameData, LayerData } from '../type/editorType'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
@@ -26,15 +26,19 @@ const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초�
 
 // ── 컴포넌트 ──────────────────────────────────────────
 export default function EditorPage() {
-  
+  // ── Ref & Navigation ──────────────────────────
   const stageRef = useRef<Konva.Stage>(null) 
   const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
-  const navigate = useNavigate();
+  const isDrawing = useRef(false)
+  const isDirty =  useRef(false); 
+  const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
- 
-  // ── 도구 관련 상태 ──────────────────────────
+  
+  // ── status & state ──────────────────────────
+  // ── 도구 관련 ──────────────
   const [activeTool, setActiveTool]   = useState('pencil')
   const [fgColor, setFgColor]         = useState('#2f81f7')
   const [hexInput, setHexInput]       = useState('#2f81f7')
@@ -43,18 +47,39 @@ export default function EditorPage() {
   const [pixelPerfect, setPixelPerfect] = useState(true)
   const [isHexModal, setIsHexModal] = useState(false)
 
-  // ── 히스토리 훅 ──────────────────────────
+  // ── CanvasData 관련 ──────────────
+  const [currentFrameIdx, setCurrentFrameIdx] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [showAnim, setShowAnim]       = useState(false)
 
-  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
+  const [activeLayer, setActiveLayer] = useState<string | null>(
+    initialCanvasData.frames[0]?.layers[0].id || null
+  );
 
-  // ── View 상태 ──────────────────────────
+  const [customW, setCustomW]         = useState(32)
+  const [customH, setCustomH]         = useState(32)
+
+  // ── View ──────────────
   const {zoom, setZoomIdx} = useCanvasView();
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 });
   const [isScaleImage, setIsScaleImage] = useState(false);
+  const [showGridLines, setShowGridLines] = useState(true)
 
-  // ── 애니메이션 상태 및 훅 ──────────────────────────
-  const[currentFrameIdx, setCurrentFrameIdx] = useState(0);
+  // ── AI 가이드 ──────────────
+  const[showAIGuide, setShowAIGuide] = useState(false);
 
+  // ── 프로젝트 저장 관련  ──────────────
+  const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
+  const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
+  const [projectTitle, setProjectTitle] = useState('Untitled Project')
+  const [editingTitle, setEditingTitle] = useState(false) 
+  const [unsaved, setUnsaved] = useState(false)
+
+  // ── hook ──────────────────────────
+  // ── 히스토리 ──────────────
+  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
+
+  // ── 애니메이션 ──────────────
   const safeFrameIdx = Math.min(
     currentFrameIdx,
     Math.max(0, state.frames.length - 1)
@@ -63,65 +88,21 @@ export default function EditorPage() {
   const{addFrame, deleteFrame} = useAnimation({
     frames: state.frames,
     currentFrameIdx: safeFrameIdx,
-    onChange: (newFrames, nextIdx) => {
-      // 1. 이동할 인덱스 결정 (nextIdx가 없으면 현재 인덱스 사용)
-      const targetIdx = nextIdx ?? safeFrameIdx;
-
-      // 2. UI 상태인 currentFrameIdx를 새 인덱스로 업데이트
-      setCurrentFrameIdx(targetIdx)
-      
-      // 3. 변경될 프레임의 첫 번째 레이어 선택
-      const targetFrame = newFrames[targetIdx];
-      const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
-      
-      // 4. 히스토리 스냅샷 저장 (frames만 저장, currentFrameIdx는 제외됨)
-      setWithHistory((prev) => ({
-        ...prev,
-        frames: newFrames,
-      }));
-
-      if(targetActiveLayerId){
-        setActiveLayer(targetActiveLayerId)
-      }
-      
-      setUnsaved(true); 
-    }
+    setWithHistory,
+    setCurrentFrameIdx,
+    setActiveLayer,
+    setUnsaved,
   });
-  const [isPlaying, setIsPlaying] = useState(false);
 
-  // ── AI 가이드 상태 ──────────────────────────
-  const[showAIGuide, setShowAIGuide] = useState(false);
 
-  // ── 레이어 상태 및 훅 ──────────────────────────
-  const [activeLayer, setActiveLayer] = useState<string | null>(
-    initialCanvasData.frames[0]?.layers[0].id || null
-  );
+  // ── 레이어 훅 ──────────────
   const { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers} = useLayer(
     state, 
     setWithHistory, 
     activeLayer, 
     setActiveLayer,
-  );
-  // ────────────────────────────
-
-  const [customW, setCustomW]         = useState(32)
-  const [customH, setCustomH]         = useState(32)
-
-  const [showAnim, setShowAnim]       = useState(false)
-  const [unsaved, setUnsaved]         = useState(false)
-  const [showGridLines, setShowGridLines] = useState(true)
-
-  // ── 프로젝트 저장 관련 상태 ──────────────────────────
-  const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
-  const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
-
-  const [projectTitle, setProjectTitle] = useState('Untitled Project')
-  const [editingTitle, setEditingTitle] = useState(false)
-  const isDrawing = useRef(false)
-  const isDirty =  useRef(false); 
-
-  const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
-
+  );  
+  // ── useEditor 훅 ──────────────
   const {handleSave, projectId, setProjectId, saving} = useEditor({
     stageRef,
     layerCanvasRefs,
@@ -130,7 +111,8 @@ export default function EditorPage() {
     setUnsaved,
     setSearchParams
   });
-
+  
+  
   // ── Navigation / Page Control ───────────────────────────────────
   const handleBackToMain = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -399,7 +381,6 @@ export default function EditorPage() {
   // -------- 캔버스 크기 변경 -----------
   const applyCanvasSize = (w: number, h: number) => {
     if(state.width === w && state.height === h){
-      
       return;
     }
 
@@ -440,72 +421,71 @@ export default function EditorPage() {
 
   // ── URL 파라미터로 프로젝트 불러오기 ──────────────
   useEffect(() => {
+    console.log('URL 파라미터 감지:', searchParams.toString(), '로그인 상태:', isLoggedIn, '현재 프로젝트 ID:', projectId);
     const id = searchParams.get('projectId')
     if (!id || !isLoggedIn) return
     const numId = Number(id)
     if (isNaN(numId)) return
-    // 이미 메모리에 로드된 프로젝트면 재로드 안 함 — 저장 시 setSearchParams로 URL이 바뀌어도
-    // (레이어 저장 전에) 재로드가 현재 캔버스를 비우던 백지 버그 방지
+
+    // 이미 메모리에 로드된 프로젝트면 재로드 안 함 (백지 버그 방지)
     if (numId === projectId) return
 
     let cancelled = false;
-    ;(async () => {
+    (async () => {
       try {
         const res = await editorApi.getProject(numId)
         if (cancelled) return
-        const proj = res.data.data
+        const proj = res.data.data;
+        const canvasData = proj.canvasResponse;
 
-        // 레이어 그림은 저장 시 webp(fileUrl)로 올라가고 pixelData는 빈값 → fileUrl을 dataURL로 복원해야 렌더됨.
-        // pixelData가 이미 있으면 그대로, 없고 fileUrl이 있으면 fetch→dataURL. R2 CORS 필요, dataURL이라 저장 시 캔버스 오염 없음.
-        // 🔴 fileUrl이 있는데 복원 실패면 throw → 부분 로드 차단(빈 레이어로 저장 성공 처리 시 원본 파일을 덮어쓸 위험 방지).
-        const restoredFrames: any[] = []
-        if (proj.layers && proj.layers.length > 0) {
-          const rawLayers = proj.layers
-          const restoredPixelData: string[] = await Promise.all(
-            rawLayers.map(async (sl: any, idx: number): Promise<string> => {
-              if (sl.pixelData && String(sl.pixelData).trim()) return sl.pixelData
-              if (!sl.fileUrl) return ''
-              const r = await fetch(sl.fileUrl)
-              if (!r.ok) throw new Error(`레이어 이미지 복원 실패: ${sl.layerId ?? idx}`)
-              const blob = await r.blob()
-              return await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader()
-                reader.onloadend = () => typeof reader.result === 'string'
-                  ? resolve(reader.result)
-                  : reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? idx}`))
-                reader.onerror = () => reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? idx}`))
-                reader.readAsDataURL(blob)
+        // 서버에서 내려온 프레임/레이어 데이터를 순회하며 pixelData를 복원
+        const restoredFrames = await Promise.all(
+          (canvasData.frameResponses || []).map(async (frame: any, frameIdx: number): Promise<FrameData> => {
+            const layers = frame.layerResponses || []
+
+            // 레이어 이미지 URL을 fetch하여 base64로 변환 후 pixelData에 저장
+            const restoredLayers: LayerData[] = await Promise.all(
+              layers.map(async (sl: any, layerIdx: number): Promise<LayerData> => {
+                let pixelData = '';
+                if (sl.fileUrl){
+                  const r = await fetch(sl.fileUrl);
+                  if (!r.ok) throw new Error(`레이어 이미지 복원 실패: ${sl.layerId ?? layerIdx}`)
+                  
+                  const blob = await r.blob()
+                  pixelData = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader()
+                    reader.onloadend = () => typeof reader.result === 'string'
+                      ? resolve(reader.result)
+                      : reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? layerIdx}`))
+                    reader.onerror = () => reject(new Error(`레이어 이미지 변환 실패: ${sl.layerId ?? layerIdx}`))
+                    reader.readAsDataURL(blob)
+                  })
+                }
+                // 레이어 데이터 객체 생성
+                return{
+                  id: `layer-${crypto.randomUUID().slice(0, 8)}`,
+                  name: sl.name || `Layer ${layerIdx + 1}`,
+                  layerOrder: sl.layerOrder ?? layerIdx,
+                  blendMode: sl.blendMode || 'NORMAL',
+                  isLocked: sl.isLocked || false,
+                  isVisible: sl.isVisible !== false,
+                  opacity: sl.opacity ?? 100,
+                  color: sl.color ?? '#818cf8',
+                  pixelData: pixelData,
+                }
               })
-            })
-          )
-
-          let currentFrameLayers: LayerData[] = []
-          let frameCounter = 0
-          rawLayers.forEach((serverLayer: any, idx: number) => {
-            // layerOrder가 0을 만났고 이미 모아둔 레이어가 있으면 → 이전 프레임 완성 후 쪼개기
-            if (serverLayer.layerOrder === 0 && currentFrameLayers.length > 0) {
-              restoredFrames.push({ id: `frame-${crypto.randomUUID().slice(0, 8)}`, name: `Frame ${frameCounter + 1}`, layers: currentFrameLayers })
-              currentFrameLayers = []
-              frameCounter++
+            )
+            // 복원된 레이어 데이터를 기반으로 FrameData 객체 생성
+            return {
+              id: `frame-${crypto.randomUUID().slice(0, 8)}`,
+              frameOrder: frame.frameOrder ?? frameIdx,
+              duration: frame.duration,
+              layers: restoredLayers,
             }
-            currentFrameLayers.push({
-              id: String(serverLayer.layerId),
-              name: serverLayer.name,
-              layerOrder: serverLayer.layerOrder,
-              blendMode: serverLayer.blendMode || 'NORMAL',
-              isLocked: serverLayer.isLocked || false,
-              isVisible: serverLayer.isVisible !== false,
-              opacity: serverLayer.opacity ?? 100,
-              color: '#818cf8',
-              pixelData: restoredPixelData[idx] || '',
-            })
           })
-          if (currentFrameLayers.length > 0) {
-            restoredFrames.push({ id: `frame-${crypto.randomUUID().slice(0, 8)}`, name: `Frame ${frameCounter + 1}`, layers: currentFrameLayers })
-          }
-        }
+        )
 
-        // 모든 레이어 복원이 끝난 뒤에만 상태 커밋 (부분 로드/덮어쓰기 방지). 중간에 다른 프로젝트로 바뀌면 취소.
+        // 모든 프레임 복원이 끝난 뒤에만 상태 커밋 (부분 로드/덮어쓰기 방지). 중간에 다른 프로젝트로 바뀌면 취소.
         if (cancelled) return
         setProjectId(proj.projectId)
         setProjectTitle(proj.title)
@@ -530,9 +510,8 @@ export default function EditorPage() {
         if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
       }
     })()
-
     return () => { cancelled = true }
-  }, [searchParams, isLoggedIn, projectId, reset]) // 의존성 배열 보완
+  }, [searchParams, isLoggedIn, projectId, reset])
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
@@ -596,7 +575,12 @@ export default function EditorPage() {
     if(state.frames.length <= 1){
       try{
         toast.info('PNG 이미지를 내보내는 중입니다...');
+
+        //const oldScale = stage.scale();
+        //const oldPos = stage.position();
+        
         const currentFullImage = stage.toDataURL({pixelRatio: 1 / zoom}); // 원본 크기 1:1 유지
+        
         const link = document.createElement('a');
         link.download = `${safeTitle}.png`;
         link.href = currentFullImage;

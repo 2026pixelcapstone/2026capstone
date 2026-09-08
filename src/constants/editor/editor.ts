@@ -1,20 +1,20 @@
-import { CanvasData, LayerData } from "../../type/editorType";
+import { CanvasState, LayerData } from "../../type/editorType";
 
 // ── 캔버스 기본 값 ──────────────────────────────────────────────
 export const createDefaultLayer = (): LayerData => ({
   id: `layer-${crypto.randomUUID().slice(0, 8)}`, // 레이어의 고유 ID
-  name: 'Background',      // 첫 레이어 이름
-  layerOrder: 0, // 현재 개수를 순서로 지정
+  name: 'Background', // 첫 레이어 이름
+  layerOrder: 0,
   blendMode: 'NORMAL',
   isLocked: false,
-  isVisible: true,           // 기본적으로 보임 상태
+  isVisible: true, // 기본적으로 보임 상태
   opacity: 100,
-  color: '#818cf8',      // 기본 식별 색상 (원치 않으면 null)
+  color: '#818cf8', // 기본 식별 색상 (원치 않으면 null)
   pixelData: '',
 });
 
-export const createInitialCanvasData = (): CanvasData => ({
-  frames: [{id: `frame-${crypto.randomUUID()}`, layers: [createDefaultLayer()]}],
+export const createInitialCanvasData = (): CanvasState => ({
+  frames: [{id: `frame-${crypto.randomUUID()}`, frameOrder: 0, layers: [createDefaultLayer()]}],
   width: 32,
   height: 32,
 });
