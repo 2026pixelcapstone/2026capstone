@@ -514,7 +514,7 @@ export default function EditorPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [isLoggedIn, rawProjectId, reset])
+  }, [isLoggedIn, rawProjectId])
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
