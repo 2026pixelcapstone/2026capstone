@@ -27,6 +27,7 @@ const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초�
 // ── 컴포넌트 ──────────────────────────────────────────
 export default function EditorPage() {
   // ── Ref & Navigation ──────────────────────────
+  const lastLoadedIdRef = useRef<number | null>(null);
   const stageRef = useRef<Konva.Stage>(null) 
   const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
   const isDrawing = useRef(false)
@@ -68,13 +69,13 @@ export default function EditorPage() {
   // ── AI 가이드 ──────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
 
-  // ── 프로젝트 저장 관련  ──────────────
+  // ── 프로젝트 관련  ──────────────
   const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
   const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
   const [projectTitle, setProjectTitle] = useState('Untitled Project')
   const [editingTitle, setEditingTitle] = useState(false) 
   const [unsaved, setUnsaved] = useState(false)
-
+  const rawProjectId = searchParams.get('projectId');
   // ── hook ──────────────────────────
   // ── 히스토리 ──────────────
   const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
@@ -420,15 +421,16 @@ export default function EditorPage() {
   }, [setZoomIdx])
 
   // ── URL 파라미터로 프로젝트 불러오기 ──────────────
+  
   useEffect(() => {
-    const id = searchParams.get('projectId')
-    if (!id || !isLoggedIn) return
-    const numId = Number(id)
-    if (isNaN(numId)) return
+    if (!rawProjectId || !isLoggedIn) return
+    
+    const numId = Number(rawProjectId)
+    if (Number.isNaN(numId)) return
 
     // 이미 메모리에 로드된 프로젝트면 재로드 안 함 (백지 버그 방지)
-    if (numId === projectId) return
-
+    if (numId === lastLoadedIdRef.current) return
+  
     let cancelled = false;
     (async () => {
       try {
@@ -486,6 +488,7 @@ export default function EditorPage() {
 
         // 모든 프레임 복원이 끝난 뒤에만 상태 커밋 (부분 로드/덮어쓰기 방지). 중간에 다른 프로젝트로 바뀌면 취소.
         if (cancelled) return
+        lastLoadedIdRef.current = numId;
         setProjectId(proj.projectId)
         setProjectTitle(proj.title)
         setCustomW(proj.width)
@@ -506,11 +509,12 @@ export default function EditorPage() {
         if (firstLayerId) setActiveLayer(firstLayerId);
         setUnsaved(false);
       } catch {
+        lastLoadedIdRef.current = numId;
         if (!cancelled) toast.error('프로젝트를 불러오지 못했습니다.')
       }
     })()
     return () => { cancelled = true }
-  }, [searchParams, isLoggedIn, projectId, reset])
+  }, [isLoggedIn, rawProjectId, reset])
   
   //  ── 저장 모달 함수 ──────────────────────────────────
   const openSaveModal = useCallback(() => {
