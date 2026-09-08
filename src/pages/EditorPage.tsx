@@ -421,7 +421,6 @@ export default function EditorPage() {
 
   // ── URL 파라미터로 프로젝트 불러오기 ──────────────
   useEffect(() => {
-    console.log('URL 파라미터 감지:', searchParams.toString(), '로그인 상태:', isLoggedIn, '현재 프로젝트 ID:', projectId);
     const id = searchParams.get('projectId')
     if (!id || !isLoggedIn) return
     const numId = Number(id)
