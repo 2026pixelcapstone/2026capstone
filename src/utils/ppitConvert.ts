@@ -1,6 +1,6 @@
 // 에디터 CanvasData ↔ .ppit(PpitFile) 변환
 // 🔴 opacity 스케일 차이: 에디터 레이어 = 0~100, .ppit 스펙 = 0.0~1.0
-import type { CanvasData, BlendMode } from '../type/editorType'
+import type { CanvasState, BlendMode } from '../type/editorType'
 import { PPIT_DEFAULT_FPS, type PpitFile } from '../lib/ppit'
 
 const EDITOR_OPACITY_MAX = 100
@@ -21,7 +21,7 @@ function ensureDataUrl(pixelData: string): string {
 
 /** 에디터 CanvasData → .ppit (opacity 0~100 → 0.0~1.0) */
 export function canvasDataToPpit(
-  state: CanvasData,
+  state: CanvasState,
   paletteColors: string[],
   fps: number = PPIT_DEFAULT_FPS,
 ): PpitFile {
@@ -48,7 +48,7 @@ export function canvasDataToPpit(
 }
 
 /** .ppit → 에디터 CanvasData (opacity 0.0~1.0 → 0~100) */
-export function ppitToCanvasData(ppit: PpitFile): CanvasData {
+export function ppitToCanvasData(ppit: PpitFile): CanvasState {
   return {
     width: ppit.canvas.width,
     height: ppit.canvas.height,

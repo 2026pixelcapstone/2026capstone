@@ -79,11 +79,11 @@ export default function App() {
       {/* 로그인 필수 페이지 */}
       <Route element={<MainLayout />}>
         <Route element={<PrivateRoute />}>
-          <Route path="/editor" element={<EditorPage />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/notifications" element={<NotificationPage />} />
           <Route path="/assets/create" element={<AssetCreatePage />} />
           <Route path="/assets/:id/edit" element={<AssetUpdatePage />} />
+          <Route path="/editor" element={<EditorPage />} />
         </Route>
       </Route>
 

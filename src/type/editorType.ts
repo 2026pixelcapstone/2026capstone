@@ -3,36 +3,38 @@ import { SetURLSearchParams } from "react-router-dom";
 
 
 //  ── Canvas Object Type ──────────────────────────────────────────────
-export interface CanvasData{
-  frames: Frame[];
+export interface CanvasState{
+  frames: FrameData[];
   width : number;
   height: number;
 }
 
-export interface Frame{
-    id: string;
-    layers: LayerData[]
+export interface FrameData{
+  id: string;
+  frameOrder?: number;
+  duration?: number;
+  layers: LayerData[]
 }
 
 export type BlendMode = 'NORMAL' | 'MULTIPLY' | 'SCREEN' | 'OVERLAY' | 'DARKEN' | 'LIGHTEN';
 
 export interface LayerData{
-    id: string; // ID는 문자열로 관리하는 것이 확장성에 좋습니다.
-    name: string;
-    layerOrder: number;
-    blendMode: BlendMode;
-    isLocked: boolean;
-    isVisible: boolean;
-    opacity: number;
-    color: string | null; // 색상이 없을 수도 있으니 null 허용
-    pixelData: string;
+  id: string; // ID는 문자열로 관리하는 것이 확장성에 좋습니다.
+  name: string;
+  layerOrder: number;
+  blendMode: BlendMode;
+  isLocked: boolean;
+  isVisible: boolean;
+  opacity: number;
+  color: string | null; // 색상이 없을 수도 있으니 null 허용
+  pixelData: string;
 }
 
 
 export interface UseEditorProps{
     stageRef: React.RefObject<Konva.Stage | null>;
     layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
-    state: CanvasData;
+    state: CanvasState;
     //zoom: number;
     isLoggedIn: boolean;
     setUnsaved: (unsaved: boolean) => void;

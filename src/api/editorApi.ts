@@ -1,8 +1,19 @@
 import api from '../lib/axios'
 import type { PageResponse } from './galleryApi'
 
+export interface CanvasResponse{
+  frameResponses: FrameResponse[]
+}
+
+export interface FrameResponse{
+  frameId: number | null
+  frameOrder: number | null
+  duration: number | null
+  layerResponses: LayerResponse[]
+}
+
 export interface LayerResponse {
-  layerId: number
+  layerId: number | null
   name: string
   layerOrder: number
   blendMode: 'NORMAL' | 'MULTIPLY' | 'SCREEN' | 'OVERLAY' | 'DARKEN' | 'LIGHTEN'
@@ -10,7 +21,7 @@ export interface LayerResponse {
   isVisible: boolean
   opacity: number
   fileUrl: string | null
-  pixelData: string | null   // canvas base64 데이터
+  //pixelData: string | null   // canvas base64 데이터
   createdAt: string
   updatedAt: string
 }
@@ -31,7 +42,7 @@ export interface ProjectSummary {
 export interface ProjectResponse extends ProjectSummary {
   fileUrl: string | null
   aiAnalyzed: boolean
-  layers: LayerResponse[]
+  canvasResponse: CanvasResponse
 }
 
 export interface ProjectCreateRequest {
@@ -49,16 +60,27 @@ export interface ProjectUpdateRequest {
   isPublic?: boolean
 }
 
+export interface CanvasSaveRequest {
+  frameSaveRequests: FrameSaveRequest[]
+}
+
+export interface FrameSaveRequest {
+  frameId: number | null
+  frameOrder?: number | null;
+  duration?: number | null;
+  layerSaveRequests: LayerSaveRequest[];
+}
+
 export interface LayerSaveRequest {
-  layerId?: number | null
+  layerId: number | null
   name: string
   layerOrder: number
   blendMode: 'NORMAL' | 'MULTIPLY' | 'SCREEN' | 'OVERLAY' | 'DARKEN' | 'LIGHTEN'
   isLocked: boolean
   isVisible: boolean
-  opacity: number
+  opacity: number | 1.0
   fileUrl?: string | null
-  pixelData: string
+  //pixelData: string
 }
 
 export const editorApi = {
@@ -70,7 +92,7 @@ export const editorApi = {
   createProject: (data: ProjectCreateRequest) =>
     api.post<{ success: boolean; data: ProjectResponse }>('/api/editor/projects', data),
 
-  // 프로젝트 상세 (레이어 포함)
+  // 프로젝트 상세 (캔버스 데이터 포함)
   getProject: (projectId: number) =>
     api.get<{ success: boolean; data: ProjectResponse }>(`/api/editor/projects/${projectId}`),
 
@@ -82,9 +104,9 @@ export const editorApi = {
   deleteProject: (projectId: number) =>
     api.delete<{ success: boolean }>(`/api/editor/projects/${projectId}`),
 
-  // 레이어 전체 저장 (전체 교체)
-  saveLayers: (projectId: number, layers: LayerSaveRequest[]) =>
-    api.post<{ success: boolean; data: ProjectResponse }>(`/api/editor/projects/${projectId}/layers`, layers),
+  // 캔버스 데이터 저장 (전체 교체)
+  saveCanvasData: (projectId: number, canvasData: CanvasSaveRequest) =>
+    api.post<{ success: boolean; data: ProjectResponse }>(`/api/editor/projects/${projectId}/canvasData`, canvasData),
 
   // 협업 멤버 추가
   addMember: (projectId: number, targetUserId: number) =>
