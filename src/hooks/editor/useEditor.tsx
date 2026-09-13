@@ -1,16 +1,15 @@
 import { getCacheKey } from "../../utils/editorUtils";
 import { CanvasSaveRequest, editorApi, FrameSaveRequest, LayerSaveRequest } from "../../api/editorApi";
-import { LayerData, SaveData, UseEditorProps } from "../../type/editorType";
+import { LayerData, SaveData, UseEditorProps } from "../../type/editor";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
 import api from "../../lib/axios";
 
-/*
-interface ApiResponse<T> {
+// 추후 팀원과 상의하여 외부 파일에 정의할 수도 있음
+interface BulkUploadResponse {
   success: boolean;
-  message: string | null;
-  data: T;
-}*/
+  data: string[]; // 업로드된 파일들의 URL 배열
+}
 
 export const useEditor = ({
     stageRef,
@@ -83,14 +82,15 @@ export const useEditor = ({
 
             // 3. 파일 서버 대량(Bulk) 업로드 프로세스(이미지 저장)
             // uploadFormData 상태: pixel-art라는 경로에 thumbnail.webp과 여러 layer_${fIdx}_${layer.id}.webp가 저장됨
-            const uploadRes = await api.post<{data: string[]}>("/api/files/upload/bulk", uploadFormData);
+            const uploadRes = await api.post<BulkUploadResponse>("/api/files/upload/bulk", uploadFormData);
             
-            // 봇의 지적 반영: API 응답 구조 정규화 및 방어적 유효성 검증 추가
-            const responseData = uploadRes.data.data as { data?: string[] } | string[];
-            const fileList = Array.isArray(responseData) 
-                ? responseData 
-                : (responseData?.data && Array.isArray(responseData.data) ? responseData.data : null);
-            
+            const rawData = uploadRes.data;
+            const fileList: string[] | null = Array.isArray(rawData)
+            ? rawData 
+            : Array.isArray(rawData?.data)
+                ? rawData.data
+                : null;
+
             if (!fileList || fileList.length === 0) {
                 throw new Error('파일 업로드 응답이 유효하지 않습니다.');
             }

@@ -1,7 +1,7 @@
 // src/components/useAnimation.tsx
 import { useCallback } from 'react';
 import { createDefaultLayer} from '../../constants/editor/editor';
-import {FrameData} from '../../type/editorType'
+import {FrameData} from '../../type/editor'
 
 interface UseAnimationProps{
     frames: FrameData[];
@@ -22,8 +22,6 @@ export function useAnimation({
 }: UseAnimationProps){
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
-     * currentSize - 현재 설정된 캔버스 너비와 높이
-     * data - 복사할 이미지 데이터 (없으면 빈 프레임)
      */
     const addFrame = useCallback(() => {
         const newFrame: FrameData = {
@@ -98,10 +96,39 @@ export function useAnimation({
         setUnsaved(true);
     }, [frames, setWithHistory, setCurrentFrameIdx, setActiveLayer, setUnsaved]);
 
-    /*
+
+    /**
+     * 프레임을 재정렬합니다. (swap 방식)
+     */
     const reorderFrames = useCallback((frameStartIndex: number, frameEndIndex: number) => {
+        if (frameStartIndex === frameEndIndex) return;
         
-    }, []);*/
-    
-    return {addFrame, deleteFrame};
+        setWithHistory((prev: any) => {
+            const frames = prev.frames;
+            if(!frames || !frames[frameStartIndex] || !frames[frameEndIndex]){
+                return prev;
+            }
+
+            const nextFrames = [...frames];
+            
+            // 두 프레임의 순서 및 frameOrder 교환
+            nextFrames[frameStartIndex] = {
+                ...frames[frameEndIndex],
+                frameOrder: frameStartIndex, // 순서 재정렬
+            }
+            nextFrames[frameEndIndex] = {
+                ...frames[frameStartIndex],
+                frameOrder: frameEndIndex, // 순서 재정렬
+            }
+            
+            return {
+                ...prev,
+                frames: nextFrames
+            };
+        });
+
+        setUnsaved(true);
+    }, [setWithHistory, setUnsaved]);
+
+    return {addFrame, deleteFrame, reorderFrames};
 }

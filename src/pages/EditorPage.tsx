@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { FrameData, LayerData } from '../type/editorType'
+import { FrameData, LayerData } from '../type/editor'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
@@ -86,7 +86,7 @@ export default function EditorPage() {
     Math.max(0, state.frames.length - 1)
   );
 
-  const{addFrame, deleteFrame} = useAnimation({
+  const{addFrame, deleteFrame, reorderFrames} = useAnimation({
     frames: state.frames,
     currentFrameIdx: safeFrameIdx,
     setWithHistory,
@@ -423,7 +423,6 @@ export default function EditorPage() {
   // ── URL 파라미터로 프로젝트 불러오기 ──────────────
   
   useEffect(() => {
-
     if (!rawProjectId || !isLoggedIn) return
     
     const numId = Number(rawProjectId)
@@ -975,8 +974,33 @@ export default function EditorPage() {
     } 
     setCurrentFrameIdx(nextIndex);
     setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
-    
   }
+
+
+  // -------- 프레임 순서 변경 -----------
+  const FRAME_DND_MIME = "application/x-pixelhub-frame-index";
+
+  const handleFrameDragStart = (e: React.DragEvent<HTMLDivElement>, frameIdx: number) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(FRAME_DND_MIME, String(frameIdx));
+  }
+
+  const handleFrameDrop = (e: React.DragEvent<HTMLDivElement>, targetIdx: number) => {
+    e.preventDefault();
+    const rawSourceIdx = e.dataTransfer.getData(FRAME_DND_MIME);
+    if(!/^\d+$/.test(rawSourceIdx)) return;
+
+    const sourceIdx = Number(rawSourceIdx);
+    const frameCount = state.frames.length;
+    
+    if(sourceIdx >= frameCount || targetIdx < 0 || targetIdx >= frameCount) return;
+
+    if(sourceIdx !== targetIdx){
+      reorderFrames(sourceIdx, targetIdx);
+    }
+
+  }
+
   // ── 레이어 ───────────────────────────────────
   const handleAddLayer = () => {
     addLayer(safeFrameIdx); 
@@ -1037,6 +1061,7 @@ export default function EditorPage() {
   const LAYER_DND_MIME = "application/x-pixelhub-layer-index";
   
   // 순서가 뒤집힌 배열을 다루기 위해 실제 원본 인덱스를 포함한 객체 배열을 만듭니다.
+  
   const reversedLayersWithIdx = useMemo(() => { // UI용 역순 배열을 useMemo로 감싸서 최신 상태와 동기화
     return (state.frames[safeFrameIdx]?.layers ?? [])
       .map((layer, index) => ({ layer, originalIndex: index }))
@@ -1045,13 +1070,13 @@ export default function EditorPage() {
 
   // 드래그하는 레이어의 '원본 인덱스'를 저장합니다.
   // 레이어 드래그 시작
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+  const handleLayerDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData(LAYER_DND_MIME, String(index)); // 내부 레이어 DnD 전용 값
   }
 
   // 레이어를 내려놓음
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+  const handleLayerDrop = (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
     e.preventDefault();
     const rawSourceIndex = e.dataTransfer.getData(LAYER_DND_MIME);
     if (!/^\d+$/.test(rawSourceIndex)) return;
@@ -1360,7 +1385,11 @@ export default function EditorPage() {
                     return(
                       <div
                         key = {frame.id}
+                        draggable
                         onClick={() => handleSelectFrame(index)} // 프레임 선택 기능
+                        onDragStart={(e) => handleFrameDragStart(e, index)} // 드래그 시작
+                        onDragOver={(e) => handleDragOver(e)} // 드래그 오버 허용
+                        onDrop={(e) => handleFrameDrop(e, index)} // 드롭
                         className='relative group rounded-lg border-2 p-1 cursor-pointer'
                         style={{
                           borderColor: isActive ? 'var(--color-primary)' : 'var(--color-outline)',
@@ -1690,9 +1719,9 @@ export default function EditorPage() {
                   key={layer.id}
                   role="button"
                   draggable // 드래그 가능하도록 설정
-                  onDragStart={(e) => handleDragStart(e, originalIndex)}
+                  onDragStart={(e) => handleLayerDragStart(e, originalIndex)}
                   onDragOver={(e) => handleDragOver(e)}
-                  onDrop={(e) => handleDrop(e, originalIndex)}
+                  onDrop={(e) => handleLayerDrop(e, originalIndex)}
                   onClick={() => selectLayer(safeFrameIdx, layer.id)}
                   onKeyDown={(e) => {
                     if(e.key === 'Enter' || e.key === ' '){
