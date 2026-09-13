@@ -35,6 +35,7 @@ frontend/src/
 ├── api/          # 도메인별 API 모듈 (axios 래퍼)
 ├── store/        # Zustand 스토어 (auth·block·like·notification)
 ├── lib/          # ppit 파서/렌더, 다운로드, 파일검증 등 유틸
+├── type/         # Api 타입 외에 도메인 타입 정의
 └── utils/        # 변환 헬퍼 (ppitConvert 등)
 ```
 
