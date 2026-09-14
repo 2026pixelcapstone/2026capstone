@@ -98,8 +98,9 @@ export function useAnimation({
 
 
     /**
-     * 프레임을 재정렬합니다. (swap 방식)
+     * 프레임을 재정렬합니다.
      */
+    
     const reorderFrames = useCallback((frameStartIndex: number, frameEndIndex: number) => {
         if (frameStartIndex === frameEndIndex) return;
         
@@ -109,24 +110,25 @@ export function useAnimation({
                 return prev;
             }
 
-            const nextFrames = [...frames];
+            // 1. 현재 선택된 프레임의 ID 기억
+            //const currentActiveFrameId = prev.frames[currentFrameIdx]?.id;
             
-            // 두 프레임의 순서 및 frameOrder 교환
-            nextFrames[frameStartIndex] = {
-                ...frames[frameEndIndex],
-                frameOrder: frameStartIndex, // 순서 재정렬
-            }
-            nextFrames[frameEndIndex] = {
-                ...frames[frameStartIndex],
-                frameOrder: frameEndIndex, // 순서 재정렬
-            }
+            // 2. 프레임 순서 재배치
+            const nextFrames = [...frames];
+            const [removed] = nextFrames.splice(frameStartIndex, 1);
+            nextFrames.splice(frameEndIndex, 0, removed)
+
+            // 3. 프레임 순서 변경에 따른 frameOrder 초기화
+            const reorderedFrames = nextFrames.map((frame: FrameData, idx: Number) => ({
+                ...frame,
+                frameOrder: idx
+            }));
             
             return {
                 ...prev,
-                frames: nextFrames
+                frames: reorderedFrames,
             };
         });
-
         setUnsaved(true);
     }, [setWithHistory, setUnsaved]);
 

@@ -1322,7 +1322,7 @@ export default function EditorPage() {
                   <KonvaLayer key={layer.id} id={layer.id} opacity={layer.opacity / 100}>
                     
                     {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
-                    <LayerImageRenderer 
+                    <LayerImageRenderer
                       layerId={layer.id}
                       pixelData={layer.pixelData}
                       canvasW={state.width}

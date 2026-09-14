@@ -85,12 +85,18 @@ export const useEditor = ({
             const uploadRes = await api.post<BulkUploadResponse>("/api/files/upload/bulk", uploadFormData);
             
             const rawData = uploadRes.data;
-            const fileList: string[] | null = Array.isArray(rawData)
+            const rawList: string[] | null = Array.isArray(rawData)
             ? rawData 
             : Array.isArray(rawData?.data)
                 ? rawData.data
                 : null;
 
+            // 모든 요소가 typeof === 'string'이고 공백/빈 문자열이 아닌지 확인
+            const fileList: string[] | null =
+            rawList && rawList.length > 0 && rawList.every((item): item is string => typeof item === "string" && item.trim().length > 0)
+                ? rawList
+                : null;
+                
             if (!fileList || fileList.length === 0) {
                 throw new Error('파일 업로드 응답이 유효하지 않습니다.');
             }

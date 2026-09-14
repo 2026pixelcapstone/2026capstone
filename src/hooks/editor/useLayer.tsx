@@ -108,9 +108,7 @@ export const useLayers = (
     
     // ── 레이어의 순서 바꾸기 ───────────────────────────────────
     const reorderLayers = useCallback((frameIdx: number, layerStartIndex: number , layerEndIndex: number) => {
-        
         setWithHistory((prev: any) => {
-
             const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
                 if (fIdx !== frameIdx) return frame;
 
@@ -127,7 +125,6 @@ export const useLayers = (
                     layerOrder: idx,
                 }));
 
-                //console.log("② [변경 후] 레이어 순서:", reorderedLayers.map((l: any) => l.name));
                 return { ...frame, layers: reorderedLayers};
             });
             return { ...prev, frames: updatedFrames };
