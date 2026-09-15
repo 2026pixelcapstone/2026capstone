@@ -34,7 +34,7 @@ export const LayerImageRenderer = ({
             const canvas = document.createElement('canvas');
             canvas.width = canvasW;
             canvas.height = canvasH;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (ctx) ctx.imageSmoothingEnabled = false;
         
             layerCanvasRefs.current[cacheKey] = canvas;
@@ -48,14 +48,14 @@ export const LayerImageRenderer = ({
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = existingCanvas.width;
                 tempCanvas.height = existingCanvas.height;
-                const tempCtx = tempCanvas.getContext('2d');
+                const tempCtx = tempCanvas.getContext('2d', );
                 if (tempCtx) tempCtx.drawImage(existingCanvas, 0, 0);
                 
                 // 크기 리사이징(이 순간 기존 데이터 포멧)
                 existingCanvas.width = canvasW;
                 existingCanvas.height = canvasH;
 
-                const ctx = existingCanvas.getContext('2d');
+                const ctx = existingCanvas.getContext('2d', { willReadFrequently: true });
                 if (ctx){ 
                     ctx.imageSmoothingEnabled = false;
                     if(isScaleImage){
@@ -83,7 +83,7 @@ export const LayerImageRenderer = ({
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if (!cachedCanvas) return;
 
-        const ctx = cachedCanvas.getContext('2d');
+        const ctx = cachedCanvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         
         // 어떤 상황에서도 브라우저 필터가 켜지지 않도록 쐐기 박기

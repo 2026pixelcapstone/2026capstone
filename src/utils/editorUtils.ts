@@ -4,7 +4,7 @@ export const getCacheKey = (frameId: string, layerId: string): string => {
 
 // 캔버스에 투명하지 않은 픽셀이 하나라도 있는지 확인하는 함수
 export const isCanvasBlank = (canvas: HTMLCanvasElement): boolean => {
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return true;
   
   const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;

@@ -211,7 +211,7 @@ export default function EditorPage() {
     nextCanvas.width = state.width
     nextCanvas.height = state.height
 
-    const ctx = nextCanvas.getContext('2d')
+    const ctx = nextCanvas.getContext('2d', { willReadFrequently: true })
     if (ctx) {
       ctx.imageSmoothingEnabled = false; // 픽셀아트 흐림 방지
       
@@ -250,7 +250,7 @@ export default function EditorPage() {
     const nativeCanvas = getLayerCanvas(cacheKey);
     if(!nativeCanvas) return;
 
-    const ctx = nativeCanvas.getContext('2d');
+    const ctx = nativeCanvas.getContext('2d', { willReadFrequently: true });
     const pos = getPixel()
     if (!ctx || !pos) return
 
@@ -645,7 +645,7 @@ export default function EditorPage() {
       const frameCanvas = document.createElement('canvas');
       frameCanvas.width = state.width;
       frameCanvas.height = state.height;
-      const fCtx = frameCanvas.getContext('2d');
+      const fCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
 
       if(fCtx){
         fCtx.imageSmoothingEnabled = false;
