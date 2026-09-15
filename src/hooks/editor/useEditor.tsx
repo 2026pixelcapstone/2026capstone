@@ -1,16 +1,15 @@
 import { getCacheKey } from "../../utils/editorUtils";
 import { CanvasSaveRequest, editorApi, FrameSaveRequest, LayerSaveRequest } from "../../api/editorApi";
-import { LayerData, SaveData, UseEditorProps } from "../../type/editorType";
+import { LayerData, SaveData, UseEditorProps } from "../../type/editor";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
 import api from "../../lib/axios";
 
-/*
-interface ApiResponse<T> {
+// 추후 팀원과 상의하여 외부 파일에 정의할 수도 있음
+interface BulkUploadResponse {
   success: boolean;
-  message: string | null;
-  data: T;
-}*/
+  data: string[]; // 업로드된 파일들의 URL 배열
+}
 
 export const useEditor = ({
     stageRef,
@@ -65,17 +64,18 @@ export const useEditor = ({
             uploadFormData.append('files', thumbnailBlob, 'thumbnail.webp'); // files : thumbnailBlob (as thumbnail.webp) -> R2가 files 감지
 
             // 2. 각 프레임의 레이어 순회 및 블롭 바이너리 축적
-            for (const [fIdx, frame] of state.frames.entries()) {
+            for (const frame of state.frames) {
                 for (const layer of frame.layers) {
-                    const layerKey = getCacheKey(fIdx, layer.id);
+                    const layerKey = getCacheKey(frame.id, layer.id);
                     const layerCanvas = layerCanvasRefs.current[layerKey];
+                    
                     if (layerCanvas) {
                         const layerDataURL = layerCanvas.toDataURL('image/webp', 0.6);
                         const layerResponse = await fetch(layerDataURL);
                         const layerBlob = await layerResponse.blob();
 
                         // files : layerBlob(as layer_${fIdx}_${layer.id}.webp) -> R2가 files 감지
-                        uploadFormData.append('files', layerBlob, `layer_${fIdx}_${layer.id}.webp`); 
+                        uploadFormData.append('files', layerBlob, `layer_${frame.id}_${layer.id}.webp`); 
                         uploadedLayerKeys.push(layerKey);
                     }
                 }
@@ -83,14 +83,21 @@ export const useEditor = ({
 
             // 3. 파일 서버 대량(Bulk) 업로드 프로세스(이미지 저장)
             // uploadFormData 상태: pixel-art라는 경로에 thumbnail.webp과 여러 layer_${fIdx}_${layer.id}.webp가 저장됨
-            const uploadRes = await api.post<{data: string[]}>("/api/files/upload/bulk", uploadFormData);
+            const uploadRes = await api.post<BulkUploadResponse>("/api/files/upload/bulk", uploadFormData);
             
-            // 봇의 지적 반영: API 응답 구조 정규화 및 방어적 유효성 검증 추가
-            const responseData = uploadRes.data.data as { data?: string[] } | string[];
-            const fileList = Array.isArray(responseData) 
-                ? responseData 
-                : (responseData?.data && Array.isArray(responseData.data) ? responseData.data : null);
-            
+            const rawData = uploadRes.data;
+            const rawList: string[] | null = Array.isArray(rawData)
+            ? rawData 
+            : Array.isArray(rawData?.data)
+                ? rawData.data
+                : null;
+
+            // 모든 요소가 typeof === 'string'이고 공백/빈 문자열이 아닌지 확인
+            const fileList: string[] | null =
+            rawList && rawList.length > 0 && rawList.every((item): item is string => typeof item === "string" && item.trim().length > 0)
+                ? rawList
+                : null;
+                
             if (!fileList || fileList.length === 0) {
                 throw new Error('파일 업로드 응답이 유효하지 않습니다.');
             }
@@ -129,21 +136,14 @@ export const useEditor = ({
                 });
             }
 
-            //step = '프레임 내부 레이어 저장 단계'
             // 5. 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브
-            const frameToSave = state.frames.map((frame, fIdx): FrameSaveRequest => {
-                //const cleanFrameId = String(frame.id).trim();
-                //const isNewFrame = cleanFrameId.startsWith('frame-') || cleanFrameId === 'null' || cleanFrameId === 'undefined' || !cleanFrameId;
+            const frameToSave = state.frames.map((frame): FrameSaveRequest => {
                 return{
-                    // 추후 frameOrder와 duration도 채워넣어줘야 합니다.
                     frameId: null, // 나중에 협업 시나리오에서 서버에서 발급된 frameId를 매핑할 수 있도록 null로 초기화
                     frameOrder: frame.frameOrder,
-                    duration: frame.duration || 1000, // 기본값 1000ms (추후 UI에서 조정 가능)
+                    duration: frame.duration || 100, // 기본값 100ms (추후 UI에서 조정 가능)
                     layerSaveRequests: frame.layers.map((layer: LayerData): LayerSaveRequest => {
-                        //const cleanId = String(layer.id).trim();
-                        // 임시 클라이언트용 ID('layer-xxxx') 분기 필터링 고도화
-                        //const isNewLayer = cleanId.startsWith('layer-') || cleanId === 'null' || cleanId === 'undefined' || !cleanId;
-                        const layerKey = getCacheKey(fIdx, layer.id);
+                        const layerKey = getCacheKey(frame.id, layer.id);
                         return {
                             layerId: null, // 나중에 협업 시나리오에서 서버에서 발급된 layerId를 매핑할 수 있도록 null로 초기화
                             name: layer.name,
@@ -153,7 +153,6 @@ export const useEditor = ({
                             isVisible: layer.isVisible,
                             opacity: layer.opacity,
                             fileUrl: uploadedLayerUrlByKey.get(layerKey) ?? null,
-                            //pixelData: "" // 픽셀 처리는 이미지 파일 URL로 영구 보존하므로 공백 처리 유지
                         };
                     })
                 }

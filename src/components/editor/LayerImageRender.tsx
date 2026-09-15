@@ -1,3 +1,4 @@
+import Konva from "konva";
 import { getCacheKey } from "../../utils/editorUtils";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Image as KonvaImage } from 'react-konva';
@@ -7,7 +8,7 @@ interface LayerRendererProps {
     pixelData: string | null;
     canvasW: number;
     canvasH: number;
-    currentFrameIdx: number;
+    currentFrameId: string | null;
     layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>;
     isScaleImage: boolean;
 }
@@ -17,20 +18,23 @@ export const LayerImageRenderer = ({
   pixelData,
   canvasW,
   canvasH,
-  currentFrameIdx,
+  currentFrameId,
   layerCanvasRefs,
   isScaleImage
 }: LayerRendererProps) => {
-    const imageRef = useRef<any>(null);
-    const cacheKey = getCacheKey(currentFrameIdx, layerId);
     
-   // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
+    const imageRef = useRef<Konva.Image>(null);
+
+    const cacheKey = currentFrameId ? getCacheKey(currentFrameId, layerId) : '';
+    
+    // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
     useLayoutEffect(() => {
+        if (!cacheKey || !layerCanvasRefs.current) return;
         if (!layerCanvasRefs.current[cacheKey]) {
             const canvas = document.createElement('canvas');
             canvas.width = canvasW;
             canvas.height = canvasH;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (ctx) ctx.imageSmoothingEnabled = false;
         
             layerCanvasRefs.current[cacheKey] = canvas;
@@ -44,14 +48,14 @@ export const LayerImageRenderer = ({
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = existingCanvas.width;
                 tempCanvas.height = existingCanvas.height;
-                const tempCtx = tempCanvas.getContext('2d');
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
                 if (tempCtx) tempCtx.drawImage(existingCanvas, 0, 0);
                 
                 // 크기 리사이징(이 순간 기존 데이터 포멧)
                 existingCanvas.width = canvasW;
                 existingCanvas.height = canvasH;
 
-                const ctx = existingCanvas.getContext('2d');
+                const ctx = existingCanvas.getContext('2d', { willReadFrequently: true });
                 if (ctx){ 
                     ctx.imageSmoothingEnabled = false;
                     if(isScaleImage){
@@ -74,10 +78,12 @@ export const LayerImageRenderer = ({
 
     // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.
     useEffect(() => {
+        if(!cacheKey || !layerCanvasRefs.current) return;
+        
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if (!cachedCanvas) return;
 
-        const ctx = cachedCanvas.getContext('2d');
+        const ctx = cachedCanvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         
         // 어떤 상황에서도 브라우저 필터가 켜지지 않도록 쐐기 박기
@@ -100,8 +106,11 @@ export const LayerImageRenderer = ({
             imageRef.current?.getLayer()?.batchDraw(); // 스크린에 버퍼 스왑
         };
         img.src = pixelData;
-    }, [cacheKey, pixelData, layerCanvasRefs])
+    }, [cacheKey, pixelData])
     
+    if(!cacheKey || !currentFrameId || !layerCanvasRefs.current){
+        return;
+    }
     const myCanvas = layerCanvasRefs.current[cacheKey];
 
     return (

@@ -1,4 +1,4 @@
-import { CanvasState, LayerData } from "../../type/editorType";
+import { CanvasState, LayerData } from "../../type/editor";
 
 // ── 캔버스 기본 값 ──────────────────────────────────────────────
 export const createDefaultLayer = (): LayerData => ({
