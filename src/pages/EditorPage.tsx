@@ -1348,10 +1348,11 @@ export default function EditorPage() {
                 }
                }}
               onMouseLeave={() => { 
-                if(isDrawing.current && isDirty.current){
+                if(isDirty.current){
                   commitLayerChanges();
-                  isDrawing.current = false;
+                  isDirty.current = false;
                 }
+                isDrawing.current = false;
                 setCursorPos({ x: -1, y: -1 }) 
               }}
             >

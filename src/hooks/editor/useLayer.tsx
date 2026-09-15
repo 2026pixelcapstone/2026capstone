@@ -54,6 +54,7 @@ export const useLayers = ({
             return { ...prev, frames: updatedFrames };
         })
         setActiveLayer(newLayerId); // 생성 직후 방금 만든 레이어를 활성화
+        setUnsaved(true);
     }, [setWithHistory, setActiveLayer]);
 
     // ── 레이어 삭제 ───────────────────────────────────
@@ -119,12 +120,13 @@ export const useLayers = ({
             });
             return { ...prev, frames: updatedFrames };
         });
+        setUnsaved(true);
     }, [setWithHistory]);
     
     // ── 레이어의 순서 바꾸기 ───────────────────────────────────
     const reorderLayers = useCallback((targetFrameId: string | null, layerStartIndex: number , layerEndIndex: number) => {
         if(!targetFrameId) return;
-        
+
         setWithHistory((prev: CanvasState) => {
             const updatedFrames = prev.frames.map((frame: FrameData) => {
                 if (frame.id !== targetFrameId) return frame;
@@ -143,6 +145,7 @@ export const useLayers = ({
             });
             return { ...prev, frames: updatedFrames };
         })
+        setUnsaved(true);
     },[setWithHistory])
     
     return { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers};
