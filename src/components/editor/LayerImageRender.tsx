@@ -1,3 +1,4 @@
+import Konva from "konva";
 import { getCacheKey } from "../../utils/editorUtils";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Image as KonvaImage } from 'react-konva';
@@ -7,7 +8,7 @@ interface LayerRendererProps {
     pixelData: string | null;
     canvasW: number;
     canvasH: number;
-    currentFrameIdx: number;
+    currentFrameId: string | null;
     layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>;
     isScaleImage: boolean;
 }
@@ -17,14 +18,21 @@ export const LayerImageRenderer = ({
   pixelData,
   canvasW,
   canvasH,
-  currentFrameIdx,
+  currentFrameId,
   layerCanvasRefs,
   isScaleImage
 }: LayerRendererProps) => {
-    const imageRef = useRef<any>(null);
-    const cacheKey = getCacheKey(currentFrameIdx, layerId);
     
-   // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
+    const imageRef = useRef<Konva.Image>(null);
+    
+    if (!currentFrameId || !layerCanvasRefs.current) {
+        return null;
+    }
+    
+    const cacheKey = getCacheKey(currentFrameId, layerId);
+    
+    
+    // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
     useLayoutEffect(() => {
         if (!layerCanvasRefs.current[cacheKey]) {
             const canvas = document.createElement('canvas');
@@ -100,7 +108,7 @@ export const LayerImageRenderer = ({
             imageRef.current?.getLayer()?.batchDraw(); // 스크린에 버퍼 스왑
         };
         img.src = pixelData;
-    }, [cacheKey, pixelData, layerCanvasRefs])
+    }, [cacheKey, pixelData])
     
     const myCanvas = layerCanvasRefs.current[cacheKey];
 

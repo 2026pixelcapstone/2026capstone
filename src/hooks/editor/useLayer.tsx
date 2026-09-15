@@ -1,30 +1,42 @@
-import { LayerData } from "../../type/editor";
+import { CanvasState, FrameData, LayerData } from "../../type/editor";
 import { useCallback, useRef } from "react";
 
-export const useLayers = (
-    state: { frames: any[]; },
-    setWithHistory: React.Dispatch<React.SetStateAction<any>>,
-    activeLayer: string | null,
-    setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>
-) => {
+interface UseLayersProps{
+    frames: FrameData[];
+    setWithHistory: React.Dispatch<React.SetStateAction<any>>;
+    activeLayer: string | null;
+    setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>;
+    setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export const useLayers = ({
+    frames,
+    setWithHistory,
+    activeLayer,
+    setActiveLayer,
+    setUnsaved,
+}: UseLayersProps) => {
 
     // 프레임별 카운터를 맵 형태로 저장
-    const layerCountersRef = useRef<Record<number, number>>({});
+    const layerCountersRef = useRef<Record<string, number>>({});
     
     // ── 레이어 추가 ───────────────────────────────────
-    const addLayer = useCallback((frameIdx: number) => {
+    const addLayer = useCallback((targetFrameId: string | null) => {
+        if(!targetFrameId){
+            return;
+        }
         const newLayerId = `layer-${crypto.randomUUID().slice(0, 8)}`;
         
-        if(!layerCountersRef.current[frameIdx]){
-            layerCountersRef.current[frameIdx] = 2;
+        if(!layerCountersRef.current[targetFrameId]){
+            layerCountersRef.current[targetFrameId] = 2;
         }
 
-        const currentLayerCount = layerCountersRef.current[frameIdx];
-        layerCountersRef.current[frameIdx] += 1;
+        const currentLayerCount = layerCountersRef.current[targetFrameId];
+        layerCountersRef.current[targetFrameId] += 1;
 
         setWithHistory((prev: any) => {
-            const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
-                if(fIdx !== frameIdx) return frame; // 타깃 프레임이 아니면 패스
+            const updatedFrames = prev.frames.map((frame: FrameData) => {
+                if(frame.id !== targetFrameId) return frame; // 타깃 프레임이 아니면 패스
                 
                 const newLayer: LayerData = {
                     id: newLayerId,
@@ -41,40 +53,40 @@ export const useLayers = (
             });
             return { ...prev, frames: updatedFrames };
         })
-        setActiveLayer(newLayerId); // 사용 이유: 
+        setActiveLayer(newLayerId); // 생성 직후 방금 만든 레이어를 활성화
     }, [setWithHistory, setActiveLayer]);
 
     // ── 레이어 삭제 ───────────────────────────────────
-    const deleteLayer = useCallback((frameIdx: number, layerIdToDelete: string | null) => {
-        if(!layerIdToDelete) return;
+    const deleteLayer = useCallback((targetFrameId: string | null, layerIdToDelete: string | null) => {
+        if(!targetFrameId || !layerIdToDelete) return;
 
-        const targetFrame = state.frames[frameIdx];
-        if(!targetFrame || !targetFrame.layers) return;
+        const targetFrame = frames.find((f: FrameData) => f.id === targetFrameId);
+        if(!targetFrame || !targetFrame.layers) return;        
 
+        // 최소 1개 레이어 유지 조건 방어
         if(targetFrame.layers.length <= 1){
-            alert("최소 하나의 레이어는 존재해야 합니다");
             return;
         }
-
-        const layerToSubtract = targetFrame.layers.find((l: any) => l.id === layerIdToDelete);
+        // 레이어 네이밍 카운터 롤백
+        const layerToSubtract = targetFrame.layers.find((l: LayerData) => l.id === layerIdToDelete);
         if(layerToSubtract && layerToSubtract.name.startsWith("Layer ")){
             const layerNum = parseInt(layerToSubtract.name.replace("Layer ", ""), 10); // 10: 10진수로 읽으라고 지정
-            const currentCounter = layerCountersRef.current[frameIdx] || 2;
+            const currentCounter = layerCountersRef.current[targetFrameId] || 2;
             
             if (layerNum === currentCounter - 1) {
-                // 카운터를 1 줄여서, 다음에 레이어를 만들 때 이 번호를 다시 재활용하게 만듭니다.
-                layerCountersRef.current[frameIdx] = Math.max(2, currentCounter - 1);
+                // 삭제한 레이어가 가장 마지막 번호였다면 번호 재활용
+                layerCountersRef.current[targetFrameId] = Math.max(2, currentCounter - 1);
             }
         }
-        setWithHistory((prev: any) => {
-            const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
-                if(fIdx !== frameIdx) return frame;
+        setWithHistory((prev: CanvasState) => {
+            const updatedFrames = prev.frames.map((frame: FrameData) => {
+                if( frame.id !== targetFrameId) return frame;
 
                 // 해당 프레임 내부에서 지정된 레이어만 필터링
-                const remainingLayers = frame.layers.filter((layer: any) => layer.id !== layerIdToDelete);
+                const remainingLayers = frame.layers.filter((layer: LayerData) => layer.id !== layerIdToDelete);
                 
                 // 레이어가 순서대로 정렬되도록 레이어 오더 재정렬(Optional)
-                const reorderedLayers = remainingLayers.map((layer: any, idx: number) => ({
+                const reorderedLayers = remainingLayers.map((layer: LayerData, idx: number) => ({
                     ...layer,
                     layerOrder: idx
                 }));
@@ -89,13 +101,16 @@ export const useLayers = (
             const nextActiveId = remainingLayers[remainingLayers.length - 1]?.id || null;
             setActiveLayer(nextActiveId);
         }
-    }, [state.frames, activeLayer, setWithHistory, setActiveLayer]);
+        setUnsaved(true);
+    }, [frames, activeLayer, setWithHistory, setActiveLayer]);
 
     // ── 레이어 눈 켜기/끄기 ───────────────────────────────────
-    const toggleVisibility = useCallback((frameIdx: number, layerId: string) => {
-        setWithHistory((prev: any) => {
-            const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
-                if (fIdx !== frameIdx) return frame;
+    const toggleVisibility = useCallback((targetFrameId: string | null, layerId: string | null) => {
+        if(!targetFrameId || !layerId)
+        console.log("toggleVisibility 실행");
+        setWithHistory((prev: CanvasState) => {
+            const updatedFrames = prev.frames.map((frame: FrameData) => {
+                if (frame.id !== targetFrameId) return frame;
                 
                 const updatedLayers = frame.layers.map((layer: any) =>
                     layer.id === layerId ? { ...layer, isVisible: !layer.isVisible } : layer
@@ -107,16 +122,16 @@ export const useLayers = (
     }, [setWithHistory]);
     
     // ── 레이어의 순서 바꾸기 ───────────────────────────────────
-    const reorderLayers = useCallback((frameIdx: number, layerStartIndex: number , layerEndIndex: number) => {
-        setWithHistory((prev: any) => {
-            const updatedFrames = prev.frames.map((frame: any, fIdx: number) => {
-                if (fIdx !== frameIdx) return frame;
+    const reorderLayers = useCallback((targetFrameId: string | null, layerStartIndex: number , layerEndIndex: number) => {
+        if(!targetFrameId) return;
+
+
+        setWithHistory((prev: CanvasState) => {
+            const updatedFrames = prev.frames.map((frame: FrameData) => {
+                if (frame.id !== targetFrameId) return frame;
 
                 const newLayers = [...frame.layers];
 
-                /* splice: 지정 수가 0이면 아무것도 잘라내기 하지 않음. 
-                시작 위치부터 카운트하여 카운트 수 만큼 뒤에 있는 인덱스까지 잘라내기
-                (지정 수가 배열 길이 - start 보다 클 때는 start 뒤의 배열 전체 삭제)*/
                 const [removed] = newLayers.splice(layerStartIndex, 1);
                 newLayers.splice(layerEndIndex, 0, removed);
 
@@ -129,7 +144,6 @@ export const useLayers = (
             });
             return { ...prev, frames: updatedFrames };
         })
-       
     },[setWithHistory])
     
     return { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers};

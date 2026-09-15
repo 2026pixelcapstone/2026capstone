@@ -64,17 +64,18 @@ export const useEditor = ({
             uploadFormData.append('files', thumbnailBlob, 'thumbnail.webp'); // files : thumbnailBlob (as thumbnail.webp) -> R2가 files 감지
 
             // 2. 각 프레임의 레이어 순회 및 블롭 바이너리 축적
-            for (const [fIdx, frame] of state.frames.entries()) {
+            for (const frame of state.frames) {
                 for (const layer of frame.layers) {
-                    const layerKey = getCacheKey(fIdx, layer.id);
+                    const layerKey = getCacheKey(frame.id, layer.id);
                     const layerCanvas = layerCanvasRefs.current[layerKey];
+                    
                     if (layerCanvas) {
                         const layerDataURL = layerCanvas.toDataURL('image/webp', 0.6);
                         const layerResponse = await fetch(layerDataURL);
                         const layerBlob = await layerResponse.blob();
 
                         // files : layerBlob(as layer_${fIdx}_${layer.id}.webp) -> R2가 files 감지
-                        uploadFormData.append('files', layerBlob, `layer_${fIdx}_${layer.id}.webp`); 
+                        uploadFormData.append('files', layerBlob, `layer_${frame.id}_${layer.id}.webp`); 
                         uploadedLayerKeys.push(layerKey);
                     }
                 }
@@ -135,21 +136,14 @@ export const useEditor = ({
                 });
             }
 
-            //step = '프레임 내부 레이어 저장 단계'
             // 5. 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브
-            const frameToSave = state.frames.map((frame, fIdx): FrameSaveRequest => {
-                //const cleanFrameId = String(frame.id).trim();
-                //const isNewFrame = cleanFrameId.startsWith('frame-') || cleanFrameId === 'null' || cleanFrameId === 'undefined' || !cleanFrameId;
+            const frameToSave = state.frames.map((frame): FrameSaveRequest => {
                 return{
-                    // 추후 frameOrder와 duration도 채워넣어줘야 합니다.
                     frameId: null, // 나중에 협업 시나리오에서 서버에서 발급된 frameId를 매핑할 수 있도록 null로 초기화
                     frameOrder: frame.frameOrder,
-                    duration: frame.duration || 1000, // 기본값 1000ms (추후 UI에서 조정 가능)
+                    duration: frame.duration || 100, // 기본값 100ms (추후 UI에서 조정 가능)
                     layerSaveRequests: frame.layers.map((layer: LayerData): LayerSaveRequest => {
-                        //const cleanId = String(layer.id).trim();
-                        // 임시 클라이언트용 ID('layer-xxxx') 분기 필터링 고도화
-                        //const isNewLayer = cleanId.startsWith('layer-') || cleanId === 'null' || cleanId === 'undefined' || !cleanId;
-                        const layerKey = getCacheKey(fIdx, layer.id);
+                        const layerKey = getCacheKey(frame.id, layer.id);
                         return {
                             layerId: null, // 나중에 협업 시나리오에서 서버에서 발급된 layerId를 매핑할 수 있도록 null로 초기화
                             name: layer.name,
@@ -159,7 +153,6 @@ export const useEditor = ({
                             isVisible: layer.isVisible,
                             opacity: layer.opacity,
                             fileUrl: uploadedLayerUrlByKey.get(layerKey) ?? null,
-                            //pixelData: "" // 픽셀 처리는 이미지 파일 URL로 영구 보존하므로 공백 처리 유지
                         };
                     })
                 }

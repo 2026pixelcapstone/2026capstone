@@ -1,5 +1,5 @@
-export const getCacheKey = (frameIdx: number, layerId: string): string => {
-  return `frame-${frameIdx}_${layerId}`;
+export const getCacheKey = (frameId: string, layerId: string): string => {
+  return `frame-${frameId}_${layerId}`;
 };
 
 // 캔버스에 투명하지 않은 픽셀이 하나라도 있는지 확인하는 함수
