@@ -48,7 +48,7 @@ export const LayerImageRenderer = ({
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = existingCanvas.width;
                 tempCanvas.height = existingCanvas.height;
-                const tempCtx = tempCanvas.getContext('2d', );
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
                 if (tempCtx) tempCtx.drawImage(existingCanvas, 0, 0);
                 
                 // 크기 리사이징(이 순간 기존 데이터 포멧)
