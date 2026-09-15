@@ -106,8 +106,8 @@ export const useLayers = ({
 
     // ── 레이어 눈 켜기/끄기 ───────────────────────────────────
     const toggleVisibility = useCallback((targetFrameId: string | null, layerId: string | null) => {
-        if(!targetFrameId || !layerId)
-        console.log("toggleVisibility 실행");
+        if(!targetFrameId || !layerId) return;
+
         setWithHistory((prev: CanvasState) => {
             const updatedFrames = prev.frames.map((frame: FrameData) => {
                 if (frame.id !== targetFrameId) return frame;
@@ -124,8 +124,7 @@ export const useLayers = ({
     // ── 레이어의 순서 바꾸기 ───────────────────────────────────
     const reorderLayers = useCallback((targetFrameId: string | null, layerStartIndex: number , layerEndIndex: number) => {
         if(!targetFrameId) return;
-
-
+        
         setWithHistory((prev: CanvasState) => {
             const updatedFrames = prev.frames.map((frame: FrameData) => {
                 if (frame.id !== targetFrameId) return frame;

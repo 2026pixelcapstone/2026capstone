@@ -24,16 +24,12 @@ export const LayerImageRenderer = ({
 }: LayerRendererProps) => {
     
     const imageRef = useRef<Konva.Image>(null);
-    
-    if (!currentFrameId || !layerCanvasRefs.current) {
-        return null;
-    }
-    
-    const cacheKey = getCacheKey(currentFrameId, layerId);
-    
+
+    const cacheKey = currentFrameId ? getCacheKey(currentFrameId, layerId) : '';
     
     // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
     useLayoutEffect(() => {
+        if (!cacheKey || !layerCanvasRefs.current) return;
         if (!layerCanvasRefs.current[cacheKey]) {
             const canvas = document.createElement('canvas');
             canvas.width = canvasW;
@@ -82,6 +78,8 @@ export const LayerImageRenderer = ({
 
     // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.
     useEffect(() => {
+        if(!cacheKey || !layerCanvasRefs.current) return;
+        
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if (!cachedCanvas) return;
 
@@ -110,6 +108,9 @@ export const LayerImageRenderer = ({
         img.src = pixelData;
     }, [cacheKey, pixelData])
     
+    if(!cacheKey || !currentFrameId || !layerCanvasRefs.current){
+        return;
+    }
     const myCanvas = layerCanvasRefs.current[cacheKey];
 
     return (

@@ -56,7 +56,7 @@ export default function EditorPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAnim, setShowAnim]       = useState(false)
 
-  const [activeLayer, setActiveLayer] = useState<string | null>(
+  const [activeLayerId, setActiveLayerId] = useState<string | null>(
     initialCanvasData.frames[0]?.layers[0].id || null
   );
 
@@ -89,7 +89,7 @@ export default function EditorPage() {
     activeFrameId,
     setWithHistory,
     setActiveFrameId,
-    setActiveLayer,
+    setActiveLayer: setActiveLayerId,
     setUnsaved,
   });
   // 활성화된 프레임 찾기
@@ -99,8 +99,8 @@ export default function EditorPage() {
   const { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers} = useLayer({
     frames: state.frames,
     setWithHistory, 
-    activeLayer, 
-    setActiveLayer,
+    activeLayer: activeLayerId, 
+    setActiveLayer: setActiveLayerId,
     setUnsaved,
   });
 
@@ -135,12 +135,12 @@ export default function EditorPage() {
 
     // 레이어 유효성 보정
     if(currentFrame.layers.length > 0){
-      const hasActiveLayer = currentFrame.layers.some((l) => l.id === activeLayer)
+      const hasActiveLayer = currentFrame.layers.some((l) => l.id === activeLayerId)
       if (!hasActiveLayer) {
-        setActiveLayer(currentFrame.layers[0].id);
+        setActiveLayerId(currentFrame.layers[0].id);
       }
     }
-  }, [currentFrame?.id, currentFrame?.layers, activeFrameId, activeLayer, setActiveFrameId, setActiveLayer]);
+  }, [currentFrame?.id, currentFrame?.layers, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId]);
 
   // ── 캔버스 그리기 로직 ──────────────
   // -------- Stage 컨텍스트 튜닝 훅 추가 -----------
@@ -170,7 +170,7 @@ export default function EditorPage() {
     // 브라우저 렌더링 프레임 단위로 한 번 더 쐐기 박기
     const rafId = requestAnimationFrame(disableSmoothing);
     return () => cancelAnimationFrame(rafId);
-  }, [activeLayer, zoom, state.width, state.height]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
+  }, [activeLayerId, zoom, state.width, state.height]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
   
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
   const getPixel = useCallback(() => {
@@ -244,9 +244,9 @@ export default function EditorPage() {
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
   const applyCanvasTool = useCallback(() => {
     const stage = stageRef.current;
-    if(!stage || !activeLayer || !activeFrameId) return;
+    if(!stage || !activeLayerId || !activeFrameId) return;
     
-    const cacheKey = getCacheKey(activeFrameId, activeLayer)
+    const cacheKey = getCacheKey(activeFrameId, activeLayerId)
     const nativeCanvas = getLayerCanvas(cacheKey);
     if(!nativeCanvas) return;
 
@@ -371,11 +371,11 @@ export default function EditorPage() {
     }
 
     // 💡 캐시 키(cacheKey)와 달리, Konva 노드는 순수 레이어 고유 ID로 등록되어 있으므로 activeLayer로 찾습니다.
-    const activeLayerNode = stage.findOne(`#${activeLayer}`);
+    const activeLayerNode = stage.findOne(`#${activeLayerId}`);
     if(activeLayerNode){
       activeLayerNode.getLayer()?.batchDraw();
     }
-  }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayer, getLayerCanvas, activeFrameId])
+  }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayerId, getLayerCanvas, activeFrameId])
 
   const handleMouseMove = () => {
     const pos = getPixel()
@@ -517,7 +517,7 @@ export default function EditorPage() {
         })
 
         const firstLayerId = framesToReset[0]?.layers[0]?.id;
-        if (firstLayerId) setActiveLayer(firstLayerId);
+        if (firstLayerId) setActiveLayerId(firstLayerId);
         setUnsaved(false);
       } catch {
         lastLoadedIdRef.current = numId;
@@ -731,7 +731,7 @@ export default function EditorPage() {
     const firstLayer = firstFrame?.layers[0];
     
     setActiveFrameId(firstFrame?.id ?? null);
-    setActiveLayer(firstLayer?.id ?? null);
+    setActiveLayerId(firstLayer?.id ?? null);
 
     setCustomW(cd.width); 
     setCustomH(cd.height);
@@ -748,7 +748,7 @@ export default function EditorPage() {
       return p
     }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reset, setActiveLayer, setActiveFrameId, setProjectId, setSearchParams])
+  }, [reset, setActiveLayerId, setActiveFrameId, setProjectId, setSearchParams])
 
   const handleImportPpit = useCallback(async (file: File) => {
     // 미저장 변경 확인 (New Project와 동일)
@@ -835,7 +835,7 @@ export default function EditorPage() {
       height: state.height
     });
 
-    setActiveLayer(defaultLayerId);
+    setActiveLayerId(defaultLayerId);
     
     if (layerCountersRef && layerCountersRef.current) {
       layerCountersRef.current = { 0: 2 }; 
@@ -853,7 +853,7 @@ export default function EditorPage() {
 
     // URL에 남은 projectId 쿼리 파라미터 제거
     setSearchParams({}, { replace: true })
-  }, [unsaved, state.width, state.height, setSearchParams, setActiveLayer, reset])
+  }, [unsaved, state.width, state.height, setSearchParams, setActiveLayerId, reset])
 
   // ── RGB ─────────────────
   // HEX 입력 → 색상 반영
@@ -922,11 +922,11 @@ export default function EditorPage() {
       if(!nextFrame) return;
 
       setActiveFrameId(nextFrame.id);
-      setActiveLayer(nextFrame.layers[0]?.id || null);
+      setActiveLayerId(nextFrame.layers[0]?.id || null);
     }, 100)
 
     return () => clearInterval(interval);
-  }, [isPlaying, state.frames.length, activeFrameId, setActiveFrameId, setActiveLayer]);
+  }, [isPlaying, state.frames.length, activeFrameId, setActiveFrameId, setActiveLayerId]);
 
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
@@ -935,7 +935,7 @@ export default function EditorPage() {
   const commitLayerChanges = useCallback(() => {
     const stage = stageRef.current;
     const capturedFrameId = activeFrameId;
-    const capturedLayerId = activeLayer;
+    const capturedLayerId = activeLayerId;
 
     if(!stage || !capturedFrameId || !capturedLayerId) return;
 
@@ -972,13 +972,13 @@ export default function EditorPage() {
         height: state.height
       };
     });
-  }, [frames, activeFrameId, activeLayer, setWithHistory, state.width, state.height]);
+  }, [activeFrameId, activeLayerId, setWithHistory, state.width, state.height]);
 
   
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextFrameId: string) => {
     const canvas = stageRef.current;
-    if (!canvas || !activeLayer || !activeFrameId) return;
+    if (!canvas || !activeLayerId || !activeFrameId) return;
 
     if(activeFrameId === nextFrameId) return;
 
@@ -989,7 +989,7 @@ export default function EditorPage() {
     const nextActiveLayerId = nextFrame?.layers[0]?.id || null;
 
     if (isDirty.current) {
-        const cacheKey = getCacheKey(activeFrameId, activeLayer);
+        const cacheKey = getCacheKey(activeFrameId, activeLayerId);
         const cachedCanvas = layerCanvasRefs.current[cacheKey];
         if(cachedCanvas){
           const layerImageData = getLayerImageData(cachedCanvas);
@@ -1001,7 +1001,7 @@ export default function EditorPage() {
                 ? { 
                   ...frame,
                   layers: frame.layers.map((layer) =>
-                    layer.id === activeLayer 
+                    layer.id === activeLayerId 
                     ? {...layer, pixelData: layerImageData}
                     : layer
                   )}
@@ -1013,7 +1013,7 @@ export default function EditorPage() {
     } 
     // 4. 새로운 활성 프레임 및 레이어로 전환
     setActiveFrameId(nextFrame.id);
-    setActiveLayer(nextActiveLayerId); // 붓의 타깃 동기화
+    setActiveLayerId(nextActiveLayerId); // 붓의 타깃 동기화
   }
 
 
@@ -1045,22 +1045,22 @@ export default function EditorPage() {
     addLayer(activeFrameId); 
   }
   const handleDeleteLayer = () => {
-    deleteLayer(activeFrameId, activeLayer)
+    deleteLayer(activeFrameId, activeLayerId)
   }
   
   const selectLayer = useCallback((layerIdToSelect: string) => {
-    if(activeLayer === layerIdToSelect) return;
+    if(activeLayerId === layerIdToSelect) return;
 
     const stage = stageRef.current;
-    if (!stage || !activeLayer || !activeFrameId) {
+    if (!stage || !activeLayerId || !activeFrameId) {
         // 기존 선택된 레이어나 활성 프레임이 없다면 즉시 선택 후 종료
-        setActiveLayer(layerIdToSelect);
+        setActiveLayerId(layerIdToSelect);
         return;
     }
 
     // 변경 사항(Dirty)이 있을 때만 이전 작업 레이어의 픽셀 데이터 저장
     if(isDirty.current){
-      const cacheKey = getCacheKey(activeFrameId, activeLayer);
+      const cacheKey = getCacheKey(activeFrameId, activeLayerId);
       const cachedCanvas = layerCanvasRefs.current[cacheKey];
 
      if (cachedCanvas) {
@@ -1072,7 +1072,7 @@ export default function EditorPage() {
 
             // 현재 프레임 내부에서 작업 중이던 레이어의 pixelData를 최신화
             const updatedLayers = frame.layers.map((layer) => 
-                layer.id === activeLayer ? { ...layer, pixelData: layerImageData } : layer
+                layer.id === activeLayerId ? { ...layer, pixelData: layerImageData } : layer
             );
             return { ...frame, layers: updatedLayers };
           });
@@ -1085,8 +1085,8 @@ export default function EditorPage() {
       }
       isDirty.current = false;
     }
-    setActiveLayer(layerIdToSelect);
-  }, [activeFrameId, activeLayer, setWithHistory, setActiveLayer, stageRef])
+    setActiveLayerId(layerIdToSelect);
+  }, [activeFrameId, activeLayerId, setWithHistory, setActiveLayerId, stageRef])
   
   // 1. 컴포넌트 내부 상단에 배열을 변수로 분리 (as const 적용)
   const layerButtons = [
@@ -1099,11 +1099,10 @@ export default function EditorPage() {
   
   // 순서가 뒤집힌 배열을 다루기 위해 실제 원본 인덱스를 포함한 객체 배열을 만듭니다.
   const reversedLayersWithIdx = useMemo(() => { // UI용 역순 배열을 useMemo로 감싸서 최신 상태와 동기화
-    const currentFrame = state.frames.find((f) => f.id === activeFrameId);
     return (currentFrame?.layers ?? [])
       .map((layer, index) => ({ layer, originalIndex: index }))
       .reverse();
-  }, [currentFrame.layers, activeFrameId]);
+  }, [currentFrame.layers]);
 
   // 드래그하는 레이어의 '원본 인덱스'를 저장합니다.
   // 레이어 드래그 시작
@@ -1792,9 +1791,9 @@ export default function EditorPage() {
                   }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
                   style={{
-                    background: activeLayer === layer.id ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)' : 'transparent',
-                    color: activeLayer === layer.id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
-                    fontWeight: activeLayer === layer.id ? 700 : 400,
+                    background: activeLayerId === layer.id ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)' : 'transparent',
+                    color: activeLayerId === layer.id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+                    fontWeight: activeLayerId === layer.id ? 700 : 400,
                   }}>
                   
                   {/* 레이어 눈 토글 버튼 활성화 */}
@@ -1813,7 +1812,7 @@ export default function EditorPage() {
                   {/* 레이어 썸네일 박스 */}
                   <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none"
                     style={{
-                      borderColor: activeLayer === layer.id ? 'var(--color-primary)' : 'var(--color-outline)',
+                      borderColor: activeLayerId === layer.id ? 'var(--color-primary)' : 'var(--color-outline)',
                     }} />
                     
                   <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
@@ -1880,7 +1879,7 @@ export default function EditorPage() {
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Tool: {activeTool.charAt(0).toUpperCase() + activeTool.slice(1)}</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-        <span>Active: {currentFrame?.layers.find(l => String(l.id) === String(activeLayer))?.name || '-'}</span>
+        <span>Active: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
         <div className="ml-auto flex items-center gap-4">
           <span>{currentFrame.layers.length} layers</span>
           <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />

@@ -106,16 +106,14 @@ export function useAnimation({
         if(!movedFrame || !targetSlotFrame){
             return;
         }
-        // 1. 현재 작업중인 프레임이 이동 주체인지 판별
-        const isMovingCurrentActiveFrame = activeFrameId === movedFrame.id;
         
-        // 2. 배열 순서 재배치
+        // 배열 순서 재배치
         const nextFrames = [...currentFrames];
         const [removed] = nextFrames.splice(frameStartIndex, 1);
         nextFrames.splice(frameEndIndex, 0, removed);
 
-        // 3.  순서(frameOrder) 재정렬
-        const reorderedFrames = nextFrames.map((frame: FrameData, idx: Number) => ({
+        // 순서(frameOrder) 재정렬
+        const reorderedFrames = nextFrames.map((frame: FrameData, idx: number) => ({
             ...frame,
             frameOrder: idx,
         }));
@@ -126,10 +124,6 @@ export function useAnimation({
                 frames: reorderedFrames,
             };
         });
-
-        if(isMovingCurrentActiveFrame){
-            setActiveFrameId(movedFrame.id)
-        }
        
         setUnsaved(true);
     }, [frames, setWithHistory, setUnsaved]);
