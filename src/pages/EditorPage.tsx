@@ -896,14 +896,25 @@ export default function EditorPage() {
     if (!stage) return;
     setAiLoading(true);
     try {
-      const imageBase64 = stage.toDataURL({ pixelRatio: 1 });        // 현재 화면 PNG(data URL)
-      const currentColors = extractUsedColors(stage.toCanvas({ pixelRatio: 1 })); // 실제 사용색
+      // 줌 배율을 상쇄해 원본 픽셀 크기로 추출(줌 상태에서 이미지·스캔 범위가 zoom²로 커지는 것 방지)
+      const pixelRatio = 1 / zoom;
+      const imageBase64 = stage.toDataURL({ pixelRatio });            // 현재 프레임 PNG(data URL)
+      const currentColors = extractUsedColors(stage.toCanvas({ pixelRatio })); // 실제 사용색
       const res = await aiApi.suggestPalette({
         imageBase64,
         currentColors,
         description: aiPrompt.trim() || undefined,
       });
-      setAiColors(res.data.data.colors);
+      // 런타임 응답 검증(TS 제네릭은 실제 형식을 보장하지 않음) — 배열 + #RRGGBB만 수용
+      const colors = res.data?.data?.colors;
+      if (
+        !Array.isArray(colors) ||
+        colors.length === 0 ||
+        !colors.every((c) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c))
+      ) {
+        throw new Error('AI 색 추천 응답 형식이 올바르지 않습니다.');
+      }
+      setAiColors(colors);
     } catch (e) {
       toast.error(getErrorMessage(e, 'AI 색 추천에 실패했습니다.'));
     } finally {
@@ -915,7 +926,12 @@ export default function EditorPage() {
   const addColorsToPalette = (colors: string[]) => {
     setPaletteColors((prev) => {
       const seen = new Set(prev.map((c) => c.toUpperCase()));
-      const added = colors.filter((c) => !seen.has(c.toUpperCase()));
+      const added = colors.filter((c) => {
+        const key = c.toUpperCase();
+        if (seen.has(key)) return false;
+        seen.add(key); // 응답 내 중복 색도 한 번만 추가
+        return true;
+      });
       return added.length ? [...prev, ...added] : prev;
     });
     toast.success('팔레트에 추가했습니다.');
@@ -1678,6 +1694,8 @@ export default function EditorPage() {
                 <button
                   key={c}
                   onClick={() => { selectPaletteColor(c) }}
+                  aria-label={`색상 ${c}`}
+                  title={c}
                   className="w-8 h-8 rounded cursor-pointer transition-all border-2 hover:scale-110"
                   style={{ background: c, borderColor: fgColor === c ? 'var(--color-on-surface)' : 'transparent' }} />
               ))}
@@ -1918,6 +1936,7 @@ export default function EditorPage() {
                       <button
                         key={c}
                         title={c}
+                        aria-label={`추천 색상 ${c}`}
                         onClick={() => selectPaletteColor(c)}
                         className="w-full aspect-square rounded border hover:scale-110 transition-all"
                         style={{ background: c, borderColor: 'var(--color-outline)' }}
