@@ -18,6 +18,9 @@ import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/editor/LayerImageRender'
 import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
+import { aiApi } from '../api/aiApi'
+import { extractUsedColors } from '../utils/colorExtract'
+import { getErrorMessage } from '../lib/errorUtils'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
 import MenuBar from '../components/editor/MenuBar'
@@ -71,6 +74,12 @@ export default function EditorPage() {
 
   // ── AI 가이드 ──────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
+  // ── AI 색 팔레트 추천 상태 ──────────────────────────────
+  // 팔레트를 고정 상수 → 상태로: AI 추천/사용자가 색을 추가할 수 있게 (세션 내, 저장 연동은 후속)
+  const [paletteColors, setPaletteColors] = useState<string[]>(PALETTE_COLORS);
+  const [aiPrompt, setAiPrompt] = useState('');       // 원하는 느낌(선택) 자연어
+  const [aiColors, setAiColors] = useState<string[]>([]); // AI가 추천한 색(스와치로 표시)
+  const [aiLoading, setAiLoading] = useState(false);
 
   // ── 프로젝트 관련  ──────────────
   const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
@@ -880,6 +889,53 @@ export default function EditorPage() {
     setFgColor(color);    // 1. 실제로 그려질 메인 전경색 변경
     setHexInput(color);   // 2. 눈에 보이는 HEX 텍스트 입력창 글자도 동기화
   };
+
+  // AI 색 팔레트 추천 — 현재 프레임 캔버스(PNG) + 사용된 색 + 자연어 → 서버 → 어울리는 색
+  const handleSuggestPalette = async () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    setAiLoading(true);
+    try {
+      // 줌 배율을 상쇄해 원본 픽셀 크기로 추출(줌 상태에서 이미지·스캔 범위가 zoom²로 커지는 것 방지)
+      const pixelRatio = 1 / zoom;
+      const imageBase64 = stage.toDataURL({ pixelRatio });            // 현재 프레임 PNG(data URL)
+      const currentColors = extractUsedColors(stage.toCanvas({ pixelRatio })); // 실제 사용색
+      const res = await aiApi.suggestPalette({
+        imageBase64,
+        currentColors,
+        description: aiPrompt.trim() || undefined,
+      });
+      // 런타임 응답 검증(TS 제네릭은 실제 형식을 보장하지 않음) — 배열 + #RRGGBB만 수용
+      const colors = res.data?.data?.colors;
+      if (
+        !Array.isArray(colors) ||
+        colors.length === 0 ||
+        !colors.every((c) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c))
+      ) {
+        throw new Error('AI 색 추천 응답 형식이 올바르지 않습니다.');
+      }
+      setAiColors(colors);
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'AI 색 추천에 실패했습니다.'));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // 추천 색 세트를 팔레트에 추가(중복 제외, 세션 내)
+  const addColorsToPalette = (colors: string[]) => {
+    setPaletteColors((prev) => {
+      const seen = new Set(prev.map((c) => c.toUpperCase()));
+      const added = colors.filter((c) => {
+        const key = c.toUpperCase();
+        if (seen.has(key)) return false;
+        seen.add(key); // 응답 내 중복 색도 한 번만 추가
+        return true;
+      });
+      return added.length ? [...prev, ...added] : prev;
+    });
+    toast.success('팔레트에 추가했습니다.');
+  };
   
   // ── [슬라이더 연동을 위해 새로 추가할 코드] ─────────────────
   
@@ -1634,10 +1690,12 @@ export default function EditorPage() {
               </div>
             </div>
             <div className="grid grid-cols-7 gap-1.5 px-1">
-              {PALETTE_COLORS.map(c => (
-                <button 
-                  key={c} 
+              {paletteColors.map(c => (
+                <button
+                  key={c}
                   onClick={() => { selectPaletteColor(c) }}
+                  aria-label={`색상 ${c}`}
+                  title={c}
                   className="w-8 h-8 rounded cursor-pointer transition-all border-2 hover:scale-110"
                   style={{ background: c, borderColor: fgColor === c ? 'var(--color-on-surface)' : 'transparent' }} />
               ))}
@@ -1851,6 +1909,51 @@ export default function EditorPage() {
 
           {/* 컨텐츠: 큼직한 가이드 영역 */}
           <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+            {/* 🎨 색 팔레트 추천 — 현재 작업물+자연어 기반 */}
+            <div className="mb-4 p-3 rounded-lg bg-surface-container-low border border-outline">
+              <div className="text-xs font-bold mb-2 text-on-surface">🎨 색 팔레트 추천</div>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="원하는 느낌 (선택) — 예: 숲속 밤, 아늑한"
+                rows={2}
+                maxLength={500}
+                className="w-full text-xs p-2 rounded border resize-none bg-surface"
+                style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface)' }}
+              />
+              <button
+                onClick={handleSuggestPalette}
+                disabled={aiLoading}
+                className="mt-2 w-full py-1.5 text-xs font-bold rounded-lg text-white disabled:opacity-50"
+                style={{ background: 'var(--color-primary)' }}
+              >
+                {aiLoading ? '추천 중…' : '색 추천'}
+              </button>
+              {aiColors.length > 0 && (
+                <div className="mt-3">
+                  <div className="grid grid-cols-8 gap-1 mb-2">
+                    {aiColors.map((c) => (
+                      <button
+                        key={c}
+                        title={c}
+                        aria-label={`추천 색상 ${c}`}
+                        onClick={() => selectPaletteColor(c)}
+                        className="w-full aspect-square rounded border hover:scale-110 transition-all"
+                        style={{ background: c, borderColor: 'var(--color-outline)' }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => addColorsToPalette(aiColors)}
+                    className="w-full py-1.5 text-xs font-bold rounded-lg border hover:bg-surface-container"
+                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                  >
+                    + 팔레트에 추가
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* 여기에 광고나 AI 분석 결과 렌더링 */}
             <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-outline flex items-center justify-center bg-surface">
               <p className="text-[11px] text-outline-strong text-center">
