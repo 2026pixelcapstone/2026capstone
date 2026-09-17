@@ -1,5 +1,5 @@
 import { MENU_DEFS } from "../../constants/editor/menuConfig";
-import { MENU_ACTION, MenuActionId } from "../../type/editorType";
+import { MENU_ACTION, MenuActionId } from "../../type/editor";
 import React, { useEffect, useRef, useState } from "react";
 
 interface FileActions{

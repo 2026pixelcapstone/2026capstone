@@ -1,4 +1,4 @@
-import { MENU_ACTION, MENU_GROUP_ID, MenuGroup } from "../../type/editorType";
+import { MENU_ACTION, MENU_GROUP_ID, MenuGroup } from "../../type/editor";
 
   // ── 메뉴 정의 (actions can reference state) ──
   export const MENU_DEFS: MenuGroup[] = [

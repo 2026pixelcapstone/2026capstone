@@ -1,29 +1,27 @@
 // src/components/useAnimation.tsx
 import { useCallback } from 'react';
 import { createDefaultLayer} from '../../constants/editor/editor';
-import {FrameData} from '../../type/editorType'
+import {CanvasState, FrameData} from '../../type/editor'
 
 interface UseAnimationProps{
     frames: FrameData[];
-    currentFrameIdx: number;
+    activeFrameId: string | null;
     setWithHistory: React.Dispatch<React.SetStateAction<any>>;
-    setCurrentFrameIdx: React.Dispatch<React.SetStateAction<number>>;
+    setActiveFrameId: React.Dispatch<React.SetStateAction<string | null>>;
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export function useAnimation({
     frames, 
-    currentFrameIdx, 
+    activeFrameId,
     setWithHistory, 
-    setCurrentFrameIdx,
+    setActiveFrameId,
     setActiveLayer,
     setUnsaved,
 }: UseAnimationProps){
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
-     * currentSize - 현재 설정된 캔버스 너비와 높이
-     * data - 복사할 이미지 데이터 (없으면 빈 프레임)
      */
     const addFrame = useCallback(() => {
         const newFrame: FrameData = {
@@ -36,7 +34,7 @@ export function useAnimation({
         const nextIdx = nextFrames.length - 1;
         const targetFrame = nextFrames[nextIdx];
 
-        setCurrentFrameIdx(nextIdx);
+        setActiveFrameId(targetFrame.id)
 
         const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
 
@@ -50,58 +48,85 @@ export function useAnimation({
         }));
 
         setUnsaved(true);
-    }, [frames, setWithHistory, setCurrentFrameIdx, setActiveLayer, setUnsaved]);
+    }, [frames, setActiveFrameId, setWithHistory, setActiveLayer, setUnsaved]);
     
     /**
      * 특정 인덱스의 프레임을 삭제합니다.
      * 최소 1개의 프레임은 유지되어야 하며, 삭제 후 안전한 인덱스로 이동합니다.
      * index - 삭제할 프레임의 위치 인덱스
      */
-    const deleteFrame = useCallback((index: number) => {
+    const deleteFrame = useCallback((frameIdToDelete: string) => {
         if(frames.length <= 1) return;
         
-        const nextFrames = frames.filter((_, i) => i !== index);
-        const reorderedFrames = nextFrames.map((frame, idx) => ({
+        // 삭제할 프레임의 위치 파악
+        const targetIdx = frames.findIndex((f) => f.id === frameIdToDelete);
+        if(targetIdx < 0){
+            return;
+        }
+
+        // 프레임 제거 및 frameOrder 재정렬
+        const nextFrames = frames.filter((frame) => frame.id !== frameIdToDelete)
+            .map((frame, idx) =>({
                 ...frame,
-                frameOrder: idx, // 삭제 후 순서 재정렬
+                frameOrder: idx,
             }));
         
-        let nextIdx = currentFrameIdx; // 기본적으로 현재 프레임 인덱스 유지
+        // 지운 프레임이 현재 활성 프레임(activeFrameId)이었을 경우의 타깃 재조정
+        if(activeFrameId === frameIdToDelete){
+            // 삭제된 자리 또는 마지막 프레임 선택
+            const safeIdx = Math.min(targetIdx, nextFrames.length - 1);
+            const nextActiveFrame = nextFrames[safeIdx];
 
-        // 1. 현재 보고 있는 프레임 자체를 삭제한 경우
-        if(currentFrameIdx === index){
-            nextIdx = Math.min(currentFrameIdx, reorderedFrames.length - 1)
-        }
-        // 2. 현재 보고 있는 프레임 보다 '앞쪽' 프레임을 삭제한 경우
-        else if(index < currentFrameIdx){
-            nextIdx = currentFrameIdx - 1;
-        }
-
-        setCurrentFrameIdx(nextIdx);
-        const targetFrame = reorderedFrames[nextIdx];
-        
-        let targetActiveLayerId : string | null = null;
-
-        if(currentFrameIdx === index){
-            targetActiveLayerId = targetFrame?.layers[0]?.id || null;
-        }
-
-        if(targetActiveLayerId){
-            setActiveLayer(targetActiveLayerId)
+            if(nextActiveFrame){
+                setActiveFrameId(nextActiveFrame.id);
+                setActiveLayer(nextActiveFrame.layers[0]?.id || null);
+            }
         }
 
         setWithHistory((prev: any) => ({
             ...prev, 
-            frames: reorderedFrames
+            frames: nextFrames,
         }));
 
         setUnsaved(true);
-    }, [frames, setWithHistory, setCurrentFrameIdx, setActiveLayer, setUnsaved]);
+    }, [frames, activeFrameId, setWithHistory, setActiveLayer, setUnsaved]);
 
-    /*
+
+    /**
+     * 프레임을 재정렬합니다.
+     */
     const reorderFrames = useCallback((frameStartIndex: number, frameEndIndex: number) => {
+        if (frameStartIndex === frameEndIndex) return;
         
-    }, []);*/
-    
-    return {addFrame, deleteFrame};
+        const currentFrames = frames;
+        
+        const movedFrame = currentFrames[frameStartIndex];
+        const targetSlotFrame = currentFrames[frameEndIndex];
+
+        if(!movedFrame || !targetSlotFrame){
+            return;
+        }
+        
+        // 배열 순서 재배치
+        const nextFrames = [...currentFrames];
+        const [removed] = nextFrames.splice(frameStartIndex, 1);
+        nextFrames.splice(frameEndIndex, 0, removed);
+
+        // 순서(frameOrder) 재정렬
+        const reorderedFrames = nextFrames.map((frame: FrameData, idx: number) => ({
+            ...frame,
+            frameOrder: idx,
+        }));
+
+        setWithHistory((prev: CanvasState) => {
+            return {
+                ...prev,
+                frames: reorderedFrames,
+            };
+        });
+       
+        setUnsaved(true);
+    }, [frames, setWithHistory, setUnsaved]);
+
+    return {addFrame, deleteFrame, reorderFrames};
 }

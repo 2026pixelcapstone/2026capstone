@@ -29,10 +29,13 @@ AI 어시스턴트 기반 픽셀아트 일관성 관리 및 에셋 생태계 플
 frontend/src/
 ├── pages/        # 라우트 페이지 (갤러리·에셋·에디터·커미션·마이페이지·로그인 등)
 ├── components/   # 공용 컴포넌트 (Navbar·모달·TagInput·CommissionList·CommissionChat 등)
+├── constants/    # 상수 정의(메뉴, 초깃값 등)
+├── hooks/        # 시스템 별 기능(layer/Frame CRUD 동작, history 동작 등)
 ├── layouts/      # MainLayout (Navbar + 알림 폴링 + 배너)
 ├── api/          # 도메인별 API 모듈 (axios 래퍼)
 ├── store/        # Zustand 스토어 (auth·block·like·notification)
 ├── lib/          # ppit 파서/렌더, 다운로드, 파일검증 등 유틸
+├── type/         # Api 타입 외에 도메인 타입 정의
 └── utils/        # 변환 헬퍼 (ppitConvert 등)
 ```
 
