@@ -12,4 +12,10 @@ export const aiApi = {
    */
   suggestPalette: (body: { imageBase64: string; currentColors: string[]; description?: string }) =>
     api.post<{ success: boolean; data: PaletteSuggestResult }>('/api/ai/palette-suggest', body),
+
+  /**
+   * 태그로 색 찾기 — 태그/키워드(이미지 없음)로 어울리는 색 팔레트 제안.
+   */
+  suggestPaletteByTags: (body: { tags: string[] }) =>
+    api.post<{ success: boolean; data: PaletteSuggestResult }>('/api/ai/palette-by-tags', body),
 }
