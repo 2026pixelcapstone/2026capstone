@@ -80,6 +80,10 @@ export default function EditorPage() {
   const [aiPrompt, setAiPrompt] = useState('');       // 원하는 느낌(선택) 자연어
   const [aiColors, setAiColors] = useState<string[]>([]); // AI가 추천한 색(스와치로 표시)
   const [aiLoading, setAiLoading] = useState(false);
+  // ── AI 태그로 색 찾기 상태 ──
+  const [tagInput, setTagInput] = useState('');           // 콤마 구분 태그 입력
+  const [aiTagColors, setAiTagColors] = useState<string[]>([]);
+  const [aiTagLoading, setAiTagLoading] = useState(false);
 
   // ── 프로젝트 관련  ──────────────
   const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
@@ -935,6 +939,32 @@ export default function EditorPage() {
       return added.length ? [...prev, ...added] : prev;
     });
     toast.success('팔레트에 추가했습니다.');
+  };
+
+  // 태그로 색 찾기 — 콤마 구분 태그 → 서버 → 어울리는 색
+  const handleSuggestByTags = async () => {
+    const tags = tagInput.split(',').map((t) => t.trim()).filter(Boolean);
+    if (tags.length === 0) {
+      toast.error('태그를 하나 이상 입력해 주세요.');
+      return;
+    }
+    setAiTagLoading(true);
+    try {
+      const res = await aiApi.suggestPaletteByTags({ tags });
+      const colors = res.data?.data?.colors;
+      if (
+        !Array.isArray(colors) ||
+        colors.length === 0 ||
+        !colors.every((c) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c))
+      ) {
+        throw new Error('AI 색 찾기 응답 형식이 올바르지 않습니다.');
+      }
+      setAiTagColors(colors);
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'AI 색 찾기에 실패했습니다.'));
+    } finally {
+      setAiTagLoading(false);
+    }
   };
   
   // ── [슬라이더 연동을 위해 새로 추가할 코드] ─────────────────
@@ -1954,19 +1984,49 @@ export default function EditorPage() {
               )}
             </div>
 
-            {/* 여기에 광고나 AI 분석 결과 렌더링 */}
-            <div className="w-full aspect-[3/4] mb-4 rounded-xl border-2 border-dashed border-outline flex items-center justify-center bg-surface">
-              <p className="text-[11px] text-outline-strong text-center">
-                캔버스 분석 중...<br/>(광고 또는 AI 가이드 이미지)
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="p-3 rounded-lg bg-surface-container-low border border-outline">
-                <p className="text-xs leading-relaxed text-on-surface-variant">
-                  <strong className="text-primary">💡 조언:</strong> 현재 캐릭터의 실루엣이 불분명합니다. 외곽선(Outline) 레이어에 좀 더 어두운 색을 사용해 보세요.
-                </p>
-              </div>
+            {/* 🏷️ 태그로 색 찾기 — 키워드 기반(이미지 없음) */}
+            <div className="mb-4 p-3 rounded-lg bg-surface-container-low border border-outline">
+              <div className="text-xs font-bold mb-2 text-on-surface">🏷️ 태그로 색 찾기</div>
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="태그 (콤마로 구분) — 예: 석양, 숲"
+                maxLength={200}
+                className="w-full text-xs p-2 rounded border bg-surface"
+                style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface)' }}
+              />
+              <button
+                onClick={handleSuggestByTags}
+                disabled={aiTagLoading}
+                className="mt-2 w-full py-1.5 text-xs font-bold rounded-lg text-white disabled:opacity-50"
+                style={{ background: 'var(--color-primary)' }}
+              >
+                {aiTagLoading ? '찾는 중…' : '색 찾기'}
+              </button>
+              {aiTagColors.length > 0 && (
+                <div className="mt-3">
+                  <div className="grid grid-cols-8 gap-1 mb-2">
+                    {aiTagColors.map((c) => (
+                      <button
+                        key={c}
+                        title={c}
+                        aria-label={`추천 색상 ${c}`}
+                        onClick={() => selectPaletteColor(c)}
+                        className="w-full aspect-square rounded border hover:scale-110 transition-all"
+                        style={{ background: c, borderColor: 'var(--color-outline)' }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => addColorsToPalette(aiTagColors)}
+                    className="w-full py-1.5 text-xs font-bold rounded-lg border hover:bg-surface-container"
+                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                  >
+                    + 팔레트에 추가
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
