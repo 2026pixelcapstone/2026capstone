@@ -91,6 +91,7 @@ export default function EditorPage() {
   const [conceptKeywords, setConceptKeywords] = useState<string[]>([]);
   const [conceptRelated, setConceptRelated] = useState<RelatedPost[]>([]);
   const [conceptLoading, setConceptLoading] = useState(false);
+  const conceptReqIdRef = useRef(0);   // 컨셉 추천 세대 가드(오래된/실패 응답이 최신 결과 덮지 않도록)
 
   // ── 프로젝트 관련  ──────────────
   const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
@@ -981,9 +982,15 @@ export default function EditorPage() {
       toast.error('컨셉 설명을 입력해 주세요.');
       return;
     }
+    // 새 요청 시작 — 이전 결과를 즉시 비워, 실패/다른 컨셉 응답이 이전 결과와 섞여 오인 선택되는 것 방지
+    const reqId = ++conceptReqIdRef.current;
+    setConceptColors([]);
+    setConceptKeywords([]);
+    setConceptRelated([]);
     setConceptLoading(true);
     try {
       const res = await aiApi.suggestConcept({ description });
+      if (conceptReqIdRef.current !== reqId) return;   // 더 최신 요청이 있으면 이 응답은 폐기
       const data = res.data?.data;
       const colors = data?.colors;
       if (
@@ -1002,15 +1009,24 @@ export default function EditorPage() {
       );
       setConceptRelated(
         Array.isArray(data?.relatedPosts)
-          ? data.relatedPosts.filter(
-              (p): p is RelatedPost => !!p && typeof p.postId === 'number',
-            )
+          ? data.relatedPosts
+              // postId·title이 유효한 것만 수용(title은 alt/aria 이름에 필요)
+              .filter(
+                (p): p is RelatedPost =>
+                  !!p && typeof p.postId === 'number' && typeof p.title === 'string',
+              )
+              // thumbnailUrl이 문자열이 아니면 null로 정규화(이미지 렌더 깨짐 방지)
+              .map((p) => ({
+                ...p,
+                thumbnailUrl: typeof p.thumbnailUrl === 'string' ? p.thumbnailUrl : null,
+              }))
           : [],
       );
     } catch (e) {
+      if (conceptReqIdRef.current !== reqId) return;   // 최신 요청이 아니면 이 실패 토스트도 무시
       toast.error(getErrorMessage(e, 'AI 컨셉 추천에 실패했습니다.'));
     } finally {
-      setConceptLoading(false);
+      if (conceptReqIdRef.current === reqId) setConceptLoading(false);
     }
   };
 
