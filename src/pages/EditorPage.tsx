@@ -19,6 +19,7 @@ import { LayerImageRenderer } from '../components/editor/LayerImageRender'
 import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { aiApi } from '../api/aiApi'
+import type { RelatedPost } from '../api/aiApi'
 import { extractUsedColors } from '../utils/colorExtract'
 import { getErrorMessage } from '../lib/errorUtils'
 import { parsePpit, serializePpit } from '../lib/ppit'
@@ -84,6 +85,13 @@ export default function EditorPage() {
   const [tagInput, setTagInput] = useState('');           // 콤마 구분 태그 입력
   const [aiTagColors, setAiTagColors] = useState<string[]>([]);
   const [aiTagLoading, setAiTagLoading] = useState(false);
+  // ── AI 컨셉 도우미 상태 (자연어 → 색 + 관련 작품) ──
+  const [conceptInput, setConceptInput] = useState('');            // 자연어 컨셉 설명
+  const [conceptColors, setConceptColors] = useState<string[]>([]);
+  const [conceptKeywords, setConceptKeywords] = useState<string[]>([]);
+  const [conceptRelated, setConceptRelated] = useState<RelatedPost[]>([]);
+  const [conceptLoading, setConceptLoading] = useState(false);
+  const conceptReqIdRef = useRef(0);   // 컨셉 추천 세대 가드(오래된/실패 응답이 최신 결과 덮지 않도록)
 
   // ── 프로젝트 관련  ──────────────
   const [saveIsModalOpen, setSaveIsModalOpen] = useState(false)
@@ -966,7 +974,62 @@ export default function EditorPage() {
       setAiTagLoading(false);
     }
   };
-  
+
+  // 컨셉 도우미 — 자연어 설명 → 색 팔레트 + 관련 작품(우리 갤러리)
+  const handleSuggestConcept = async () => {
+    const description = conceptInput.trim();
+    if (!description) {
+      toast.error('컨셉 설명을 입력해 주세요.');
+      return;
+    }
+    // 새 요청 시작 — 이전 결과를 즉시 비워, 실패/다른 컨셉 응답이 이전 결과와 섞여 오인 선택되는 것 방지
+    const reqId = ++conceptReqIdRef.current;
+    setConceptColors([]);
+    setConceptKeywords([]);
+    setConceptRelated([]);
+    setConceptLoading(true);
+    try {
+      const res = await aiApi.suggestConcept({ description });
+      if (conceptReqIdRef.current !== reqId) return;   // 더 최신 요청이 있으면 이 응답은 폐기
+      const data = res.data?.data;
+      const colors = data?.colors;
+      if (
+        !Array.isArray(colors) ||
+        colors.length === 0 ||
+        !colors.every((c) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c))
+      ) {
+        throw new Error('AI 컨셉 추천 응답 형식이 올바르지 않습니다.');
+      }
+      setConceptColors(colors);
+      // 키워드·관련 작품은 없어도 색은 표시(옵셔널) — 형식 이상 시 빈 목록으로 방어
+      setConceptKeywords(
+        Array.isArray(data?.keywords)
+          ? data.keywords.filter((k): k is string => typeof k === 'string')
+          : [],
+      );
+      setConceptRelated(
+        Array.isArray(data?.relatedPosts)
+          ? data.relatedPosts
+              // postId·title이 유효한 것만 수용(title은 alt/aria 이름에 필요)
+              .filter(
+                (p): p is RelatedPost =>
+                  !!p && typeof p.postId === 'number' && typeof p.title === 'string',
+              )
+              // thumbnailUrl이 문자열이 아니면 null로 정규화(이미지 렌더 깨짐 방지)
+              .map((p) => ({
+                ...p,
+                thumbnailUrl: typeof p.thumbnailUrl === 'string' ? p.thumbnailUrl : null,
+              }))
+          : [],
+      );
+    } catch (e) {
+      if (conceptReqIdRef.current !== reqId) return;   // 최신 요청이 아니면 이 실패 토스트도 무시
+      toast.error(getErrorMessage(e, 'AI 컨셉 추천에 실패했습니다.'));
+    } finally {
+      if (conceptReqIdRef.current === reqId) setConceptLoading(false);
+    }
+  };
+
   // ── [슬라이더 연동을 위해 새로 추가할 코드] ─────────────────
   
   // 1. 슬라이더의 RGB 숫자를 다시 #ffffff 형태의 HEX 문자로 바꿔주는 함수
@@ -2025,6 +2088,99 @@ export default function EditorPage() {
                   >
                     + 팔레트에 추가
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* 🎨 컨셉 도우미 — 자연어 → 색 + 관련 작품(우리 갤러리) */}
+            <div className="mb-4 p-3 rounded-lg bg-surface-container-low border border-outline">
+              <div className="text-xs font-bold mb-2 text-on-surface">🎨 컨셉 도우미</div>
+              <textarea
+                value={conceptInput}
+                onChange={(e) => setConceptInput(e.target.value)}
+                placeholder="만들고 싶은 컨셉 — 예: 네온이 빛나는 사이버펑크 도시의 밤"
+                rows={2}
+                maxLength={500}
+                className="w-full text-xs p-2 rounded border resize-none bg-surface"
+                style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface)' }}
+              />
+              <button
+                onClick={handleSuggestConcept}
+                disabled={conceptLoading}
+                className="mt-2 w-full py-1.5 text-xs font-bold rounded-lg text-white disabled:opacity-50"
+                style={{ background: 'var(--color-primary)' }}
+              >
+                {conceptLoading ? '추천 중…' : '추천받기'}
+              </button>
+              {conceptColors.length > 0 && (
+                <div className="mt-3">
+                  <div className="grid grid-cols-8 gap-1 mb-2">
+                    {conceptColors.map((c) => (
+                      <button
+                        key={c}
+                        title={c}
+                        aria-label={`추천 색상 ${c}`}
+                        onClick={() => selectPaletteColor(c)}
+                        className="w-full aspect-square rounded border hover:scale-110 transition-all"
+                        style={{ background: c, borderColor: 'var(--color-outline)' }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => addColorsToPalette(conceptColors)}
+                    className="w-full py-1.5 text-xs font-bold rounded-lg border hover:bg-surface-container"
+                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                  >
+                    + 팔레트에 추가
+                  </button>
+
+                  {conceptKeywords.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-[11px] mb-1 text-on-surface-variant">이 태그로 찾았어요</div>
+                      <div className="flex flex-wrap gap-1">
+                        {conceptKeywords.map((k) => (
+                          <span
+                            key={k}
+                            className="px-1.5 py-0.5 text-[11px] rounded bg-surface-container text-on-surface-variant"
+                          >
+                            {k}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-3">
+                    <div className="text-[11px] mb-1 text-on-surface-variant">관련 작품</div>
+                    {conceptRelated.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-1">
+                        {conceptRelated.map((p) => (
+                          <a
+                            key={p.postId}
+                            href={`/gallery/${p.postId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={p.title}
+                            aria-label={`관련 작품 열기: ${p.title}`}
+                            className="block aspect-square rounded border overflow-hidden hover:opacity-80 transition-opacity bg-surface-container"
+                            style={{ borderColor: 'var(--color-outline)' }}
+                          >
+                            {p.thumbnailUrl && (
+                              <img
+                                src={p.thumbnailUrl}
+                                alt={p.title}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                                style={{ imageRendering: 'pixelated' }}
+                              />
+                            )}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-on-surface-variant">관련 작품을 찾지 못했어요.</div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
