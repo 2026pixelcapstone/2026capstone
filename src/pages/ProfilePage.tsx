@@ -28,7 +28,7 @@ function EmptyTab({ icon, text }: { icon: string; text: string }) {
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const { isLoggedIn, user: me } = useAuthStore()
-  const { isUserBlocked, blockUser, unblockUser } = useBlockStore()
+  const { isUserBlocked, blockUser, unblockUser, loaded: blocksLoaded } = useBlockStore()
   const navigate = useNavigate()
 
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
@@ -38,6 +38,7 @@ export default function ProfilePage() {
   const [sort, setSort] = useState<'recent' | 'popular'>('recent')
   const [followed, setFollowed] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [blockLoading, setBlockLoading] = useState(false)
 
   // 탭 콘텐츠
   const [works, setWorks] = useState<GalleryPostSummary[]>([])
@@ -218,9 +219,12 @@ export default function ProfilePage() {
                     </span>
                     {followLoading ? '처리 중...' : followed ? '팔로잉' : '팔로우'}
                   </button>
-                  {isLoggedIn && (
+                  {/* 차단 목록 로드 완료 후에만 노출 — 미로드 상태의 빈 blockedUserIds로 인한 오표시·중복 차단 방지 */}
+                  {isLoggedIn && blocksLoaded && (
                     <button
                       onClick={async () => {
+                        if (blockLoading) return   // 진행 중 연타 → 병렬 호출로 상태 발산 방지
+                        setBlockLoading(true)
                         try {
                           if (isUserBlocked(profile.userId)) {
                             await unblockUser(profile.userId)
@@ -231,10 +235,13 @@ export default function ProfilePage() {
                           }
                         } catch (err) {
                           toast.error(getErrorMessage(err, '처리에 실패했습니다.'))
+                        } finally {
+                          setBlockLoading(false)
                         }
                       }}
+                      disabled={blockLoading}
                       aria-label={isUserBlocked(profile.userId) ? '차단 해제' : '사용자 차단'}
-                      className="px-3 py-2 rounded-xl text-xs font-bold transition-colors"
+                      className="px-3 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       style={isUserBlocked(profile.userId)
                         ? { background: 'color-mix(in srgb, var(--color-error) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-error) 30%, transparent)', color: 'var(--color-error)' }
                         : { background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
