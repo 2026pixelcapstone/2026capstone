@@ -165,11 +165,11 @@ export const assetApi = {
   getRatingSummary: (assetId: number) =>
     api.get<{ success: boolean; data: AssetRatingSummary }>(`/api/assets/${assetId}/rating-summary`),
 
-  // 다운로드 파일 버전 히스토리 (작성자만)
+  /** 다운로드 파일 버전 히스토리 조회 (작성자만). */
   getVersions: (assetId: number) =>
     api.get<{ success: boolean; data: AssetVersion[] }>(`/api/assets/${assetId}/versions`),
 
-  // 다운로드 파일 새 버전 등록 (작성자만) — R2 업로드 후 URL/크기 전달
+  /** 다운로드 파일 새 버전 등록 (작성자만) — R2 업로드 후 URL/크기 전달. */
   addVersion: (assetId: number, data: AssetVersionCreateRequest) =>
     api.post<{ success: boolean; data: AssetVersion }>(`/api/assets/${assetId}/versions`, data),
 

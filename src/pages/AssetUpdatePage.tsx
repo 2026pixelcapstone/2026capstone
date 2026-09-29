@@ -14,7 +14,7 @@ type ImageItem =
   | { kind: 'existing'; url: string }
   | { kind: 'new'; file: File; previewUrl: string }
 
-// bytes → 읽기 쉬운 크기 문자열
+/** bytes 를 읽기 쉬운 크기 문자열(B/KB/MB)로 변환. */
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -44,10 +44,25 @@ export default function AssetUpdatePage() {
   // ── 다운로드 파일 버전 교체 ──
   const [versions, setVersions] = useState<AssetVersion[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
+  const [versionsError, setVersionsError] = useState(false)
   const [newVersionFile, setNewVersionFile] = useState<File | null>(null)
   const [versionNote, setVersionNote] = useState('')
   const [replacing, setReplacing] = useState(false)
   const versionInputRef = useRef<HTMLInputElement>(null)
+
+  /** 버전 히스토리 로드 — 실패 시 versionsError로 구분(빈 목록과 혼동 방지). */
+  const loadVersions = useCallback(async () => {
+    setVersionsLoading(true)
+    setVersionsError(false)
+    try {
+      const vres = await assetApi.getVersions(assetId)
+      setVersions(vres.data.data)
+    } catch {
+      setVersionsError(true)
+    } finally {
+      setVersionsLoading(false)
+    }
+  }, [assetId])
 
   useEffect(() => {
     let cancelled = false
@@ -98,16 +113,8 @@ export default function AssetUpdatePage() {
           : ([asset.thumbnailUrl].filter(Boolean) as string[])
         setImages(existingUrls.map(url => ({ kind: 'existing' as const, url })))
 
-        // 버전 히스토리 로드(작성자 확인됨) — 실패해도 페이지는 뜨도록 개별 try
-        setVersionsLoading(true)
-        try {
-          const vres = await assetApi.getVersions(assetId)
-          setVersions(vres.data.data)
-        } catch {
-          /* 버전 조회 실패는 무시(빈 목록 유지) */
-        } finally {
-          setVersionsLoading(false)
-        }
+        // 버전 히스토리는 별도로 로드(에셋 정보 표시를 막지 않도록 await하지 않음)
+        void loadVersions()
       } catch (err) {
         toast.error(getErrorMessage(err, '에셋을 불러오지 못했습니다.'))
         navigate('/assets', { replace: true })
@@ -203,11 +210,12 @@ export default function AssetUpdatePage() {
     }
   }
 
-  // ── 다운로드 파일 새 버전으로 교체 ──
+  /** 다운로드 파일을 새 버전으로 교체 — R2 업로드 → addVersion. 등록 실패 시에만 업로드 파일 정리. */
   const handleReplaceVersion = async () => {
     if (replacing || !newVersionFile) return
     setReplacing(true)
     let uploadedUrl = ''
+    let registered = false
     try {
       uploadedUrl = await fileApi.uploadImage(newVersionFile, 'assets/files')
       await assetApi.addVersion(assetId, {
@@ -215,20 +223,20 @@ export default function AssetUpdatePage() {
         fileSize: newVersionFile.size,
         changeNote: versionNote.trim() || undefined,
       })
-      // 히스토리 갱신
-      const vres = await assetApi.getVersions(assetId)
-      setVersions(vres.data.data)
+      registered = true   // 이 시점부터 파일은 서버에 등록됨 → 이후 실패해도 삭제 금지
       setNewVersionFile(null)
       setVersionNote('')
       if (versionInputRef.current) versionInputRef.current.value = ''
       toast.success('새 버전으로 교체했습니다.')
     } catch (err) {
-      // 업로드됐으나 등록 실패 시 R2 고아 파일 정리
-      if (uploadedUrl) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
+      // 업로드됐으나 "등록 전" 실패일 때만 R2 고아 파일 정리
+      if (uploadedUrl && !registered) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
       toast.error(getErrorMessage(err, '버전 교체에 실패했습니다.'))
     } finally {
       setReplacing(false)
     }
+    // 히스토리 갱신은 등록 성공 후 별도로 — 갱신 실패가 파일 삭제로 이어지지 않게 try 밖에서
+    if (registered) void loadVersions()
   }
 
   if (loading) {
@@ -280,7 +288,13 @@ export default function AssetUpdatePage() {
 
             {/* 버전 히스토리 */}
             {versionsLoading ? (
-              <div className="text-xs py-2" style={{ color: 'var(--color-on-surface-variant)' }}>버전 불러오는 중…</div>
+              <div role="status" aria-live="polite" className="text-xs py-2" style={{ color: 'var(--color-on-surface-variant)' }}>버전 불러오는 중…</div>
+            ) : versionsError ? (
+              <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>
+                <span>버전 목록을 불러오지 못했습니다.</span>
+                <button type="button" onClick={loadVersions}
+                  className="underline font-bold" style={{ color: 'var(--color-primary)' }}>다시 시도</button>
+              </div>
             ) : versions.length > 0 ? (
               <ul className="flex flex-col gap-1.5 mb-3">
                 {versions.map(v => (
@@ -299,11 +313,13 @@ export default function AssetUpdatePage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-xs mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>등록된 다운로드 파일이 없습니다.</p>
+              <p role="status" aria-live="polite" className="text-xs mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>등록된 다운로드 파일이 없습니다.</p>
             )}
 
             {/* 새 버전 업로드 */}
-            <input ref={versionInputRef} type="file"
+            <label htmlFor="version-file" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>새 파일 선택</label>
+            <input id="version-file" ref={versionInputRef} type="file"
+              aria-label="다운로드 파일 선택"
               onChange={e => setNewVersionFile(e.target.files?.[0] ?? null)}
               className="block w-full text-xs mb-2"
               style={{ color: 'var(--color-on-surface-variant)' }} />
@@ -313,6 +329,8 @@ export default function AssetUpdatePage() {
               </p>
             )}
             <input type="text" value={versionNote} onChange={e => setVersionNote(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
+              aria-label="변경 메모"
               placeholder="변경 메모 (선택)" maxLength={200}
               className="w-full text-xs rounded border px-3 py-2 mb-2 bg-transparent"
               style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface)' }} />
