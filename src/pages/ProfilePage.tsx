@@ -4,6 +4,7 @@ import { userApi, type UserProfileResponse } from '../api/userApi'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { assetApi, type AssetSummary } from '../api/assetApi'
 import { useAuthStore } from '../store/authStore'
+import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 
@@ -27,6 +28,7 @@ function EmptyTab({ icon, text }: { icon: string; text: string }) {
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const { isLoggedIn, user: me } = useAuthStore()
+  const { isUserBlocked, blockUser, unblockUser } = useBlockStore()
   const navigate = useNavigate()
 
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
@@ -216,10 +218,29 @@ export default function ProfilePage() {
                     </span>
                     {followLoading ? '처리 중...' : followed ? '팔로잉' : '팔로우'}
                   </button>
-                  <button className="p-2 rounded-xl transition-all hover:bg-surface-container-low"
-                    style={{ border: '1px solid var(--color-outline)' }}>
-                    <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-on-surface-variant)' }}>more_horiz</span>
-                  </button>
+                  {isLoggedIn && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          if (isUserBlocked(profile.userId)) {
+                            await unblockUser(profile.userId)
+                            toast.success('차단이 해제되었습니다.')
+                          } else {
+                            await blockUser(profile.userId)
+                            toast.success('사용자를 차단했습니다. 마이페이지 > 차단 관리에서 확인하세요.')
+                          }
+                        } catch (err) {
+                          toast.error(getErrorMessage(err, '처리에 실패했습니다.'))
+                        }
+                      }}
+                      aria-label={isUserBlocked(profile.userId) ? '차단 해제' : '사용자 차단'}
+                      className="px-3 py-2 rounded-xl text-xs font-bold transition-colors"
+                      style={isUserBlocked(profile.userId)
+                        ? { background: 'color-mix(in srgb, var(--color-error) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-error) 30%, transparent)', color: 'var(--color-error)' }
+                        : { background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
+                      {isUserBlocked(profile.userId) ? '차단됨' : '차단'}
+                    </button>
+                  )}
                 </>
               )}
             </div>

@@ -219,11 +219,6 @@ export default function MyPage() {
             'repeating-linear-gradient(90deg,transparent,transparent 20px,rgba(255,255,255,0.2) 20px,rgba(255,255,255,0.2) 21px)',
           ].join(','),
         }} />
-        <button className="absolute bottom-3 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-white/20"
-          style={{ background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}>
-          <span className="material-symbols-outlined text-sm">photo_camera</span>
-          커버 변경
-        </button>
       </div>
 
       {/* 프로필 인포 바 */}
@@ -274,10 +269,6 @@ export default function MyPage() {
                 style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
                 <span className="material-symbols-outlined text-base">edit</span>
                 프로필 편집
-              </button>
-              <button className="p-2 rounded-xl transition-all hover:bg-surface-container-low"
-                style={{ border: '1px solid var(--color-outline)' }}>
-                <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-on-surface-variant)' }}>settings</span>
               </button>
             </div>
           </div>
