@@ -78,6 +78,24 @@ export interface AssetLicenseType {
   description: string | null
 }
 
+// 다운로드 파일 버전 (관리 UI용) — fileUrl은 응답에 없음(다운로드 마스킹 대상)
+export interface AssetVersion {
+  versionId: number
+  versionNumber: number
+  versionName: string
+  fileSize: number
+  changeNote: string | null
+  isCurrent: boolean
+  createdAt: string
+}
+
+export interface AssetVersionCreateRequest {
+  fileUrl: string
+  fileSize: number
+  versionName?: string
+  changeNote?: string
+}
+
 export interface AssetCreateRequest {
   title: string
   description?: string
@@ -146,6 +164,14 @@ export const assetApi = {
   // 평점 요약(평균/개수/분포)
   getRatingSummary: (assetId: number) =>
     api.get<{ success: boolean; data: AssetRatingSummary }>(`/api/assets/${assetId}/rating-summary`),
+
+  // 다운로드 파일 버전 히스토리 (작성자만)
+  getVersions: (assetId: number) =>
+    api.get<{ success: boolean; data: AssetVersion[] }>(`/api/assets/${assetId}/versions`),
+
+  // 다운로드 파일 새 버전 등록 (작성자만) — R2 업로드 후 URL/크기 전달
+  addVersion: (assetId: number, data: AssetVersionCreateRequest) =>
+    api.post<{ success: boolean; data: AssetVersion }>(`/api/assets/${assetId}/versions`, data),
 
   // 카테고리/라이선스 선택지
   getCategories: () =>
