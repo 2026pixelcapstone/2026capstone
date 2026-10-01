@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { assetApi, type AssetCategory, type AssetLicenseType, type AssetVersion } from '../api/assetApi'
+import { assetApi, type AssetCategory, type AssetLicenseType } from '../api/assetApi'
 import { fileApi } from '../api/fileApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -13,6 +13,11 @@ const MAX_IMAGES = 5
 type ImageItem =
   | { kind: 'existing'; url: string }
   | { kind: 'new'; file: File; previewUrl: string }
+
+// 기존 다운로드 파일(서버 등록됨) 또는 새로 추가한 파일(File)
+type DownloadFileItem =
+  | { kind: 'existing'; versionId: number; fileName: string | null; fileSize: number }
+  | { kind: 'new'; file: File }
 
 /** bytes 를 읽기 쉬운 크기 문자열(B/KB/MB)로 변환. */
 function formatFileSize(bytes: number): string {
@@ -41,28 +46,43 @@ export default function AssetUpdatePage() {
   const [dragging, setDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // ── 다운로드 파일 버전 교체 ──
-  const [versions, setVersions] = useState<AssetVersion[]>([])
+  // ── 다운로드 파일 (멀티 파일 — 이미지처럼 추가/X, 저장 시 반영) ──
+  const [downloadFiles, setDownloadFiles] = useState<DownloadFileItem[]>([])
+  const [removedVersionIds, setRemovedVersionIds] = useState<number[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [versionsError, setVersionsError] = useState(false)
-  const [newVersionFile, setNewVersionFile] = useState<File | null>(null)
-  const [versionNote, setVersionNote] = useState('')
-  const [replacing, setReplacing] = useState(false)
   const versionInputRef = useRef<HTMLInputElement>(null)
 
-  /** 버전 히스토리 로드 — 실패 시 versionsError로 구분(빈 목록과 혼동 방지). */
-  const loadVersions = useCallback(async () => {
+  /** 현재 등록된 다운로드 파일 로드 — 실패 시 versionsError로 구분. */
+  const loadDownloadFiles = useCallback(async () => {
     setVersionsLoading(true)
     setVersionsError(false)
     try {
       const vres = await assetApi.getVersions(assetId)
-      setVersions(vres.data.data)
+      setDownloadFiles(vres.data.data.map(v => ({
+        kind: 'existing' as const, versionId: v.versionId, fileName: v.fileName, fileSize: v.fileSize,
+      })))
+      setRemovedVersionIds([])
     } catch {
       setVersionsError(true)
     } finally {
       setVersionsLoading(false)
     }
   }, [assetId])
+
+  const addDownloadFiles = (files: File[]) => {
+    if (files.length === 0) return
+    setDownloadFiles(prev => [...prev, ...files.map(file => ({ kind: 'new' as const, file }))])
+  }
+
+  const removeDownloadFile = (idx: number) => {
+    setDownloadFiles(prev => {
+      const item = prev[idx]
+      // 기존 파일 제거는 저장 시 삭제하도록 표시(즉시 삭제 아님)
+      if (item?.kind === 'existing') setRemovedVersionIds(ids => [...ids, item.versionId])
+      return prev.filter((_, i) => i !== idx)
+    })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -113,8 +133,8 @@ export default function AssetUpdatePage() {
           : ([asset.thumbnailUrl].filter(Boolean) as string[])
         setImages(existingUrls.map(url => ({ kind: 'existing' as const, url })))
 
-        // 버전 히스토리는 별도로 로드(에셋 정보 표시를 막지 않도록 await하지 않음)
-        void loadVersions()
+        // 다운로드 파일 목록은 별도로 로드(에셋 정보 표시를 막지 않도록 await하지 않음)
+        void loadDownloadFiles()
       } catch (err) {
         toast.error(getErrorMessage(err, '에셋을 불러오지 못했습니다.'))
         navigate('/assets', { replace: true })
@@ -171,18 +191,19 @@ export default function AssetUpdatePage() {
     if (!isFree && (!price || Number(price) <= 0)) { toast.error('유료 에셋의 가격을 입력해주세요.'); return }
 
     setSubmitting(true)
-    let uploadedUrls: string[] = []
+    let uploadedImageUrls: string[] = []
+    let assetSaved = false
     try {
       // 새로 추가한 이미지만 업로드
       const newFiles = images.filter((i): i is Extract<ImageItem, { kind: 'new' }> => i.kind === 'new')
       if (newFiles.length > 0) {
-        uploadedUrls = await fileApi.uploadImages(newFiles.map(i => i.file), 'assets/images')
+        uploadedImageUrls = await fileApi.uploadImages(newFiles.map(i => i.file), 'assets/images')
       }
 
       // 기존 + 신규 URL을 순서대로 병합
       let uploadIdx = 0
       const finalUrls = images.map(item =>
-        item.kind === 'existing' ? item.url : uploadedUrls[uploadIdx++]
+        item.kind === 'existing' ? item.url : uploadedImageUrls[uploadIdx++]
       )
 
       const res = await assetApi.updateAsset(assetId, {
@@ -197,46 +218,38 @@ export default function AssetUpdatePage() {
         thumbnailUrl: finalUrls[0],
         tags: selectedTags,
       })
+      assetSaved = true
+
+      // 다운로드 파일 반영 — 제거분 삭제
+      for (const versionId of removedVersionIds) {
+        await assetApi.deleteVersion(assetId, versionId)
+      }
+      // 추가분 업로드·등록(등록 실패 시 방금 올린 파일만 정리)
+      for (const item of downloadFiles) {
+        if (item.kind !== 'new') continue
+        const url = await fileApi.uploadImage(item.file, 'assets/files')
+        try {
+          await assetApi.addVersion(assetId, {
+            fileUrl: url, fileName: item.file.name, fileSize: item.file.size,
+          })
+        } catch (e) {
+          await fileApi.deleteFiles([url]).catch(() => {})
+          throw e
+        }
+      }
 
       toast.success('에셋이 수정되었습니다.')
       navigate(`/assets/${res.data.data.assetId}`)
     } catch (err) {
-      // 신규 이미지는 업로드됐으나 수정 실패 시 R2 고아 파일 정리
-      await fileApi.deleteFiles(uploadedUrls).catch(() => {})
+      // 에셋 저장 전 실패면 업로드한 이미지 정리(저장 후엔 반영됐으므로 보존)
+      if (!assetSaved && uploadedImageUrls.length > 0) {
+        await fileApi.deleteFiles(uploadedImageUrls).catch(() => {})
+      }
       toast.error(getErrorMessage(err, '에셋 수정에 실패했습니다.'))
     } finally {
       images.forEach(i => { if (i.kind === 'new') URL.revokeObjectURL(i.previewUrl) })
       setSubmitting(false)
     }
-  }
-
-  /** 다운로드 파일을 새 버전으로 교체 — R2 업로드 → addVersion. 등록 실패 시에만 업로드 파일 정리. */
-  const handleReplaceVersion = async () => {
-    if (replacing || !newVersionFile) return
-    setReplacing(true)
-    let uploadedUrl = ''
-    let registered = false
-    try {
-      uploadedUrl = await fileApi.uploadImage(newVersionFile, 'assets/files')
-      await assetApi.addVersion(assetId, {
-        fileUrl: uploadedUrl,
-        fileSize: newVersionFile.size,
-        changeNote: versionNote.trim() || undefined,
-      })
-      registered = true   // 이 시점부터 파일은 서버에 등록됨 → 이후 실패해도 삭제 금지
-      setNewVersionFile(null)
-      setVersionNote('')
-      if (versionInputRef.current) versionInputRef.current.value = ''
-      toast.success('새 버전으로 교체했습니다.')
-    } catch (err) {
-      // 업로드됐으나 "등록 전" 실패일 때만 R2 고아 파일 정리
-      if (uploadedUrl && !registered) await fileApi.deleteFiles([uploadedUrl]).catch(() => {})
-      toast.error(getErrorMessage(err, '버전 교체에 실패했습니다.'))
-    } finally {
-      setReplacing(false)
-    }
-    // 히스토리 갱신은 등록 성공 후 별도로 — 갱신 실패가 파일 삭제로 이어지지 않게 try 밖에서
-    if (registered) void loadVersions()
   }
 
   if (loading) {
@@ -278,67 +291,60 @@ export default function AssetUpdatePage() {
             />
           </div>
 
-          {/* 다운로드 파일 버전 교체 */}
-          <div className="rounded-lg border p-4"
+          {/* 다운로드 파일 (멀티) — 이미지처럼 추가/X, "수정 완료" 시 반영 */}
+          <div className="rounded-lg border p-5"
             style={{ borderColor: 'var(--color-outline)', background: 'var(--color-surface-container)' }}>
-            <div className="text-sm font-bold mb-1" style={{ color: 'var(--color-on-surface)' }}>다운로드 파일 버전</div>
-            <p className="text-xs mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>
-              새 파일을 올리면 최신 버전으로 교체됩니다. 이전 버전은 히스토리에 남습니다.
+            <div className="text-base font-bold mb-1" style={{ color: 'var(--color-on-surface)' }}>다운로드 파일</div>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-on-surface-variant)' }}>
+              구매자가 받는 파일입니다. 여러 개 올릴 수 있고, <b>수정 완료</b> 시 반영됩니다.
             </p>
 
-            {/* 버전 히스토리 */}
             {versionsLoading ? (
-              <div role="status" aria-live="polite" className="text-xs py-2" style={{ color: 'var(--color-on-surface-variant)' }}>버전 불러오는 중…</div>
+              <div role="status" aria-live="polite" className="text-sm py-1 mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>불러오는 중…</div>
             ) : versionsError ? (
-              <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>
-                <span>버전 목록을 불러오지 못했습니다.</span>
-                <button type="button" onClick={loadVersions}
+              <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>
+                <span>다운로드 파일을 불러오지 못했습니다.</span>
+                <button type="button" onClick={loadDownloadFiles}
                   className="underline font-bold" style={{ color: 'var(--color-primary)' }}>다시 시도</button>
               </div>
-            ) : versions.length > 0 ? (
-              <ul className="flex flex-col gap-1.5 mb-3">
-                {versions.map(v => (
-                  <li key={v.versionId}
-                    className="flex items-center gap-2 text-xs rounded px-2 py-1.5"
-                    style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface-variant)' }}>
-                    <span className="font-bold" style={{ color: 'var(--color-on-surface)' }}>{v.versionName}</span>
-                    {v.isCurrent && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                        style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>현재</span>
-                    )}
-                    <span>{formatFileSize(v.fileSize)}</span>
-                    {v.changeNote && <span className="truncate">· {v.changeNote}</span>}
-                    <span className="ml-auto shrink-0">{v.createdAt.slice(0, 10)}</span>
-                  </li>
-                ))}
+            ) : downloadFiles.length > 0 ? (
+              <ul className="flex flex-col gap-2 mb-3">
+                {downloadFiles.map((f, idx) => {
+                  const name = f.kind === 'existing' ? (f.fileName ?? '다운로드 파일') : f.file.name
+                  const size = f.kind === 'existing' ? f.fileSize : f.file.size
+                  return (
+                    <li key={idx} className="flex items-center gap-3 rounded-lg p-3"
+                      style={{ background: 'var(--color-surface-container-low)' }}>
+                      <span className="material-symbols-outlined shrink-0" style={{ color: 'var(--color-primary)' }}>description</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold truncate" style={{ color: 'var(--color-on-surface)' }}>{name}</div>
+                        <div className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                          {formatFileSize(size)}{f.kind === 'new' && ' · 추가됨'}
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => removeDownloadFile(idx)} aria-label={`${name} 제거`}
+                        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center hover:bg-surface-container"
+                        style={{ color: 'var(--color-error)' }}>
+                        <span className="material-symbols-outlined text-base">close</span>
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             ) : (
-              <p role="status" aria-live="polite" className="text-xs mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>등록된 다운로드 파일이 없습니다.</p>
+              <p className="text-sm mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>등록된 다운로드 파일이 없습니다.</p>
             )}
 
-            {/* 새 버전 업로드 */}
-            <label htmlFor="version-file" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>새 파일 선택</label>
-            <input id="version-file" ref={versionInputRef} type="file"
+            {/* 파일 추가 — 네이티브 버튼 숨기고 커스텀 버튼(여러 개 선택 가능) */}
+            <label htmlFor="version-file"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-bold cursor-pointer border transition-colors hover:bg-surface-container-low"
+              style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
+              <span className="material-symbols-outlined text-base">upload</span>
+              파일 추가
+            </label>
+            <input id="version-file" ref={versionInputRef} type="file" multiple className="hidden"
               aria-label="다운로드 파일 선택"
-              onChange={e => setNewVersionFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-xs mb-2"
-              style={{ color: 'var(--color-on-surface-variant)' }} />
-            {newVersionFile && (
-              <p className="text-xs mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
-                선택: {newVersionFile.name} ({formatFileSize(newVersionFile.size)})
-              </p>
-            )}
-            <input type="text" value={versionNote} onChange={e => setVersionNote(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
-              aria-label="변경 메모"
-              placeholder="변경 메모 (선택)" maxLength={200}
-              className="w-full text-xs rounded border px-3 py-2 mb-2 bg-transparent"
-              style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface)' }} />
-            <button type="button" onClick={handleReplaceVersion} disabled={!newVersionFile || replacing}
-              className="w-full py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: 'var(--color-primary)' }}>
-              {replacing ? '교체 중…' : '새 버전으로 교체'}
-            </button>
+              onChange={e => { if (e.target.files) addDownloadFiles(Array.from(e.target.files)); e.target.value = '' }} />
           </div>
 
           {/* 무료/유료 */}

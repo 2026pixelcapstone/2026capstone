@@ -134,6 +134,7 @@ export default function AssetCreatePage() {
         thumbnailUrl: uploadedImageUrls[0],
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         fileUrl: uploadedFileUrl,
+        fileName: assetFile.name,
         fileSize: assetFile.size,
       })
 
