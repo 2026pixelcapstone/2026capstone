@@ -76,12 +76,14 @@ export default function AssetUpdatePage() {
   }
 
   const removeDownloadFile = (idx: number) => {
-    setDownloadFiles(prev => {
-      const item = prev[idx]
-      // 기존 파일 제거는 저장 시 삭제하도록 표시(즉시 삭제 아님)
-      if (item?.kind === 'existing') setRemovedVersionIds(ids => [...ids, item.versionId])
-      return prev.filter((_, i) => i !== idx)
-    })
+    // 상태 업데이터 밖에서 읽어 StrictMode 이중 실행에도 부작용이 중복되지 않게 함
+    const item = downloadFiles[idx]
+    // 기존 파일 제거는 저장 시 삭제하도록 표시(즉시 삭제 아님) — 중복 방지
+    if (item?.kind === 'existing') {
+      const vid = item.versionId
+      setRemovedVersionIds(ids => (ids.includes(vid) ? ids : [...ids, vid]))
+    }
+    setDownloadFiles(prev => prev.filter((_, i) => i !== idx))
   }
 
   useEffect(() => {
@@ -220,13 +222,13 @@ export default function AssetUpdatePage() {
       })
       assetSaved = true
 
-      // 다운로드 파일 반영 — 제거분 삭제
-      for (const versionId of removedVersionIds) {
+      // 다운로드 파일 반영 — 제거분 삭제. 성공분은 즉시 state에서 빼 중간 실패 후 재시도 시 중복 삭제 방지.
+      for (const versionId of [...removedVersionIds]) {
         await assetApi.deleteVersion(assetId, versionId)
+        setRemovedVersionIds(ids => ids.filter(id => id !== versionId))
       }
-      // 추가분 업로드·등록(등록 실패 시 방금 올린 파일만 정리)
-      for (const item of downloadFiles) {
-        if (item.kind !== 'new') continue
+      // 추가분 업로드·등록(등록 실패 시 방금 올린 파일만 정리). 성공분은 즉시 목록에서 제거(재시도 중복 등록 방지).
+      for (const item of downloadFiles.filter((f): f is Extract<DownloadFileItem, { kind: 'new' }> => f.kind === 'new')) {
         const url = await fileApi.uploadImage(item.file, 'assets/files')
         try {
           await assetApi.addVersion(assetId, {
@@ -236,6 +238,7 @@ export default function AssetUpdatePage() {
           await fileApi.deleteFiles([url]).catch(() => {})
           throw e
         }
+        setDownloadFiles(prev => prev.filter(f => f !== item))
       }
 
       toast.success('에셋이 수정되었습니다.')
@@ -262,32 +265,32 @@ export default function AssetUpdatePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-white mb-8">에셋 수정</h1>
+      <h1 className="text-2xl font-bold text-on-surface mb-8">에셋 수정</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-8">
 
         {/* ── 왼쪽: 폼 ── */}
         <div className="flex-1 flex flex-col gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              제목 <span className="text-red-400">*</span>
+            <label className="block text-sm font-medium text-on-surface mb-1">
+              제목 <span className="text-error">*</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
               maxLength={100}
-              className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-surface-container border border-outline rounded-lg px-4 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">설명</label>
+            <label className="block text-sm font-medium text-on-surface mb-1">설명</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={4}
-              className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+              className="w-full bg-surface-container border border-outline rounded-lg px-4 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary resize-none"
             />
           </div>
 
@@ -349,23 +352,23 @@ export default function AssetUpdatePage() {
 
           {/* 무료/유료 */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">가격 설정</label>
+            <label className="block text-sm font-medium text-on-surface mb-2">가격 설정</label>
             <div className="flex gap-3 mb-3">
               <button type="button" onClick={() => setIsFree(true)}
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  isFree ? 'bg-green-600 text-white' : 'bg-surface-container border border-gray-600 text-gray-400 hover:border-green-500'
+                  isFree ? 'bg-success text-background' : 'bg-surface-container border border-outline text-on-surface-variant hover:border-success'
                 }`}>무료</button>
               <button type="button" onClick={() => setIsFree(false)}
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  !isFree ? 'bg-yellow-600 text-white' : 'bg-surface-container border border-gray-600 text-gray-400 hover:border-yellow-500'
+                  !isFree ? 'bg-warning text-background' : 'bg-surface-container border border-outline text-on-surface-variant hover:border-warning'
                 }`}>유료</button>
             </div>
             {!isFree && (
               <div className="flex items-center gap-2">
-                <span className="text-gray-400">₩</span>
+                <span className="text-on-surface-variant">₩</span>
                 <input type="number" value={price} onChange={e => setPrice(e.target.value)} min={0}
                   placeholder="가격 입력"
-                  className="flex-1 bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500" />
+                  className="flex-1 bg-surface-container border border-outline rounded-lg px-4 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary" />
               </div>
             )}
           </div>
@@ -373,17 +376,17 @@ export default function AssetUpdatePage() {
           {/* 카테고리 / 라이선스 */}
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-300 mb-1">카테고리</label>
+              <label className="block text-sm font-medium text-on-surface mb-1">카테고리</label>
               <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
-                className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                className="w-full bg-surface-container border border-outline rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary">
                 <option value="">선택 안 함</option>
                 {categories.map(c => (<option key={c.categoryId} value={c.categoryId}>{c.name}</option>))}
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-300 mb-1">라이선스</label>
+              <label className="block text-sm font-medium text-on-surface mb-1">라이선스</label>
               <select value={licenseTypeId} onChange={e => setLicenseTypeId(e.target.value)}
-                className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500">
+                className="w-full bg-surface-container border border-outline rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary">
                 <option value="">선택 안 함</option>
                 {licenseTypes.map(l => (<option key={l.licenseTypeId} value={l.licenseTypeId}>{l.name}</option>))}
               </select>
@@ -392,8 +395,8 @@ export default function AssetUpdatePage() {
 
           {/* 태그 */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              태그 <span className="text-gray-500 text-xs">(최대 10개, 입력 시 자동완성)</span>
+            <label className="block text-sm font-medium text-on-surface mb-1">
+              태그 <span className="text-on-surface-variant text-xs">(최대 10개, 입력 시 자동완성)</span>
             </label>
             <TagInput tags={selectedTags} onChange={setSelectedTags} max={10} />
           </div>
@@ -401,9 +404,9 @@ export default function AssetUpdatePage() {
 
         {/* ── 오른쪽: 미리보기 이미지 + 제출 ── */}
         <div className="w-full lg:w-80 flex flex-col gap-4">
-          <label className="block text-sm font-medium text-gray-300">
-            미리보기 이미지 <span className="text-red-400">*</span>
-            <span className="text-gray-500 text-xs ml-1">({images.length}/{MAX_IMAGES})</span>
+          <label className="block text-sm font-medium text-on-surface">
+            미리보기 이미지 <span className="text-error">*</span>
+            <span className="text-on-surface-variant text-xs ml-1">({images.length}/{MAX_IMAGES})</span>
           </label>
 
           <div
@@ -416,13 +419,13 @@ export default function AssetUpdatePage() {
             onDrop={handleImageDrop}
             onClick={() => imageInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors h-48 ${
-              dragging ? 'border-blue-400 bg-blue-900/20' : 'border-gray-600 hover:border-gray-400 bg-surface-container'
+              dragging ? 'border-primary bg-primary/10' : 'border-outline hover:border-outline-strong bg-surface-container'
             } ${images.length >= MAX_IMAGES ? 'opacity-50 pointer-events-none' : ''}`}
           >
-            <div className="text-4xl mb-2">🖼️</div>
-            <p className="text-gray-400 text-sm text-center">
+            <span className={`material-symbols-outlined text-4xl mb-2 ${dragging ? 'text-primary' : 'text-on-surface-variant'}`}>add_photo_alternate</span>
+            <p className="text-on-surface-variant text-sm text-center">
               이미지를 드래그하거나 클릭하여 추가<br />
-              <span className="text-gray-500 text-xs">PNG, JPG, GIF (최대 {MAX_IMAGES}장)</span>
+              <span className="text-on-surface-variant text-xs">PNG, JPG, GIF (최대 {MAX_IMAGES}장)</span>
             </p>
             <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
           </div>
@@ -432,9 +435,9 @@ export default function AssetUpdatePage() {
               {images.map((img, idx) => (
                 <div key={idx} className="relative group aspect-square">
                   <img src={previewOf(img)} alt={`preview-${idx}`} className="w-full h-full object-cover rounded-lg" />
-                  {idx === 0 && <span className="absolute top-1 left-1 text-xs bg-blue-600 text-white px-1 rounded">대표</span>}
+                  {idx === 0 && <span className="absolute top-1 left-1 text-xs bg-primary text-on-primary px-1 rounded">대표</span>}
                   <button type="button" onClick={() => removeImage(idx)}
-                    className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs hidden group-hover:flex items-center justify-center">×</button>
+                    className="absolute top-1 right-1 w-5 h-5 bg-error text-on-primary rounded-full text-xs hidden group-hover:flex items-center justify-center">×</button>
                 </div>
               ))}
             </div>
@@ -442,11 +445,11 @@ export default function AssetUpdatePage() {
 
           <div className="flex flex-col gap-2 mt-auto">
             <button type="submit" disabled={submitting}
-              className="w-full py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              className="w-full py-3 rounded-xl font-bold text-on-primary bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {submitting ? '수정 중...' : '수정 완료'}
             </button>
             <button type="button" onClick={() => navigate(`/assets/${assetId}`)}
-              className="w-full py-2.5 rounded-xl text-sm text-gray-400 border border-gray-600 hover:bg-surface-container transition-colors">
+              className="w-full py-2.5 rounded-xl text-sm text-on-surface-variant border border-outline hover:bg-surface-container transition-colors">
               취소
             </button>
           </div>

@@ -112,7 +112,7 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
         onFocus={() => { if (suggestions.length > 0) setOpen(true) }}
         disabled={atMax}
         placeholder={atMax ? `최대 ${max}개까지 추가할 수 있습니다.` : placeholder}
-        className="w-full bg-surface-container border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+        className="w-full bg-surface-container border border-outline rounded-lg px-4 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary disabled:opacity-50"
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
@@ -126,7 +126,7 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
         <ul
           role="listbox"
           id={listboxId}
-          className="absolute z-20 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-600 bg-surface shadow-xl"
+          className="absolute z-20 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-outline bg-surface shadow-xl"
         >
           {suggestions.map((s, idx) => (
             <li
@@ -137,10 +137,10 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
               onMouseEnter={() => setActiveIdx(idx)}
               onMouseDown={e => { e.preventDefault(); addTag(s.tagName) }}
               className={`px-4 py-2 text-sm cursor-pointer flex items-center gap-2 ${
-                idx === activeIdx ? 'bg-blue-900/40 text-blue-300' : 'text-gray-300'
+                idx === activeIdx ? 'bg-primary/12 text-primary' : 'text-on-surface'
               }`}
             >
-              <span className="text-gray-500">#</span>{s.tagName}
+              <span className="text-outline-strong">#</span>{s.tagName}
             </li>
           ))}
         </ul>
@@ -150,9 +150,9 @@ export default function TagInput({ tags, onChange, max = 10, placeholder = '태�
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-2">
           {tags.map(tag => (
-            <span key={tag} className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-blue-900 text-blue-300">
+            <span key={tag} className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/12 text-primary">
               #{tag}
-              <button type="button" onClick={() => removeTag(tag)} className="hover:text-white" aria-label={`${tag} 태그 제거`}>×</button>
+              <button type="button" onClick={() => removeTag(tag)} className="hover:text-on-surface" aria-label={`${tag} 태그 제거`}>×</button>
             </span>
           ))}
         </div>
