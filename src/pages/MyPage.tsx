@@ -9,8 +9,11 @@ import CommissionList from '../components/CommissionList'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import ProfileHeader from '../components/profile/ProfileHeader'
+import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
+import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
 
-const TABS = [
+const TABS: ProfileTab[] = [
   { key: 'works',      label: '작품',           icon: 'palette',  private: false },
   { key: 'assets',     label: '에셋',           icon: 'sell',     private: false },
   { key: 'liked',      label: '좋아요',         icon: 'favorite', private: false },
@@ -228,153 +231,40 @@ export default function MyPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
 
-      {/* 커버 배너 */}
-      <div className="relative h-44 overflow-hidden"
-        style={{ background: 'linear-gradient(90deg,color-mix(in srgb, var(--color-primary) 80%, transparent),var(--color-primary),var(--color-secondary))' }}>
-        <div className="absolute inset-0 opacity-20" style={{
-          backgroundImage: [
-            'repeating-linear-gradient(0deg,transparent,transparent 20px,rgba(255,255,255,0.2) 20px,rgba(255,255,255,0.2) 21px)',
-            'repeating-linear-gradient(90deg,transparent,transparent 20px,rgba(255,255,255,0.2) 20px,rgba(255,255,255,0.2) 21px)',
-          ].join(','),
-        }} />
-      </div>
-
-      {/* 프로필 인포 바 */}
-      <div className="border-b" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
-        <div className="max-w-screen-xl mx-auto px-6">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 pt-2" style={{ marginTop: -32 }}>
-            {/* 아바타 + 이름 */}
-            <div className="flex items-end gap-4">
-              <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-bold text-2xl border-4 shadow-xl overflow-hidden"
-                  style={{ borderColor: 'var(--color-background)' }}>
-                  {profile?.profileImageUrl
-                    ? <img src={profile.profileImageUrl} alt={profile.nickname} className="w-full h-full object-cover" />
-                    : (
-                      <div className="w-full h-full flex items-center justify-center font-bold text-2xl"
-                        style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
-                        {profile?.nickname?.slice(0, 2).toUpperCase() ?? '..'}
-                      </div>
-                    )
-                  }
-                </div>
-              </div>
-              <div className="pb-1">
-                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                  <h1 className="text-xl font-bold">{profile?.nickname ?? '...'}</h1>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-                    style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', color: 'var(--color-primary)' }}>
-                    {profile?.role ?? 'USER'}
-                  </span>
-                </div>
-                <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                  {profile?.email}
-                  {profile?.createdAt && ` · 가입 ${new Date(profile.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short' })}`}
-                </p>
-              </div>
-            </div>
-
-            {/* 액션 버튼 */}
-            <div className="flex gap-2 sm:mb-1">
-              <Link to="/editor"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-all"
-                style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
-                <span className="material-symbols-outlined text-base">add</span>
-                새 작품
-              </Link>
-              <button onClick={handleOpenEdit}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:bg-surface-container-high"
-                style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
-                <span className="material-symbols-outlined text-base">edit</span>
-                프로필 편집
-              </button>
-            </div>
-          </div>
-
-          {/* 바이오 */}
-          {(profile?.bio || profile?.websiteUrl) && (
-            <div className="pb-4 max-w-2xl">
-              {profile?.bio && (
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>{profile.bio}</p>
-              )}
-              {profile?.websiteUrl && (
-                <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                  <span className="material-symbols-outlined text-xs">link</span>
-                  <a href={profile.websiteUrl} target="_blank" rel="noopener noreferrer"
-                    className="hover:underline" style={{ color: 'var(--color-primary)' }}>{profile.websiteUrl}</a>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 통계 */}
-          <div className="flex flex-wrap gap-6 py-3 border-t text-sm" style={{ borderColor: 'var(--color-outline)' }}>
-            {[
-              [followerCount.toLocaleString(), '팔로워'],
-              [followingCount.toLocaleString(), '팔로잉'],
-              [tabCount.saved, '프로젝트'],
-            ].map(([val, label]) => (
-              <div key={label}>
-                <span className="font-bold">{val}</span>
-                <span className="ml-1" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <ProfileHeader
+        profile={profile}
+        subline={<>
+          {profile?.email}
+          {profile?.createdAt && ` · 가입 ${new Date(profile.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short' })}`}
+        </>}
+        actions={<>
+          <Link to="/editor"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+            style={{ background: 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))', color: '#fff' }}>
+            <span className="material-symbols-outlined text-base">add</span>
+            새 작품
+          </Link>
+          <button onClick={handleOpenEdit}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:bg-surface-container-high"
+            style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}>
+            <span className="material-symbols-outlined text-base">edit</span>
+            프로필 편집
+          </button>
+        </>}
+        stats={[
+          { label: '팔로워', value: followerCount.toLocaleString() },
+          { label: '팔로잉', value: followingCount.toLocaleString() },
+          { label: '프로젝트', value: tabCount.saved },
+        ]}
+      />
 
       {/* 탭 + 콘텐츠 */}
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 flex gap-6 items-start">
-
-        {/* 좌측 탭 사이드바 */}
-        <nav className="hidden sm:flex flex-col flex-shrink-0 w-44 sticky top-[4.5rem] gap-0.5">
-          {TABS.map((t, i) => (
-            <div key={t.key}>
-              {t.private && !TABS[i - 1]?.private && (
-                <div className="my-2 border-t" style={{ borderColor: 'var(--color-surface-container)' }} />
-              )}
-              <button onClick={() => setTab(t.key)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-left transition-all"
-                style={tab === t.key
-                  ? { background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }
-                  : { color: 'var(--color-on-surface-variant)' }}>
-                <span className="material-symbols-outlined text-base flex-shrink-0"
-                  style={{ fontVariationSettings: tab === t.key ? "'FILL' 1" : "'FILL' 0" }}>
-                  {t.icon}
-                </span>
-                <span className="flex-1 flex items-center gap-1">
-                  {t.label}
-                  {t.private && (
-                    <span className="material-symbols-outlined opacity-40" style={{ fontSize: 12 }}>lock</span>
-                  )}
-                </span>
-                <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
-                  style={{
-                    background: tab === t.key ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'var(--color-surface-container)',
-                    color: tab === t.key ? 'var(--color-primary)' : 'var(--color-outline-strong)',
-                  }}>
-                  {tabCount[t.key]}
-                </span>
-              </button>
-            </div>
-          ))}
-        </nav>
+        <ProfileTabSidebar tabs={TABS} active={tab} onChange={setTab} counts={tabCount} />
 
         {/* 콘텐츠 */}
         <div className="flex-1 min-w-0">
-
-          {/* 모바일 탭 */}
-          <div className="flex sm:hidden overflow-x-auto no-scrollbar gap-1 mb-4">
-            {TABS.map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                style={tab === t.key
-                  ? { background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }
-                  : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <ProfileTabMobile tabs={TABS} active={tab} onChange={setTab} />
 
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-4">
@@ -384,19 +274,7 @@ export default function MyPage() {
                 {tabCount[tab]}
               </span>
             </h2>
-            {tab === 'works' && (
-              <div className="flex gap-1">
-                {(['recent', 'popular'] as const).map(s => (
-                  <button key={s} onClick={() => setSort(s)}
-                    className="px-3 py-1 rounded-lg text-xs font-bold transition-colors"
-                    style={sort === s
-                      ? { background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }
-                      : { background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>
-                    {s === 'recent' ? '최신순' : '인기순'}
-                  </button>
-                ))}
-              </div>
-            )}
+            {tab === 'works' && <SortToggle sort={sort} onChange={setSort} />}
             {tab === 'saved' && (
               <Link to="/editor"
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold hover:opacity-90 transition-all"
@@ -417,212 +295,37 @@ export default function MyPage() {
 
           {/* 작품 탭 */}
           {tab === 'works' && (
-            showSpinner('works') ? (
-              <div className="grid grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
-                ))}
-              </div>
-            ) : works.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>palette</span>
-                <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>아직 작품이 없습니다.</p>
-                <Link to="/editor"
-                  className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
-                  첫 작품 만들기
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {works.map(w => (
-                  <Link key={w.postId} to={`/gallery/${w.postId}`}
-                    className="group aspect-square rounded-xl overflow-hidden relative"
-                    style={{ background: 'var(--color-surface-container)' }}>
-                    {w.thumbnailUrl
-                      ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />
-                    }
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                      <p className="text-xs font-bold text-white text-center px-2 line-clamp-2">{w.title}</p>
-                      <div className="flex items-center gap-2 text-xs" style={{ color: '#ccc' }}>
-                        <span>♥ {w.likeCount}</span>
-                        <span>👁 {w.viewCount}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )
+            showSpinner('works') ? <GridSkeleton variant="square" />
+            : works.length === 0 ? <EmptyTab icon="palette" text="아직 작품이 없습니다." action={{ to: '/editor', label: '첫 작품 만들기' }} />
+            : <CardGrid variant="square">{works.map(w => <WorkCard key={w.postId} post={w} />)}</CardGrid>
           )}
 
           {/* 에셋 탭 */}
           {tab === 'assets' && (
-            showSpinner('assets') ? (
-              <div className="grid grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
-                ))}
-              </div>
-            ) : assets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>sell</span>
-                <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>등록한 에셋이 없습니다.</p>
-                <Link to="/assets"
-                  className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
-                  에셋 스토어 보기
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {assets.map(a => (
-                  <Link key={a.assetId} to={`/assets/${a.assetId}`}
-                    className="group rounded-xl overflow-hidden border transition-all hover:-translate-y-0.5 hover:shadow-xl hover:border-primary"
-                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
-                    <div className="aspect-square overflow-hidden">
-                      {a.thumbnailUrl
-                        ? <img src={a.thumbnailUrl} alt={a.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                        : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />
-                      }
-                    </div>
-                    <div className="p-2">
-                      <p className="text-xs font-bold truncate">{a.title}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs font-bold" style={{ color: a.isFree ? 'var(--color-success)' : 'var(--color-primary)' }}>
-                          {a.isFree ? '무료' : `₩${a.price.toLocaleString()}`}
-                        </span>
-                        <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>♥ {a.likeCount}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )
+            showSpinner('assets') ? <GridSkeleton variant="square" />
+            : assets.length === 0 ? <EmptyTab icon="sell" text="등록한 에셋이 없습니다." action={{ to: '/assets', label: '에셋 스토어 보기' }} />
+            : <CardGrid variant="square">{assets.map(a => <AssetCard key={a.assetId} asset={a} />)}</CardGrid>
           )}
 
           {/* 좋아요 탭 */}
           {tab === 'liked' && (
-            showSpinner('liked') ? (
-              <div className="grid grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-xl animate-pulse" style={{ background: 'var(--color-surface-container)' }} />
-                ))}
-              </div>
-            ) : liked.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>favorite</span>
-                <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>좋아요한 작품이 없습니다.</p>
-                <Link to="/gallery/free"
-                  className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
-                  갤러리 둘러보기
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {liked.map(w => (
-                  <Link key={w.postId} to={`/gallery/${w.postId}`}
-                    className="group aspect-square rounded-xl overflow-hidden relative"
-                    style={{ background: 'var(--color-surface-container)' }}>
-                    {w.thumbnailUrl
-                      ? <img src={w.thumbnailUrl} alt={w.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
-                      : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg,var(--color-surface),var(--color-surface-container))' }} />
-                    }
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                      <p className="text-xs font-bold text-white text-center px-2 line-clamp-2">{w.title}</p>
-                      <p className="text-xs" style={{ color: '#ccc' }}>{w.authorNickname}</p>
-                      <div className="flex items-center gap-2 text-xs" style={{ color: '#ccc' }}>
-                        <span>♥ {w.likeCount}</span>
-                        <span>👁 {w.viewCount}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )
+            showSpinner('liked') ? <GridSkeleton variant="square" />
+            : liked.length === 0 ? <EmptyTab icon="favorite" text="좋아요한 작품이 없습니다." action={{ to: '/gallery/free', label: '갤러리 둘러보기' }} />
+            : <CardGrid variant="square">{liked.map(w => <WorkCard key={w.postId} post={w} showAuthor />)}</CardGrid>
           )}
 
           {/* 팔로잉 */}
           {tab === 'following' && (
-            showSpinner('following') ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border p-4 animate-pulse"
-                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', height: 140 }} />
-                ))}
-              </div>
-            ) : following.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>person</span>
-                <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>팔로잉 중인 유저가 없습니다.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {following.map(u => (
-                  <Link key={u.userId} to={`/profile/${u.nickname}`}
-                    className="rounded-xl border p-4 text-center hover:shadow-md hover:border-primary transition-all"
-                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
-                    <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-2 overflow-hidden"
-                      style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))' }}>
-                      {u.profileImageUrl
-                        ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
-                        : u.nickname.slice(0, 2).toUpperCase()
-                      }
-                    </div>
-                    <div className="font-bold text-sm">{u.nickname}</div>
-                    <div className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
-                      팔로워 {u.followerCount.toLocaleString()}
-                    </div>
-                    <span className="px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)', color: 'var(--color-primary)' }}>
-                      팔로잉
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )
+            showSpinner('following') ? <GridSkeleton variant="user" />
+            : following.length === 0 ? <EmptyTab icon="person" text="팔로잉 중인 유저가 없습니다." />
+            : <CardGrid variant="user">{following.map(u => <UserCard key={u.userId} user={u} />)}</CardGrid>
           )}
 
           {/* 팔로워 */}
           {tab === 'followers' && (
-            showSpinner('followers') ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border p-4 animate-pulse"
-                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)', height: 140 }} />
-                ))}
-              </div>
-            ) : followers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-3">
-                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>group</span>
-                <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>팔로워가 없습니다.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {followers.map(u => (
-                  <Link key={u.userId} to={`/profile/${u.nickname}`}
-                    className="rounded-xl border p-4 text-center hover:shadow-md hover:border-primary transition-all"
-                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
-                    <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-2 overflow-hidden"
-                      style={{ background: u.profileImageUrl ? undefined : 'linear-gradient(135deg,var(--color-primary),var(--color-secondary))' }}>
-                      {u.profileImageUrl
-                        ? <img src={u.profileImageUrl} alt={u.nickname} className="w-full h-full object-cover" />
-                        : u.nickname.slice(0, 2).toUpperCase()
-                      }
-                    </div>
-                    <div className="font-bold text-sm">{u.nickname}</div>
-                    <div className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
-                      팔로워 {u.followerCount.toLocaleString()}
-                    </div>
-                    <span className="px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
-                      팔로우
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )
+            showSpinner('followers') ? <GridSkeleton variant="user" />
+            : followers.length === 0 ? <EmptyTab icon="group" text="팔로워가 없습니다." />
+            : <CardGrid variant="user">{followers.map(u => <UserCard key={u.userId} user={u} />)}</CardGrid>
           )}
 
           {/* 저장된 프로젝트 */}
