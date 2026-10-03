@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CanvasState, FrameData, LayerData } from '../type/editor'
+import { CanvasState, FrameData, LayerData, Point } from '../type/editor'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
@@ -16,7 +16,7 @@ import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/editor/LayerImageRender'
-import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
+import { getCacheKey, getLabel, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { aiApi } from '../api/aiApi'
 import type { RelatedPost } from '../api/aiApi'
@@ -25,6 +25,8 @@ import { getErrorMessage } from '../lib/errorUtils'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
 import MenuBar from '../components/editor/MenuBar'
+import { useDrawLine } from '../hooks/editor/useDrawLine'
+import { KonvaEventObject } from 'konva/lib/Node'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -38,9 +40,11 @@ export default function EditorPage() {
   const isDirty =  useRef(false); 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
+
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
+
   
   // ── status & state ──────────────────────────
   // ── 도구 관련 ──────────────
@@ -52,6 +56,7 @@ export default function EditorPage() {
   const [pixelPerfect, setPixelPerfect] = useState(true)
   const [isHexModal, setIsHexModal] = useState(false)
 
+  const {startLine, updateLine, endLine} = useDrawLine();
   // ── CanvasData 관련 ──────────────
   //const [currentFrameIdx, setCurrentFrameIdx] = useState(0);
   const [activeFrameId, setActiveFrameId] = useState<string | null>(
@@ -135,7 +140,6 @@ export default function EditorPage() {
     setSearchParams
   });
   
-  
   // ── Navigation / Page Control ───────────────────────────────────
   const handleBackToMain = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -194,7 +198,7 @@ export default function EditorPage() {
   }, [activeLayerId, zoom, state.width, state.height]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
   
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
-  const getPixel = useCallback(() => {
+  const getPixel = useCallback(() : Point | null => {
     const stage = stageRef.current;
     if (!stage) return null
 
@@ -245,7 +249,7 @@ export default function EditorPage() {
     return nextCanvas;
   }, [state.width, state.height])
 
-  //-------- 캐시 캔버스 유실을 막는 역할을 함(청소부) -----------
+  // -------- 캐시 캔버스 유실을 막는 역할을 함(청소부) -----------
   useEffect(() => {
     const liveCacheKeys = new Set<string>();
 
@@ -263,7 +267,7 @@ export default function EditorPage() {
   }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const applyCanvasTool = useCallback(() => {
+  const applyDirectTool = useCallback((pos : Point | null) => {
     const stage = stageRef.current;
     if(!stage || !activeLayerId || !activeFrameId) return;
     
@@ -272,7 +276,7 @@ export default function EditorPage() {
     if(!nativeCanvas) return;
 
     const ctx = nativeCanvas.getContext('2d', { willReadFrequently: true });
-    const pos = getPixel()
+    
     if (!ctx || !pos) return
 
     const { x, y } = pos
@@ -292,7 +296,7 @@ export default function EditorPage() {
       isDirty.current = true; // 픽셀이 변경되었음을 표시
       setUnsaved(true);
     }
-    // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
+    // ─── [페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
     else if (activeTool === 'fill') {
       // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
       const imgData = ctx.getImageData(0, 0, state.width, state.height);
@@ -375,7 +379,7 @@ export default function EditorPage() {
       setUnsaved(true);
     }
   
-    // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
+    // ─── [스포이트 도구 (Eyedropper)] ──────────────────────────
     else if (activeTool === 'eyedrop') {
       const imgData = ctx.getImageData(x, y, 1, 1).data;
       // 투명한 영역(알파값 0)을 찍으면 기본 검정 처리 혹은 스킵
@@ -397,14 +401,70 @@ export default function EditorPage() {
       activeLayerNode.getLayer()?.batchDraw();
     }
   }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayerId, getLayerCanvas, activeFrameId])
+  
+  //-------- 마우스 동작 -----------
+  const handleMouseDown = () => {
+    isDrawing.current = true;        
+    const pos = getPixel();
+    if(!pos) return;
+    
+    if(activeTool === 'line'){
+      if(!activeFrameId || !activeLayerId) return;
+      const nativeCanvas = getLayerCanvas(getCacheKey(activeFrameId, activeLayerId));
+      const ctx = nativeCanvas?.getContext('2d');
+      
+      if(ctx){
+        startLine(ctx, state.width, state.height, pos);
+      }
+      return;
+    }
 
-  const handleMouseMove = () => {
-    const pos = getPixel()
-    if (pos) setCursorPos(pos)
-    if (isDrawing.current) applyCanvasTool()
+    applyDirectTool(pos);
   }
+  
+  const handleMouseMove = (e : KonvaEventObject<MouseEvent>) => {
+    const pos = getPixel();
+    if (!pos || !activeFrameId || !activeLayerId) return;
+    setCursorPos(pos);
 
+    if (!isDrawing.current) return;  
+    if(activeTool === 'line'){
+      const nativeCanvas = getLayerCanvas(getCacheKey(activeFrameId, activeLayerId));
+      const ctx = nativeCanvas?.getContext('2d');
+      if (ctx) {
+        updateLine(ctx, pos, {
+          brushSize,
+          color: fgColor,
+          snapAngle: e.evt.shiftKey,
+        });
+        // 화면 갱신
+        stageRef.current?.findOne(`#${activeLayerId}`)?.getLayer()?.batchDraw();
+      }
+      return;
+    }
 
+    if(activeTool === 'pencil' || activeTool === 'eraser'){
+      applyDirectTool(pos);
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDrawing.current = false;
+
+    if(activeTool === 'line'){
+      const isCommitted = endLine();
+      if(isCommitted){
+        isDirty.current = true;
+        setUnsaved(true);
+      }
+    }
+    // 실제로 변경이 발생했을 때만 커밋 호출
+    if(isDirty.current){
+      commitLayerChanges();
+      isDirty.current = false;
+    }
+  }
+  
   // --------  state.width/height 변경 시 CustomW/H 동기화 -----------
   useEffect(() => {
     setCustomW(state.width);
@@ -1404,7 +1464,7 @@ export default function EditorPage() {
           {/* 그리기 도구 */}
           <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {DRAW_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1415,7 +1475,7 @@ export default function EditorPage() {
           {/* 선택 도구 */}
           <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SELECT_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1426,7 +1486,7 @@ export default function EditorPage() {
           {/* 도형 도구 */}
           <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SHAPE_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1437,7 +1497,7 @@ export default function EditorPage() {
           {/* 뷰 도구 (하단 고정) */}
           <div className="flex flex-col items-center gap-1 w-full px-2 mt-auto">
             {VIEW_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1486,16 +1546,9 @@ export default function EditorPage() {
               scaleY={zoom}
               pixelRatio={1}
               style={{imageRendering: 'pixelated'}}
-              onMouseDown={() => { isDrawing.current = true; applyCanvasTool() }}
-              onMouseMove={handleMouseMove}
-              onMouseUp={() => {
-                isDrawing.current = false
-                // 실제로 변경이 발생했을 때만 커밋 호출
-                if(isDirty.current){
-                  commitLayerChanges();
-                  isDirty.current = false;
-                }
-               }}
+              onMouseDown={() => {handleMouseDown()}}
+              onMouseMove={(e) => {handleMouseMove(e)}}
+              onMouseUp={() => {handleMouseUp()}}
               onMouseLeave={() => { 
                 if(isDirty.current){
                   commitLayerChanges();
