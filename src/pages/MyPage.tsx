@@ -8,6 +8,7 @@ import { commissionApi, type CommissionSummary } from '../api/commissionApi'
 import CommissionList from '../components/CommissionList'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 const TABS = [
   { key: 'works',      label: '작품',           icon: 'palette',  private: false },
@@ -114,6 +115,11 @@ export default function MyPage() {
   const [editForm, setEditForm] = useState<ProfileUpdateRequest>({})
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState('')
+  const editModalRef = useRef<HTMLDivElement>(null)
+
+  // 모든 닫기 경로(X·취소·배경·ESC)가 여기로 — 저장 요청 중에는 닫지 않음
+  const closeEditModal = () => { if (!editSubmitting) setShowEditModal(false) }
+  useFocusTrap(showEditModal, editModalRef, closeEditModal)
 
   useEffect(() => {
     userApi.getMe().then(res => setProfile(res.data.data)).catch(() => {})
@@ -773,22 +779,24 @@ export default function MyPage() {
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)' }}
-          onClick={e => { if (e.target === e.currentTarget) setShowEditModal(false) }}>
-          <div className="w-full max-w-md rounded-2xl border p-6"
+          onClick={e => { if (e.target === e.currentTarget) closeEditModal() }}
+          role="dialog" aria-modal="true" aria-labelledby="profile-edit-title">
+          <div ref={editModalRef} className="w-full max-w-md rounded-2xl border p-6"
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold">프로필 편집</h2>
-              <button onClick={() => setShowEditModal(false)}
+              <h2 id="profile-edit-title" className="text-lg font-bold">프로필 편집</h2>
+              <button type="button" onClick={closeEditModal} aria-label="닫기"
                 className="p-1.5 rounded-lg hover:bg-surface-container transition-colors"
                 style={{ color: 'var(--color-on-surface-variant)' }}>
-                <span className="material-symbols-outlined text-base">close</span>
+                <span className="material-symbols-outlined text-base" aria-hidden="true">close</span>
               </button>
             </div>
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>닉네임 *</label>
+                <label htmlFor="profile-edit-nickname" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>닉네임 *</label>
                 <input
+                  id="profile-edit-nickname"
                   type="text"
                   value={editForm.nickname ?? ''}
                   onChange={e => setEditForm(f => ({ ...f, nickname: e.target.value }))}
@@ -800,8 +808,9 @@ export default function MyPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>바이오</label>
+                <label htmlFor="profile-edit-bio" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>바이오</label>
                 <textarea
+                  id="profile-edit-bio"
                   value={editForm.bio ?? ''}
                   onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))}
                   rows={3}
@@ -813,8 +822,9 @@ export default function MyPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>웹사이트 URL</label>
+                <label htmlFor="profile-edit-website" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>웹사이트 URL</label>
                 <input
+                  id="profile-edit-website"
                   type="url"
                   value={editForm.websiteUrl ?? ''}
                   onChange={e => setEditForm(f => ({ ...f, websiteUrl: e.target.value }))}
@@ -826,10 +836,12 @@ export default function MyPage() {
 
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-sm font-bold">프로필 공개</p>
-                  <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>비공개 시 다른 사용자에게 프로필이 숨겨집니다</p>
+                  <p id="profile-edit-public-label" className="text-sm font-bold">프로필 공개</p>
+                  <p id="profile-edit-public-desc" className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>비공개 시 다른 사용자에게 프로필이 숨겨집니다</p>
                 </div>
                 <button type="button"
+                  role="switch" aria-checked={!!editForm.isPublic}
+                  aria-labelledby="profile-edit-public-label" aria-describedby="profile-edit-public-desc"
                   onClick={() => setEditForm(f => ({ ...f, isPublic: !f.isPublic }))}
                   className="relative w-11 h-6 rounded-full transition-colors"
                   style={{ background: editForm.isPublic ? 'var(--color-primary)' : 'var(--color-surface-container-highest)' }}>
@@ -839,18 +851,18 @@ export default function MyPage() {
               </div>
 
               {editError && (
-                <p className="text-sm" style={{ color: 'var(--color-error)' }}>{editError}</p>
+                <p role="alert" className="text-sm" style={{ color: 'var(--color-error)' }}>{editError}</p>
               )}
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowEditModal(false)}
+                <button type="button" onClick={closeEditModal}
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:bg-surface-container transition-colors"
                   style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   취소
                 </button>
                 <button type="submit" disabled={editSubmitting}
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
                   {editSubmitting ? '저장 중...' : '저장'}
                 </button>
               </div>
