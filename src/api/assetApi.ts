@@ -21,10 +21,17 @@ export interface AssetSummary {
   tags: string[]
 }
 
+/** 다운로드 파일 1개 — fileUrl은 무료/구매자에게만 채워지고 그 외엔 null(존재·이름·크기만). */
+export interface AssetDownloadFile {
+  fileName: string | null
+  fileSize: number
+  fileUrl: string | null
+}
+
 export interface AssetResponse extends AssetSummary {
   description: string | null
   imageUrls: string[]
-  fileUrl: string | null
+  downloadFiles: AssetDownloadFile[]
   tags: string[]
   categoryId: number | null
   licenseTypeId: number | null
@@ -83,6 +90,7 @@ export interface AssetVersion {
   versionId: number
   versionNumber: number
   versionName: string
+  fileName: string | null
   fileSize: number
   changeNote: string | null
   isCurrent: boolean
@@ -91,6 +99,7 @@ export interface AssetVersion {
 
 export interface AssetVersionCreateRequest {
   fileUrl: string
+  fileName?: string
   fileSize: number
   versionName?: string
   changeNote?: string
@@ -107,6 +116,7 @@ export interface AssetCreateRequest {
   imageUrls?: string[]
   tags?: string[]
   fileUrl?: string
+  fileName?: string
   fileSize?: number
 }
 
@@ -169,9 +179,13 @@ export const assetApi = {
   getVersions: (assetId: number) =>
     api.get<{ success: boolean; data: AssetVersion[] }>(`/api/assets/${assetId}/versions`),
 
-  /** 다운로드 파일 새 버전 등록 (작성자만) — R2 업로드 후 URL/크기 전달. */
+  /** 다운로드 파일 1개 추가 (작성자만) — R2 업로드 후 URL/이름/크기 전달. */
   addVersion: (assetId: number, data: AssetVersionCreateRequest) =>
     api.post<{ success: boolean; data: AssetVersion }>(`/api/assets/${assetId}/versions`, data),
+
+  /** 다운로드 파일 1개 삭제 (작성자만). */
+  deleteVersion: (assetId: number, versionId: number) =>
+    api.delete<{ success: boolean }>(`/api/assets/${assetId}/versions/${versionId}`),
 
   // 카테고리/라이선스 선택지
   getCategories: () =>
