@@ -90,7 +90,8 @@ export default function EditorSaveProjectModal({
                     {/* 버튼 */}
                     <div style={styles.buttonGroup}>
                         <button 
-                            type="button" 
+                            type="button"
+                            className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
                             onMouseEnter={() => setIsCancelHovered(true)}
                             onMouseLeave={() => setIsCancelHovered(false)}
                             onClick={() => {
@@ -106,6 +107,7 @@ export default function EditorSaveProjectModal({
                         </button>
                         <button 
                             type="submit"
+                            className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
                             disabled={!title.trim()}
                             onMouseEnter={() => setIsSaveHovered(true)}
                             onMouseLeave={() => { 

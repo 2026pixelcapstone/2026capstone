@@ -36,6 +36,7 @@ export default function EditorPage() {
   const lastLoadedIdRef = useRef<number | null>(null);
   const stageRef = useRef<Konva.Stage>(null) 
   const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
+  const lineTarget = useRef<{ frameId: string; layerId: string; ctx: CanvasRenderingContext2D } | null>(null);
   const isDrawing = useRef(false)
   const isDirty =  useRef(false); 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
@@ -415,6 +416,7 @@ export default function EditorPage() {
       const ctx = nativeCanvas?.getContext('2d');
       
       if(ctx){
+        lineTarget.current = { frameId: activeFrameId, layerId: activeLayerId, ctx };
         startLine(ctx, state.width, state.height, pos,
           {
             brushSize,
@@ -435,9 +437,8 @@ export default function EditorPage() {
     setCursorPos(pos);
 
     if (!isDrawing.current) return;  
-    if(activeTool === 'line'){
-      const nativeCanvas = getLayerCanvas(getCacheKey(activeFrameId, activeLayerId));
-      const ctx = nativeCanvas?.getContext('2d');
+    if(lineTarget.current){
+      const { ctx, layerId } = lineTarget.current;
       if (ctx) {
         updateLine(ctx, pos, {
           brushSize,
@@ -445,7 +446,7 @@ export default function EditorPage() {
           snapAngle: e.evt.shiftKey,
         });
         // 화면 갱신
-        stageRef.current?.findOne(`#${activeLayerId}`)?.getLayer()?.batchDraw();
+        stageRef.current?.findOne(`#${layerId}`)?.getLayer()?.batchDraw();
       }
       return;
     }
@@ -455,11 +456,22 @@ export default function EditorPage() {
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e?: KonvaEventObject<MouseEvent>) => {
     isDrawing.current = false;
 
-    if(activeTool === 'line'){
+    const target = lineTarget.current;
+    if(target){
+      const pos = e ? getPixel() : null;
+      if (e && pos) {
+        updateLine(target.ctx, pos, {
+          brushSize,
+          color: fgColor,
+          snapAngle: e.evt.shiftKey,
+        });
+        stageRef.current?.findOne(`#${target.layerId}`)?.getLayer()?.batchDraw();
+      }
       const isCommitted = endLine();
+      lineTarget.current = null;
       if(isCommitted){
         isDirty.current = true;
         setUnsaved(true);
@@ -467,7 +479,7 @@ export default function EditorPage() {
     }
     // 실제로 변경이 발생했을 때만 커밋 호출
     if(isDirty.current){
-      commitLayerChanges();
+      commitLayerChanges(target?.frameId, target?.layerId);
       isDirty.current = false;
     }
   }
@@ -1134,7 +1146,7 @@ export default function EditorPage() {
     const interval = setInterval(() => {
       setPreviewFrameIdx((prevIdx) => (prevIdx + 1) % totalFrames);
     }, 100);
-
+    
     return () => clearInterval(interval);
   }, [isPlaying, state.frames.length, setPreviewFrameIdx]);
 
@@ -1149,10 +1161,8 @@ export default function EditorPage() {
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
    * setWithHistory -> useHistory 기록용
   */
-  const commitLayerChanges = useCallback(() => {
+  const commitLayerChanges = useCallback((capturedFrameId = activeFrameId, capturedLayerId = activeLayerId) => {
     const stage = stageRef.current;
-    const capturedFrameId = activeFrameId;
-    const capturedLayerId = activeLayerId;
 
     if(!stage || !capturedFrameId || !capturedLayerId) return;
 
@@ -1173,6 +1183,7 @@ export default function EditorPage() {
       
       // 2. frame.id 기준으로 타깃 프레임 및 내부 레이어 갱신
       const updatedFrames = prev.frames.map((frame) =>{
+        if (frame.id !== capturedFrameId) return frame;
         const updateLayers = frame.layers.map((layer) => {
           if(layer.id !== capturedLayerId) return layer;
 
@@ -1514,6 +1525,7 @@ export default function EditorPage() {
             ))}
           </div>
         </aside>
+
          {/* ── 프레임 패널 ─────────────────────────────── */}
         <div className="flex flex-col flex-shrink-0 border-l"
           style={{ width: showAnim ? 160 : 36, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', transition: 'width 0.2s' }}>
