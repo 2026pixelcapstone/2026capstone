@@ -79,8 +79,10 @@ export function useDrawLine(){
         startPos.current = pos;
         snapshot.current = ctx.getImageData(0, 0, width, height);
 
-        ctx.fillStyle = options.color;
-        ctx.fillRect(pos.x, pos.y, options.brushSize || 1, options.brushSize || 1);
+        const { brushSize = 1, color, centerBrush = true } = options;
+        const offset = centerBrush ? Math.floor((brushSize - 1) / 2) : 0;
+        ctx.fillStyle = color;
+        ctx.fillRect(pos.x - offset, pos.y - offset, brushSize, brushSize);
     }, [startPos, snapshot]);
 
     // 드래그 중: 이전 스냅샷 복구 후 실시간 미리보기 렌더링

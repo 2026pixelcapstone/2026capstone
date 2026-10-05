@@ -89,7 +89,8 @@ export default function EditorSaveProjectModal({
                     {/* 버튼 */}
                     <div style={styles.buttonGroup}>
                         <button 
-                            type="button" 
+                            type="button"
+                            className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
                             onMouseEnter={() => setIsCancelHovered(true)}
                             onMouseLeave={() => setIsCancelHovered(false)}
                             onClick={() => {
@@ -100,14 +101,13 @@ export default function EditorSaveProjectModal({
                                 backgroundColor: isCancelHovered ? '#0056b3' : '#007bff',
                                 color: '#ffffff',
 
-                                // 5. 부드러운 전환 효과
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                             }}
                         >
                             취소
                         </button>
                         <button 
                             type="submit"
+                            className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
                             disabled={!title.trim()}
                             onMouseEnter={() => setIsSaveHovered(true)}
                             onMouseLeave={() => { 
@@ -130,8 +130,6 @@ export default function EditorSaveProjectModal({
                                 // 커서
                                 cursor: title.trim() ? 'pointer' : 'not-allowed',
 
-                                // 부드러운 전환 효과
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                 }}
                             >
                             저장하기
