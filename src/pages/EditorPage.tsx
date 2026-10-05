@@ -63,6 +63,7 @@ export default function EditorPage() {
   )
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAnim, setShowAnim]       = useState(false)
+  const [previewFrameIdx, setPreviewFrameIdx] = useState(0)
 
   const [activeLayerId, setActiveLayerId] = useState<string | null>(
     initialCanvasData.frames[0]?.layers[0].id || null
@@ -76,6 +77,7 @@ export default function EditorPage() {
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 });
   const [isScaleImage, setIsScaleImage] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true)
+
 
   // ── AI 가이드 ──────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
@@ -1122,26 +1124,27 @@ export default function EditorPage() {
   // ── 애니메이션 ───────────────────────────────────
   // 재생 로직
   useEffect(() => {
-    if(!isPlaying) return;
-
+    if(!isPlaying){
+      setPreviewFrameIdx(0); // 재생 중이 아니면 항상 첫 프레임으로 초기화
+      return;
+    }
     const totalFrames = state.frames.length;
     if(totalFrames <= 1) return;
 
     const interval = setInterval(() => {
-      const currentIdx = state.frames.findIndex((f) => f.id === activeFrameId);
-      // 혹시 못 찾았다면 0번, 찾았다면 다음 프레임 순번 계산
-      const nextIdx = currentIdx !== -1 ? (currentIdx + 1) % totalFrames : 0;
-      const nextFrame = state.frames[nextIdx];
-
-      if(!nextFrame) return;
-
-      setActiveFrameId(nextFrame.id);
-      setActiveLayerId(nextFrame.layers[0]?.id || null);
-    }, 100)
+      setPreviewFrameIdx((prevIdx) => (prevIdx + 1) % totalFrames);
+    }, 100);
 
     return () => clearInterval(interval);
-  }, [isPlaying, state.frames.length, activeFrameId, setActiveFrameId, setActiveLayerId]);
+  }, [isPlaying, state.frames.length, setPreviewFrameIdx]);
 
+  // 프레임 수가 바뀌면 미리보기 인덱스를 0으로 초기화
+  useEffect(() => {
+    setPreviewFrameIdx(0);
+  }, [state.frames.length]);
+
+
+  // ── 레이어 변경 내역 저장 ───────────────────────────────────
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
    * setWithHistory -> useHistory 기록용
@@ -1189,6 +1192,7 @@ export default function EditorPage() {
   }, [activeFrameId, activeLayerId, setWithHistory, state.width, state.height]);
 
   
+  // ── 프레임 ───────────────────────────────────
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextFrameId: string) => {
     const canvas = stageRef.current;
@@ -1510,104 +1514,7 @@ export default function EditorPage() {
             ))}
           </div>
         </aside>
-
-        {/* ── 캔버스 영역 ─────────────────────────────── */}
-        {/* 바깥 배경: 캔버스보다 약간 진한 중간 회색 (체커보드) */}
-        <main className="flex-1 flex items-center justify-center overflow-hidden relative"
-          style={{
-            backgroundColor: '#767676',
-            backgroundImage: [
-              'linear-gradient(45deg,#848484 25%,transparent 25%)',
-              'linear-gradient(-45deg,#848484 25%,transparent 25%)',
-              'linear-gradient(45deg,transparent 75%,#848484 75%)',
-              'linear-gradient(-45deg,transparent 75%,#848484 75%)',
-            ].join(','),
-            backgroundSize: '16px 16px',
-            backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
-            
-          }}>
-
-          {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
-          <div className="relative shadow-2xl"
-              style={{ width: state.width * zoom, 
-              height: state.height * zoom, 
-              backgroundColor: '#e8e8e8' ,
-              imageRendering: 'pixelated'
-            }}
-          >
-            {/* 픽셀 그리드 오버레이 */}
-            {showGridLines && zoom >= 8 && (
-              <div className="absolute inset-0 pointer-events-none z-20"
-                style={{
-                  backgroundImage: 'linear-gradient(rgba(80,80,80,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(80,80,80,0.25) 1px,transparent 1px)',
-                  backgroundSize: `${zoom}px ${zoom}px`,
-                }} />
-            )}
-            <Stage
-              ref={stageRef}
-              width={state.width * zoom}
-              height={state.height * zoom}
-              scaleX={zoom}
-              scaleY={zoom}
-              pixelRatio={1}
-              style={{imageRendering: 'pixelated'}}
-              onMouseDown={() => {handleMouseDown()}}
-              onMouseMove={(e) => {handleMouseMove(e)}}
-              onMouseUp={() => {handleMouseUp()}}
-              onMouseLeave={() => { 
-                handleMouseUp();
-                setCursorPos({ x: -1, y: -1 }) 
-              }}
-            >
-              
-              {(currentFrame?.layers ?? [])
-                .sort((a, b) => a.layerOrder - b.layerOrder)
-                .map((layer) => (
-                  <KonvaLayer
-                    key={layer.id} 
-                    id={layer.id} 
-                    opacity={layer.opacity / 100}
-                    visible={layer.isVisible}>
-                    
-                    {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
-                    <LayerImageRenderer
-                      layerId={layer.id}
-                      pixelData={layer.pixelData}
-                      canvasW={state.width}
-                      canvasH={state.height}
-                      currentFrameId={activeFrameId}
-                      layerCanvasRefs={layerCanvasRefs}
-                      isScaleImage = {isScaleImage}
-                    />
-                  </KonvaLayer>
-              ))}
-            </Stage>
-          </div>
-
-          {/* 줌 컨트롤 (하단 중앙 플로팅) */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
-            style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
-            <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
-              style={{ color: 'var(--color-on-surface-variant)' }}>
-              <span className="material-symbols-outlined text-sm">remove</span>
-            </button>
-            <span className="text-xs font-bold w-12 text-center">x{zoom}</span>
-            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
-              style={{ color: 'var(--color-on-surface-variant)' }}>
-              <span className="material-symbols-outlined text-sm">add</span>
-            </button>
-          </div>
-
-          {/* 커서 위치 (우하단 플로팅) */}
-          <div className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 shadow border text-xs font-bold"
-            style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
-            {cursorPos.x >= 0 ? `x: ${cursorPos.x}  y: ${cursorPos.y}` : 'x: —  y: —'}
-          </div>
-        </main>
-
-         {/* ── 애니메이션 패널 ─────────────────────────────── */}
+         {/* ── 프레임 패널 ─────────────────────────────── */}
         <div className="flex flex-col flex-shrink-0 border-l"
           style={{ width: showAnim ? 160 : 36, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', transition: 'width 0.2s' }}>
           {/* 토글 버튼 */}
@@ -1768,6 +1675,146 @@ export default function EditorPage() {
             </div>
           )}
         </div>
+        {/* ── 캔버스 영역 ─────────────────────────────── */}
+        {/* 바깥 배경: 캔버스보다 약간 진한 중간 회색 (체커보드) */}
+        <main className="flex-1 flex items-center justify-center overflow-hidden relative"
+          style={{
+            backgroundColor: '#767676',
+            backgroundImage: [
+              'linear-gradient(45deg,#848484 25%,transparent 25%)',
+              'linear-gradient(-45deg,#848484 25%,transparent 25%)',
+              'linear-gradient(45deg,transparent 75%,#848484 75%)',
+              'linear-gradient(-45deg,transparent 75%,#848484 75%)',
+            ].join(','),
+            backgroundSize: '16px 16px',
+            backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
+          }}>
+
+          {/* 애니메이션 프리뷰 */}
+          <div className="absolute top-4 right-4 w-48 bg-[#1e2329] rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden z-50">
+            <div className="aspect-square checkerboard rounded overflow-hidden flex items-center justify-center relative">
+              {(() => {
+                const safePreviewFrameIdx = Math.min(previewFrameIdx, state.frames.length - 1);
+                // 레이어 탐색, 보이고 pixelData가 존재하는 레이어 중 첫 번째 레이어를 타깃으로 잡음
+                const layerPreviews = (state.frames[safePreviewFrameIdx].layers ?? [])
+                  .filter((layer) => layer.isVisible) // 보이는 레이어만 필터링
+                  .map((layer) => {
+                    let src: string | null = null;
+                    if(layer.pixelData){
+                      try{
+                        const frameImages = layer.pixelData;
+                        if(frameImages) src = frameImages;
+                      } catch (e){
+                        console.error("레이어 썸네일 파싱 에러", e);
+                      }
+                    }
+                    return {id: layer.id, src, opacity: layer.opacity}
+                  });
+
+                  // 수집된 레이어들을 CSS 절대 좌표(absolute)를 이용해 아래서부터 위로 차곡차곡 겹쳐서 렌더링
+                  return(
+                    <div className='absolute inset-0 w-full h-full pointer-events-none'>
+                      {layerPreviews.map((lp) => {
+                        if(!lp.src) return null; // 해당 프레임에 그림이 없는 레이어는 패스
+                        return (
+                        <img
+                          key={lp.id}
+                          src={lp.src}
+                          className="absolute inset-0 w-full h-full object-contain"
+                          style={{
+                            // 💡 픽셀 아트 깨짐(뭉개짐) 방지 및 레이어별 실제 투명도 실시간 반영!
+                            imageRendering: 'pixelated', 
+                            opacity: lp.opacity / 100, 
+                          }}
+                          alt="layer-thumb"
+                        />
+                      );
+                      })}
+                    </div>
+                  )
+              })()}  
+            </div>
+          </div>
+
+          {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
+          <div className="relative shadow-2xl"
+              style={{ width: state.width * zoom, 
+              height: state.height * zoom, 
+              backgroundColor: '#e8e8e8' ,
+              imageRendering: 'pixelated'
+            }}
+          >
+            {/* 픽셀 그리드 오버레이 */}
+            {showGridLines && zoom >= 8 && (
+              <div className="absolute inset-0 pointer-events-none z-20"
+                style={{
+                  backgroundImage: 'linear-gradient(rgba(80,80,80,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(80,80,80,0.25) 1px,transparent 1px)',
+                  backgroundSize: `${zoom}px ${zoom}px`,
+                }} />
+            )}
+            <Stage
+              ref={stageRef}
+              width={state.width * zoom}
+              height={state.height * zoom}
+              scaleX={zoom}
+              scaleY={zoom}
+              pixelRatio={1}
+              style={{imageRendering: 'pixelated'}}
+              onMouseDown={() => {handleMouseDown()}}
+              onMouseMove={(e) => {handleMouseMove(e)}}
+              onMouseUp={() => {handleMouseUp()}}
+              onMouseLeave={() => { 
+                handleMouseUp();
+                setCursorPos({ x: -1, y: -1 }) 
+              }}
+            >
+              
+              {(currentFrame?.layers ?? [])
+                .sort((a, b) => a.layerOrder - b.layerOrder)
+                .map((layer) => (
+                  <KonvaLayer
+                    key={layer.id} 
+                    id={layer.id} 
+                    opacity={layer.opacity / 100}
+                    visible={layer.isVisible}>
+                    
+                    {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
+                    <LayerImageRenderer
+                      layerId={layer.id}
+                      pixelData={layer.pixelData}
+                      canvasW={state.width}
+                      canvasH={state.height}
+                      currentFrameId={activeFrameId}
+                      layerCanvasRefs={layerCanvasRefs}
+                      isScaleImage = {isScaleImage}
+                    />
+                  </KonvaLayer>
+              ))}
+            </Stage>
+          </div>
+
+          {/* 줌 컨트롤 (하단 중앙 플로팅) */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
+            style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+            <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span className="material-symbols-outlined text-sm">remove</span>
+            </button>
+            <span className="text-xs font-bold w-12 text-center">x{zoom}</span>
+            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span className="material-symbols-outlined text-sm">add</span>
+            </button>
+          </div>
+
+          {/* 커서 위치 (우하단 플로팅) */}
+          <div className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 shadow border text-xs font-bold"
+            style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
+            {cursorPos.x >= 0 ? `x: ${cursorPos.x}  y: ${cursorPos.y}` : 'x: —  y: —'}
+          </div>
+        </main>
 
         {/* ── 우측 패널 ──────── */}
         <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"

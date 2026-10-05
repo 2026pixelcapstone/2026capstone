@@ -79,8 +79,15 @@ export function useDrawLine(){
         startPos.current = pos;
         snapshot.current = ctx.getImageData(0, 0, width, height);
 
-        ctx.fillStyle = options.color;
-        ctx.fillRect(pos.x, pos.y, options.brushSize || 1, options.brushSize || 1);
+        const { 
+            brushSize = 1,
+            color,
+            centerBrush = true
+        } = options;
+        
+        const offset = centerBrush ? Math.floor((brushSize - 1) / 2) : 0;
+        ctx.fillStyle = color;
+        ctx.fillRect(pos.x - offset, pos.y - offset, brushSize, brushSize);
     }, [startPos, snapshot]);
 
     // 드래그 중: 이전 스냅샷 복구 후 실시간 미리보기 렌더링
@@ -103,9 +110,7 @@ export function useDrawLine(){
         ctx.putImageData(snapshot.current, 0, 0);
 
         // 2. 각도 보정(Shift) 적용
-        const endPoint = snapAngle
-        ? snapToAngles(startPos.current, currentPos)
-        : currentPos;
+        const endPoint = snapAngle ? snapToAngles(startPos.current, currentPos) : currentPos;
 
         // 3. 브레젠험 픽셀 좌표 리스트 산출
         const points = getBresenhamPoints(

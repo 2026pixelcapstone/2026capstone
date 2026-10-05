@@ -24,6 +24,7 @@ export default function EditorSaveProjectModal({
     const [isCancelHovered, setIsCancelHovered] = useState(false);
     const [isSavePressed, setIsSavePressed] = useState(false);
 
+    // 모달이 열릴 때마다 초기 상태로 리셋
     useEffect(() => {
         if (!isOpen){
             return;
@@ -99,9 +100,6 @@ export default function EditorSaveProjectModal({
                                 ...styles.cancelButton,
                                 backgroundColor: isCancelHovered ? '#0056b3' : '#007bff',
                                 color: '#ffffff',
-
-                                // 5. 부드러운 전환 효과
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                             }}
                         >
                             취소
@@ -125,14 +123,11 @@ export default function EditorSaveProjectModal({
                                     ? '#0056b3' : '#007bff',
                                 
                                 // 클릭 시 번쩍임(flash) 효과
-                                filter: title.trim() && isSavePressed ? 'brightness(1.4) contrast(1.1)' : 'none',
+                                filter: title.trim() && isSavePressed ? 'brightness(1.25)' : 'none',
                                 
                                 // 커서
                                 cursor: title.trim() ? 'pointer' : 'not-allowed',
-
-                                // 부드러운 전환 효과
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                }}
+                            }}
                             >
                             저장하기
                         </button>
