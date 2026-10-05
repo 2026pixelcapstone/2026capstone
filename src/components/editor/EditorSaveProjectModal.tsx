@@ -114,7 +114,8 @@ export default function EditorSaveProjectModal({
                                 setIsSaveHovered(false);
                                 setIsSavePressed(false);
                             }}
-                            onClick={() => {setIsSavePressed(true)}}
+                            onMouseDown={() => setIsSavePressed(true)}
+                            onMouseUp={() => setIsSavePressed(false)}
                             style={{
                                 ...styles.saveButton,
                                 // 배경색: 비활성화면 회색, 활성화 상태에서 호버 시 오로라 그라데이션, 기본은 파랑

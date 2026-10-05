@@ -31,7 +31,7 @@ export const MENU_DEFS: MenuGroup[] = [
       { id: MENU_ACTION.CUT, label: { ko: '잘라내기', en: 'Cut' }, icon: 'content_cut', shortcut: 'Ctrl+X' },
       { id: MENU_ACTION.COPY, label: { ko: '복사', en: 'Copy' }, icon: 'content_copy', shortcut: 'Ctrl+C' },
       { id: MENU_ACTION.PASTE, label: { ko: '붙여넣기', en: 'Paste' }, icon: 'content_paste', shortcut: 'Ctrl+V' },
-      { id: MENU_ACTION.RESIZE, label: { ko: '크기 변경', en: 'RESIZE' }, icon: 'crop', shortcut: 'Ctrl + Alt + C' },
+      { id: MENU_ACTION.RESIZE, label: { ko: '크기 조절', en: 'Resize' }, icon: 'crop', shortcut: 'Ctrl + Alt + C' },
       { separator: true },
       { id: MENU_ACTION.SELECT_ALL, label: { ko: '모두 선택', en: 'Select All' }, icon: 'select_all', shortcut: 'Ctrl+A' },
       { id: MENU_ACTION.DESELECT, label: { ko: '선택 해제', en: 'Deselect' }, icon: 'deselect', shortcut: 'Ctrl+D' },
@@ -53,6 +53,9 @@ export const MENU_DEFS: MenuGroup[] = [
     id: MENU_GROUP_ID.VIEW,
     label: { ko: '보기', en: 'View' },
     items: [
+      { id: MENU_ACTION.TOGGLE_PIXEL_COUNTER, label: { ko: '픽셀 카운터', en: 'Pixel Counter' }, icon: 'straighten' },
+      { id: MENU_ACTION.TOGGLE_RATIO_GUIDE, label: { ko: '비율 가이드', en: 'Ratio Guide' }, icon: 'aspect_ratio' },
+      { id: MENU_ACTION.TOGGLE_GRID_SNAP, label: { ko: '그리드 스냅', en: 'Grid Snap' }, icon: 'grid_goldenratio' },
       { id: MENU_ACTION.FIT_SCREEN, label: { ko: '화면에 맞추기', en: 'Fit Screen' }, icon: 'fit_screen' },
       { separator: true },
       { id: MENU_ACTION.TOGGLE_GRID, label: { ko: '그리드 표시', en: 'Show Grid' }, icon: 'grid_on' },
@@ -77,11 +80,8 @@ export const MENU_DEFS: MenuGroup[] = [
 
   {
     id: MENU_GROUP_ID.DRAWING_GUIDE,
-    label: { ko: '가이드', en: 'drawing-guide' },
+    label: { ko: 'AI 가이드', en: 'AI Guide' },
     items: [
-      { id: MENU_ACTION.TOGGLE_PIXEL_COUNTER, label: { ko: '픽셀 카운터', en: 'pixle_counter' }, icon: 'straighten' },
-      { id: MENU_ACTION.TOGGLE_RATIO_GUIDE, label: { ko: '비율 가이드', en: 'ratio-guide' }, icon: 'aspect_ratio' },
-      { id: MENU_ACTION.TOGGLE_GRID_SNAP, label: { ko: '그리드 스냅', en: 'grid-snap' }, icon: 'grid_goldenratio' },
       { id: MENU_ACTION.TOGGLE_AI_GUIDE, label: { ko: 'AI 가이드', en: 'AI Guide' }, icon: 'auto_awesome' },
     ],
   },

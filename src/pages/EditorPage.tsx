@@ -58,7 +58,6 @@ export default function EditorPage() {
 
   const {startLine, updateLine, endLine} = useDrawLine();
   // ── CanvasData 관련 ──────────────
-  //const [currentFrameIdx, setCurrentFrameIdx] = useState(0);
   const [activeFrameId, setActiveFrameId] = useState<string | null>(
     initialCanvasData.frames[0]?.id || null
   )
@@ -245,7 +244,7 @@ export default function EditorPage() {
         ctx.drawImage(existingCanvas, 0, 0, existingCanvas.width, existingCanvas.height);
       }
     }
-    layerCanvasRefs.current[id] = nextCanvas
+    layerCanvasRefs.current[id] = nextCanvas;
     return nextCanvas;
   }, [state.width, state.height])
 
@@ -414,7 +413,13 @@ export default function EditorPage() {
       const ctx = nativeCanvas?.getContext('2d');
       
       if(ctx){
-        startLine(ctx, state.width, state.height, pos);
+        startLine(ctx, state.width, state.height, pos,
+          {
+            brushSize,
+            color: fgColor,
+            snapAngle: false, // Shift 키는 마우스 이동 중에만 적용
+          }
+        );
       }
       return;
     }
@@ -1550,11 +1555,7 @@ export default function EditorPage() {
               onMouseMove={(e) => {handleMouseMove(e)}}
               onMouseUp={() => {handleMouseUp()}}
               onMouseLeave={() => { 
-                if(isDirty.current){
-                  commitLayerChanges();
-                  isDirty.current = false;
-                }
-                isDrawing.current = false;
+                handleMouseUp();
                 setCursorPos({ x: -1, y: -1 }) 
               }}
             >

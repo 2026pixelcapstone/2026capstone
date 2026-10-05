@@ -203,7 +203,8 @@ export default function MenuBar({
                             }
                             // 2. Dynamic label 처리
                             const itemlabel = item.id === MENU_ACTION.TOGGLE_GRID
-                                ? (viewActions.showGridLines ? 'Hide Grid' : 'Show Grid') 
+                                ? (viewActions.showGridLines 
+                                    ? {ko: '그리드 숨기기', en: 'Hide Grid'} : {ko: '그리드 표시', en: 'Show Grid'})
                                 : item.label;
                             
                             // 3. 일반 메뉴 버튼
