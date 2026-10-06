@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom'
 import { userApi, type UserProfileResponse, type ProfileUpdateRequest } from '../api/userApi'
 import CommissionList from '../components/CommissionList'
 import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
 import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import ProfileImageField from '../components/profile/ProfileImageField'
 
 const TABS: ProfileTab[] = [
   { key: 'works',      label: '작품',           icon: 'palette',  private: false },
@@ -44,10 +46,18 @@ export default function MyPage() {
   const [editForm, setEditForm] = useState<ProfileUpdateRequest>({})
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState('')
+  const [imageBusy, setImageBusy] = useState(false)   // 사진 자르는 중·업로드 중
   const editModalRef = useRef<HTMLDivElement>(null)
 
-  // 모든 닫기 경로(X·취소·배경·ESC)가 여기로 — 저장 요청 중에는 닫지 않음
-  const closeEditModal = () => { if (!editSubmitting) setShowEditModal(false) }
+  // 모든 닫기 경로(X·취소·배경·ESC)가 여기로 — 저장 요청 중·사진 작업 중에는 닫지 않음
+  const closeEditModal = () => { if (!editSubmitting && !imageBusy) setShowEditModal(false) }
+
+  // 사진 업로드·삭제 결과를 화면 프로필과 로그인 사용자 정보(내비 아바타)에 함께 반영
+  const handleImageChanged = (p: UserProfileResponse) => {
+    setProfile(p)
+    const { user, setUser } = useAuthStore.getState()
+    if (user) setUser({ ...user, profileImageUrl: p.profileImageUrl ?? undefined })
+  }
   useFocusTrap(showEditModal, editModalRef, closeEditModal)
 
   useEffect(() => {
@@ -371,6 +381,15 @@ export default function MyPage() {
                 style={{ color: 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base" aria-hidden="true">close</span>
               </button>
+            </div>
+
+            <div className="mb-5">
+              <ProfileImageField
+                imageUrl={profile?.profileImageUrl ?? null}
+                nickname={profile?.nickname ?? ''}
+                onChanged={handleImageChanged}
+                onBusyChange={setImageBusy}
+              />
             </div>
 
             <form onSubmit={handleEditSubmit} className="space-y-4">

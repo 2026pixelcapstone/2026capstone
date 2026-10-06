@@ -227,9 +227,13 @@ export default function Navbar() {
               <Link to="/mypage"
                 className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:bg-surface-container-low"
                 style={{ color: 'var(--color-on-surface)' }}>
-                <span className="material-symbols-outlined text-2xl" style={{ color: 'var(--color-on-surface-variant)' }}>
-                  account_circle
-                </span>
+                {user?.profileImageUrl ? (
+                  <img src={user.profileImageUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+                ) : (
+                  <span className="material-symbols-outlined text-2xl" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    account_circle
+                  </span>
+                )}
                 {user?.nickname && (
                   <span className="text-sm font-bold hidden xl:inline">{user.nickname}</span>
                 )}
