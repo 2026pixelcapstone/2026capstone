@@ -3,6 +3,7 @@ import { userApi } from '../api/userApi'
 import { editorApi, type ProjectSummary } from '../api/editorApi'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
 import { assetApi, type AssetSummary, type LibraryAsset } from '../api/assetApi'
+import { paletteApi, type PaletteSummary } from '../api/paletteApi'
 import { commissionApi, type CommissionSummary } from '../api/commissionApi'
 import type { ProfileUserSummary } from '../components/profile/ProfileCards'
 
@@ -15,6 +16,7 @@ const PAGE_SIZE = 24
 type TabData =
   | { key: 'works' | 'liked'; items: GalleryPostSummary[]; total: number }
   | { key: 'assets'; items: AssetSummary[]; total: number }
+  | { key: 'palettes'; items: PaletteSummary[]; total: number }
   | { key: 'following' | 'followers'; items: ProfileUserSummary[]; total: number }
   | { key: 'saved'; items: ProjectSummary[]; total: number }
   | { key: 'commission'; client: CommissionSummary[]; artist: CommissionSummary[]; clientTotal: number; artistTotal: number }
@@ -35,6 +37,10 @@ async function loadTab(key: string, userId: number, sort: SortKey): Promise<TabD
     }
     case 'assets': {
       const page = (await assetApi.getList({ authorId: userId, size: PAGE_SIZE, sort: 'createdAt,desc' })).data.data
+      return { key, items: page.content, total: page.totalElements }
+    }
+    case 'palettes': {
+      const page = (await paletteApi.search({ authorId: userId, sort: 'recent', size: PAGE_SIZE })).data.data
       return { key, items: page.content, total: page.totalElements }
     }
     case 'following':
@@ -79,6 +85,7 @@ interface TabLists {
   works: GalleryPostSummary[]
   liked: GalleryPostSummary[]
   assets: AssetSummary[]
+  palettes: PaletteSummary[]
   following: ProfileUserSummary[]
   followers: ProfileUserSummary[]
   saved: ProjectSummary[]
@@ -87,7 +94,7 @@ interface TabLists {
 }
 
 const EMPTY_LISTS: TabLists = {
-  works: [], liked: [], assets: [], following: [], followers: [], saved: [],
+  works: [], liked: [], assets: [], palettes: [], following: [], followers: [], saved: [],
   commissions: { client: [], artist: [] },
   library: { purchased: [], free: [] },
 }

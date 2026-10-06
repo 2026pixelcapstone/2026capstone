@@ -58,7 +58,7 @@ export default function Navbar() {
         </Link>
 
         {/* 네비게이션 링크 */}
-        <div className="hidden md:flex items-center space-x-10">
+        <div className="hidden md:flex items-center space-x-8 whitespace-nowrap">
 
           {/* Gallery — 드롭다운 */}
           <div className="relative"
@@ -112,6 +112,7 @@ export default function Navbar() {
             { label: '에셋 스토어', to: '/assets' },
             { label: '에디터',     to: '/editor' },
             { label: '커미션',     to: '/commission' },
+            { label: '커뮤니티',   to: '/community' },
           ].map(link => {
             const active = location.pathname.startsWith(link.to)
             // 에디터는 콘텐츠 생성(저장)이 미인증 차단 대상 → 진입 자체를 비활성 + 호버 안내

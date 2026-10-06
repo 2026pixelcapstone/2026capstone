@@ -10,12 +10,14 @@ import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
 import { WorkCard, AssetCard, LibraryAssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import PaletteCard from '../components/palette/PaletteCard'
 import ProfileImageField from '../components/profile/ProfileImageField'
 import AccountSettings from '../components/profile/AccountSettings'
 
 const TABS: ProfileTab[] = [
   { key: 'works',      label: '작품',           icon: 'palette',  private: false },
   { key: 'assets',     label: '에셋',           icon: 'sell',     private: false },
+  { key: 'palettes',   label: '팔레트',         icon: 'color_lens', private: false },
   { key: 'liked',      label: '좋아요',         icon: 'favorite', private: false },
   { key: 'following',  label: '팔로잉',         icon: 'person',   private: false },
   { key: 'followers',  label: '팔로워',         icon: 'group',    private: false },
@@ -27,7 +29,7 @@ const TABS: ProfileTab[] = [
 ]
 
 // 페이지 진입 시 숫자를 미리 받아 둘 탭(팔로잉/팔로워는 프로필 응답에 숫자가 있고, 차단은 blockStore 담당)
-const COUNT_TABS = ['works', 'assets', 'liked', 'saved', 'library', 'commission'] as const
+const COUNT_TABS = ['works', 'assets', 'palettes', 'liked', 'saved', 'library', 'commission'] as const
 
 export default function MyPage() {
   const [tab, setTab]   = useState('works')
@@ -36,7 +38,7 @@ export default function MyPage() {
   const uid = profile?.userId
   // uid만 의존 — 프로필 수정으로 profile 객체가 바뀌어도 탭 재요청 안 함
   const {
-    works, assets, liked, following, followers, saved: projects, commissions, library,
+    works, assets, palettes, liked, following, followers, saved: projects, commissions, library,
     totals, commissionTotals, libraryTotals, showSpinner, isLoaded, loadFailed, reload,
   } = useProfileTabs({ userId: uid, tab, sort, prefetch: COUNT_TABS })
 
@@ -114,6 +116,7 @@ export default function MyPage() {
   const tabCount: Record<string, string> = {
     works:      countOf('works'),
     assets:     countOf('assets'),
+    palettes:   countOf('palettes'),
     liked:      countOf('liked'),
     following:  followingCount.toString(),
     followers:  followerCount.toString(),
@@ -200,6 +203,13 @@ export default function MyPage() {
             showSpinner('assets') ? <GridSkeleton variant="square" />
             : assets.length === 0 ? <EmptyTab icon="sell" text="등록한 에셋이 없습니다." action={{ to: '/assets', label: '에셋 스토어 보기' }} />
             : <CardGrid variant="square">{assets.map(a => <AssetCard key={a.assetId} asset={a} />)}</CardGrid>
+          )}
+
+          {/* 팔레트 탭 */}
+          {tab === 'palettes' && (
+            showSpinner('palettes') ? <GridSkeleton variant="square" />
+            : palettes.length === 0 ? <EmptyTab icon="color_lens" text="등록한 팔레트가 없습니다." action={{ to: '/community/palettes', label: '팔레트 둘러보기' }} />
+            : <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{palettes.map(p => <PaletteCard key={p.paletteId} palette={p} />)}</div>
           )}
 
           {/* 좋아요 탭 */}

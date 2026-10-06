@@ -9,10 +9,12 @@ import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
 import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import PaletteCard from '../components/palette/PaletteCard'
 
 const TABS: ProfileTab[] = [
   { key: 'works',     label: '작품',   icon: 'palette' },
   { key: 'assets',    label: '에셋',   icon: 'sell' },
+  { key: 'palettes',  label: '팔레트', icon: 'color_lens' },
   { key: 'liked',     label: '좋아요', icon: 'favorite' },
   { key: 'following', label: '팔로잉', icon: 'person' },
   { key: 'followers', label: '팔로워', icon: 'group' },
@@ -62,7 +64,7 @@ export default function ProfilePage() {
   }
 
   // 탭 데이터 — uid만 의존(팔로우/언팔로우로 profile 객체가 새로 만들어져도 재요청 안 함). 사이드바 숫자는 안 쓰므로 미리 받기 없음
-  const { works, assets, liked, following, followers, totals, showSpinner } = useProfileTabs({ userId: uid, tab, sort })
+  const { works, assets, palettes, liked, following, followers, totals, showSpinner } = useProfileTabs({ userId: uid, tab, sort })
 
   const handleFollow = async () => {
     if (!isLoggedIn || !profile) return
@@ -202,6 +204,11 @@ export default function ProfilePage() {
                 assets.length === 0
                   ? <EmptyTab icon="sell" text={`${profile.nickname}님의 에셋이 없습니다.`} />
                   : <CardGrid variant="square">{assets.map(a => <AssetCard key={a.assetId} asset={a} />)}</CardGrid>
+              )}
+              {tab === 'palettes' && (
+                palettes.length === 0
+                  ? <EmptyTab icon="color_lens" text={`${profile.nickname}님의 팔레트가 없습니다.`} />
+                  : <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{palettes.map(p => <PaletteCard key={p.paletteId} palette={p} />)}</div>
               )}
               {tab === 'liked' && (
                 liked.length === 0
