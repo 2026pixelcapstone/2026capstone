@@ -17,6 +17,8 @@ import ArtistServiceDetailPage from '../pages/ArtistServiceDetailPage'
 import LoginPage from '../pages/LoginPage'
 import SignupPage from '../pages/SignupPage'
 import VerifyEmailPage from '../pages/VerifyEmailPage'
+import ForgotPasswordPage from '../pages/ForgotPasswordPage'
+import ResetPasswordPage from '../pages/ResetPasswordPage'
 import OAuthCallbackPage from '../pages/OAuthCallbackPage'
 import MyPage from '../pages/MyPage'
 import ProfilePage from '../pages/ProfilePage'
@@ -49,6 +51,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/oauth2/callback" element={<OAuthCallbackPage />} />
 
       {/* 결제 콜백 — 레이아웃 없음(전환 페이지) */}

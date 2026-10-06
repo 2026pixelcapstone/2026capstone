@@ -11,6 +11,7 @@ import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
 import { WorkCard, AssetCard, LibraryAssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
 import ProfileImageField from '../components/profile/ProfileImageField'
+import AccountSettings from '../components/profile/AccountSettings'
 
 const TABS: ProfileTab[] = [
   { key: 'works',      label: '작품',           icon: 'palette',  private: false },
@@ -22,6 +23,7 @@ const TABS: ProfileTab[] = [
   { key: 'library',    label: '구매/받은 에셋',  icon: 'shopping_bag', private: true },
   { key: 'commission', label: '커미션',          icon: 'payments', private: true  },
   { key: 'blocked',    label: '차단 관리',       icon: 'block',    private: true  },
+  { key: 'account',    label: '계정 설정',       icon: 'manage_accounts', private: true },
 ]
 
 // 페이지 진입 시 숫자를 미리 받아 둘 탭(팔로잉/팔로워는 프로필 응답에 숫자가 있고, 차단은 blockStore 담당)
@@ -329,6 +331,9 @@ export default function MyPage() {
               />
             </div>
           )}
+
+          {/* 계정 설정 */}
+          {tab === 'account' && <AccountSettings email={profile?.email} hasPassword={profile?.hasPassword} />}
 
           {/* 차단 관리 */}
           {tab === 'blocked' && (

@@ -1,7 +1,9 @@
 import api from '../lib/axios'
+import type { TokenResponse } from './authApi'
 
 export interface UserProfileResponse {
   userId: number
+  /** 내 정보(getMe·프로필 수정·사진 응답)에만 있음 — 다른 사람 조회(공개 프로필·팔로워 목록)는 null */
   email: string
   nickname: string
   bio: string | null
@@ -14,6 +16,8 @@ export interface UserProfileResponse {
   emailVerified: boolean
   role: string
   createdAt: string
+  /** 비밀번호 로그인 가능 여부(소셜 전용이면 false) — 내 정보 응답에만 있음, 타인 조회는 null */
+  hasPassword?: boolean | null
 }
 
 export interface ProfileUpdateRequest {
@@ -32,6 +36,10 @@ export const userApi = {
   // 내 프로필 수정
   updateMe: (data: ProfileUpdateRequest) =>
     api.patch<{ success: boolean; data: UserProfileResponse }>('/api/users/me', data),
+
+  // 비밀번호 변경 — 성공 시 다른 기기는 로그아웃, 현재 기기용 새 토큰이 응답으로 옴(authStore에 반영 필요)
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.patch<{ success: boolean; message: string; data: TokenResponse }>('/api/users/me/password', { currentPassword, newPassword }),
 
   // 프로필 사진 업로드/교체 — PNG·JPEG·GIF·WebP, 최대 2MB(서버 검증). 저장 경로는 서버가 정함
   uploadProfileImage: (image: Blob, filename: string) => {

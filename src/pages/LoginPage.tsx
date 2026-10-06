@@ -118,7 +118,7 @@ export default function LoginPage() {
                 <input type="checkbox" className="w-4 h-4 accent-primary" />
                 <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>로그인 상태 유지</span>
               </label>
-              <a href="#" className="text-sm font-bold hover:underline" style={{ color: 'var(--color-primary)' }}>비밀번호 찾기</a>
+              <Link to="/forgot-password" className="text-sm font-bold hover:underline" style={{ color: 'var(--color-primary)' }}>비밀번호 찾기</Link>
             </div>
 
             <button type="submit" disabled={loading}
