@@ -88,11 +88,16 @@ export default function AssetDetailPage() {
 
   const handleDelete = async () => {
     if (!asset || deleting) return
-    if (!window.confirm('정말 이 에셋을 삭제하시겠습니까? 되돌릴 수 없습니다.')) return
+    if (!window.confirm(
+      '정말 이 에셋을 삭제하시겠습니까? 되돌릴 수 없습니다.\n'
+      + '구매자가 있으면 완전히 지우지 않고 판매 중지로 처리되며, 구매자는 계속 다운로드할 수 있습니다.'
+    )) return
     setDeleting(true)
     try {
-      await assetApi.deleteAsset(assetId)
-      toast.success('에셋이 삭제되었습니다.')
+      const res = await assetApi.deleteAsset(assetId)
+      toast.success(res.data.data?.discontinued
+        ? '구매자가 있어 판매 중지로 처리했습니다. 스토어에서는 더 이상 보이지 않습니다.'
+        : '에셋이 삭제되었습니다.')
       navigate('/assets')
     } catch (err) {
       toast.error(getErrorMessage(err, '삭제에 실패했습니다.'))
@@ -103,7 +108,7 @@ export default function AssetDetailPage() {
   const handleComment = async () => {
     if (!commentText.trim() || !isLoggedIn || !asset) return
     const isAuthorSelf = user?.userId === asset.authorId
-    const canReview = !isAuthorSelf && (asset.isFree || asset.price === 0 || asset.isPurchased)
+    const canReview = asset.status === 'ACTIVE' && !isAuthorSelf && (asset.isFree || asset.price === 0 || asset.isPurchased)
     const rating = canReview && reviewRating > 0 ? reviewRating : undefined
     setSubmitting(true)
     try {
@@ -138,11 +143,13 @@ export default function AssetDetailPage() {
 
   const images = asset.imageUrls.length > 0 ? asset.imageUrls : [asset.thumbnailUrl].filter(Boolean) as string[]
   const isFreeAsset = asset.isFree || asset.price === 0
-  // 다운로드는 로그인 필수 (비로그인은 fileUrl이 내려오지 않음)
-  const canDownload = isLoggedIn && (isFreeAsset || asset.isPurchased)
+  // 판매 중지 — 작성자·소유자만 이 화면에 들어옴(그 외 404). 구매·좋아요·댓글·수정은 막고 소유자 다운로드만 유지
+  const discontinued = asset.status !== 'ACTIVE'
+  // 다운로드는 로그인 필수 (비로그인은 fileUrl이 내려오지 않음). isPurchased = 유료 구매 또는 무료일 때 받은 소유권
+  const canDownload = isLoggedIn && (asset.isPurchased || (isFreeAsset && !discontinued))
   const isAuthor = user?.userId === asset.authorId
-  // 평가 자격: 로그인 + 작성자 본인 아님 + (무료거나 구매자)
-  const canReview = isLoggedIn && !isAuthor && (isFreeAsset || asset.isPurchased)
+  // 평가 자격: 판매 중 + 로그인 + 작성자 본인 아님 + (무료거나 구매자)
+  const canReview = !discontinued && isLoggedIn && !isAuthor && (isFreeAsset || asset.isPurchased)
 
   return (
     <div style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
@@ -188,6 +195,16 @@ export default function AssetDetailPage() {
 
           {/* 구매 패널 */}
           <div className="w-80 shrink-0">
+            {discontinued && (
+              <div role="status" className="rounded-xl border px-4 py-3 mb-3 text-sm flex gap-2"
+                style={{ background: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--color-warning) 35%, transparent)', color: 'var(--color-on-surface)' }}>
+                <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-warning)' }}>info</span>
+                <span>
+                  판매가 중지된 에셋입니다.
+                  {asset.isPurchased ? ' 보유하신 파일은 계속 다운로드할 수 있어요.' : ' 스토어에 더 이상 노출되지 않습니다.'}
+                </span>
+              </div>
+            )}
             <div className="rounded-2xl border p-6" style={{ background: 'var(--color-surface-container-high)', borderColor: 'var(--color-outline)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2 py-0.5 rounded-lg text-xs font-bold"
@@ -253,6 +270,9 @@ export default function AssetDetailPage() {
                     ))}
                   </div>
                 )
+              ) : discontinued ? (
+                // 판매 중지 + 미소유(작성자 본인) — 구매 불가
+                <p className="text-sm mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>판매 중지된 에셋은 구매할 수 없습니다.</p>
               ) : isFreeAsset ? (
                 // 무료지만 비로그인 → 로그인 유도
                 <button
@@ -275,15 +295,16 @@ export default function AssetDetailPage() {
 
               <button
                 onClick={handleLike}
-                className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container flex items-center justify-center gap-2"
+                disabled={discontinued}
+                className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-surface-container flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ border: `1px solid ${asset.isLiked ? '#e11d48' : 'var(--color-outline)'}`, color: asset.isLiked ? '#e11d48' : 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base"
                   style={{ fontVariationSettings: asset.isLiked ? "'FILL' 1" : "'FILL' 0" }}>favorite</span>
                 좋아요 {asset.likeCount.toLocaleString()}
               </button>
 
-              {/* 작성자 전용 — 수정 / 삭제 */}
-              {isAuthor && (
+              {/* 작성자 전용 — 수정 / 삭제 (판매 중지 후엔 둘 다 불가) */}
+              {isAuthor && !discontinued && (
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => navigate(`/assets/${assetId}/edit`)}
@@ -403,12 +424,13 @@ export default function AssetDetailPage() {
                     rows={3}
                     value={commentText}
                     onChange={e => setCommentText(e.target.value)}
-                    placeholder={isLoggedIn ? '댓글을 입력하세요...' : '로그인 후 댓글을 남길 수 있습니다.'}
-                    disabled={!isLoggedIn}
+                    placeholder={discontinued ? '판매 중지된 에셋에는 댓글을 남길 수 없습니다.'
+                      : isLoggedIn ? '댓글을 입력하세요...' : '로그인 후 댓글을 남길 수 있습니다.'}
+                    disabled={!isLoggedIn || discontinued}
                     className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none disabled:opacity-50"
                     style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }}
                   />
-                  {isLoggedIn && (
+                  {isLoggedIn && !discontinued && (
                     <div className="flex justify-end mt-2">
                       <button
                         onClick={handleComment}
@@ -477,7 +499,7 @@ export default function AssetDetailPage() {
             <div className="rounded-2xl border p-4" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
               <p className="font-bold mb-3 text-sm">에셋 정보</p>
               {[
-                ['상태', asset.status === 'ACTIVE' ? '판매 중' : asset.status],
+                ['상태', discontinued ? '판매 중지' : '판매 중'],
                 ['카테고리', asset.categoryName ?? '—'],
                 ['조회수', asset.viewCount.toLocaleString()],
                 ['등록일', new Date(asset.createdAt).toLocaleDateString('ko-KR')],
