@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { userApi } from '../api/userApi'
 import { editorApi, type ProjectSummary } from '../api/editorApi'
 import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
@@ -114,8 +114,9 @@ export function useProfileTabs({ userId, tab, sort, prefetch = [] }: UseProfileT
     setLoadedTabs({})
   }
 
-  // 사용자 세대 증가 — 아래 요청 effect들보다 먼저 선언되어 같은 커밋에서 먼저 실행됨
-  useEffect(() => { epoch.current += 1 }, [userId])
+  // 사용자 세대 증가 — layout effect라 커밋 직후 동기 실행: ①페인트 전이라 그 사이 도착한 이전 사용자 응답도 무효화,
+  // ②모든 useEffect(아래 요청 effect)보다 항상 먼저 실행되므로 선언 순서에 의존하지 않음
+  useLayoutEffect(() => { epoch.current += 1 }, [userId])
 
   /** 탭 하나를 (다시) 받아 반영. 그사이 사용자가 바뀌었거나 같은 탭에 더 새 요청이 있으면 버림. 실패 시 기존 유지. */
   const refreshTab = useCallback(async (key: string, uid: number, sortKey: SortKey) => {
