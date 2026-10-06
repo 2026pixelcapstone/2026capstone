@@ -25,6 +25,9 @@ import { getErrorMessage } from '../lib/errorUtils'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
 import MenuBar from '../components/editor/MenuBar'
+import PaletteBrowserModal, { type PaletteApplyMode } from '../components/editor/PaletteBrowserModal'
+import PaletteFormModal from '../components/palette/PaletteFormModal'
+import { paletteApi } from '../api/paletteApi'
 import { useDrawLine } from '../hooks/editor/useDrawLine'
 import { KonvaEventObject } from 'konva/lib/Node'
 
@@ -85,6 +88,9 @@ export default function EditorPage() {
   // ── AI 색 팔레트 추천 상태 ──────────────────────────────
   // 팔레트를 고정 상수 → 상태로: AI 추천/사용자가 색을 추가할 수 있게 (세션 내, 저장 연동은 후속)
   const [paletteColors, setPaletteColors] = useState<string[]>(PALETTE_COLORS);
+  // ── 커뮤니티 팔레트 연동(C-1): 가져오기 모달 / 현재 팔레트 저장 모달 ──
+  const [paletteBrowserOpen, setPaletteBrowserOpen] = useState(false);
+  const [paletteSaveOpen, setPaletteSaveOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');       // 원하는 느낌(선택) 자연어
   const [aiColors, setAiColors] = useState<string[]>([]); // AI가 추천한 색(스와치로 표시)
   const [aiLoading, setAiLoading] = useState(false);
@@ -872,6 +878,49 @@ export default function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, unsaved, setSearchParams])
 
+  // ── 커뮤니티 팔레트에서 진입: ?palette=<id> → 에디터 팔레트를 그 팔레트로 교체 ──
+  useEffect(() => {
+    const raw = searchParams.get('palette')
+    if (!raw) return
+    const id = Number(raw)
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (!Number.isInteger(id) || id <= 0) throw new Error('bad id')
+        const p = (await paletteApi.get(id)).data.data
+        if (cancelled) return
+        setPaletteColors(p.colors)
+        if (p.colors[0]) setFgColor(p.colors[0])
+        toast.success(`'${p.name}' 팔레트를 불러왔습니다.`)
+      } catch {
+        if (!cancelled) toast.error('팔레트를 불러오지 못했습니다.')
+      } finally {
+        // palette 파라미터 제거(새로고침 시 재적용 방지)
+        if (!cancelled) {
+          setSearchParams(prev => {
+            const next = new URLSearchParams(prev)
+            next.delete('palette')
+            return next
+          }, { replace: true })
+        }
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 진입 시 1회
+  }, [])
+
+  /** 팔레트 가져오기 모달에서 고른 색 적용 — 교체 또는 뒤에 추가(중복 제외) */
+  const applyPaletteFromBrowser = (colors: string[], mode: PaletteApplyMode, name: string) => {
+    if (mode === 'replace') {
+      setPaletteColors(colors)
+      if (colors[0]) setFgColor(colors[0])
+      toast.success(`'${name}' 팔레트로 바꿨습니다.`)
+    } else {
+      addColorsToPalette(colors)
+    }
+    setPaletteBrowserOpen(false)
+  }
+
   // ── 갤러리에서 진입(편집/리믹스): ?import=<.ppit URL> 자동 로드 ──
   useEffect(() => {
     const url = searchParams.get('import')
@@ -1377,6 +1426,18 @@ export default function EditorPage() {
         onClose={() => setOpenProjectModalOpen(false)}
         onSelect={handleOpenProject}
       />
+
+      {paletteBrowserOpen && (
+        <PaletteBrowserModal onClose={() => setPaletteBrowserOpen(false)} onApply={applyPaletteFromBrowser} />
+      )}
+      {paletteSaveOpen && (
+        <PaletteFormModal
+          initialName={projectTitle ? `${projectTitle} 팔레트` : ''}
+          initialColors={paletteColors}
+          onClose={() => setPaletteSaveOpen(false)}
+          onSaved={p => { setPaletteSaveOpen(false); toast.success(`'${p.name}' 팔레트를 커뮤니티에 저장했습니다.`) }}
+        />
+      )}
 
       {/* .ppit 불러오기 (Open .ppit…) */}
       <input
@@ -1899,8 +1960,12 @@ export default function EditorPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>Palette</div>
               <div className="flex gap-1">
-                {[['add','색상 추가'],['upload','팔레트 가져오기']].map(([icon,tip]) => (
-                  <button key={icon} title={tip}
+                {([
+                  ['add', '현재 색을 팔레트에 추가', () => addColorsToPalette([fgColor])],
+                  ['upload', '팔레트 가져오기', () => setPaletteBrowserOpen(true)],
+                  ['save', '현재 팔레트를 커뮤니티에 저장', () => setPaletteSaveOpen(true)],
+                ] as const).map(([icon, tip, onClick]) => (
+                  <button key={icon} type="button" title={tip} aria-label={tip} onClick={onClick}
                     className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
                     style={{ color: 'var(--color-on-surface-variant)' }}>
                     <span className="material-symbols-outlined text-sm">{icon}</span>
@@ -1919,8 +1984,9 @@ export default function EditorPage() {
                   style={{ background: c, borderColor: fgColor === c ? 'var(--color-on-surface)' : 'transparent' }} />
               ))}
             </div>
-            <button className="mt-3 text-xs font-bold hover:underline px-1"
-              style={{ color: 'var(--color-primary)' }}>Browse Lospec palettes…</button>
+            <button type="button" onClick={() => setPaletteBrowserOpen(true)}
+              className="mt-3 text-xs font-bold hover:underline px-1"
+              style={{ color: 'var(--color-primary)' }}>팔레트 둘러보기…</button>
           </div>
 
           {/* 툴 옵션 섹션 */}

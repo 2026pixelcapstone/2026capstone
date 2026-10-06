@@ -21,6 +21,9 @@ import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import ResetPasswordPage from '../pages/ResetPasswordPage'
 import OAuthCallbackPage from '../pages/OAuthCallbackPage'
 import MyPage from '../pages/MyPage'
+import CommunityPage from '../pages/CommunityPage'
+import PaletteListPage from '../pages/PaletteListPage'
+import PaletteDetailPage from '../pages/PaletteDetailPage'
 import ProfilePage from '../pages/ProfilePage'
 import NotificationPage from '../pages/NotificationPage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -76,6 +79,9 @@ export default function App() {
         <Route path="/request-posts/:id" element={<RequestPostDetailPage />} />
         <Route path="/artist-services/:id" element={<ArtistServiceDetailPage />} />
         <Route path="/profile/:username" element={<ProfilePage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/community/palettes" element={<PaletteListPage />} />
+        <Route path="/community/palettes/:id" element={<PaletteDetailPage />} />
         {/* 404 — MainLayout 내부 */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
