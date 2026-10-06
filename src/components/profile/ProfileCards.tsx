@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { GalleryPostSummary } from '../../api/galleryApi'
-import type { AssetSummary } from '../../api/assetApi'
+import type { AssetSummary, LibraryAsset } from '../../api/assetApi'
 
 /** 유저 카드에 필요한 최소 필드 — 팔로잉/팔로워 응답 타입이 페이지마다 달라 공통 부분만 받음 */
 export interface ProfileUserSummary {
@@ -55,6 +55,40 @@ export function AssetCard({ asset }: { asset: AssetSummary }) {
           </span>
           <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>♥ {asset.likeCount}</span>
         </div>
+      </div>
+    </Link>
+  )
+}
+
+/** 구매/받은 에셋 카드 — 작가·획득일·결제금액. 판매 중지된 에셋은 흐리게 + 배지(소유자는 상세에서 계속 다운로드) */
+export function LibraryAssetCard({ item }: { item: LibraryAsset }) {
+  const discontinued = item.assetStatus !== 'ACTIVE'
+  const acquired = new Date(item.acquiredAt).toLocaleDateString('ko-KR')
+  return (
+    <Link to={`/assets/${item.assetId}`}
+      className="group rounded-xl overflow-hidden border transition-all hover:-translate-y-0.5 hover:shadow-xl hover:border-primary"
+      style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+      <div className="aspect-square overflow-hidden relative">
+        {item.thumbnailUrl
+          ? <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover"
+              style={{ imageRendering: 'pixelated', opacity: discontinued ? 0.45 : 1 }} />
+          : <div className="w-full h-full" style={{ background: THUMB_FALLBACK }} />
+        }
+        {discontinued && (
+          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-xs font-bold"
+            style={{ background: 'var(--color-surface-container-highest)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline)' }}>
+            판매 중지
+          </span>
+        )}
+      </div>
+      <div className="p-2">
+        <p className="text-xs font-bold truncate">{item.title}</p>
+        <p className="text-xs truncate mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{item.authorNickname ?? '—'}</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>
+          {item.pricePaid != null
+            ? <>{acquired} 구매 · <span className="font-bold" style={{ color: 'var(--color-primary)' }}>₩{Number(item.pricePaid).toLocaleString()}</span></>
+            : <>{acquired} 받음</>}
+        </p>
       </div>
     </Link>
   )

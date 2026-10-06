@@ -9,7 +9,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
-import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import { WorkCard, AssetCard, LibraryAssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
 import ProfileImageField from '../components/profile/ProfileImageField'
 
 const TABS: ProfileTab[] = [
@@ -19,12 +19,13 @@ const TABS: ProfileTab[] = [
   { key: 'following',  label: '팔로잉',         icon: 'person',   private: false },
   { key: 'followers',  label: '팔로워',         icon: 'group',    private: false },
   { key: 'saved',      label: '저장된 프로젝트', icon: 'folder',   private: true  },
+  { key: 'library',    label: '구매/받은 에셋',  icon: 'shopping_bag', private: true },
   { key: 'commission', label: '커미션',          icon: 'payments', private: true  },
   { key: 'blocked',    label: '차단 관리',       icon: 'block',    private: true  },
 ]
 
 // 페이지 진입 시 숫자를 미리 받아 둘 탭(팔로잉/팔로워는 프로필 응답에 숫자가 있고, 차단은 blockStore 담당)
-const COUNT_TABS = ['works', 'assets', 'liked', 'saved', 'commission'] as const
+const COUNT_TABS = ['works', 'assets', 'liked', 'saved', 'library', 'commission'] as const
 
 export default function MyPage() {
   const [tab, setTab]   = useState('works')
@@ -33,13 +34,15 @@ export default function MyPage() {
   const uid = profile?.userId
   // uid만 의존 — 프로필 수정으로 profile 객체가 바뀌어도 탭 재요청 안 함
   const {
-    works, assets, liked, following, followers, saved: projects, commissions,
-    totals, commissionTotals, showSpinner, isLoaded,
+    works, assets, liked, following, followers, saved: projects, commissions, library,
+    totals, commissionTotals, libraryTotals, showSpinner, isLoaded,
   } = useProfileTabs({ userId: uid, tab, sort, prefetch: COUNT_TABS })
 
   const { blockedUserIds, blockedUsers, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
 
   const [commissionSubTab, setCommissionSubTab] = useState<'client' | 'artist'>('client')
+  const [librarySubTab, setLibrarySubTab] = useState<'purchased' | 'free'>('purchased')
+  const libraryItems = librarySubTab === 'purchased' ? library.purchased : library.free
 
   // 프로필 편집 모달
   const [showEditModal, setShowEditModal] = useState(false)
@@ -113,6 +116,7 @@ export default function MyPage() {
     following:  followingCount.toString(),
     followers:  followerCount.toString(),
     saved:      countOf('saved'),
+    library:    countOf('library'),
     commission: countOf('commission'),
     blocked:    blocksLoaded ? (blockedUserIds.length + blockedTags.length).toString() : '—',
   }
@@ -248,6 +252,38 @@ export default function MyPage() {
                   <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>저장된 프로젝트가 없습니다.</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 구매/받은 에셋 */}
+          {tab === 'library' && (
+            <div>
+              {/* 서브탭 — 커미션 탭과 같은 모양 */}
+              <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit"
+                style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
+                {(['purchased', 'free'] as const).map(sub => (
+                  <button key={sub}
+                    onClick={() => setLibrarySubTab(sub)}
+                    className="px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                    style={{
+                      background: librarySubTab === sub ? 'var(--color-primary)' : 'transparent',
+                      color: librarySubTab === sub ? '#fff' : 'var(--color-on-surface-variant)',
+                    }}>
+                    {sub === 'purchased' ? '구매' : '무료'}
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs"
+                      style={{ background: 'rgba(255,255,255,0.15)' }}>
+                      {libraryTotals ? libraryTotals[sub] : '—'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {showSpinner('library') ? <GridSkeleton variant="square" />
+                : libraryItems.length === 0
+                  ? <EmptyTab icon="shopping_bag"
+                      text={librarySubTab === 'purchased' ? '아직 구매한 에셋이 없습니다.' : '아직 무료로 받은 에셋이 없습니다.'}
+                      action={{ to: '/assets', label: '에셋 스토어 보기' }} />
+                  : <CardGrid variant="square">{libraryItems.map(item => <LibraryAssetCard key={item.purchaseId} item={item} />)}</CardGrid>}
             </div>
           )}
 
