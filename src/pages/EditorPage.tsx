@@ -12,7 +12,7 @@ import {useAnimation} from '../hooks/editor/useAnimation'
 import { useHistory } from '../hooks/editor/useHistory'
 import { applyPalette, GIFEncoder, quantize } from 'gifenc'
 import { useLayers as useLayer } from '../hooks/editor/useLayer'
-import { Stage, Layer as KonvaLayer } from 'react-konva'
+import { Stage, Layer as KonvaLayer, Layer, Rect } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/editor/LayerImageRender'
@@ -693,7 +693,7 @@ export default function EditorPage() {
         //const oldScale = stage.scale();
         //const oldPos = stage.position();
         
-        const currentFullImage = stage.toDataURL({pixelRatio: 1 / zoom}); // 원본 크기 1:1 유지
+        const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
         
         const link = document.createElement('a');
         link.download = `${safeTitle}.png`;
@@ -987,8 +987,8 @@ export default function EditorPage() {
     if (!stage) return;
     setAiLoading(true);
     try {
-      // 줌 배율을 상쇄해 원본 픽셀 크기로 추출(줌 상태에서 이미지·스캔 범위가 zoom²로 커지는 것 방지)
-      const pixelRatio = 1 / zoom;
+      // 원본 픽셀 크기로 추출(줌 상태에서 이미지·스캔 범위가 zoom²로 커지는 것 방지)
+      const pixelRatio = 1;
       const imageBase64 = stage.toDataURL({ pixelRatio });            // 현재 프레임 PNG(data URL)
       const currentColors = extractUsedColors(stage.toCanvas({ pixelRatio })); // 실제 사용색
       const res = await aiApi.suggestPalette({
@@ -1750,26 +1750,27 @@ export default function EditorPage() {
 
           {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
           <div className="relative shadow-2xl"
-              style={{ width: state.width * zoom, 
-              height: state.height * zoom, 
-              backgroundColor: '#e8e8e8' ,
-              imageRendering: 'pixelated'
+              style={{ 
+                width: state.width, 
+                height: state.height,
+                transform: `scale(${zoom})`,
+                transformOrigin: 'center center',
+                backgroundColor: '#e8e8e8',
+                imageRendering: 'pixelated'
             }}
           >
             {/* 픽셀 그리드 오버레이 */}
             {showGridLines && zoom >= 8 && (
               <div className="absolute inset-0 pointer-events-none z-20"
                 style={{
-                  backgroundImage: 'linear-gradient(rgba(80,80,80,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(80,80,80,0.25) 1px,transparent 1px)',
-                  backgroundSize: `${zoom}px ${zoom}px`,
+                  backgroundImage: `linear-gradient(rgba(80,80,80,0.25) ${1/zoom}px, transparent 0), linear-gradient(90deg, rgba(80,80,80,0.25) ${1/zoom}px, transparent 0)`,
+                  backgroundSize: `1px 1px`,
                 }} />
             )}
             <Stage
               ref={stageRef}
-              width={state.width * zoom}
-              height={state.height * zoom}
-              scaleX={zoom}
-              scaleY={zoom}
+              width={state.width}
+              height={state.height}
               pixelRatio={1}
               style={{imageRendering: 'pixelated'}}
               onMouseDown={() => {handleMouseDown()}}
@@ -1802,6 +1803,18 @@ export default function EditorPage() {
                     />
                   </KonvaLayer>
               ))}
+              {cursorPos.x >= 0 && cursorPos.y >= 0 && (
+                <Layer>
+                  <Rect
+                    x={cursorPos.x}
+                    y={cursorPos.y}
+                    width={1}
+                    height={1}
+                    fill="rgba(128, 128, 128, 0.6)" // 기준 색상을 흰색으로 설정
+                    listening={false}
+                  />
+                </Layer>
+              )}
             </Stage>
           </div>
 
