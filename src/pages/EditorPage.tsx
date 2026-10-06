@@ -12,7 +12,7 @@ import {useAnimation} from '../hooks/editor/useAnimation'
 import { useHistory } from '../hooks/editor/useHistory'
 import { applyPalette, GIFEncoder, quantize } from 'gifenc'
 import { useLayers as useLayer } from '../hooks/editor/useLayer'
-import { Stage, Layer as KonvaLayer } from 'react-konva'
+import { Stage, Layer as KonvaLayer, Layer, Rect } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/editor/LayerImageRender'
@@ -1803,6 +1803,18 @@ export default function EditorPage() {
                     />
                   </KonvaLayer>
               ))}
+              {cursorPos.x >= 0 && cursorPos.y >= 0 && (
+                <Layer>
+                  <Rect
+                    x={cursorPos.x}
+                    y={cursorPos.y}
+                    width={1}
+                    height={1}
+                    fill="rgba(128, 128, 128, 0.6)" // 기준 색상을 흰색으로 설정
+                    listening={false}
+                  />
+                </Layer>
+              )}
             </Stage>
           </div>
 
