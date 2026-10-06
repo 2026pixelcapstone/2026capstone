@@ -1,14 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { userApi, type UserProfileResponse, type ProfileUpdateRequest } from '../api/userApi'
-import { editorApi, type ProjectSummary } from '../api/editorApi'
-import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
-import { assetApi, type AssetSummary } from '../api/assetApi'
-import { commissionApi, type CommissionSummary } from '../api/commissionApi'
 import CommissionList from '../components/CommissionList'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
 import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
@@ -24,93 +21,22 @@ const TABS: ProfileTab[] = [
   { key: 'blocked',    label: '차단 관리',       icon: 'block',    private: true  },
 ]
 
-interface FollowUser {
-  userId: number
-  nickname: string
-  profileImageUrl: string | null
-  bio: string | null
-  followerCount: number
-  followingCount: number
-}
-
-type SortKey = 'recent' | 'popular'
-
 // 페이지 진입 시 숫자를 미리 받아 둘 탭(팔로잉/팔로워는 프로필 응답에 숫자가 있고, 차단은 blockStore 담당)
-const COUNT_TABS = ['works', 'assets', 'liked', 'saved', 'commission']
-
-/** 탭 하나의 응답을 화면에 반영할 형태로 묶은 것 — total은 서버 전체 개수(totalElements) */
-type TabData =
-  | { key: 'works' | 'liked'; items: GalleryPostSummary[]; total: number }
-  | { key: 'assets'; items: AssetSummary[]; total: number }
-  | { key: 'following' | 'followers'; items: FollowUser[]; total: number }
-  | { key: 'saved'; items: ProjectSummary[]; total: number }
-  | { key: 'commission'; client: CommissionSummary[]; artist: CommissionSummary[]; clientTotal: number; artistTotal: number }
-
-/** 탭 데이터 요청 — state를 건드리지 않는 순수 함수(반영 여부는 호출부가 세대 가드로 결정). 차단 탭은 null. */
-async function loadTab(key: string, userId: number, sort: SortKey): Promise<TabData | null> {
-  switch (key) {
-    case 'works': {
-      const sortParam = sort === 'popular' ? 'likeCount,desc' : 'createdAt,desc'
-      const page = (await galleryApi.getList({ authorId: userId, size: 20, sort: sortParam })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'liked': {
-      const page = (await galleryApi.getList({ likedBy: userId, size: 20, sort: 'createdAt,desc' })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'assets': {
-      const page = (await assetApi.getList({ authorId: userId, size: 20, sort: 'createdAt,desc' })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'following':
-    case 'followers': {
-      const res = key === 'following' ? await userApi.getFollowing(userId) : await userApi.getFollowers(userId)
-      const items = res.data.data as unknown as FollowUser[]
-      return { key, items, total: items.length }   // 목록 전체가 오므로 길이가 곧 최신 개수
-    }
-    case 'saved': {
-      const page = (await editorApi.getProjects({ size: 20 })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'commission': {
-      const [client, artist] = await Promise.all([
-        commissionApi.getMyListAsClient({ size: 50 }),
-        commissionApi.getMyListAsArtist({ size: 50 }),
-      ])
-      return {
-        key,
-        client: client.data.data.content, artist: artist.data.data.content,
-        clientTotal: client.data.data.totalElements, artistTotal: artist.data.data.totalElements,
-      }
-    }
-    default:
-      return null
-  }
-}
+const COUNT_TABS = ['works', 'assets', 'liked', 'saved', 'commission'] as const
 
 export default function MyPage() {
   const [tab, setTab]   = useState('works')
   const [sort, setSort] = useState<SortKey>('recent')
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
-  const [projects, setProjects] = useState<ProjectSummary[]>([])
-  const [works, setWorks] = useState<GalleryPostSummary[]>([])
-  const [assets, setAssets] = useState<AssetSummary[]>([])
-  const [liked, setLiked] = useState<GalleryPostSummary[]>([])
-  const [following, setFollowing] = useState<FollowUser[]>([])
-  const [followers, setFollowers] = useState<FollowUser[]>([])
-
-  // 탭 공통 로딩 상태 — key: 탭 이름
-  const [totals, setTotals] = useState<Record<string, number>>({})          // 서버 기준 전체 개수
-  const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({}) // 요청 중
-  const [loadedTabs, setLoadedTabs] = useState<Record<string, boolean>>({})   // 한 번이라도 받음
-  // 탭별 요청 세대 — 같은 탭의 마지막 요청 응답만 반영(늦게 온 옛 응답 무시, TROUBLESHOOTING #26)
-  const reqGen = useRef<Record<string, number>>({})
+  const uid = profile?.userId
+  // uid만 의존 — 프로필 수정으로 profile 객체가 바뀌어도 탭 재요청 안 함
+  const {
+    works, assets, liked, following, followers, saved: projects, commissions,
+    totals, commissionTotals, showSpinner, isLoaded,
+  } = useProfileTabs({ userId: uid, tab, sort, prefetch: COUNT_TABS })
 
   const { blockedUserIds, blockedUsers, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
 
-  // 커미션 탭
-  const [commissions, setCommissions] = useState<{ client: CommissionSummary[]; artist: CommissionSummary[] }>({ client: [], artist: [] })
-  const [commissionTotals, setCommissionTotals] = useState<{ client: number; artist: number } | null>(null)
   const [commissionSubTab, setCommissionSubTab] = useState<'client' | 'artist'>('client')
 
   // 프로필 편집 모달
@@ -127,54 +53,6 @@ export default function MyPage() {
   useEffect(() => {
     userApi.getMe().then(res => setProfile(res.data.data)).catch(() => {})
   }, [])
-
-  /** 탭 하나를 (다시) 받아 반영. 같은 탭의 더 새 요청이 있으면 이 응답은 버림. 실패 시 기존 데이터 유지. */
-  const refreshTab = useCallback(async (key: string, userId: number, sortKey: SortKey) => {
-    if (key === 'blocked') return   // 차단 목록은 blockStore가 관리
-    const gen = (reqGen.current[key] ?? 0) + 1
-    reqGen.current[key] = gen
-    setLoadingTabs(s => ({ ...s, [key]: true }))
-    try {
-      const data = await loadTab(key, userId, sortKey)
-      if (!data || reqGen.current[key] !== gen) return
-      switch (data.key) {
-        case 'works':      setWorks(data.items); break
-        case 'liked':      setLiked(data.items); break
-        case 'assets':     setAssets(data.items); break
-        case 'following':  setFollowing(data.items); break
-        case 'followers':  setFollowers(data.items); break
-        case 'saved':      setProjects(data.items); break
-        case 'commission':
-          setCommissions({ client: data.client, artist: data.artist })
-          setCommissionTotals({ client: data.clientTotal, artist: data.artistTotal })
-          break
-      }
-      const total = data.key === 'commission' ? data.clientTotal + data.artistTotal : data.total
-      setTotals(s => ({ ...s, [key]: total }))
-      setLoadedTabs(s => ({ ...s, [key]: true }))
-    } catch {
-      // 실패 시 기존 데이터·숫자 유지
-    } finally {
-      if (reqGen.current[key] === gen) setLoadingTabs(s => ({ ...s, [key]: false }))
-    }
-  }, [])
-
-  const uid = profile?.userId
-
-  // 활성 탭 — 들어올 때마다 다시 받음(작품 탭은 정렬 변경 시에도). uid만 의존: 프로필 수정으로 profile 객체가 바뀌어도 재요청 안 함
-  useEffect(() => {
-    if (uid) void refreshTab(tab, uid, sort)
-  }, [uid, tab, sort, refreshTab])
-
-  // 탭 숫자 — 내 정보가 확정되면 한 번, 숫자가 필요한 탭을 미리 받음(활성 탭은 위 effect가 담당하므로 제외)
-  useEffect(() => {
-    if (!uid) return
-    COUNT_TABS.filter(k => k !== tab).forEach(k => void refreshTab(k, uid, sort))
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- uid 확정 시 1회만(tab/sort 변경은 위 effect 담당)
-  }, [uid, refreshTab])
-
-  /** 스피너는 "아직 한 번도 못 받은 탭을 받는 중"일 때만 — 이미 본 탭은 기존 내용을 보여주며 뒤에서 갱신 */
-  const showSpinner = (key: string) => !!loadingTabs[key] && !loadedTabs[key]
 
   const handleOpenEdit = () => {
     setEditForm({
@@ -353,7 +231,7 @@ export default function MyPage() {
                   </div>
                 </Link>
               ))}
-              {loadedTabs.saved && projects.length === 0 && (
+              {isLoaded('saved') && projects.length === 0 && (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 gap-3">
                   <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>folder_open</span>
                   <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>저장된 프로젝트가 없습니다.</p>

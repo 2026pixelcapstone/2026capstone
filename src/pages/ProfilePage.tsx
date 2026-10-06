@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { userApi, type UserProfileResponse } from '../api/userApi'
-import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
-import { assetApi, type AssetSummary } from '../api/assetApi'
 import { useAuthStore } from '../store/authStore'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
+import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
 import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
@@ -29,18 +28,10 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [tab, setTab] = useState('works')
-  const [sort, setSort] = useState<'recent' | 'popular'>('recent')
+  const [sort, setSort] = useState<SortKey>('recent')
   const [followed, setFollowed] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [blockLoading, setBlockLoading] = useState(false)
-
-  // 탭 콘텐츠
-  const [works, setWorks] = useState<GalleryPostSummary[]>([])
-  const [assets, setAssets] = useState<AssetSummary[]>([])
-  const [liked, setLiked] = useState<GalleryPostSummary[]>([])
-  const [following, setFollowing] = useState<UserProfileResponse[]>([])
-  const [followers, setFollowers] = useState<UserProfileResponse[]>([])
-  const [tabLoading, setTabLoading] = useState(false)
 
   useEffect(() => {
     if (!username) return
@@ -63,46 +54,15 @@ export default function ProfilePage() {
 
   const uid = profile?.userId
 
-  // 프로필(유저)이 바뀌면 탭 상태 초기화
-  useEffect(() => {
+  // 다른 사용자로 바뀌면 탭을 '작품'으로 — 렌더 중에 바꿔야 "새 사용자 + 이전 탭" 조합의 요청이 안 나감
+  const [tabOwner, setTabOwner] = useState(uid)
+  if (tabOwner !== uid) {
+    setTabOwner(uid)
     setTab('works')
-    setWorks([]); setAssets([]); setLiked([]); setFollowing([]); setFollowers([])
-  }, [uid])
+  }
 
-  // 활성 탭 데이터 로드 — uid만 의존(팔로우/언팔로우로 profile 객체가 새로 만들어져도 재요청 안 함)
-  useEffect(() => {
-    if (!uid) return
-    let cancelled = false
-    setTabLoading(true)
-
-    const run = async () => {
-      try {
-        if (tab === 'works') {
-          const sortParam = sort === 'popular' ? 'likeCount,desc' : 'createdAt,desc'
-          const res = await galleryApi.getList({ authorId: uid, size: 24, sort: sortParam })
-          if (!cancelled) setWorks(res.data.data.content)
-        } else if (tab === 'assets') {
-          const res = await assetApi.getList({ authorId: uid, size: 24, sort: 'createdAt,desc' })
-          if (!cancelled) setAssets(res.data.data.content)
-        } else if (tab === 'liked') {
-          const res = await galleryApi.getList({ likedBy: uid, size: 24, sort: 'createdAt,desc' })
-          if (!cancelled) setLiked(res.data.data.content)
-        } else if (tab === 'following') {
-          const res = await userApi.getFollowing(uid)
-          if (!cancelled) setFollowing(res.data.data)
-        } else if (tab === 'followers') {
-          const res = await userApi.getFollowers(uid)
-          if (!cancelled) setFollowers(res.data.data)
-        }
-      } catch {
-        // 탭 로드 실패 시 빈 상태 유지
-      } finally {
-        if (!cancelled) setTabLoading(false)
-      }
-    }
-    run()
-    return () => { cancelled = true }
-  }, [uid, tab, sort])
+  // 탭 데이터 — uid만 의존(팔로우/언팔로우로 profile 객체가 새로 만들어져도 재요청 안 함). 사이드바 숫자는 안 쓰므로 미리 받기 없음
+  const { works, assets, liked, following, followers, totals, showSpinner } = useProfileTabs({ userId: uid, tab, sort })
 
   const handleFollow = async () => {
     if (!isLoggedIn || !profile) return
@@ -218,12 +178,18 @@ export default function ProfilePage() {
 
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-base">{TABS.find(t => t.key === tab)?.label}</h2>
+            <h2 className="font-bold text-base">
+              {TABS.find(t => t.key === tab)?.label}
+              {/* 그 탭을 열 때 받은 응답의 전체 개수 — 추가 요청 없음 */}
+              {totals[tab] !== undefined && (
+                <span className="ml-2 text-sm font-normal" style={{ color: 'var(--color-on-surface-variant)' }}>{totals[tab]}</span>
+              )}
+            </h2>
             {tab === 'works' && <SortToggle sort={sort} onChange={setSort} />}
           </div>
 
           {/* 탭별 콘텐츠 */}
-          {tabLoading ? (
+          {showSpinner(tab) ? (
             <GridSkeleton variant={tab === 'following' || tab === 'followers' ? 'user' : 'square'} />
           ) : (
             <>
