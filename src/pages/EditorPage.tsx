@@ -693,7 +693,7 @@ export default function EditorPage() {
         //const oldScale = stage.scale();
         //const oldPos = stage.position();
         
-        const currentFullImage = stage.toDataURL({pixelRatio: 1 / zoom}); // 원본 크기 1:1 유지
+        const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
         
         const link = document.createElement('a');
         link.download = `${safeTitle}.png`;
@@ -987,8 +987,8 @@ export default function EditorPage() {
     if (!stage) return;
     setAiLoading(true);
     try {
-      // 줌 배율을 상쇄해 원본 픽셀 크기로 추출(줌 상태에서 이미지·스캔 범위가 zoom²로 커지는 것 방지)
-      const pixelRatio = 1 / zoom;
+      // 원본 픽셀 크기로 추출(줌 상태에서 이미지·스캔 범위가 zoom²로 커지는 것 방지)
+      const pixelRatio = 1;
       const imageBase64 = stage.toDataURL({ pixelRatio });            // 현재 프레임 PNG(data URL)
       const currentColors = extractUsedColors(stage.toCanvas({ pixelRatio })); // 실제 사용색
       const res = await aiApi.suggestPalette({
