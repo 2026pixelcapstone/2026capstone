@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CanvasState, FrameData, LayerData } from '../type/editor'
+import { CanvasState, FrameData, LayerData, Point } from '../type/editor'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
@@ -16,7 +16,7 @@ import { Stage, Layer as KonvaLayer } from 'react-konva'
 import Konva from 'konva'
 import { useEditor } from '../hooks/editor/useEditor'
 import { LayerImageRenderer } from '../components/editor/LayerImageRender'
-import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
+import { getCacheKey, getLabel, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { aiApi } from '../api/aiApi'
 import type { RelatedPost } from '../api/aiApi'
@@ -25,6 +25,8 @@ import { getErrorMessage } from '../lib/errorUtils'
 import { parsePpit, serializePpit } from '../lib/ppit'
 import { canvasDataToPpit, ppitToCanvasData } from '../utils/ppitConvert'
 import MenuBar from '../components/editor/MenuBar'
+import { useDrawLine } from '../hooks/editor/useDrawLine'
+import { KonvaEventObject } from 'konva/lib/Node'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -34,13 +36,16 @@ export default function EditorPage() {
   const lastLoadedIdRef = useRef<number | null>(null);
   const stageRef = useRef<Konva.Stage>(null) 
   const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
+  const lineTarget = useRef<{ frameId: string; layerId: string; ctx: CanvasRenderingContext2D } | null>(null);
   const isDrawing = useRef(false)
   const isDirty =  useRef(false); 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
 
+
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
+
   
   // ── status & state ──────────────────────────
   // ── 도구 관련 ──────────────
@@ -52,13 +57,14 @@ export default function EditorPage() {
   const [pixelPerfect, setPixelPerfect] = useState(true)
   const [isHexModal, setIsHexModal] = useState(false)
 
+  const {startLine, updateLine, endLine} = useDrawLine();
   // ── CanvasData 관련 ──────────────
-  //const [currentFrameIdx, setCurrentFrameIdx] = useState(0);
   const [activeFrameId, setActiveFrameId] = useState<string | null>(
     initialCanvasData.frames[0]?.id || null
   )
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAnim, setShowAnim]       = useState(false)
+  const [previewFrameIdx, setPreviewFrameIdx] = useState(0)
 
   const [activeLayerId, setActiveLayerId] = useState<string | null>(
     initialCanvasData.frames[0]?.layers[0].id || null
@@ -72,6 +78,7 @@ export default function EditorPage() {
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 });
   const [isScaleImage, setIsScaleImage] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true)
+
 
   // ── AI 가이드 ──────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
@@ -135,7 +142,6 @@ export default function EditorPage() {
     setSearchParams
   });
   
-  
   // ── Navigation / Page Control ───────────────────────────────────
   const handleBackToMain = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -194,7 +200,7 @@ export default function EditorPage() {
   }, [activeLayerId, zoom, state.width, state.height]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
   
   //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
-  const getPixel = useCallback(() => {
+  const getPixel = useCallback(() : Point | null => {
     const stage = stageRef.current;
     if (!stage) return null
 
@@ -241,11 +247,11 @@ export default function EditorPage() {
         ctx.drawImage(existingCanvas, 0, 0, existingCanvas.width, existingCanvas.height);
       }
     }
-    layerCanvasRefs.current[id] = nextCanvas
+    layerCanvasRefs.current[id] = nextCanvas;
     return nextCanvas;
   }, [state.width, state.height])
 
-  //-------- 캐시 캔버스 유실을 막는 역할을 함(청소부) -----------
+  // -------- 캐시 캔버스 유실을 막는 역할을 함(청소부) -----------
   useEffect(() => {
     const liveCacheKeys = new Set<string>();
 
@@ -263,7 +269,7 @@ export default function EditorPage() {
   }, [state.frames]);
   
   // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const applyCanvasTool = useCallback(() => {
+  const applyDirectTool = useCallback((pos : Point | null) => {
     const stage = stageRef.current;
     if(!stage || !activeLayerId || !activeFrameId) return;
     
@@ -272,7 +278,7 @@ export default function EditorPage() {
     if(!nativeCanvas) return;
 
     const ctx = nativeCanvas.getContext('2d', { willReadFrequently: true });
-    const pos = getPixel()
+    
     if (!ctx || !pos) return
 
     const { x, y } = pos
@@ -292,7 +298,7 @@ export default function EditorPage() {
       isDirty.current = true; // 픽셀이 변경되었음을 표시
       setUnsaved(true);
     }
-    // ─── [1. 페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
+    // ─── [페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
     else if (activeTool === 'fill') {
       // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
       const imgData = ctx.getImageData(0, 0, state.width, state.height);
@@ -375,7 +381,7 @@ export default function EditorPage() {
       setUnsaved(true);
     }
   
-    // ─── [2. 스포이트 도구 (Eyedropper)] ──────────────────────────
+    // ─── [스포이트 도구 (Eyedropper)] ──────────────────────────
     else if (activeTool === 'eyedrop') {
       const imgData = ctx.getImageData(x, y, 1, 1).data;
       // 투명한 영역(알파값 0)을 찍으면 기본 검정 처리 혹은 스킵
@@ -397,14 +403,87 @@ export default function EditorPage() {
       activeLayerNode.getLayer()?.batchDraw();
     }
   }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayerId, getLayerCanvas, activeFrameId])
+  
+  //-------- 마우스 동작 -----------
+  const handleMouseDown = () => {
+    isDrawing.current = true;        
+    const pos = getPixel();
+    if(!pos) return;
+    
+    if(activeTool === 'line'){
+      if(!activeFrameId || !activeLayerId) return;
+      const nativeCanvas = getLayerCanvas(getCacheKey(activeFrameId, activeLayerId));
+      const ctx = nativeCanvas?.getContext('2d');
+      
+      if(ctx){
+        lineTarget.current = { frameId: activeFrameId, layerId: activeLayerId, ctx };
+        startLine(ctx, state.width, state.height, pos,
+          {
+            brushSize,
+            color: fgColor,
+            snapAngle: false, // Shift 키는 마우스 이동 중에만 적용
+          }
+        );
+      }
+      return;
+    }
 
-  const handleMouseMove = () => {
-    const pos = getPixel()
-    if (pos) setCursorPos(pos)
-    if (isDrawing.current) applyCanvasTool()
+    applyDirectTool(pos);
   }
+  
+  const handleMouseMove = (e : KonvaEventObject<MouseEvent>) => {
+    const pos = getPixel();
+    if (!pos || !activeFrameId || !activeLayerId) return;
+    setCursorPos(pos);
 
+    if (!isDrawing.current) return;  
+    if(lineTarget.current){
+      const { ctx, layerId } = lineTarget.current;
+      if (ctx) {
+        updateLine(ctx, pos, {
+          brushSize,
+          color: fgColor,
+          snapAngle: e.evt.shiftKey,
+        });
+        // 화면 갱신
+        stageRef.current?.findOne(`#${layerId}`)?.getLayer()?.batchDraw();
+      }
+      return;
+    }
 
+    if(activeTool === 'pencil' || activeTool === 'eraser'){
+      applyDirectTool(pos);
+    }
+  };
+
+  const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
+    isDrawing.current = false;
+
+    const target = lineTarget.current;
+    if(target){
+      const pos = e ? getPixel() : null;
+      if (e && pos) {
+        updateLine(target.ctx, pos, {
+          brushSize,
+          color: fgColor,
+          snapAngle: e.evt.shiftKey,
+        });
+        stageRef.current?.findOne(`#${target.layerId}`)?.getLayer()?.batchDraw();
+      }
+      const isCommitted = endLine();
+      lineTarget.current = null;
+      if(isCommitted){
+        isDirty.current = true;
+        setUnsaved(true);
+      }
+    }
+    // 실제로 변경이 발생했을 때만 커밋 호출
+    if(isDirty.current){
+      commitLayerChanges(target?.frameId, target?.layerId);
+      isDirty.current = false;
+    }
+  }
+  
   // --------  state.width/height 변경 시 CustomW/H 동기화 -----------
   useEffect(() => {
     setCustomW(state.width);
@@ -1057,34 +1136,33 @@ export default function EditorPage() {
   // ── 애니메이션 ───────────────────────────────────
   // 재생 로직
   useEffect(() => {
-    if(!isPlaying) return;
-
+    if(!isPlaying){
+      setPreviewFrameIdx(0); // 재생 중이 아니면 항상 첫 프레임으로 초기화
+      return;
+    }
     const totalFrames = state.frames.length;
     if(totalFrames <= 1) return;
 
     const interval = setInterval(() => {
-      const currentIdx = state.frames.findIndex((f) => f.id === activeFrameId);
-      // 혹시 못 찾았다면 0번, 찾았다면 다음 프레임 순번 계산
-      const nextIdx = currentIdx !== -1 ? (currentIdx + 1) % totalFrames : 0;
-      const nextFrame = state.frames[nextIdx];
-
-      if(!nextFrame) return;
-
-      setActiveFrameId(nextFrame.id);
-      setActiveLayerId(nextFrame.layers[0]?.id || null);
-    }, 100)
-
+      setPreviewFrameIdx((prevIdx) => (prevIdx + 1) % totalFrames);
+    }, 100);
+    
     return () => clearInterval(interval);
-  }, [isPlaying, state.frames.length, activeFrameId, setActiveFrameId, setActiveLayerId]);
+  }, [isPlaying, state.frames.length, setPreviewFrameIdx]);
 
+  // 프레임 수가 바뀌면 미리보기 인덱스를 0으로 초기화
+  useEffect(() => {
+    setPreviewFrameIdx(0);
+  }, [state.frames.length]);
+
+
+  // ── 레이어 변경 내역 저장 ───────────────────────────────────
   /**
    * 현재 캔버스의 내용을 이미지 데이터(Base64)로 변환하여 해당 프레임에 저장합니다.
    * setWithHistory -> useHistory 기록용
   */
-  const commitLayerChanges = useCallback(() => {
+  const commitLayerChanges = useCallback((capturedFrameId = activeFrameId, capturedLayerId = activeLayerId) => {
     const stage = stageRef.current;
-    const capturedFrameId = activeFrameId;
-    const capturedLayerId = activeLayerId;
 
     if(!stage || !capturedFrameId || !capturedLayerId) return;
 
@@ -1105,6 +1183,7 @@ export default function EditorPage() {
       
       // 2. frame.id 기준으로 타깃 프레임 및 내부 레이어 갱신
       const updatedFrames = prev.frames.map((frame) =>{
+        if (frame.id !== capturedFrameId) return frame;
         const updateLayers = frame.layers.map((layer) => {
           if(layer.id !== capturedLayerId) return layer;
 
@@ -1124,6 +1203,7 @@ export default function EditorPage() {
   }, [activeFrameId, activeLayerId, setWithHistory, state.width, state.height]);
 
   
+  // ── 프레임 ───────────────────────────────────
   /* 프레임 선택 시 실행되는 함수 */
   const handleSelectFrame = (nextFrameId: string) => {
     const canvas = stageRef.current;
@@ -1404,7 +1484,7 @@ export default function EditorPage() {
           {/* 그리기 도구 */}
           <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {DRAW_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1415,7 +1495,7 @@ export default function EditorPage() {
           {/* 선택 도구 */}
           <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SELECT_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1426,7 +1506,7 @@ export default function EditorPage() {
           {/* 도형 도구 */}
           <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SHAPE_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1437,7 +1517,7 @@ export default function EditorPage() {
           {/* 뷰 도구 (하단 고정) */}
           <div className="flex flex-col items-center gap-1 w-full px-2 mt-auto">
             {VIEW_TOOLS.map(t => (
-              <button key={t.id} title={t.label} onClick={() => setActiveTool(t.id)}
+              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
@@ -1446,114 +1526,7 @@ export default function EditorPage() {
           </div>
         </aside>
 
-        {/* ── 캔버스 영역 ─────────────────────────────── */}
-        {/* 바깥 배경: 캔버스보다 약간 진한 중간 회색 (체커보드) */}
-        <main className="flex-1 flex items-center justify-center overflow-hidden relative"
-          style={{
-            backgroundColor: '#767676',
-            backgroundImage: [
-              'linear-gradient(45deg,#848484 25%,transparent 25%)',
-              'linear-gradient(-45deg,#848484 25%,transparent 25%)',
-              'linear-gradient(45deg,transparent 75%,#848484 75%)',
-              'linear-gradient(-45deg,transparent 75%,#848484 75%)',
-            ].join(','),
-            backgroundSize: '16px 16px',
-            backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
-            
-          }}>
-
-          {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
-          <div className="relative shadow-2xl"
-              style={{ width: state.width * zoom, 
-              height: state.height * zoom, 
-              backgroundColor: '#e8e8e8' ,
-              imageRendering: 'pixelated'
-            }}
-          >
-            {/* 픽셀 그리드 오버레이 */}
-            {showGridLines && zoom >= 8 && (
-              <div className="absolute inset-0 pointer-events-none z-20"
-                style={{
-                  backgroundImage: 'linear-gradient(rgba(80,80,80,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(80,80,80,0.25) 1px,transparent 1px)',
-                  backgroundSize: `${zoom}px ${zoom}px`,
-                }} />
-            )}
-            <Stage
-              ref={stageRef}
-              width={state.width * zoom}
-              height={state.height * zoom}
-              scaleX={zoom}
-              scaleY={zoom}
-              pixelRatio={1}
-              style={{imageRendering: 'pixelated'}}
-              onMouseDown={() => { isDrawing.current = true; applyCanvasTool() }}
-              onMouseMove={handleMouseMove}
-              onMouseUp={() => {
-                isDrawing.current = false
-                // 실제로 변경이 발생했을 때만 커밋 호출
-                if(isDirty.current){
-                  commitLayerChanges();
-                  isDirty.current = false;
-                }
-               }}
-              onMouseLeave={() => { 
-                if(isDirty.current){
-                  commitLayerChanges();
-                  isDirty.current = false;
-                }
-                isDrawing.current = false;
-                setCursorPos({ x: -1, y: -1 }) 
-              }}
-            >
-              
-              {(currentFrame?.layers ?? [])
-                .sort((a, b) => a.layerOrder - b.layerOrder)
-                .map((layer) => (
-                  <KonvaLayer
-                    key={layer.id} 
-                    id={layer.id} 
-                    opacity={layer.opacity / 100}
-                    visible={layer.isVisible}>
-                    
-                    {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
-                    <LayerImageRenderer
-                      layerId={layer.id}
-                      pixelData={layer.pixelData}
-                      canvasW={state.width}
-                      canvasH={state.height}
-                      currentFrameId={activeFrameId}
-                      layerCanvasRefs={layerCanvasRefs}
-                      isScaleImage = {isScaleImage}
-                    />
-                  </KonvaLayer>
-              ))}
-            </Stage>
-          </div>
-
-          {/* 줌 컨트롤 (하단 중앙 플로팅) */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
-            style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
-            <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
-              style={{ color: 'var(--color-on-surface-variant)' }}>
-              <span className="material-symbols-outlined text-sm">remove</span>
-            </button>
-            <span className="text-xs font-bold w-12 text-center">x{zoom}</span>
-            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
-              style={{ color: 'var(--color-on-surface-variant)' }}>
-              <span className="material-symbols-outlined text-sm">add</span>
-            </button>
-          </div>
-
-          {/* 커서 위치 (우하단 플로팅) */}
-          <div className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 shadow border text-xs font-bold"
-            style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
-            {cursorPos.x >= 0 ? `x: ${cursorPos.x}  y: ${cursorPos.y}` : 'x: —  y: —'}
-          </div>
-        </main>
-
-         {/* ── 애니메이션 패널 ─────────────────────────────── */}
+         {/* ── 프레임 패널 ─────────────────────────────── */}
         <div className="flex flex-col flex-shrink-0 border-l"
           style={{ width: showAnim ? 160 : 36, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', transition: 'width 0.2s' }}>
           {/* 토글 버튼 */}
@@ -1714,6 +1687,146 @@ export default function EditorPage() {
             </div>
           )}
         </div>
+        {/* ── 캔버스 영역 ─────────────────────────────── */}
+        {/* 바깥 배경: 캔버스보다 약간 진한 중간 회색 (체커보드) */}
+        <main className="flex-1 flex items-center justify-center overflow-hidden relative"
+          style={{
+            backgroundColor: '#767676',
+            backgroundImage: [
+              'linear-gradient(45deg,#848484 25%,transparent 25%)',
+              'linear-gradient(-45deg,#848484 25%,transparent 25%)',
+              'linear-gradient(45deg,transparent 75%,#848484 75%)',
+              'linear-gradient(-45deg,transparent 75%,#848484 75%)',
+            ].join(','),
+            backgroundSize: '16px 16px',
+            backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
+          }}>
+
+          {/* 애니메이션 프리뷰 */}
+          <div className="absolute top-4 right-4 w-48 bg-[#1e2329] rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden z-50">
+            <div className="aspect-square checkerboard rounded overflow-hidden flex items-center justify-center relative">
+              {(() => {
+                const safePreviewFrameIdx = Math.max(0, Math.min(previewFrameIdx, state.frames.length - 1));
+                // 레이어 탐색, 보이고 pixelData가 존재하는 레이어 중 첫 번째 레이어를 타깃으로 잡음
+                const layerPreviews = (state.frames[safePreviewFrameIdx].layers ?? [])
+                  .filter((layer) => layer.isVisible) // 보이는 레이어만 필터링
+                  .map((layer) => {
+                    let src: string | null = null;
+                    if(layer.pixelData){
+                      try{
+                        const frameImages = layer.pixelData;
+                        if(frameImages) src = frameImages;
+                      } catch (e){
+                        console.error("레이어 썸네일 파싱 에러", e);
+                      }
+                    }
+                    return {id: layer.id, src, opacity: layer.opacity}
+                  });
+
+                  // 수집된 레이어들을 CSS 절대 좌표(absolute)를 이용해 아래서부터 위로 차곡차곡 겹쳐서 렌더링
+                  return(
+                    <div className='absolute inset-0 w-full h-full pointer-events-none'>
+                      {layerPreviews.map((lp) => {
+                        if(!lp.src) return null; // 해당 프레임에 그림이 없는 레이어는 패스
+                        return (
+                        <img
+                          key={lp.id}
+                          src={lp.src}
+                          className="absolute inset-0 w-full h-full object-contain"
+                          style={{
+                            // 💡 픽셀 아트 깨짐(뭉개짐) 방지 및 레이어별 실제 투명도 실시간 반영!
+                            imageRendering: 'pixelated', 
+                            opacity: lp.opacity / 100, 
+                          }}
+                          alt="layer-thumb"
+                        />
+                      );
+                      })}
+                    </div>
+                  )
+              })()}  
+            </div>
+          </div>
+
+          {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
+          <div className="relative shadow-2xl"
+              style={{ width: state.width * zoom, 
+              height: state.height * zoom, 
+              backgroundColor: '#e8e8e8' ,
+              imageRendering: 'pixelated'
+            }}
+          >
+            {/* 픽셀 그리드 오버레이 */}
+            {showGridLines && zoom >= 8 && (
+              <div className="absolute inset-0 pointer-events-none z-20"
+                style={{
+                  backgroundImage: 'linear-gradient(rgba(80,80,80,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(80,80,80,0.25) 1px,transparent 1px)',
+                  backgroundSize: `${zoom}px ${zoom}px`,
+                }} />
+            )}
+            <Stage
+              ref={stageRef}
+              width={state.width * zoom}
+              height={state.height * zoom}
+              scaleX={zoom}
+              scaleY={zoom}
+              pixelRatio={1}
+              style={{imageRendering: 'pixelated'}}
+              onMouseDown={() => {handleMouseDown()}}
+              onMouseMove={(e) => {handleMouseMove(e)}}
+              onMouseUp={(e) => {handleMouseUp(e)}}
+              onMouseLeave={(e) => { 
+                handleMouseUp(e);
+                setCursorPos({ x: -1, y: -1 }) 
+              }}
+            >
+              
+              {(currentFrame?.layers ?? [])
+                .sort((a, b) => a.layerOrder - b.layerOrder)
+                .map((layer) => (
+                  <KonvaLayer
+                    key={layer.id} 
+                    id={layer.id} 
+                    opacity={layer.opacity / 100}
+                    visible={layer.isVisible}>
+                    
+                    {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
+                    <LayerImageRenderer
+                      layerId={layer.id}
+                      pixelData={layer.pixelData}
+                      canvasW={state.width}
+                      canvasH={state.height}
+                      currentFrameId={activeFrameId}
+                      layerCanvasRefs={layerCanvasRefs}
+                      isScaleImage = {isScaleImage}
+                    />
+                  </KonvaLayer>
+              ))}
+            </Stage>
+          </div>
+
+          {/* 줌 컨트롤 (하단 중앙 플로팅) */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
+            style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+            <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span className="material-symbols-outlined text-sm">remove</span>
+            </button>
+            <span className="text-xs font-bold w-12 text-center">x{zoom}</span>
+            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
+              style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span className="material-symbols-outlined text-sm">add</span>
+            </button>
+          </div>
+
+          {/* 커서 위치 (우하단 플로팅) */}
+          <div className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 shadow border text-xs font-bold"
+            style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
+            {cursorPos.x >= 0 ? `x: ${cursorPos.x}  y: ${cursorPos.y}` : 'x: —  y: —'}
+          </div>
+        </main>
 
         {/* ── 우측 패널 ──────── */}
         <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"

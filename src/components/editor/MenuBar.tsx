@@ -1,3 +1,4 @@
+import { getLabel } from "../../utils/editorUtils";
 import { MENU_DEFS } from "../../constants/editor/menuConfig";
 import { MENU_ACTION, MenuActionId } from "../../type/editor";
 import React, { useEffect, useRef, useState } from "react";
@@ -178,7 +179,7 @@ export default function MenuBar({
                             color: openMenu === menu.id ? 'var(--color-on-surface)' : 'var(--color-on-surface)',
                             background: openMenu === menu.id ? 'var(--color-surface-container)' : 'transparent',
                         }}>
-                        {menu.label}
+                        {getLabel(menu.label)}
                     </button>
                 
                     {/* 드롭다운 메뉴 */}
@@ -202,7 +203,8 @@ export default function MenuBar({
                             }
                             // 2. Dynamic label 처리
                             const itemlabel = item.id === MENU_ACTION.TOGGLE_GRID
-                                ? (viewActions.showGridLines ? 'Hide Grid' : 'Show Grid') 
+                                ? (viewActions.showGridLines 
+                                    ? {ko: '그리드 숨기기', en: 'Hide Grid'} : {ko: '그리드 표시', en: 'Show Grid'})
                                 : item.label;
                             
                             // 3. 일반 메뉴 버튼
@@ -216,7 +218,7 @@ export default function MenuBar({
                                     <span className="material-symbols-outlined text-sm w-4 flex-shrink-0"
                                         style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
                                     )}
-                                    <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{itemlabel}</span>
+                                    <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{getLabel(itemlabel)}</span>
                                     {item.shortcut && (
                                     <span className="text-xs ml-4" style={{ color: 'var(--color-on-surface-variant)' }}>{item.shortcut}</span>
                                     )}

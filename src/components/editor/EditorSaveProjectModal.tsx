@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import {SaveProjectModeProps } from '../../type/editor';
+import {SaveData} from '../../type/editor';
+
+// 모달에 관한 함수
+export interface SaveProjectModeProps{
+    isOpen: boolean; // 모달이 열려있는지 여부
+    onClose: () => void; // 모달을 닫는 함수
+    onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
+    initialTitle?:string;
+    initialIsPublic?: boolean;
+}
 
 export default function EditorSaveProjectModal({
     isOpen,
@@ -11,13 +20,20 @@ export default function EditorSaveProjectModal({
     // 모달 내부 상태 관리
     const [title, setTitle] = useState<string>(initialTitle);
     const [isPublic, setIsPublic] = useState<boolean>(initialIsPublic);
+    const [isSaveHovered, setIsSaveHovered] = useState(false);
+    const [isCancelHovered, setIsCancelHovered] = useState(false);
+    const [isSavePressed, setIsSavePressed] = useState(false);
 
+    // 모달이 열릴 때마다 초기 상태로 리셋
     useEffect(() => {
         if (!isOpen){
             return;
         }
         setTitle(initialTitle);
         setIsPublic(initialIsPublic);
+        setIsSaveHovered(false);
+        setIsCancelHovered(false);
+        setIsSavePressed(false);
     }, [isOpen, initialTitle, initialIsPublic]);
     // 모달이 닫혀있으면 렌더링하지 않음
     if (!isOpen) return null;
@@ -73,11 +89,49 @@ export default function EditorSaveProjectModal({
 
                     {/* 버튼 */}
                     <div style={styles.buttonGroup}>
-                        <button type="button" onClick={onClose} style={styles.cancelButton}>
-                        취소
+                        <button 
+                            type="button"
+                            className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
+                            onMouseEnter={() => setIsCancelHovered(true)}
+                            onMouseLeave={() => setIsCancelHovered(false)}
+                            onClick={() => {
+                                onClose();
+                            }} 
+                            style={{
+                                ...styles.cancelButton,
+                                backgroundColor: isCancelHovered ? '#0056b3' : '#007bff',
+                                color: '#ffffff',
+                            }}
+                        >
+                            취소
                         </button>
-                        <button type="submit" style={styles.saveButton}>
-                        저장하기
+                        <button 
+                            type="submit"
+                            className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
+                            disabled={!title.trim()}
+                            onMouseEnter={() => setIsSaveHovered(true)}
+                            onMouseLeave={() => { 
+                                setIsSaveHovered(false);
+                                setIsSavePressed(false);
+                            }}
+                            onMouseDown={() => setIsSavePressed(true)}
+                            onMouseUp={() => setIsSavePressed(false)}
+                            style={{
+                                ...styles.saveButton,
+                                // 배경색: 비활성화면 회색, 활성화 상태에서 호버 시 오로라 그라데이션, 기본은 파랑
+                                background: !title.trim()
+                                    ? '#9ca3af'
+                                    : isSaveHovered
+                                    ? '#0056b3' : '#007bff',
+                                
+                                // 클릭 시 번쩍임(flash) 효과
+                                filter: title.trim() && isSavePressed ? 'brightness(1.25)' : 'none',
+                                
+                                // 커서
+                                cursor: title.trim() ? 'pointer' : 'not-allowed',
+                            }}
+                            >
+                            저장하기
                         </button>
                     </div>
                 </form>
@@ -105,6 +159,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   radioGroup: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' },
   radioLabel: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' },
   buttonGroup: { display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' },
-  cancelButton: { padding: '10px 16px', border: '1px solid #f3f4f6', backgroundColor: '#007bff', borderRadius: '4px', cursor: 'pointer' },
+  cancelButton: { padding: '10px 16px', border: 'none', backgroundColor: '#007bff', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'},
   saveButton: { padding: '10px 16px', border: 'none', backgroundColor: '#007bff', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' },
 };

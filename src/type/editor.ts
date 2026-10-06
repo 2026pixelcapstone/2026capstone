@@ -1,7 +1,3 @@
-import Konva from "konva";
-import { SetURLSearchParams } from "react-router-dom";
-
-
 //  ── Canvas Object Type ──────────────────────────────────────────────
 export interface CanvasState{
   frames: FrameData[];
@@ -30,29 +26,26 @@ export interface LayerData{
   pixelData: string;
 }
 
-
-export interface UseEditorProps{
-    stageRef: React.RefObject<Konva.Stage | null>;
-    layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
-    state: CanvasState;
-    //zoom: number;
-    isLoggedIn: boolean;
-    setUnsaved: (unsaved: boolean) => void;
-    setSearchParams: SetURLSearchParams;
-}
-
 export interface SaveData{
     title: string;
     isPublic: boolean;
 }
 
-// 모달에 관한 함수
-export interface SaveProjectModeProps{
-    isOpen: boolean; // 모달이 열려있는지 여부
-    onClose: () => void; // 모달을 닫는 함수
-    onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
-    initialTitle?:string;
-    initialIsPublic?: boolean;
+// ── ToolType ──────────────────────────────────────────────
+export interface Point {
+    x: number;
+    y: number;
+}
+
+// ── 번역(한글 | 영문) ──────────────────────────────────────────────
+export type Lang = 'ko' | 'en';
+
+// 💡 기본 언어 설정 (현재 'ko'로 고정)
+export const CURRENT_LANG: Lang = 'ko';
+
+export interface LocalizedText {
+  ko: string;
+  en: string;
 }
 
 //  ── Menu Type ──────────────────────────────────────────────
@@ -118,7 +111,7 @@ export type MenuActionId = typeof MENU_ACTION[keyof typeof MENU_ACTION];
 
 export interface BaseMenuItem {
   id: MenuActionId; // 실행할 Command ID
-  label: string;
+  label: LocalizedText;
   shortcut?: string;
   icon?: string;
   disabled?: boolean;
@@ -132,14 +125,7 @@ export type MenuItem = BaseMenuItem | MenuSeparator;
 
 export interface MenuGroup {
   id: MenuGroupId;
-  label: string;
+  label: LocalizedText;
   items: MenuItem[];
 }
-
-
-
-
-
-
-
 

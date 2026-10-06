@@ -225,24 +225,34 @@ export default function AssetDetailPage() {
               </div>
 
               {canDownload ? (
-                <button type="button" disabled={downloading}
-                  onClick={async () => {
-                    if (!asset.fileUrl) { toast.error('다운로드 파일이 없습니다.'); return }
-                    setDownloading(true)
-                    // 다운로드 수 기록(사람당 1회만 카운트) — 실패해도 다운로드는 진행
-                    assetApi.recordDownload(assetId).catch(() => {})
-                    try {
-                      // cross-origin(R2)이라 <a download>는 무시됨 → blob으로 강제 저장
-                      await downloadFileForced(asset.fileUrl)
-                    } finally {
-                      setDownloading(false)
-                    }
-                  }}
-                  className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mb-2 hover:opacity-90 transition-opacity disabled:opacity-50"
-                  style={{ background: 'var(--color-primary)', color: '#fff' }}>
-                  <span className="material-symbols-outlined text-base">download</span>
-                  {downloading ? '다운로드 중...' : '다운로드'}
-                </button>
+                asset.downloadFiles.length === 0 ? (
+                  <p className="text-sm mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>다운로드 파일이 없습니다.</p>
+                ) : (
+                  <div className="flex flex-col gap-2 mb-2">
+                    {asset.downloadFiles.map((f, i) => (
+                      <button key={i} type="button" disabled={downloading || !f.fileUrl}
+                        onClick={async () => {
+                          if (!f.fileUrl) { toast.error('다운로드 파일이 없습니다.'); return }
+                          setDownloading(true)
+                          // 다운로드 수 기록(사람당 1회만 카운트) — 실패해도 다운로드는 진행
+                          assetApi.recordDownload(assetId).catch(() => {})
+                          try {
+                            // cross-origin(R2)이라 <a download>는 무시됨 → blob으로 강제 저장
+                            await downloadFileForced(f.fileUrl, f.fileName ?? undefined)
+                          } finally {
+                            setDownloading(false)
+                          }
+                        }}
+                        className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                        style={{ background: 'var(--color-primary)', color: '#fff' }}>
+                        <span className="material-symbols-outlined text-base">download</span>
+                        <span className="truncate">
+                          {asset.downloadFiles.length > 1 ? (f.fileName ?? `파일 ${i + 1}`) : (downloading ? '다운로드 중...' : '다운로드')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )
               ) : isFreeAsset ? (
                 // 무료지만 비로그인 → 로그인 유도
                 <button
