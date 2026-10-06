@@ -5,6 +5,8 @@
 /* 메이플스토리 폰트는 index.html에서 fonts-archive CDN(Maplestory.css)으로 로드 — family: 'Maplestory' */
 
 @theme {
+  /* 메인 3단 배치용 브레이크포인트(1440px) — 임의값 min-[1440px]:은 lg:보다 앞에 생성돼 덮이므로 이름 붙인 단계로 */
+  --breakpoint-wide: 90rem;
   --color-background: #0d1117;
   --color-surface: #161b22;
   --color-surface-container-low: #1c2128;

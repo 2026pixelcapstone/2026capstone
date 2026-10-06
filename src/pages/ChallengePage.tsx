@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CURRENT_CHALLENGE, PRACTICE_CONSTRAINTS, PRACTICE_SUBJECTS } from '../constants/challenge'
+import { pickDifferent } from '../lib/practiceTopic'
 import { formatKstDate, getChallengeWeek, getRemaining } from '../lib/challengeWeek'
-
-/** 배열에서 하나(직전 값과는 다르게) */
-function pickDifferent(list: readonly string[], prev: string | null): string {
-  if (list.length < 2) return list[0]
-  let next = prev
-  while (next === prev) next = list[Math.floor(Math.random() * list.length)]
-  return next as string
-}
 
 /**
  * 주간 챌린지(C-2) — 지금은 화면 틀. 주제는 하드코딩, 참가·결과는 빈 상태,

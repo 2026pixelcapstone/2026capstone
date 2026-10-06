@@ -28,6 +28,15 @@ export interface ProfileUpdateRequest {
   isPublic?: boolean
 }
 
+/** 메인 '인기 작가' — recentLikes = 최근 기간 받은 좋아요(팔로워순으로 채운 항목은 0) */
+export interface PopularUser {
+  userId: number
+  nickname: string
+  profileImageUrl: string | null
+  followerCount: number
+  recentLikes: number
+}
+
 export const userApi = {
   // 내 프로필 조회
   getMe: () =>
@@ -55,6 +64,10 @@ export const userApi = {
   // 특정 유저 프로필 조회 (userId)
   getUser: (userId: number) =>
     api.get<{ success: boolean; data: UserProfileResponse }>(`/api/users/${userId}`),
+
+  // 메인 인기 작가(비로그인 허용)
+  getPopular: (params?: { days?: number; size?: number }) =>
+    api.get<{ success: boolean; data: PopularUser[] }>('/api/users/popular', { params }),
 
   // 닉네임으로 유저 프로필 조회 (프로필 페이지용)
   getUserByNickname: (nickname: string) =>
