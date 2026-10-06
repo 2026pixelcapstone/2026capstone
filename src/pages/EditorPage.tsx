@@ -456,7 +456,7 @@ export default function EditorPage() {
     }
   };
 
-  const handleMouseUp = (e?: KonvaEventObject<MouseEvent>) => {
+  const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
     isDrawing.current = false;
 
     const target = lineTarget.current;
@@ -1774,9 +1774,9 @@ export default function EditorPage() {
               style={{imageRendering: 'pixelated'}}
               onMouseDown={() => {handleMouseDown()}}
               onMouseMove={(e) => {handleMouseMove(e)}}
-              onMouseUp={() => {handleMouseUp()}}
-              onMouseLeave={() => { 
-                handleMouseUp();
+              onMouseUp={(e) => {handleMouseUp(e)}}
+              onMouseLeave={(e) => { 
+                handleMouseUp(e);
                 setCursorPos({ x: -1, y: -1 }) 
               }}
             >
