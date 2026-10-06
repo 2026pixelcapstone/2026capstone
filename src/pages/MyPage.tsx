@@ -35,7 +35,7 @@ export default function MyPage() {
   // uid만 의존 — 프로필 수정으로 profile 객체가 바뀌어도 탭 재요청 안 함
   const {
     works, assets, liked, following, followers, saved: projects, commissions, library,
-    totals, commissionTotals, libraryTotals, showSpinner, isLoaded,
+    totals, commissionTotals, libraryTotals, showSpinner, isLoaded, loadFailed, reload,
   } = useProfileTabs({ userId: uid, tab, sort, prefetch: COUNT_TABS })
 
   const { blockedUserIds, blockedUsers, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
@@ -278,7 +278,19 @@ export default function MyPage() {
                 ))}
               </div>
 
-              {showSpinner('library') ? <GridSkeleton variant="square" />
+              {/* 실패를 '없음'으로 보이지 않게 — 받은 적 없으면 실패 안내 또는 스켈레톤, 빈 상태 문구는 받은 뒤에만 */}
+              {loadFailed('library') ? (
+                <div role="alert" className="flex flex-col items-center justify-center py-24 gap-3">
+                  <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>cloud_off</span>
+                  <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>구매/받은 에셋을 불러오지 못했습니다.</p>
+                  <button type="button" onClick={() => reload('library')}
+                    className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
+                    style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
+                    다시 시도
+                  </button>
+                </div>
+              )
+                : !isLoaded('library') ? <GridSkeleton variant="square" />
                 : libraryItems.length === 0
                   ? <EmptyTab icon="shopping_bag"
                       text={librarySubTab === 'purchased' ? '아직 구매한 에셋이 없습니다.' : '아직 무료로 받은 에셋이 없습니다.'}

@@ -116,6 +116,7 @@ export function useProfileTabs({ userId, tab, sort, prefetch = [] }: UseProfileT
   const [libraryTotals, setLibraryTotals] = useState<{ purchased: number; free: number } | null>(null)
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({}) // 요청 중
   const [loadedTabs, setLoadedTabs] = useState<Record<string, boolean>>({})   // 한 번이라도 받음
+  const [failedTabs, setFailedTabs] = useState<Record<string, boolean>>({})   // 마지막 요청 실패(성공 시 해제)
   const reqGen = useRef<Record<string, number>>({})
   const epoch = useRef(0)
 
@@ -129,6 +130,7 @@ export function useProfileTabs({ userId, tab, sort, prefetch = [] }: UseProfileT
     setLibraryTotals(null)
     setLoadingTabs({})
     setLoadedTabs({})
+    setFailedTabs({})
   }
 
   // 사용자 세대 증가 — layout effect라 커밋 직후 동기 실행: ①페인트 전이라 그 사이 도착한 이전 사용자 응답도 무효화,
@@ -160,8 +162,10 @@ export function useProfileTabs({ userId, tab, sort, prefetch = [] }: UseProfileT
       }
       setTotals(s => ({ ...s, [key]: total }))
       setLoadedTabs(s => ({ ...s, [key]: true }))
+      setFailedTabs(s => ({ ...s, [key]: false }))
     } catch {
-      // 실패 시 기존 데이터·숫자 유지
+      // 실패 시 기존 데이터·숫자 유지 — 실패 표시는 한 번도 못 받은 탭에서 '없음' 대신 오류 안내용
+      if (isLatest()) setFailedTabs(s => ({ ...s, [key]: true }))
     } finally {
       if (isLatest()) setLoadingTabs(s => ({ ...s, [key]: false }))
     }
@@ -185,5 +189,16 @@ export function useProfileTabs({ userId, tab, sort, prefetch = [] }: UseProfileT
   /** 한 번이라도 받았는지 — 빈 상태 문구를 로드 완료 후에만 보여줄 때 */
   const isLoaded = useCallback((key: string) => !!loadedTabs[key], [loadedTabs])
 
-  return { ...lists, totals, commissionTotals, libraryTotals, showSpinner, isLoaded }
+  /** 한 번도 못 받았고 마지막 요청이 실패함 — 빈 상태 문구 대신 '불러오지 못함 + 다시 시도'를 보여줄 때 */
+  const loadFailed = useCallback(
+    (key: string) => !!failedTabs[key] && !loadedTabs[key] && !loadingTabs[key],
+    [failedTabs, loadedTabs, loadingTabs],
+  )
+
+  /** 탭 하나 다시 받기(다시 시도 버튼) — 세대 가드는 refreshTab 그대로 */
+  const reload = useCallback((key: string) => {
+    if (userId) void refreshTab(key, userId, sort)
+  }, [userId, sort, refreshTab])
+
+  return { ...lists, totals, commissionTotals, libraryTotals, showSpinner, isLoaded, loadFailed, reload }
 }
