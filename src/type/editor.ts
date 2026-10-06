@@ -25,6 +25,10 @@ export interface LayerData{
   color: string | null; // 색상이 없을 수도 있으니 null 허용
   pixelData: string;
 }
+export interface CanvasSize{
+  width: number;
+  height: number;
+}
 
 export interface SaveData{
     title: string;

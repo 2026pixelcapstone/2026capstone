@@ -52,7 +52,8 @@ export const PALETTE_COLORS = [
 ]
 
 export const ZOOM_LEVELS = [1, 2, 4, 8, 10, 16, 20, 32, 64];
-export const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128'];
+export const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128', '256×256', '512×512'];
 
-export const MAX_HISTORY_SIZE = 50;
+export const MAX_CANVAS_SIZE = 512; // 캔버스 최대 크기 제한
+export const MAX_HISTORY_SIZE = 50; // 최대 히스토리 스택 크기 제한
 

@@ -8,6 +8,7 @@ export interface SaveProjectModeProps{
     onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
     initialTitle?:string;
     initialIsPublic?: boolean;
+    saving?: boolean; // 저장 중 상태를 나타내는 플래그
 }
 
 export default function EditorSaveProjectModal({
@@ -16,6 +17,7 @@ export default function EditorSaveProjectModal({
     onSave,
     initialTitle = '',
     initialIsPublic = false,
+    saving = false,
 }: SaveProjectModeProps){
     // 모달 내부 상태 관리
     const [title, setTitle] = useState<string>(initialTitle);
@@ -128,10 +130,10 @@ export default function EditorSaveProjectModal({
                                 filter: title.trim() && isSavePressed ? 'brightness(1.25)' : 'none',
                                 
                                 // 커서
-                                cursor: title.trim() ? 'pointer' : 'not-allowed',
+                                 cursor: saving ? 'wait' : (!title.trim() ? 'not-allowed' : 'pointer'),
                             }}
                             >
-                            저장하기
+                            {saving ? '저장 중...' : '저장하기'}
                         </button>
                     </div>
                 </form>
