@@ -25,6 +25,7 @@ import CommunityPage from '../pages/CommunityPage'
 import PaletteListPage from '../pages/PaletteListPage'
 import PaletteDetailPage from '../pages/PaletteDetailPage'
 import ChallengePage from '../pages/ChallengePage'
+import SharedCanvasPage from '../pages/SharedCanvasPage'
 import ProfilePage from '../pages/ProfilePage'
 import NotificationPage from '../pages/NotificationPage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/community/palettes" element={<PaletteListPage />} />
         <Route path="/community/palettes/:id" element={<PaletteDetailPage />} />
         <Route path="/community/challenge" element={<ChallengePage />} />
+        <Route path="/community/canvas" element={<SharedCanvasPage />} />
         {/* 404 — MainLayout 내부 */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
