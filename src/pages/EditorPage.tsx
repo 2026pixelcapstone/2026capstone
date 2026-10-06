@@ -2014,6 +2014,10 @@ export default function EditorPage() {
                       return;
                   }
                   
+                  if (!Number.isInteger(customW) || !Number.isInteger(customH)) {
+                    alert('캔버스 크기는 정수여야 합니다.');
+                    return;
+                  } 
                   applyCanvasSize(customW, customH)
 
                 }}

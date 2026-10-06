@@ -8,7 +8,7 @@ export interface SaveProjectModeProps{
     onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
     initialTitle?:string;
     initialIsPublic?: boolean;
-    saving: boolean; // 저장 중 상태를 나타내는 플래그
+    saving?: boolean; // 저장 중 상태를 나타내는 플래그
 }
 
 export default function EditorSaveProjectModal({
