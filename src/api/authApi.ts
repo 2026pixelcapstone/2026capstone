@@ -38,4 +38,12 @@ export const authApi = {
   // 인증 메일 재발송 (로그인 필수)
   resendVerification: () =>
     api.post<{ success: boolean; message: string }>('/api/auth/email/resend'),
+
+  // 비밀번호 찾기 — 가입 여부와 무관하게 항상 같은 성공 응답(가입 여부 노출 방지)
+  forgotPassword: (email: string) =>
+    api.post<{ success: boolean; message: string }>('/api/auth/password/forgot', { email }),
+
+  // 메일 링크의 토큰으로 새 비밀번호 설정 — 성공 시 모든 기기 로그아웃
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ success: boolean; message: string }>('/api/auth/password/reset', { token, newPassword }),
 }
