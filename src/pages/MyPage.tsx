@@ -77,6 +77,7 @@ export default function MyPage() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (imageBusy) return   // 사진 자르기·업로드 중엔 저장(=모달 닫기)하지 않음 — 작업 유실 방지
     if (!editForm.nickname?.trim()) { setEditError('닉네임을 입력해주세요.'); return }
     setEditSubmitting(true)
     setEditError('')
@@ -460,7 +461,7 @@ export default function MyPage() {
                   style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   취소
                 </button>
-                <button type="submit" disabled={editSubmitting}
+                <button type="submit" disabled={editSubmitting || imageBusy}
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
                   style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
                   {editSubmitting ? '저장 중...' : '저장'}
