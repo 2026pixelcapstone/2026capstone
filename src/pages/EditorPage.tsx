@@ -1750,26 +1750,27 @@ export default function EditorPage() {
 
           {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
           <div className="relative shadow-2xl"
-              style={{ width: state.width * zoom, 
-              height: state.height * zoom, 
-              backgroundColor: '#e8e8e8' ,
-              imageRendering: 'pixelated'
+              style={{ 
+                width: state.width, 
+                height: state.height,
+                transform: `scale(${zoom})`,
+                transformOrigin: 'center center',
+                backgroundColor: '#e8e8e8',
+                imageRendering: 'pixelated'
             }}
           >
             {/* 픽셀 그리드 오버레이 */}
             {showGridLines && zoom >= 8 && (
               <div className="absolute inset-0 pointer-events-none z-20"
                 style={{
-                  backgroundImage: 'linear-gradient(rgba(80,80,80,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(80,80,80,0.25) 1px,transparent 1px)',
-                  backgroundSize: `${zoom}px ${zoom}px`,
+                  backgroundImage: `linear-gradient(rgba(80,80,80,0.25) ${1/zoom}px, transparent 0), linear-gradient(90deg, rgba(80,80,80,0.25) ${1/zoom}px, transparent 0)`,
+                  backgroundSize: `1px 1px`,
                 }} />
             )}
             <Stage
               ref={stageRef}
-              width={state.width * zoom}
-              height={state.height * zoom}
-              scaleX={zoom}
-              scaleY={zoom}
+              width={state.width}
+              height={state.height}
               pixelRatio={1}
               style={{imageRendering: 'pixelated'}}
               onMouseDown={() => {handleMouseDown()}}
