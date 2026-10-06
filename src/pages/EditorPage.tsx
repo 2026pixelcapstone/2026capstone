@@ -1706,7 +1706,7 @@ export default function EditorPage() {
           <div className="absolute top-4 right-4 w-48 bg-[#1e2329] rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden z-50">
             <div className="aspect-square checkerboard rounded overflow-hidden flex items-center justify-center relative">
               {(() => {
-                const safePreviewFrameIdx = Math.min(previewFrameIdx, state.frames.length - 1);
+                const safePreviewFrameIdx = Math.max(0, Math.min(previewFrameIdx, state.frames.length - 1));
                 // 레이어 탐색, 보이고 pixelData가 존재하는 레이어 중 첫 번째 레이어를 타깃으로 잡음
                 const layerPreviews = (state.frames[safePreviewFrameIdx].layers ?? [])
                   .filter((layer) => layer.isVisible) // 보이는 레이어만 필터링
