@@ -1,14 +1,26 @@
 import { getCacheKey } from "../../utils/editorUtils";
 import { CanvasSaveRequest, editorApi, FrameSaveRequest, LayerSaveRequest } from "../../api/editorApi";
-import { LayerData, SaveData, UseEditorProps } from "../../type/editor";
+import { CanvasState, LayerData, SaveData} from "../../type/editor";
 import { toast } from "../../store/toastStore";
 import { useCallback, useState } from "react";
 import api from "../../lib/axios";
+import { SetURLSearchParams } from "react-router-dom";
+import Konva from "konva";
 
 // 추후 팀원과 상의하여 외부 파일에 정의할 수도 있음
 interface BulkUploadResponse {
   success: boolean;
   data: string[]; // 업로드된 파일들의 URL 배열
+}
+
+export interface UseEditorProps{
+    stageRef: React.RefObject<Konva.Stage | null>;
+    layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
+    state: CanvasState;
+    //zoom: number;
+    isLoggedIn: boolean;
+    setUnsaved: (unsaved: boolean) => void;
+    setSearchParams: SetURLSearchParams;
 }
 
 export const useEditor = ({

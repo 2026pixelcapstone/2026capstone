@@ -1,3 +1,5 @@
+import { CURRENT_LANG, Lang, LocalizedText } from "../type/editor";
+
 export const getCacheKey = (frameId: string, layerId: string): string => {
   return `frame-${frameId}_${layerId}`;
 };
@@ -18,3 +20,9 @@ export const isCanvasBlank = (canvas: HTMLCanvasElement): boolean => {
 export const getLayerImageData = (canvas: HTMLCanvasElement): string => {
   return isCanvasBlank(canvas) ? '' : canvas.toDataURL('image/png');
 };
+
+// 라벨 추출 헬퍼 (string 또는 { ko, en } 대응)
+export function getLabel(label: string | LocalizedText, lang: Lang = CURRENT_LANG): string {
+  if (typeof label === 'string') return label;
+  return label[lang] || label.ko;
+}
