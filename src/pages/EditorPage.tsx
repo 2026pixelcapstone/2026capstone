@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CanvasState, FrameData, LayerData, Point } from '../type/editor'
-import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS} from '../constants/editor/editor'
+import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS, MAX_CANVAS_SIZE} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
 import EditorOpenProjectModal from '../components/editor/EditorOpenProjectModal'
@@ -74,7 +74,6 @@ export default function EditorPage() {
   const [customH, setCustomH]         = useState(32)
 
   // ── View ──────────────
-  const {zoom, setZoomIdx} = useCanvasView();
   const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 });
   const [isScaleImage, setIsScaleImage] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true)
@@ -141,7 +140,11 @@ export default function EditorPage() {
     setUnsaved,
     setSearchParams
   });
-  
+
+  // ── View 훅 ──────────────
+  const {zoom, setZoomIdx} = useCanvasView({ width: state.width, height: state.height });
+
+
   // ── Navigation / Page Control ───────────────────────────────────
   const handleBackToMain = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -503,7 +506,6 @@ export default function EditorPage() {
         height: h,
       };
     })
-
     setUnsaved(true); // 서버 저장 여부
   }
 
@@ -1370,6 +1372,7 @@ export default function EditorPage() {
         onClose={() => setSaveIsModalOpen(false)}
         onSave={handleSave}
         initialTitle={projectTitle}
+        saving={saving}
       />
 
       <EditorOpenProjectModal
@@ -1962,6 +1965,10 @@ export default function EditorPage() {
             <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Canvas Size</div>
             <div className="px-1 space-y-2">
 
+              {/* 최대 크기 안내/경고 메시지 */}
+              <div className="text-[12px] pt-1" style={{ color: '#EAB308' }}>
+                * 캡스톤 시연 안정성을 위해 최대 {MAX_CANVAS_SIZE}x{MAX_CANVAS_SIZE}까지 설정 가능합니다.
+              </div>
               {/* 1. 프리셋 버튼 grid */}
               <div className="grid grid-cols-3 gap-1">
                 {CANVAS_PRESETS.map(p => {
@@ -1996,7 +2003,24 @@ export default function EditorPage() {
                   onChange={e => setCustomH(Number(e.target.value))}
                   className="w-16 px-2 py-1 rounded text-xs outline-none text-center font-bold"
                   style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
-                <button onClick={() => applyCanvasSize(customW, customH)}
+                <button onClick={() => {
+                  // 최대 크기 초과 방지 유효성 검사
+                  if (customW > MAX_CANVAS_SIZE || customH > MAX_CANVAS_SIZE) {
+                      alert(`캔버스 크기는 최대 ${MAX_CANVAS_SIZE}x${MAX_CANVAS_SIZE}까지 설정할 수 있습니다.`);
+                      return;
+                  }
+                  if (customW < 1 || customH < 1) {
+                      alert('캔버스 크기는 최소 1 이상이어야 합니다.');
+                      return;
+                  }
+                  
+                  if (!Number.isInteger(customW) || !Number.isInteger(customH)) {
+                    alert('캔버스 크기는 정수여야 합니다.');
+                    return;
+                  } 
+                  applyCanvasSize(customW, customH)
+
+                }}
                   className="flex-1 py-1 rounded text-xs font-bold transition-all hover:opacity-90"
                   style={{ background: 'var(--color-primary)', color: '#fff' }}>Apply</button>
               </div>
