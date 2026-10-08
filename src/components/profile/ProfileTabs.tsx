@@ -38,7 +38,7 @@ export function ProfileTabSidebar({ tabs, active, onChange, counts }: ProfileTab
                 <span className="material-symbols-outlined opacity-40" style={{ fontSize: 12 }}>lock</span>
               )}
             </span>
-            {counts && (
+            {counts && counts[t.key] !== undefined && (   // 숫자가 없는 탭(계정 설정 등)은 배지 생략
               <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
                 style={{
                   background: active === t.key ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'var(--color-surface-container)',

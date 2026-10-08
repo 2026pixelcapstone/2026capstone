@@ -1,180 +1,75 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { userApi, type UserProfileResponse, type ProfileUpdateRequest } from '../api/userApi'
-import { editorApi, type ProjectSummary } from '../api/editorApi'
-import { galleryApi, type GalleryPostSummary } from '../api/galleryApi'
-import { assetApi, type AssetSummary } from '../api/assetApi'
-import { commissionApi, type CommissionSummary } from '../api/commissionApi'
 import CommissionList from '../components/CommissionList'
 import { useBlockStore } from '../store/blockStore'
+import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
-import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import { WorkCard, AssetCard, LibraryAssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import PaletteCard from '../components/palette/PaletteCard'
+import ProfileImageField from '../components/profile/ProfileImageField'
+import AccountSettings from '../components/profile/AccountSettings'
 
 const TABS: ProfileTab[] = [
   { key: 'works',      label: '작품',           icon: 'palette',  private: false },
   { key: 'assets',     label: '에셋',           icon: 'sell',     private: false },
+  { key: 'palettes',   label: '팔레트',         icon: 'color_lens', private: false },
   { key: 'liked',      label: '좋아요',         icon: 'favorite', private: false },
   { key: 'following',  label: '팔로잉',         icon: 'person',   private: false },
   { key: 'followers',  label: '팔로워',         icon: 'group',    private: false },
   { key: 'saved',      label: '저장된 프로젝트', icon: 'folder',   private: true  },
+  { key: 'library',    label: '구매/받은 에셋',  icon: 'shopping_bag', private: true },
   { key: 'commission', label: '커미션',          icon: 'payments', private: true  },
   { key: 'blocked',    label: '차단 관리',       icon: 'block',    private: true  },
+  { key: 'account',    label: '계정 설정',       icon: 'manage_accounts', private: true },
 ]
 
-interface FollowUser {
-  userId: number
-  nickname: string
-  profileImageUrl: string | null
-  bio: string | null
-  followerCount: number
-  followingCount: number
-}
-
-type SortKey = 'recent' | 'popular'
-
 // 페이지 진입 시 숫자를 미리 받아 둘 탭(팔로잉/팔로워는 프로필 응답에 숫자가 있고, 차단은 blockStore 담당)
-const COUNT_TABS = ['works', 'assets', 'liked', 'saved', 'commission']
-
-/** 탭 하나의 응답을 화면에 반영할 형태로 묶은 것 — total은 서버 전체 개수(totalElements) */
-type TabData =
-  | { key: 'works' | 'liked'; items: GalleryPostSummary[]; total: number }
-  | { key: 'assets'; items: AssetSummary[]; total: number }
-  | { key: 'following' | 'followers'; items: FollowUser[]; total: number }
-  | { key: 'saved'; items: ProjectSummary[]; total: number }
-  | { key: 'commission'; client: CommissionSummary[]; artist: CommissionSummary[]; clientTotal: number; artistTotal: number }
-
-/** 탭 데이터 요청 — state를 건드리지 않는 순수 함수(반영 여부는 호출부가 세대 가드로 결정). 차단 탭은 null. */
-async function loadTab(key: string, userId: number, sort: SortKey): Promise<TabData | null> {
-  switch (key) {
-    case 'works': {
-      const sortParam = sort === 'popular' ? 'likeCount,desc' : 'createdAt,desc'
-      const page = (await galleryApi.getList({ authorId: userId, size: 20, sort: sortParam })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'liked': {
-      const page = (await galleryApi.getList({ likedBy: userId, size: 20, sort: 'createdAt,desc' })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'assets': {
-      const page = (await assetApi.getList({ authorId: userId, size: 20, sort: 'createdAt,desc' })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'following':
-    case 'followers': {
-      const res = key === 'following' ? await userApi.getFollowing(userId) : await userApi.getFollowers(userId)
-      const items = res.data.data as unknown as FollowUser[]
-      return { key, items, total: items.length }   // 목록 전체가 오므로 길이가 곧 최신 개수
-    }
-    case 'saved': {
-      const page = (await editorApi.getProjects({ size: 20 })).data.data
-      return { key, items: page.content, total: page.totalElements }
-    }
-    case 'commission': {
-      const [client, artist] = await Promise.all([
-        commissionApi.getMyListAsClient({ size: 50 }),
-        commissionApi.getMyListAsArtist({ size: 50 }),
-      ])
-      return {
-        key,
-        client: client.data.data.content, artist: artist.data.data.content,
-        clientTotal: client.data.data.totalElements, artistTotal: artist.data.data.totalElements,
-      }
-    }
-    default:
-      return null
-  }
-}
+const COUNT_TABS = ['works', 'assets', 'palettes', 'liked', 'saved', 'library', 'commission'] as const
 
 export default function MyPage() {
   const [tab, setTab]   = useState('works')
   const [sort, setSort] = useState<SortKey>('recent')
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
-  const [projects, setProjects] = useState<ProjectSummary[]>([])
-  const [works, setWorks] = useState<GalleryPostSummary[]>([])
-  const [assets, setAssets] = useState<AssetSummary[]>([])
-  const [liked, setLiked] = useState<GalleryPostSummary[]>([])
-  const [following, setFollowing] = useState<FollowUser[]>([])
-  const [followers, setFollowers] = useState<FollowUser[]>([])
-
-  // 탭 공통 로딩 상태 — key: 탭 이름
-  const [totals, setTotals] = useState<Record<string, number>>({})          // 서버 기준 전체 개수
-  const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({}) // 요청 중
-  const [loadedTabs, setLoadedTabs] = useState<Record<string, boolean>>({})   // 한 번이라도 받음
-  // 탭별 요청 세대 — 같은 탭의 마지막 요청 응답만 반영(늦게 온 옛 응답 무시, TROUBLESHOOTING #26)
-  const reqGen = useRef<Record<string, number>>({})
+  const uid = profile?.userId
+  // uid만 의존 — 프로필 수정으로 profile 객체가 바뀌어도 탭 재요청 안 함
+  const {
+    works, assets, palettes, liked, following, followers, saved: projects, commissions, library,
+    totals, commissionTotals, libraryTotals, showSpinner, isLoaded, loadFailed, reload,
+  } = useProfileTabs({ userId: uid, tab, sort, prefetch: COUNT_TABS })
 
   const { blockedUserIds, blockedUsers, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
 
-  // 커미션 탭
-  const [commissions, setCommissions] = useState<{ client: CommissionSummary[]; artist: CommissionSummary[] }>({ client: [], artist: [] })
-  const [commissionTotals, setCommissionTotals] = useState<{ client: number; artist: number } | null>(null)
   const [commissionSubTab, setCommissionSubTab] = useState<'client' | 'artist'>('client')
+  const [librarySubTab, setLibrarySubTab] = useState<'purchased' | 'free'>('purchased')
+  const libraryItems = librarySubTab === 'purchased' ? library.purchased : library.free
 
   // 프로필 편집 모달
   const [showEditModal, setShowEditModal] = useState(false)
   const [editForm, setEditForm] = useState<ProfileUpdateRequest>({})
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState('')
+  const [imageBusy, setImageBusy] = useState(false)   // 사진 자르는 중·업로드 중
   const editModalRef = useRef<HTMLDivElement>(null)
 
-  // 모든 닫기 경로(X·취소·배경·ESC)가 여기로 — 저장 요청 중에는 닫지 않음
-  const closeEditModal = () => { if (!editSubmitting) setShowEditModal(false) }
+  // 모든 닫기 경로(X·취소·배경·ESC)가 여기로 — 저장 요청 중·사진 작업 중에는 닫지 않음
+  const closeEditModal = () => { if (!editSubmitting && !imageBusy) setShowEditModal(false) }
+
+  // 사진 업로드·삭제 결과를 화면 프로필과 로그인 사용자 정보(내비 아바타)에 함께 반영
+  const handleImageChanged = (p: UserProfileResponse) => {
+    setProfile(p)
+    const { user, setUser } = useAuthStore.getState()
+    if (user) setUser({ ...user, profileImageUrl: p.profileImageUrl ?? undefined })
+  }
   useFocusTrap(showEditModal, editModalRef, closeEditModal)
 
   useEffect(() => {
     userApi.getMe().then(res => setProfile(res.data.data)).catch(() => {})
   }, [])
-
-  /** 탭 하나를 (다시) 받아 반영. 같은 탭의 더 새 요청이 있으면 이 응답은 버림. 실패 시 기존 데이터 유지. */
-  const refreshTab = useCallback(async (key: string, userId: number, sortKey: SortKey) => {
-    if (key === 'blocked') return   // 차단 목록은 blockStore가 관리
-    const gen = (reqGen.current[key] ?? 0) + 1
-    reqGen.current[key] = gen
-    setLoadingTabs(s => ({ ...s, [key]: true }))
-    try {
-      const data = await loadTab(key, userId, sortKey)
-      if (!data || reqGen.current[key] !== gen) return
-      switch (data.key) {
-        case 'works':      setWorks(data.items); break
-        case 'liked':      setLiked(data.items); break
-        case 'assets':     setAssets(data.items); break
-        case 'following':  setFollowing(data.items); break
-        case 'followers':  setFollowers(data.items); break
-        case 'saved':      setProjects(data.items); break
-        case 'commission':
-          setCommissions({ client: data.client, artist: data.artist })
-          setCommissionTotals({ client: data.clientTotal, artist: data.artistTotal })
-          break
-      }
-      const total = data.key === 'commission' ? data.clientTotal + data.artistTotal : data.total
-      setTotals(s => ({ ...s, [key]: total }))
-      setLoadedTabs(s => ({ ...s, [key]: true }))
-    } catch {
-      // 실패 시 기존 데이터·숫자 유지
-    } finally {
-      if (reqGen.current[key] === gen) setLoadingTabs(s => ({ ...s, [key]: false }))
-    }
-  }, [])
-
-  const uid = profile?.userId
-
-  // 활성 탭 — 들어올 때마다 다시 받음(작품 탭은 정렬 변경 시에도). uid만 의존: 프로필 수정으로 profile 객체가 바뀌어도 재요청 안 함
-  useEffect(() => {
-    if (uid) void refreshTab(tab, uid, sort)
-  }, [uid, tab, sort, refreshTab])
-
-  // 탭 숫자 — 내 정보가 확정되면 한 번, 숫자가 필요한 탭을 미리 받음(활성 탭은 위 effect가 담당하므로 제외)
-  useEffect(() => {
-    if (!uid) return
-    COUNT_TABS.filter(k => k !== tab).forEach(k => void refreshTab(k, uid, sort))
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- uid 확정 시 1회만(tab/sort 변경은 위 effect 담당)
-  }, [uid, refreshTab])
-
-  /** 스피너는 "아직 한 번도 못 받은 탭을 받는 중"일 때만 — 이미 본 탭은 기존 내용을 보여주며 뒤에서 갱신 */
-  const showSpinner = (key: string) => !!loadingTabs[key] && !loadedTabs[key]
 
   const handleOpenEdit = () => {
     setEditForm({
@@ -189,6 +84,7 @@ export default function MyPage() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (imageBusy) return   // 사진 자르기·업로드 중엔 저장(=모달 닫기)하지 않음 — 작업 유실 방지
     if (!editForm.nickname?.trim()) { setEditError('닉네임을 입력해주세요.'); return }
     setEditSubmitting(true)
     setEditError('')
@@ -220,10 +116,12 @@ export default function MyPage() {
   const tabCount: Record<string, string> = {
     works:      countOf('works'),
     assets:     countOf('assets'),
+    palettes:   countOf('palettes'),
     liked:      countOf('liked'),
     following:  followingCount.toString(),
     followers:  followerCount.toString(),
     saved:      countOf('saved'),
+    library:    countOf('library'),
     commission: countOf('commission'),
     blocked:    blocksLoaded ? (blockedUserIds.length + blockedTags.length).toString() : '—',
   }
@@ -307,6 +205,13 @@ export default function MyPage() {
             : <CardGrid variant="square">{assets.map(a => <AssetCard key={a.assetId} asset={a} />)}</CardGrid>
           )}
 
+          {/* 팔레트 탭 */}
+          {tab === 'palettes' && (
+            showSpinner('palettes') ? <GridSkeleton variant="square" />
+            : palettes.length === 0 ? <EmptyTab icon="color_lens" text="등록한 팔레트가 없습니다." action={{ to: '/community/palettes', label: '팔레트 둘러보기' }} />
+            : <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{palettes.map(p => <PaletteCard key={p.paletteId} palette={p} />)}</div>
+          )}
+
           {/* 좋아요 탭 */}
           {tab === 'liked' && (
             showSpinner('liked') ? <GridSkeleton variant="square" />
@@ -353,12 +258,56 @@ export default function MyPage() {
                   </div>
                 </Link>
               ))}
-              {loadedTabs.saved && projects.length === 0 && (
+              {isLoaded('saved') && projects.length === 0 && (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 gap-3">
                   <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>folder_open</span>
                   <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>저장된 프로젝트가 없습니다.</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 구매/받은 에셋 */}
+          {tab === 'library' && (
+            <div>
+              {/* 서브탭 — 커미션 탭과 같은 모양 */}
+              <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit"
+                style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
+                {(['purchased', 'free'] as const).map(sub => (
+                  <button key={sub}
+                    onClick={() => setLibrarySubTab(sub)}
+                    className="px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                    style={{
+                      background: librarySubTab === sub ? 'var(--color-primary)' : 'transparent',
+                      color: librarySubTab === sub ? '#fff' : 'var(--color-on-surface-variant)',
+                    }}>
+                    {sub === 'purchased' ? '구매' : '무료'}
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs"
+                      style={{ background: 'rgba(255,255,255,0.15)' }}>
+                      {libraryTotals ? libraryTotals[sub] : '—'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* 실패를 '없음'으로 보이지 않게 — 받은 적 없으면 실패 안내 또는 스켈레톤, 빈 상태 문구는 받은 뒤에만 */}
+              {loadFailed('library') ? (
+                <div role="alert" className="flex flex-col items-center justify-center py-24 gap-3">
+                  <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>cloud_off</span>
+                  <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>구매/받은 에셋을 불러오지 못했습니다.</p>
+                  <button type="button" onClick={() => reload('library')}
+                    className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
+                    style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
+                    다시 시도
+                  </button>
+                </div>
+              )
+                : !isLoaded('library') ? <GridSkeleton variant="square" />
+                : libraryItems.length === 0
+                  ? <EmptyTab icon="shopping_bag"
+                      text={librarySubTab === 'purchased' ? '아직 구매한 에셋이 없습니다.' : '아직 무료로 받은 에셋이 없습니다.'}
+                      action={{ to: '/assets', label: '에셋 스토어 보기' }} />
+                  : <CardGrid variant="square">{libraryItems.map(item => <LibraryAssetCard key={item.purchaseId} item={item} />)}</CardGrid>}
             </div>
           )}
 
@@ -392,6 +341,9 @@ export default function MyPage() {
               />
             </div>
           )}
+
+          {/* 계정 설정 */}
+          {tab === 'account' && <AccountSettings email={profile?.email} hasPassword={profile?.hasPassword} />}
 
           {/* 차단 관리 */}
           {tab === 'blocked' && (
@@ -495,6 +447,15 @@ export default function MyPage() {
               </button>
             </div>
 
+            <div className="mb-5">
+              <ProfileImageField
+                imageUrl={profile?.profileImageUrl ?? null}
+                nickname={profile?.nickname ?? ''}
+                onChanged={handleImageChanged}
+                onBusyChange={setImageBusy}
+              />
+            </div>
+
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
                 <label htmlFor="profile-edit-nickname" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>닉네임 *</label>
@@ -563,7 +524,7 @@ export default function MyPage() {
                   style={{ border: '1px solid var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
                   취소
                 </button>
-                <button type="submit" disabled={editSubmitting}
+                <button type="submit" disabled={editSubmitting || imageBusy}
                   className="flex-1 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50"
                   style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
                   {editSubmitting ? '저장 중...' : '저장'}

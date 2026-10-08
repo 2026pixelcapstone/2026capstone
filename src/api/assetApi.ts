@@ -58,6 +58,24 @@ export interface AssetCommentResponse {
   updatedAt: string
 }
 
+/** 구매/받은 에셋 카드 — 에셋 요약 + 획득 정보. assetStatus가 DELETED면 판매 중지(소유자는 계속 다운로드). */
+export interface LibraryAsset {
+  purchaseId: number
+  assetId: number
+  title: string
+  thumbnailUrl: string | null
+  authorId: number
+  authorNickname: string | null
+  authorProfileImageUrl: string | null
+  price: number
+  isFree: boolean
+  assetStatus: string
+  acquiredAt: string          // 구매일 또는 무료로 받은 날
+  pricePaid: number | null    // 실제 결제 금액, 무료 취득이면 null
+}
+
+export type LibraryType = 'PURCHASED' | 'FREE'
+
 // 평점 분포 — 고정 길이 [5★,4★,3★,2★,1★] (순서·길이 계약을 타입으로 고정)
 export type AssetRatingDistribution = [number, number, number, number, number]
 
@@ -149,9 +167,13 @@ export const assetApi = {
   updateAsset: (assetId: number, data: AssetUpdateRequest) =>
     api.patch<{ success: boolean; data: AssetResponse }>(`/api/assets/${assetId}`, data),
 
-  // 삭제
+  // 삭제 — 결제 이력이 있으면 완전 삭제 대신 판매 중지(discontinued=true)
   deleteAsset: (assetId: number) =>
-    api.delete<{ success: boolean }>(`/api/assets/${assetId}`),
+    api.delete<{ success: boolean; data: { discontinued: boolean } }>(`/api/assets/${assetId}`),
+
+  // 내 구매/받은 에셋 (로그인 필수) — PURCHASED=유료 구매, FREE=무료로 받은 것
+  getLibrary: (params: { type: LibraryType; page?: number; size?: number }) =>
+    api.get<{ success: boolean; data: PageResponse<LibraryAsset> }>('/api/assets/library', { params }),
 
   // 좋아요 토글
   toggleLike: (assetId: number) =>

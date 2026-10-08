@@ -124,6 +124,14 @@ export const galleryApi = {
   // Spring List<Long> 바인딩 위해 콤마 조인 문자열로 전송.
   // JSON 객체 키는 항상 문자열이라 Record<string, ...> (호출부에서 Number(id)로 변환).
   // 빈 배열 방어는 호출부(length>0 가드)에 맡김.
+  // 메인: 이번 주 인기 — 최근 days일 받은 좋아요순(자유·전용 합침), 모자라면 누적 좋아요순으로 채움(비로그인 허용)
+  getTrending: (params?: { days?: number; size?: number }) =>
+    api.get<{ success: boolean; data: GalleryPostSummary[] }>('/api/gallery/trending', { params }),
+
+  // 메인: 내가 팔로우한 작가들의 최신 공개 작품(로그인 필수)
+  getFollowingFeed: (params?: { page?: number; size?: number }) =>
+    api.get<{ success: boolean; data: PageResponse<GalleryPostSummary> }>('/api/gallery/following', { params }),
+
   getPortfolios: (authorIds: number[], perAuthor = 3) =>
     api.get<{ success: boolean; data: Record<string, GalleryPostSummary[]> }>(
       '/api/gallery/portfolios',
