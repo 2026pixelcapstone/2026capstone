@@ -63,8 +63,11 @@ export default function ChallengePage() {
       .finally(() => { if (gen === entryGen.current) setEntryLoading(false) })
   }, [])
 
+  // 챌린지·정렬이 바뀌면 진행 중 요청을 무효화(세대 증가)하고 목록을 비운 뒤 다시 로드 — 모든 경로에서 세대를 올린다
   useEffect(() => {
-    if (challengeId == null) { setEntries([]); setEntryLast(true); return }
+    entryGen.current++
+    setEntries([])
+    if (challengeId == null) { setEntryLast(true); setEntryLoading(false); return }
     loadEntries(challengeId, sort, 0)
   }, [challengeId, sort, loadEntries])
 
@@ -79,10 +82,12 @@ export default function ChallengePage() {
   }, [])
 
   // ── 차단 필터(로그인 + 차단 목록 로드 완료 시) ──
+  // 참가작 목록은 아예 빼고(순서가 결과가 아님), 지난 결과 톱3는 순위를 지키려 자리만 남기고 가린다(pixiv 뮤트 방식)
   const blockActive = isLoggedIn && blocksLoaded
-  const visibleEntries = useMemo(() => entries.filter(p =>
-    !blockActive || (!blockedUserIds.includes(p.authorId) && !p.tags?.some(t => blockedTags.includes(t)))),
-  [entries, blockActive, blockedUserIds, blockedTags])
+  const isBlockedPost = useCallback((p: GalleryPostSummary) =>
+    blockActive && (blockedUserIds.includes(p.authorId) || !!p.tags?.some(t => blockedTags.includes(t))),
+  [blockActive, blockedUserIds, blockedTags])
+  const visibleEntries = useMemo(() => entries.filter(p => !isBlockedPost(p)), [entries, isBlockedPost])
 
   // ── 연습 주제 뽑기 ──
   const [subject, setSubject] = useState<string | null>(null)
@@ -244,24 +249,28 @@ export default function ChallengePage() {
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-3">
-              {latest.winners.map(w => (
-                <div key={w.rank} className="flex flex-col gap-1.5">
-                  {w.post ? (
-                    <WorkTile post={w.post} />
-                  ) : (
-                    <div className="aspect-square rounded-lg border flex items-center justify-center text-xs text-center px-2" style={{ ...card, ...muted }}>
-                      볼 수 없는 작품
-                    </div>
-                  )}
-                  <p className="text-sm font-bold flex items-center gap-1">
-                    <span className="material-symbols-outlined text-base" style={{ color: RANK_COLORS[w.rank - 1] }}>workspace_premium</span>
-                    {w.rank}위
-                    <span className="text-xs font-normal truncate" style={muted}>
-                      {w.post ? `${w.post.authorNickname} · ` : ''}♥ {w.likeCount}
-                    </span>
-                  </p>
-                </div>
-              ))}
+              {latest.winners.map(w => {
+                // 삭제·비공개(post null) 또는 내가 차단한 작가 → 순위·좋아요는 남기고 작품·작가만 가림
+                const shown = w.post && !isBlockedPost(w.post) ? w.post : null
+                return (
+                  <div key={w.rank} className="flex flex-col gap-1.5">
+                    {shown ? (
+                      <WorkTile post={shown} />
+                    ) : (
+                      <div className="aspect-square rounded-lg border flex items-center justify-center text-xs text-center px-2" style={{ ...card, ...muted }}>
+                        {w.post ? '차단한 작가의 작품' : '볼 수 없는 작품'}
+                      </div>
+                    )}
+                    <p className="text-sm font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-base" style={{ color: RANK_COLORS[w.rank - 1] }}>workspace_premium</span>
+                      {w.rank}위
+                      <span className="text-xs font-normal truncate" style={muted}>
+                        {shown ? `${shown.authorNickname} · ` : ''}♥ {w.likeCount}
+                      </span>
+                    </p>
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -271,15 +280,16 @@ export default function ChallengePage() {
               <h3 className="text-sm font-bold mb-2">이전 챌린지</h3>
               <ul className="rounded-2xl border divide-y" style={{ ...card, borderColor: 'var(--color-outline)' }}>
                 {older.map(c => {
-                  const first = c.winners.find(w => w.rank === 1)
+                  const winner = c.winners.find(w => w.rank === 1)
+                  const first = winner?.post && !isBlockedPost(winner.post) ? winner.post : null   // 차단 작가는 가림
                   return (
                     <li key={c.challengeId} className="flex items-center gap-3 px-4 py-3" style={{ borderColor: 'var(--color-outline)' }}>
                       <span className="text-xs w-24 shrink-0" style={muted}>{formatKstDate(new Date(c.startsAt))} 주</span>
                       <span className="font-bold text-sm flex-1 truncate">{c.topic}</span>
-                      {first?.post ? (
-                        <Link to={`/gallery/${first.post.postId}`} className="text-xs flex items-center gap-1 hover:underline shrink-0">
+                      {first ? (
+                        <Link to={`/gallery/${first.postId}`} className="text-xs flex items-center gap-1 hover:underline shrink-0">
                           <span className="material-symbols-outlined text-sm" style={{ color: RANK_COLORS[0] }}>workspace_premium</span>
-                          {first.post.authorNickname}
+                          {first.authorNickname}
                         </Link>
                       ) : (
                         <span className="text-xs shrink-0" style={muted}>{c.winners.length === 0 ? '참가작 없음' : '—'}</span>
