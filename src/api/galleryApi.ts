@@ -48,6 +48,8 @@ export interface GalleryPostResponse extends GalleryPostSummary {
   fileUrl: string | null
   palette: PaletteData | null
   dedicatedVisibility: DedicatedVisibility | null
+  // 등록 시 '챌린지 참가'를 체크한 경우에만 옴(ChallengeEntryResult)
+  challengeEntryResult?: string | null
 }
 
 export interface GalleryCommentResponse {
@@ -82,6 +84,8 @@ export interface GalleryPostCreateRequest {
   fileUrl?: string
   palette?: PaletteData
   dedicatedVisibility?: DedicatedVisibility
+  // 이번 주 챌린지 참가 체크 — 조건이 안 맞으면 작품만 등록되고 응답 challengeEntryResult로 사유가 옴
+  challengeEntry?: boolean
 }
 
 export interface GalleryPostUpdateRequest {

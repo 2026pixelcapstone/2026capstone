@@ -14,6 +14,8 @@ export function notificationTargetPath(n: NotificationItem): string | null {
       return n.targetId != null ? `/commission/${n.targetId}` : null
     case 'REQUEST_POST':
       return n.targetId != null ? `/request-posts/${n.targetId}` : null
+    case 'CHALLENGE':
+      return '/community/challenge'
     default:
       return null
   }
@@ -37,6 +39,8 @@ export function notificationIcon(type: NotificationItem['type']): string {
       return 'task_alt'
     case 'COMMISSION_CANCELLED':
       return 'cancel'
+    case 'CHALLENGE_WINNER':
+      return 'emoji_events'
     default:
       return 'notifications'
   }

@@ -1,11 +1,4 @@
-/**
- * 주간 챌린지 — 지금은 화면 틀만(C-2 모양 잡기). 이번 주 주제는 하드코딩이고,
- * 나중에 AI 자동 생성 + 서버 저장으로 바뀌면 이 상수는 서버 응답으로 대체된다.
- */
-export const CURRENT_CHALLENGE = {
-  topic: '작은 생물',
-  description: '손바닥보다 작은 생물을 그려 보세요. 벌레, 달팽이, 작은 새, 상상 속 요정까지 무엇이든 좋아요.',
-}
+// 주간 챌린지 주제·기간은 서버(GET /api/challenges/current)에서 받는다. 여기엔 연습 주제 뽑기 목록만.
 
 /** 연습 주제 뽑기 — 소재 */
 export const PRACTICE_SUBJECTS = [

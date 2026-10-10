@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { challengeApi, type Challenge } from '../../api/challengeApi'
 import type { PaletteSummary } from '../../api/paletteApi'
 import type { PopularUser } from '../../api/userApi'
-import { CURRENT_CHALLENGE } from '../../constants/challenge'
 import { SHARED_CANVAS_PALETTE } from '../../constants/sharedCanvas'
-import { getChallengeWeek, getRemaining } from '../../lib/challengeWeek'
+import { getRemaining } from '../../lib/challengeWeek'
 import { drawPracticeTopic } from '../../lib/practiceTopic'
 import { PaletteStrip } from '../palette/PaletteCard'
 import { RailCard, gradientOf } from './MainShared'
@@ -25,7 +25,16 @@ export default function MainRightRail({ palettes, artists, loading }: MainRightR
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
   }, [])
-  const left = getRemaining(getChallengeWeek(now).end, now)
+  // 이번 주 챌린지(서버) — null이면 준비 중
+  const [challenge, setChallenge] = useState<Challenge | null>(null)
+  useEffect(() => {
+    let alive = true
+    challengeApi.getCurrent()
+      .then(res => { if (alive) setChallenge(res.data.data) })
+      .catch(() => { if (alive) setChallenge(null) })
+    return () => { alive = false }
+  }, [])
+  const left = challenge ? getRemaining(new Date(challenge.endsAt), now) : null
   const [topic, setTopic] = useState<{ subject: string; constraint: string } | null>(null)
   const muted = { color: 'var(--color-on-surface-variant)' }
 
@@ -37,8 +46,8 @@ export default function MainRightRail({ palettes, artists, loading }: MainRightR
         <p className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--color-warning)' }}>
           <span className="material-symbols-outlined text-base">emoji_events</span>이번 주 챌린지
         </p>
-        <p className="text-lg font-bold mt-1">{CURRENT_CHALLENGE.topic}</p>
-        <p className="text-xs mt-0.5" style={muted}>마감까지 {left.days}일 {left.hours}시간</p>
+        <p className="text-lg font-bold mt-1">{challenge ? challenge.topic : '준비 중'}</p>
+        {left && <p className="text-xs mt-0.5" style={muted}>마감까지 {left.days}일 {left.hours}시간</p>}
       </Link>
 
       {/* 연습 주제 뽑기 */}
