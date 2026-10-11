@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { challengeApi, type Challenge } from '../../api/challengeApi'
 import type { PaletteSummary } from '../../api/paletteApi'
 import type { PopularUser } from '../../api/userApi'
 import { SHARED_CANVAS_PALETTE } from '../../constants/sharedCanvas'
-import { getRemaining } from '../../lib/challengeWeek'
 import { drawPracticeTopic } from '../../lib/practiceTopic'
 import { PaletteStrip } from '../palette/PaletteCard'
 import { RailCard, gradientOf } from './MainShared'
@@ -18,38 +16,13 @@ interface MainRightRailProps {
 /** 공동 캔버스 미리보기용 작은 무늬(장식) — 실제 캔버스 데이터가 아님 */
 const CANVAS_PREVIEW = Array.from({ length: 8 * 16 }, (_, i) => SHARED_CANVAS_PALETTE[(i * 7 + Math.floor(i / 16) * 3) % SHARED_CANVAS_PALETTE.length])
 
-/** 메인 오른쪽 '커뮤니티' 레일 — 챌린지·연습 주제·인기 팔레트·공동 캔버스·인기 작가 */
+/** 메인 오른쪽 '커뮤니티' 레일 — 연습 주제·인기 팔레트·공동 캔버스·인기 작가 (이번 주 챌린지는 가운데 히어로로 이동) */
 export default function MainRightRail({ palettes, artists, loading }: MainRightRailProps) {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(id)
-  }, [])
-  // 이번 주 챌린지(서버) — null이면 준비 중
-  const [challenge, setChallenge] = useState<Challenge | null>(null)
-  useEffect(() => {
-    let alive = true
-    challengeApi.getCurrent()
-      .then(res => { if (alive) setChallenge(res.data.data) })
-      .catch(() => { if (alive) setChallenge(null) })
-    return () => { alive = false }
-  }, [])
-  const left = challenge ? getRemaining(new Date(challenge.endsAt), now) : null
   const [topic, setTopic] = useState<{ subject: string; constraint: string } | null>(null)
   const muted = { color: 'var(--color-on-surface-variant)' }
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 이번 주 챌린지 */}
-      <Link to="/community/challenge" className="rounded-xl border p-4 block hover:-translate-y-0.5 transition-transform"
-        style={{ background: 'color-mix(in srgb, var(--color-warning) 14%, var(--color-surface-container))', borderColor: 'var(--color-outline)' }}>
-        <p className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--color-warning)' }}>
-          <span className="material-symbols-outlined text-base">emoji_events</span>이번 주 챌린지
-        </p>
-        <p className="text-lg font-bold mt-1">{challenge ? challenge.topic : '준비 중'}</p>
-        {left && <p className="text-xs mt-0.5" style={muted}>마감까지 {left.days}일 {left.hours}시간</p>}
-      </Link>
-
       {/* 연습 주제 뽑기 */}
       <RailCard title="연습 주제 뽑기" icon="casino">
         <div className="flex items-center justify-between gap-2">

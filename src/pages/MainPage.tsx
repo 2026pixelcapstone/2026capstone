@@ -12,6 +12,7 @@ import { useActiveCommissions } from '../hooks/useActiveCommissions'
 import { useEmailGate } from '../hooks/useEmailGate'
 import MainLeftRail from '../components/main/MainLeftRail'
 import MainRightRail from '../components/main/MainRightRail'
+import MainChallengeHero from '../components/main/MainChallengeHero'
 import { SectionHeader, SkeletonCard, WorkTile, gradientOf } from '../components/main/MainShared'
 
 function formatServicePrice(s: ArtistServiceSummary) {
@@ -121,8 +122,7 @@ export default function MainPage() {
 
   // 로그인 사용자는 차단 목록 로드 완료까지 스켈레톤(차단 항목 깜빡임 방지)
   const showSkeleton = loading || (isLoggedIn && !blocksLoaded)
-  const hero = visibleTrending[0] ?? null
-  const trendingRest = visibleTrending.slice(1, 9)
+  const trendingTop = visibleTrending.slice(0, 8)
 
   const leftRailProps = { isLoggedIn, me, projects, active }
 
@@ -145,8 +145,8 @@ export default function MainPage() {
               <MainLeftRail variant="inline" {...leftRailProps} />
             </div>
 
-            {/* 히어로: 소개 + 이번 주 인기 1위 */}
-            <section aria-label="소개와 이번 주 인기 작품" className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-stretch">
+            {/* 히어로: 소개 + 이번 주 챌린지(1위 작품은 아래 '이번 주 인기'에 포함되므로 챌린지로 대체) */}
+            <section aria-label="소개와 이번 주 챌린지" className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-stretch">
               <div className="flex flex-col justify-center py-4">
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">픽셀아트 플랫폼</h1>
                 <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--color-on-surface-variant)' }}>
@@ -166,24 +166,7 @@ export default function MainPage() {
                 </div>
               </div>
 
-              {showSkeleton ? <SkeletonCard className="h-72 rounded-2xl" /> : !hero ? (
-                <div className="h-72 rounded-2xl flex items-center justify-center" style={{ background: 'var(--color-surface-container)' }}>
-                  <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>아직 인기 작품이 없습니다.</p>
-                </div>
-              ) : (
-                <Link to={`/gallery/${hero.postId}`} className="relative h-72 rounded-2xl overflow-hidden block group"
-                  style={{ background: hero.thumbnailUrl ? undefined : gradientOf(hero.postId) }}>
-                  {hero.thumbnailUrl && <img src={hero.thumbnailUrl} alt={hero.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }} />
-                  <div className="absolute bottom-5 left-5 right-5">
-                    <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-bold mb-2" style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-                      이번 주 인기 작품
-                    </span>
-                    <p className="text-2xl font-bold text-white line-clamp-1">{hero.title}</p>
-                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>by @{hero.authorNickname} · ♥ {hero.likeCount.toLocaleString()}</p>
-                  </div>
-                </Link>
-              )}
+              <MainChallengeHero waiting={showSkeleton} isVisible={notBlockedPost} />
             </section>
 
             {/* 팔로우한 작가의 새 작품(로그인) */}
@@ -205,13 +188,13 @@ export default function MainPage() {
             )}
 
             {/* 이번 주 인기 */}
-            {(showSkeleton || trendingRest.length > 0) && (
+            {(showSkeleton || trendingTop.length > 0) && (
               <section aria-label="이번 주 인기 작품">
                 <SectionHeader eyebrow="Trending" title="이번 주 인기" to="/gallery/free" linkLabel="갤러리" />
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {showSkeleton
                     ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} className="aspect-square" />)
-                    : trendingRest.map(p => <WorkTile key={p.postId} post={p} />)}
+                    : trendingTop.map(p => <WorkTile key={p.postId} post={p} />)}
                 </div>
               </section>
             )}
