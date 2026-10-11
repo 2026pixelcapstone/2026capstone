@@ -16,23 +16,27 @@ interface Props {
 
 /** 메인 히어로 오른쪽 — 이번 주 챌린지(주제·남은 시간·참가 수·참가작 미리보기) */
 export default function MainChallengeHero({ waiting, isVisible }: Props) {
-  // undefined = 로딩, null = 준비 중
+  // undefined = 로딩, null = 준비 중(서버가 '없음'이라고 답함). 조회 실패는 따로 — '준비 중'으로 오해하지 않게
   const [challenge, setChallenge] = useState<Challenge | null | undefined>(undefined)
+  const [challengeFailed, setChallengeFailed] = useState(false)
+  // 참가작 미리보기 요청 상태 — 빈 배열만으로는 '로딩 중·실패·정말 없음'을 구분할 수 없어서 분리
   const [entries, setEntries] = useState<GalleryPostSummary[]>([])
+  const [entriesState, setEntriesState] = useState<'loading' | 'ready' | 'failed'>('loading')
 
   useEffect(() => {
     let alive = true
     challengeApi.getCurrent()
-      .then(async res => {
-        const c = res.data.data
+      .then(res => {
         if (!alive) return
+        const c = res.data.data
         setChallenge(c)
         if (!c) return
         // 차단으로 빠질 수 있어 여유 있게 받아 앞에서 자른다
-        const list = await challengeApi.getEntries(c.challengeId, 'likes', 0, PREVIEW_COUNT * 2)
-        if (alive) setEntries(list.data.data.content)
+        challengeApi.getEntries(c.challengeId, 'likes', 0, PREVIEW_COUNT * 2)
+          .then(list => { if (alive) { setEntries(list.data.data.content); setEntriesState('ready') } })
+          .catch(() => { if (alive) setEntriesState('failed') })
       })
-      .catch(() => { if (alive) setChallenge(prev => prev === undefined ? null : prev) })
+      .catch(() => { if (alive) setChallengeFailed(true) })
     return () => { alive = false }
   }, [])
 
@@ -42,7 +46,7 @@ export default function MainChallengeHero({ waiting, isVisible }: Props) {
     return () => clearInterval(id)
   }, [])
 
-  if (waiting || challenge === undefined) return <SkeletonCard className="h-72 rounded-2xl" />
+  if (waiting || (challenge === undefined && !challengeFailed)) return <SkeletonCard className="h-72 rounded-2xl" />
 
   const frame = 'min-h-72 rounded-2xl border p-5 flex flex-col'
   const frameStyle = {
@@ -56,6 +60,20 @@ export default function MainChallengeHero({ waiting, isVisible }: Props) {
     </p>
   )
 
+  // 조회 실패 — '준비 중'이 아니라 불러오지 못했다고 알리고, 챌린지 페이지로는 갈 수 있게
+  if (challengeFailed || challenge === undefined) {
+    return (
+      <div className={frame} style={frameStyle}>
+        {eyebrow}
+        <p className="text-lg font-bold mt-2">챌린지 정보를 불러오지 못했어요</p>
+        <p className="text-sm mt-1" style={muted}>잠시 후 다시 확인해 주세요.</p>
+        <Link to="/community/challenge" className="mt-auto self-start text-sm font-bold hover:underline" style={{ color: 'var(--color-primary)' }}>
+          챌린지 페이지로 →
+        </Link>
+      </div>
+    )
+  }
+
   if (challenge === null) {
     return (
       <div className={frame} style={frameStyle}>
@@ -68,6 +86,28 @@ export default function MainChallengeHero({ waiting, isVisible }: Props) {
 
   const left = getRemaining(new Date(challenge.endsAt), now)
   const preview = entries.filter(isVisible).slice(0, PREVIEW_COUNT)
+  // 미리보기 자리: 로딩 중엔 스켈레톤, 실패하면 비워 둠(버튼으로 이동 가능),
+  // 참가작은 있는데 전부 가려졌으면(차단) '없음'이 아니라 챌린지 페이지 안내
+  let previewArea
+  if (entriesState === 'loading') {
+    previewArea = (
+      <div className="grid grid-cols-4 gap-2">
+        {Array.from({ length: PREVIEW_COUNT }, (_, i) => <SkeletonCard key={i} className="aspect-square rounded-lg" />)}
+      </div>
+    )
+  } else if (entriesState === 'failed') {
+    previewArea = null
+  } else if (preview.length > 0) {
+    previewArea = (
+      <div className="grid grid-cols-4 gap-2">
+        {preview.map(p => <WorkTile key={p.postId} post={p} />)}
+      </div>
+    )
+  } else if (challenge.entryCount > 0) {
+    previewArea = <p className="text-sm" style={muted}>참가작은 챌린지 페이지에서 볼 수 있어요.</p>
+  } else {
+    previewArea = <p className="text-sm" style={muted}>아직 참가작이 없어요. 첫 참가작을 올려 보세요.</p>
+  }
 
   return (
     <div className={frame} style={frameStyle}>
@@ -79,15 +119,7 @@ export default function MainChallengeHero({ waiting, isVisible }: Props) {
         <span>참가작 {challenge.entryCount}</span>
       </p>
 
-      <div className="mt-4 flex-1">
-        {preview.length > 0 ? (
-          <div className="grid grid-cols-4 gap-2">
-            {preview.map(p => <WorkTile key={p.postId} post={p} />)}
-          </div>
-        ) : (
-          <p className="text-sm" style={muted}>아직 참가작이 없어요. 첫 참가작을 올려 보세요.</p>
-        )}
-      </div>
+      <div className="mt-4 flex-1">{previewArea}</div>
 
       <Link to="/community/challenge"
         className="mt-4 self-start flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
