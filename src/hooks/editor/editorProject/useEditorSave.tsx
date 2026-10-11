@@ -1,10 +1,8 @@
-import { getCacheKey } from "../../utils/editorUtils";
-import { CanvasSaveRequest, editorApi, FrameSaveRequest, LayerSaveRequest } from "../../api/editorApi";
-import { CanvasState, LayerData, SaveData} from "../../type/editor";
-import { toast } from "../../store/toastStore";
-import { useCallback, useState } from "react";
-import api from "../../lib/axios";
-import { SetURLSearchParams } from "react-router-dom";
+import { getCacheKey } from "../../../utils/editorUtils";
+import { CanvasSaveRequest, editorApi, FrameSaveRequest, LayerSaveRequest } from "../../../api/editorApi";
+import { CanvasState, LayerData} from "../../../type/editor";
+import { useCallback, useRef, useState } from "react";
+import api from "../../../lib/axios";
 import Konva from "konva";
 
 // 추후 팀원과 상의하여 외부 파일에 정의할 수도 있음
@@ -13,50 +11,33 @@ interface BulkUploadResponse {
   data: string[]; // 업로드된 파일들의 URL 배열
 }
 
-export interface UseEditorProps{
-    stageRef: React.RefObject<Konva.Stage | null>;
-    layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>,
-    state: CanvasState;
-    //zoom: number;
-    isLoggedIn: boolean;
-    setUnsaved: (unsaved: boolean) => void;
-    setSearchParams: SetURLSearchParams;
+interface SaveProjectResult{
+    projectId: number;
+    title: string;
+    isPublic: boolean;
 }
 
-export const useEditor = ({
+export interface UseEditorProps{
+    stageRef: React.RefObject<Konva.Stage | null>;
+    peekLayerCanvas: (cacheKey: string) => HTMLCanvasElement | null;
+}
+
+export const useEditorSave = ({
     stageRef,
-    layerCanvasRefs,
-    state,
-    isLoggedIn,
-    setUnsaved,
-    setSearchParams,
+    peekLayerCanvas,
 }: UseEditorProps) => {
-    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-    const [projectId, setProjectId]       = useState<number | null>(null);
-    const [projectTitle, setProjectTitle] = useState('Untitled Project');
-    const [editingTitle, setEditingTitle] = useState(false);
-    const [saving, setSaving]              = useState(false);
+    const [saving, setSaving] = useState(false);
+    const savingRef = useRef(false);
 
     // ── 프로젝트 서버 저장 로직 ──────────────────────────────────────────
-    const handleSave = useCallback(async (saveData?: SaveData) => {
-        if (!isLoggedIn) { 
-            toast.error('로그인이 필요합니다.'); 
-            return; 
-        }
-        if (saving) return;
+    const saveProject = useCallback(async (projectId: number | null, state: CanvasState, nextTitle: string, isNextPublic: boolean) 
+    : Promise<SaveProjectResult | null> => {
+        if (savingRef.current) return null;
 
         const canvas = stageRef.current;
-        if (!canvas) return;
+        if (!canvas) return null;
 
-        const nextTitle = saveData?.title.trim() || projectTitle.trim();
-        const nextIsPublic = saveData?.isPublic || false;
-
-        if (!nextTitle) {
-            toast.error('프로젝트 이름을 입력해주세요');
-            return; // 여기서는 아직 setSaving(true) 전이므로 안전하게 탈출합니다.
-        }
-
-
+        savingRef.current = true;
         setSaving(true); // 가드 검사가 완전히 끝난 이 시점에 확실하게 한 번만 락을 겁니다.
         
         try {
@@ -70,27 +51,25 @@ export const useEditor = ({
                 quality: 0.7,
                 pixelRatio: 1
             });
-            // fetch: 특정 URL로 네트워크 요청을 보내게 해줌 단, URL 앞에 접두사에 따라 메모리에서 바로 읽게 할 수도 있음
-            const thumbResponse = await fetch(thumDataURL); // 접두사가 data:으로 시작할 때는 URL 내부 데이터를 가공한다
-            const thumbnailBlob = await thumbResponse.blob();
-            uploadFormData.append('files', thumbnailBlob, 'thumbnail.webp'); // files : thumbnailBlob (as thumbnail.webp) -> R2가 files 감지
-
-            // 2. 각 프레임의 레이어 순회 및 블롭 바이너리 축적
-            for (const frame of state.frames) {
-                for (const layer of frame.layers) {
-                    const layerKey = getCacheKey(frame.id, layer.id);
-                    const layerCanvas = layerCanvasRefs.current[layerKey];
-                    
-                    if (layerCanvas) {
-                        const layerDataURL = layerCanvas.toDataURL('image/webp', 0.6);
-                        const layerResponse = await fetch(layerDataURL);
-                        const layerBlob = await layerResponse.blob();
-
-                        // files : layerBlob(as layer_${fIdx}_${layer.id}.webp) -> R2가 files 감지
-                        uploadFormData.append('files', layerBlob, `layer_${frame.id}_${layer.id}.webp`); 
-                        uploadedLayerKeys.push(layerKey);
-                    }
-                }
+            // 첫 await 전에 모든 캐시 이미지를 캡처합니다.
+            const snapshots = state.frames.flatMap(frame => frame.layers.map(layer => {
+                const key = getCacheKey(frame.id, layer.id);
+                const cachedCanvas = peekLayerCanvas(key);
+                return { key, source: cachedCanvas
+                    //? cachedCanvas.toDataURL('image/webp', 0.6)
+                    ? cachedCanvas.toDataURL('image/png')
+                    : layer.pixelData };
+            }));
+            const thumbnailBlob = await (await fetch(thumDataURL)).blob();
+            uploadFormData.append('files', thumbnailBlob, 'thumbnail.webp');
+            for (const { key, source } of snapshots) {
+                if (!source?.trim()) continue;
+                const response = await fetch(source);
+                if (!response.ok) throw new Error(`레이어 이미지 읽기 실패: ${key}`);
+                const blob = await response.blob();
+                const extension = blob.type === 'image/webp' ? 'webp' : 'png';
+                uploadFormData.append('files', blob, `layer_${key}.${extension}`);
+                uploadedLayerKeys.push(key);
             }
 
             // 3. 파일 서버 대량(Bulk) 업로드 프로세스(이미지 저장)
@@ -110,7 +89,7 @@ export const useEditor = ({
                 ? rawList
                 : null;
                 
-            if (!fileList || fileList.length === 0) {
+            if (!fileList || fileList.length !== uploadedLayerKeys.length + 1) {
                 throw new Error('파일 업로드 응답이 유효하지 않습니다.');
             }
             
@@ -134,18 +113,20 @@ export const useEditor = ({
                     title: nextTitle,
                     width: state.width,
                     height: state.height,
-                    isPublic: nextIsPublic,
+                    isPublic: isNextPublic,
                     thumbnailUrl: uploadedThumbUrl
                 });
                 pid = res.data.data.projectId;
-                setProjectId(pid);
-                setSearchParams({ projectId: String(pid) }, { replace: true });
+                nextTitle = res.data.data.title;
+                isNextPublic = res.data.data.isPublic; 
             } else {
-                await editorApi.updateProject(pid, {
+                const res = await editorApi.updateProject(pid, {
                     title: nextTitle,
-                    isPublic: nextIsPublic,
+                    isPublic: isNextPublic,
                     thumbnailUrl: uploadedThumbUrl,
                 });
+                nextTitle = res.data.data.title;
+                isNextPublic = res.data.data.isPublic;
             }
 
             // 5. 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브
@@ -178,40 +159,25 @@ export const useEditor = ({
             }
             
             await editorApi.saveCanvasData(pid, canvasSaveRequest);
-            setUnsaved(false);
-            toast.success('성공적으로 저장되었습니다.');
+            
+            return {
+                projectId: pid,
+                title: nextTitle,
+                isPublic: isNextPublic,
+            };
         }
-        catch (error: any) {
+        catch (error) {
             console.error("저장 중 에러 발생", error);
-            toast.error('저장에 실패했습니다.');
+            throw error;
         }
         finally {
+            savingRef.current = false;
             setSaving(false); // 성공하든 실패하든 무조건 락을 해제하여 다음 저장을 허용합니다.
         }
+    }, [stageRef, peekLayerCanvas])
 
-    }, [isLoggedIn, saving, projectId, projectTitle, state.width, state.height, stageRef, setSearchParams, state.frames, layerCanvasRefs])
-
-    const openSaveModal = useCallback(() => {
-        if (!isLoggedIn) {
-            toast.error('로그인이 필요합니다.');
-            return;
-        }
-        setIsSaveModalOpen(true);
-    }, [isLoggedIn]);
-
-    // ── [ 컴포넌트가 사용할 무기들을 반환] ──────────────────
     return {
-        isSaveModalOpen,
-        setIsSaveModalOpen,
-        projectId,
-        setProjectId,
-        projectTitle,
-        setProjectTitle,
-        editingTitle,
-        setEditingTitle,
         saving,
-        handleSave,
-        openSaveModal,
-        layerCanvasRefs
+        saveProject,
     };
 };

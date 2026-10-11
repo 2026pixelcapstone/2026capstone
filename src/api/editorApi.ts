@@ -1,3 +1,4 @@
+import { AxiosRequestConfig } from 'axios'
 import api from '../lib/axios'
 import type { PageResponse } from './galleryApi'
 
@@ -93,8 +94,8 @@ export const editorApi = {
     api.post<{ success: boolean; data: ProjectResponse }>('/api/editor/projects', data),
 
   // 프로젝트 상세 (캔버스 데이터 포함)
-  getProject: (projectId: number) =>
-    api.get<{ success: boolean; data: ProjectResponse }>(`/api/editor/projects/${projectId}`),
+  getProject: (projectId: number,  config?: AxiosRequestConfig) =>
+    api.get<{ success: boolean; data: ProjectResponse }>(`/api/editor/projects/${projectId}`, config),
 
   // 프로젝트 메타 수정
   updateProject: (projectId: number, data: ProjectUpdateRequest) =>

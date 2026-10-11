@@ -148,5 +148,8 @@ export const useLayers = ({
         setUnsaved(true);
     },[setWithHistory])
     
-    return { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers};
+    const resetLayerCounters = useCallback(() => {
+        layerCountersRef.current = {};
+    }, [layerCountersRef]);
+    return { addLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters};
 }

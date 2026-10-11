@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import {SaveData} from '../../type/editor';
+import {SaveModelData} from '../../type/editor';
 
 // 모달에 관한 함수
 export interface SaveProjectModeProps{
     isOpen: boolean; // 모달이 열려있는지 여부
     onClose: () => void; // 모달을 닫는 함수
-    onSave:(projectData: SaveData) => void; // 최종 저장을 처리할 함수
+    onSave:(projectData: SaveModelData) => void; // 최종 저장을 처리할 함수
     initialTitle?:string;
     initialIsPublic?: boolean;
     saving?: boolean; // 저장 중 상태를 나타내는 플래그
@@ -46,7 +46,7 @@ export default function EditorSaveProjectModal({
         alert('프로젝트 이름을 입력해주세요.');
         return;
         }
-        // 부모에게 데이터 전달
+
         onSave({ title, isPublic });
     };
     return (

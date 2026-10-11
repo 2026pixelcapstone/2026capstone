@@ -12,7 +12,7 @@ interface UseAnimationProps{
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export function useAnimation({
+export function useFrame({
     frames, 
     activeFrameId,
     setWithHistory, 

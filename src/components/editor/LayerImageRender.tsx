@@ -9,17 +9,20 @@ interface LayerRendererProps {
     canvasW: number;
     canvasH: number;
     currentFrameId: string | null;
-    layerCanvasRefs: React.RefObject<Record<string, HTMLCanvasElement>>;
+    ensureLayerCanvas: (cacheKey: string) => HTMLCanvasElement;
+    peekLayerCanvas: (cacheKey: string) => HTMLCanvasElement | null;
     isScaleImage: boolean;
 }
 
+// 각 레이어의 이미지를 렌더링하는 컴포넌트
 export const LayerImageRenderer = ({
   layerId,
   pixelData,
   canvasW,
   canvasH,
   currentFrameId,
-  layerCanvasRefs,
+  ensureLayerCanvas,
+  peekLayerCanvas,
   isScaleImage
 }: LayerRendererProps) => {
     
@@ -29,20 +32,17 @@ export const LayerImageRenderer = ({
     
     // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
     useLayoutEffect(() => {
-        if (!cacheKey || !layerCanvasRefs.current) return;
-        if (!layerCanvasRefs.current[cacheKey]) {
-            const canvas = document.createElement('canvas');
-            canvas.width = canvasW;
-            canvas.height = canvasH;
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            if (ctx) ctx.imageSmoothingEnabled = false;
-        
-            layerCanvasRefs.current[cacheKey] = canvas;
+        if (!cacheKey) return;
+        const existingCanvas = peekLayerCanvas(cacheKey);
+        let canvas: HTMLCanvasElement;
+        if (!existingCanvas) {           
+            canvas = ensureLayerCanvas(cacheKey);
         } else {
+            canvas = existingCanvas;
             // 크기 변경 버튼을 눌러 canvasW/H가 바뀌었을 때 
             // 런타임에 멈춰있는 기존 가상 캔버스의 하드웨어 해상도 크기를 즉시 리사이징합니다!
-            const existingCanvas = layerCanvasRefs.current[cacheKey];
-            if (existingCanvas && (existingCanvas.width !== canvasW || existingCanvas.height !== canvasH)) {
+            // 훅으로 리사이즈 정책을 옮기기 전까지 확대/가운데 정렬을 여기서 유지합니다.
+            if (existingCanvas.width !== canvasW || existingCanvas.height !== canvasH) {
                 
                 // 그림을 임시 가상 캔버스에 백업
                 const tempCanvas = document.createElement('canvas');
@@ -73,14 +73,16 @@ export const LayerImageRenderer = ({
                 }
             }
         }
-    },[cacheKey, canvasW, canvasH, layerCanvasRefs, isScaleImage])
+        imageRef.current?.image(canvas);
+        imageRef.current?.getLayer()?.batchDraw();
+    },[cacheKey, canvasW, canvasH, peekLayerCanvas, ensureLayerCanvas, isScaleImage])
  
 
     // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.
     useEffect(() => {
-        if(!cacheKey || !layerCanvasRefs.current) return;
+        if (!cacheKey) return;
         
-        const cachedCanvas = layerCanvasRefs.current[cacheKey];
+        const cachedCanvas = peekLayerCanvas(cacheKey);
         if (!cachedCanvas) return;
 
         const ctx = cachedCanvas.getContext('2d', { willReadFrequently: true });
@@ -98,7 +100,9 @@ export const LayerImageRenderer = ({
 
         // 순수한 Base64 문자열이므로 복잡한 JSON 파싱 없이 다이렉트로 복원 진행
         const img = new Image();
+        let cancelled = false;
         img.onload = () => {
+            if (cancelled || peekLayerCanvas(cacheKey) !== cachedCanvas) return;
             ctx.imageSmoothingEnabled = false;
             ctx.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
             ctx.drawImage(img, 0, 0, img.width, img.height);
@@ -106,17 +110,20 @@ export const LayerImageRenderer = ({
             imageRef.current?.getLayer()?.batchDraw(); // 스크린에 버퍼 스왑
         };
         img.src = pixelData;
-    }, [cacheKey, pixelData])
+        return () => {
+            cancelled = true;
+            img.onload = null;
+        };
+    }, [cacheKey, pixelData, peekLayerCanvas])
     
-    if(!cacheKey || !currentFrameId || !layerCanvasRefs.current){
-        return;
+    if (!cacheKey) {
+        return null;
     }
-    const myCanvas = layerCanvasRefs.current[cacheKey];
 
     return (
         <KonvaImage
             ref={imageRef}
-            image={myCanvas}
+            image={undefined}
             x={0}
             y={0}
             width={canvasW}
