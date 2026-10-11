@@ -10,6 +10,7 @@ export type NotificationType =
   | 'COMMISSION_REVIEW'
   | 'COMMISSION_COMPLETED'
   | 'COMMISSION_CANCELLED'
+  | 'CHALLENGE_WINNER'      // 시스템 알림(보낸 사람 없음)
 
 // 클릭 시 이동 분기 키 — 백엔드 NotificationType.targetType
 export type NotificationTargetType =
@@ -18,6 +19,7 @@ export type NotificationTargetType =
   | 'USER'
   | 'COMMISSION'
   | 'REQUEST_POST'
+  | 'CHALLENGE'
 
 export interface NotificationItem {
   notificationId: number

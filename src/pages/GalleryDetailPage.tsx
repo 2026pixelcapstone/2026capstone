@@ -9,6 +9,7 @@ import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { downloadFileForced } from '../lib/download'
 import Dropdown from '../components/GalleryDetailDropdown';
 import GalleryCreateModal from '../components/GalleryCreateModal'
+import ChallengeEntryCard from '../components/challenge/ChallengeEntryCard'
 
 export default function GalleryDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -583,6 +584,9 @@ export default function GalleryDetailPage() {
               )}
             </div>
           </div>
+
+          {/* 이번 주 챌린지 참가·교체·취소 (작성자 본인, 조건 맞을 때만 그려짐) */}
+          {isOwner && <ChallengeEntryCard post={post} />}
 
           {/* ── 전용 갤러리: 팔레트 ── */}
           {showPalette && (
