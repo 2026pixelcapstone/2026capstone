@@ -19,7 +19,8 @@ AI 어시스턴트 기반 픽셀아트 일관성 관리 및 에셋 생태계 플
 | State | Zustand (persist) |
 | HTTP | Axios |
 | Realtime | `@stomp/stompjs` — 커미션 채팅(WebSocket) |
-| 기타 | `gifenc` — `.ppit` 애니메이션 GIF 렌더 |
+| Payment | 토스페이먼츠 결제창 SDK(테스트 모드) |
+| 기타 | `gifenc` — `.ppit` 애니메이션 GIF 렌더, `react-easy-crop` — 프로필 사진 자르기 |
 
 ---
 
@@ -97,7 +98,7 @@ cd backend/server
 
 백엔드 기본 포트: `http://localhost:8080`
 
-> 처음 실행 시 Flyway가 **V1~V27** 마이그레이션을 자동 실행 → 테이블 + 테스트 데이터 생성됨.
+> 처음 실행 시 Flyway가 **V1~V39** 마이그레이션을 자동 실행 → 테이블 + 시드 데이터(카테고리·공식 팔레트·챌린지 주제 등) 생성됨.
 
 ---
 
@@ -113,6 +114,21 @@ cd backend/server
 ---
 
 ### 테스트 계정
+
+**프로덕션(`https://pixelpilot.art`)** — 공통 비밀번호 `PixelTest!2026`, 테스트 데이터가 채워진 계정(결제는 토스 테스트 모드)
+
+| 이메일 | 닉네임 | 시드 역할 |
+|---|---|---|
+| dot_master@test.pixelpilot.art | 도트장인 | 작가 |
+| pixel_bear@test.pixelpilot.art | 픽셀곰 | 작가 |
+| retro_cat@test.pixelpilot.art | 레트로냥 | 작가 |
+| dungeon_keep@test.pixelpilot.art | 던전지기 | 작가 |
+| ninja_artist@test.pixelpilot.art | 닌자작가 | 의뢰자 |
+| palette_fairy@test.pixelpilot.art | 팔레트요정 | 의뢰자 |
+| sprite_lover@test.pixelpilot.art | 스프라이트러버 | 의뢰자 |
+| dawn_dot@test.pixelpilot.art | 새벽도트 | 의뢰자 |
+
+**로컬(Flyway V8 시드)**
 
 | 이메일 | 비밀번호 | 닉네임 |
 |---|---|---|
