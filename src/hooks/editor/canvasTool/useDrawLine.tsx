@@ -1,4 +1,4 @@
-import { Point } from "../../type/editor";
+import { Point } from "../../../type/editor";
 import { useCallback, useRef } from "react";
 
 export interface DrawLineOptions{

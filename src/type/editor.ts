@@ -1,3 +1,13 @@
+
+export interface LoadedEditorProject{
+  projectId: number;
+  title: string;
+  width: number;
+  height: number;
+  frames: FrameData[];
+  isPublic: boolean;
+  
+}
 //  ── Canvas Object Type ──────────────────────────────────────────────
 export interface CanvasState{
   frames: FrameData[];
@@ -30,7 +40,7 @@ export interface CanvasSize{
   height: number;
 }
 
-export interface SaveData{
+export interface SaveModelData{
     title: string;
     isPublic: boolean;
 }
