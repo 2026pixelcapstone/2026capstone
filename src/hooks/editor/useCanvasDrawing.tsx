@@ -65,8 +65,7 @@ export function useCanvasDrawing({
       }, [state.width, state.height])
       
       //-------- 마우스 동작 -----------
-      const handleMouseDown = () => {
-        isDrawing.current = true;        
+      const handleMouseDown = () => {     
         const pos = getPixel();
 
         if(!pos || !activeFrameId || !activeLayerId) return;

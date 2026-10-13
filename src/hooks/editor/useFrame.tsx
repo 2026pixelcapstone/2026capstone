@@ -89,7 +89,7 @@ export function useFrame({
         }));
 
         setUnsaved(true);
-    }, [frames, activeFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
+    }, [frames, activeFrameId, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
 
 
     /**

@@ -122,6 +122,8 @@ export const useEditorSave = ({
             } else {
                 const res = await editorApi.updateProject(pid, {
                     title: nextTitle,
+                    width: state.width,
+                    height: state.height,
                     isPublic: isNextPublic,
                     thumbnailUrl: uploadedThumbUrl,
                 });

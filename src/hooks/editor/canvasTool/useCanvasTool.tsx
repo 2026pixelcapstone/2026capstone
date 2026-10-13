@@ -55,7 +55,7 @@ export function useCanvasTool({
           const g = parseInt(fgColor.slice(3, 5), 16);
           const b = parseInt(fgColor.slice(5, 7), 16);
           // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성, >>> 0 추가하여 Uint32 형태의 양수로 반환
-          const fillColor = (255 << 24) | (b << 16) | (g << 8) | r >>> 0;
+          const fillColor = ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
           
           if (targetColor === fillColor) {
             return;

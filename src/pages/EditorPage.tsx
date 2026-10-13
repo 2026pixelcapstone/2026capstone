@@ -1597,7 +1597,7 @@ export default function EditorPage() {
           {/* 레이어 섹션 */}
           <div className="p-4 flex-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>{currentFrame.layers.length} Layers</div>
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>{currentFrame.layers.length} Layer{currentFrame.layers.length === 1 ? '' : 's'}</div>
               <div className="flex gap-1">
                 {layerButtons.map(([icon,tip, handler]) => (
                   <button key={icon} title={tip}

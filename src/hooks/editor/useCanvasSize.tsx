@@ -2,7 +2,7 @@ import { toast } from "../../store/toastStore";
 import { MAX_CANVAS_SIZE } from "../../constants/editor/editor";
 import { CanvasState, FrameData } from "../../type/editor";
 import { getCacheKey } from "../../utils/editorUtils";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 interface UseCanvasSize{
     width: number;
@@ -24,6 +24,24 @@ export function useCanvasSize({
     const [customW, setCustomW] = useState(32);
     const [customH, setCustomH] = useState(32);
     const [isScaleImage, setIsScaleImage] = useState(false);
+    const latestCanvas = useRef({ width, height, frame });
+    const resizeRequestId = useRef(0);
+    const [pendingResize, setPendingResize] = useState<FrameData[] | null>(null);
+
+    useLayoutEffect(() => {
+        latestCanvas.current = { width, height, frame };
+    }, [width, height, frame]);
+
+    useEffect(() => () => {
+        resizeRequestId.current += 1;
+    }, []);
+
+    // 리듀서에서 실제로 적용된 결과만 미저장 상태로 표시합니다.
+    useEffect(() => {
+        if (!pendingResize) return;
+        if (frame === pendingResize) setUnsaved(true);
+        setPendingResize(null);
+    }, [frame, pendingResize, setUnsaved]);
 
     // --------  state.width/height 변경 시 CustomW/H 동기화 -----------
     useEffect(() => {
@@ -74,6 +92,7 @@ export function useCanvasSize({
 
     // -------- 캔버스 크기 변경 -----------
     const applyCanvasSize = useCallback(async (w: number, h: number) => {
+        const requestId = ++resizeRequestId.current;
         if(width === w && height === h) return;
 
         try{
@@ -92,16 +111,24 @@ export function useCanvasSize({
                     ),
                 }))
             )
+            // 이미지 로딩 중 편집되었거나 더 최신 요청이 있으면 결과를 버립니다.
+            const latest = latestCanvas.current;
+            if (requestId !== resizeRequestId.current ||
+                latest.frame !== frame || latest.width !== width || latest.height !== height) return;
+
             setWithHistory((prev) => {
-            return {
-                ...prev,
-                width: w,
-                height: h,
-                frames: resizeFrame,
-            };
+                // 아직 렌더되지 않은 편집 액션도 리듀서의 최신 상태로 검사합니다.
+                if (prev.frames !== frame || prev.width !== width || prev.height !== height) return prev;
+                return {
+                    ...prev,
+                    width: w,
+                    height: h,
+                    frames: resizeFrame,
+                };
             })
-            setUnsaved(true); // 서버 저장 여부
+            setPendingResize(resizeFrame);
         }catch(err){
+            if (requestId !== resizeRequestId.current) return;
             toast.error(err instanceof Error ? err.message : '크기를 변경하지 못했습니다.');
         }
         

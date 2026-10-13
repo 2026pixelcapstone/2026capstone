@@ -64,8 +64,15 @@ export function useLayerCanvas({
 
     // ------- 레이어 캔버스 조회 -----------
     const peekLayerCanvas = useCallback((cacheKey: string) => {
-        return layerCanvasRefs.current[cacheKey] || null;
-    }, [layerCanvasRefs])
+        const canvas = layerCanvasRefs.current[cacheKey];
+        if (!canvas) return null;
+        // 리사이즈 전의 캐시 대신 최신 pixelData를 사용하도록 합니다.
+        if (canvas.width !== width || canvas.height !== height) {
+            delete layerCanvasRefs.current[cacheKey];
+            return null;
+        }
+        return canvas;
+    }, [width, height])
 
     // ------- 레이어 캔버스 삭제 -----------
     const clearLayerCanvas = useCallback((cacheKey: string) => {

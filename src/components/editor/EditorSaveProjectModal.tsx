@@ -94,6 +94,7 @@ export default function EditorSaveProjectModal({
                         <button 
                             type="button"
                             className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
+                            disabled={saving}
                             onMouseEnter={() => setIsCancelHovered(true)}
                             onMouseLeave={() => setIsCancelHovered(false)}
                             onClick={() => {
@@ -101,7 +102,7 @@ export default function EditorSaveProjectModal({
                             }} 
                             style={{
                                 ...styles.cancelButton,
-                                backgroundColor: isCancelHovered ? '#0056b3' : '#007bff',
+                                backgroundColor: saving ? '#9ca3af': isCancelHovered ? '#0056b3' : '#007bff',
                                 color: '#ffffff',
                             }}
                         >
@@ -122,6 +123,7 @@ export default function EditorSaveProjectModal({
                                 ...styles.saveButton,
                                 // 배경색: 비활성화면 회색, 활성화 상태에서 호버 시 오로라 그라데이션, 기본은 파랑
                                 background: !title.trim()
+                                    ? '#9ca3af' : saving 
                                     ? '#9ca3af'
                                     : isSaveHovered
                                     ? '#0056b3' : '#007bff',

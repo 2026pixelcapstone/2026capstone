@@ -57,6 +57,8 @@ export interface ProjectCreateRequest {
 
 export interface ProjectUpdateRequest {
   title?: string
+  width?: number
+  height?: number
   thumbnailUrl?: string
   isPublic?: boolean
 }
