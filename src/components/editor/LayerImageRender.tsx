@@ -63,10 +63,13 @@ export const LayerImageRenderer = ({
 
         const img = new Image();
         img.onload = () => restore(img);
+        // 잘못된 이미지가 들어오면 이전 프레임 대신 빈 레이어를 표시합니다.
+        img.onerror = () => restore(null);
         img.src = pixelData;
         return () => {
             cancelled = true;
             img.onload = null;
+            img.onerror = null;
         };
     }, [cacheKey, pixelData, canvasW, canvasH, ensureLayerCanvas, preparedCanvas]);
 
