@@ -1,4 +1,4 @@
-import api from '../lib/axios'
+import api, { AI_TIMEOUT_MS } from '../lib/axios'
 
 /** 색 팔레트 추천 결과 — hex(#RRGGBB) 목록. */
 export interface PaletteSuggestResult {
@@ -25,17 +25,17 @@ export const aiApi = {
    * imageBase64는 data URL 접두어 포함/미포함 둘 다 허용(서버가 처리).
    */
   suggestPalette: (body: { imageBase64: string; currentColors: string[]; description?: string }) =>
-    api.post<{ success: boolean; data: PaletteSuggestResult }>('/api/ai/palette-suggest', body),
+    api.post<{ success: boolean; data: PaletteSuggestResult }>('/api/ai/palette-suggest', body, { timeout: AI_TIMEOUT_MS }),
 
   /**
    * 태그로 색 찾기 — 태그/키워드(이미지 없음)로 어울리는 색 팔레트 제안.
    */
   suggestPaletteByTags: (body: { tags: string[] }) =>
-    api.post<{ success: boolean; data: PaletteSuggestResult }>('/api/ai/palette-by-tags', body),
+    api.post<{ success: boolean; data: PaletteSuggestResult }>('/api/ai/palette-by-tags', body, { timeout: AI_TIMEOUT_MS }),
 
   /**
    * 컨셉 도우미 — 자연어 컨셉 설명으로 색 팔레트 + 우리 갤러리의 관련 작품 추천.
    */
   suggestConcept: (body: { description: string }) =>
-    api.post<{ success: boolean; data: ConceptResult }>('/api/ai/concept', body),
+    api.post<{ success: boolean; data: ConceptResult }>('/api/ai/concept', body, { timeout: AI_TIMEOUT_MS }),
 }

@@ -9,6 +9,8 @@ import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '../lib/fileValidation'
+import { challengeEntryMessage, type ChallengeEntryResult } from '../api/challengeApi'
+import ChallengeEntryCheckbox from './challenge/ChallengeEntryCheckbox'
 import {
   parsePpit, compositeAllFrames, renderThumbnailBlob, renderGifBlob, ppitTextToFile,
   type PpitFile,
@@ -65,6 +67,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
   const [submitting, setSubmitting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)   // 자유 갤러리 이미지 업로드 진행률(%)
   const [topTags, setTopTags] = useState<TagResponse[]>([])
+  const [challengeEntry, setChallengeEntry] = useState(false)   // 이번 주 챌린지 참가 체크(등록 모드만)
 
   // ── 태그 자동완성 ──
   const [tagSuggestions, setTagSuggestions] = useState<TagResponse[]>([])
@@ -108,6 +111,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
     setImages(prev => { prev.forEach(img => URL.revokeObjectURL(img.previewUrl)); return [] })
     setDraggingImg(false); setActiveIdx(0)
     setPpitInfo(null); setDraggingFile(false); setParseError(null)
+    setChallengeEntry(false)
     if (editPost) {
       setTitle(editPost.title)
       setDescription(editPost.description ?? '')
@@ -368,6 +372,15 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
     onUpdated?.(res.data.data); onClose()
   }
 
+  // 챌린지 참가는 공개 작품일 때만 요청, 결과는 등록 성공 토스트 뒤에 따로 안내(실패해도 작품은 등록됨)
+  const wantsChallenge = challengeEntry && visibility === 'PUBLIC'
+  const notifyChallengeResult = (res: GalleryPostResponse) => {
+    if (!wantsChallenge || !res.challengeEntryResult) return
+    const { ok, text } = challengeEntryMessage(res.challengeEntryResult as ChallengeEntryResult)
+    if (ok) toast.success(text)
+    else toast.error(text)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
@@ -399,8 +412,10 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           imageUrls,
           thumbnailUrl: imageUrls[0],
+          challengeEntry: wantsChallenge || undefined,
         })
         toast.success('게시글이 등록되었습니다.')
+        notifyChallengeResult(res.data.data)
         onClose()
         navigate(`/gallery/${res.data.data.postId}`)
         return
@@ -443,8 +458,10 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
         canvasHeight: ppit.canvas.height,
         palette: ppit.palette,
         dedicatedVisibility: dedVis,
+        challengeEntry: wantsChallenge || undefined,
       })
       toast.success('게시글이 등록되었습니다.')
+      notifyChallengeResult(res.data.data)
       onClose()
       navigate(`/gallery/${res.data.data.postId}`)
     } catch (err) {
@@ -672,6 +689,12 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
                 ))}
               </div>
             </div>
+
+            {/* 이번 주 챌린지 참가 (등록 모드만) */}
+            {!isEdit && (
+              <ChallengeEntryCheckbox visibility={visibility} checked={challengeEntry}
+                onChange={setChallengeEntry} accentColor={accentColor} />
+            )}
 
             {/* 공개 항목 토글 (전용 갤러리 전용) */}
             {!isFree && (

@@ -11,7 +11,7 @@ export type { ActiveCommission } from '../store/activeCommissionStore'
  *
  * 실제 조회·상태는 `activeCommissionStore`가 소유하며, 이 훅은 마운트/계정 변화 시
  * 스토어 fetch를 트리거하고 공유 상태를 반환하는 얇은 래퍼다. 여러 컴포넌트
- * (전역 Navbar E-1 · CommissionPage 배너 E-2 등)가 함께 써도 요청은 스토어에서
+ * (CommissionPage 배너 E-2 · 메인 왼쪽 레일 E-3 등. Navbar E-1 '내 거래'는 2026-10 제거)가 함께 써도 요청은 스토어에서
  * 하나로 합쳐지고(dedupe) 같은 목록을 본다.
  *
  * 서버 전용 엔드포인트(`GET /api/commissions/my/active`)가 양쪽 역할을 합쳐 상태로

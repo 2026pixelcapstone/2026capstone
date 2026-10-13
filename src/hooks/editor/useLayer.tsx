@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 
 interface UseLayersProps{
     frames: FrameData[];
-    setWithHistory: React.Dispatch<React.SetStateAction<any>>;
+    setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     activeLayer: string | null;
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
@@ -148,5 +148,8 @@ export const useLayers = ({
         setUnsaved(true);
     },[setWithHistory])
     
-    return { addLayer, deleteLayer, toggleVisibility, layerCountersRef, reorderLayers};
+    const resetLayerCounters = useCallback(() => {
+        layerCountersRef.current = {};
+    }, [layerCountersRef]);
+    return { addLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters};
 }

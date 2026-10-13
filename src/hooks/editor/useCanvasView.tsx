@@ -18,7 +18,7 @@ export function useCanvasView(canvasSize: CanvasSize) {
     
     const [zoomIdx, setZoomIdx] = useState(() => getInitialZoomIdx(canvasSize));
     const zoom = ZOOM_LEVELS[Math.max(0, Math.min(zoomIdx, ZOOM_LEVELS.length - 1))];
-
+    
     useLayoutEffect(() => {
         setZoomIdx(getInitialZoomIdx(canvasSize));
     }, [canvasSize.width, canvasSize.height]);
