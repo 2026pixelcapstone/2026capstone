@@ -2,6 +2,7 @@ import { toast } from "../../store/toastStore";
 import { MAX_CANVAS_SIZE } from "../../constants/editor/editor";
 import { CanvasState, FrameData } from "../../type/editor";
 import { getCacheKey } from "../../utils/editorUtils";
+import { resizedLayerCanvases } from "../../utils/resizedLayerCanvas";
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 interface UseCanvasSize{
@@ -49,7 +50,7 @@ export function useCanvasSize({
         setCustomH(height);
     }, [width, height])
 
-    const resizeLayer = useCallback(async (nextWidth: number, nextHeight: number, frameId: string, layerId: string, pixelData: string): Promise<string> => {
+    const resizeLayer = useCallback(async (nextWidth: number, nextHeight: number, frameId: string, layerId: string, pixelData: string) => {
         let sourceCanvas: HTMLCanvasElement | HTMLImageElement | null = peekLayerCanvas(getCacheKey(frameId, layerId));
         
         if (!sourceCanvas && pixelData.trim()) {
@@ -61,7 +62,7 @@ export function useCanvasSize({
             });
         }
         // 캐시와 저장된 이미지가 모두 없으면 정상적인 빈 레이어입니다.
-        if (!sourceCanvas) return '';
+        if (!sourceCanvas) return { pixelData: '', canvas: null };
         // 그림을 임시 가상 캔버스에 백업
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = nextWidth;
@@ -87,7 +88,7 @@ export function useCanvasSize({
             throw new Error('리사이즈한 이미지를 저장하지 못했습니다.');
         }
 
-        return nextPixelData;
+        return { pixelData: nextPixelData, canvas: tempCanvas };
     },[peekLayerCanvas, isScaleImage])
 
     // -------- 캔버스 크기 변경 -----------
@@ -104,10 +105,12 @@ export function useCanvasSize({
                 frame.map(async frame => ({
                     ...frame,
                     layers: await Promise.all(
-                        frame.layers.map(async layer => ({
-                            ...layer,
-                            pixelData: await resizeLayer(w, h, frame.id, layer.id, layer.pixelData),
-                        }))
+                        frame.layers.map(async layer => {
+                            const result = await resizeLayer(w, h, frame.id, layer.id, layer.pixelData);
+                            const resizedLayer = { ...layer, pixelData: result.pixelData };
+                            if (result.canvas) resizedLayerCanvases.set(resizedLayer, result.canvas);
+                            return resizedLayer;
+                        })
                     ),
                 }))
             )
