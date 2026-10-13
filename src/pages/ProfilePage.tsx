@@ -5,10 +5,11 @@ import { useAuthStore } from '../store/authStore'
 import { useBlockStore } from '../store/blockStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
-import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
+import { useProfileTabs } from '../hooks/useProfileTabs'
+import { useProfileTabParams } from '../hooks/useProfileTabParams'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
-import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import { WorkCard, AssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid, TabLoadError } from '../components/profile/ProfileCards'
 import PaletteCard from '../components/palette/PaletteCard'
 
 const TABS: ProfileTab[] = [
@@ -19,6 +20,7 @@ const TABS: ProfileTab[] = [
   { key: 'following', label: '팔로잉', icon: 'person' },
   { key: 'followers', label: '팔로워', icon: 'group' },
 ]
+const TAB_KEYS = TABS.map((t) => t.key)
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
@@ -29,8 +31,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [tab, setTab] = useState('works')
-  const [sort, setSort] = useState<SortKey>('recent')
+  // 탭·정렬은 주소에서(공개 탭만 허용 — 비공개 탭 값은 '작품'으로)
+  const { tab, sort, setTab, setSort } = useProfileTabParams(TAB_KEYS)
   const [followed, setFollowed] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [blockLoading, setBlockLoading] = useState(false)
@@ -56,15 +58,13 @@ export default function ProfilePage() {
 
   const uid = profile?.userId
 
-  // 다른 사용자로 바뀌면 탭을 '작품'으로 — 렌더 중에 바꿔야 "새 사용자 + 이전 탭" 조합의 요청이 안 나감
-  const [tabOwner, setTabOwner] = useState(uid)
-  if (tabOwner !== uid) {
-    setTabOwner(uid)
-    setTab('works')
-  }
+  // 다른 사용자 프로필로 이동하면 주소가 통째로 바뀌므로(?tab 없음) 탭은 자동으로 '작품'.
+  // 이전 사용자 데이터가 섞이는 것은 useProfileTabs의 사용자 세대(epoch)가 막는다.
 
   // 탭 데이터 — uid만 의존(팔로우/언팔로우로 profile 객체가 새로 만들어져도 재요청 안 함). 사이드바 숫자는 안 쓰므로 미리 받기 없음
-  const { works, assets, palettes, liked, following, followers, totals, showSpinner } = useProfileTabs({ userId: uid, tab, sort })
+  const { works, assets, palettes, liked, following, followers, totals, showSpinner, loadFailed, reload } = useProfileTabs({ userId: uid, tab, sort })
+  // 불러오기 실패(받은 적 없음)를 '없음'으로 보이지 않게(이 페이지 탭은 모두 목록 탭)
+  const tabFailed = loadFailed(tab)
 
   const handleFollow = async () => {
     if (!isLoggedIn || !profile) return
@@ -195,32 +195,33 @@ export default function ProfilePage() {
             <GridSkeleton variant={tab === 'following' || tab === 'followers' ? 'user' : 'square'} />
           ) : (
             <>
-              {tab === 'works' && (
+              {tabFailed && <TabLoadError label={TABS.find((t) => t.key === tab)?.label ?? '목록'} onRetry={() => reload(tab)} />}
+              {tab === 'works' && !tabFailed && (
                 works.length === 0
                   ? <EmptyTab icon="palette" text={`${profile.nickname}님의 작품이 없습니다.`} />
                   : <CardGrid variant="square">{works.map(w => <WorkCard key={w.postId} post={w} />)}</CardGrid>
               )}
-              {tab === 'assets' && (
+              {tab === 'assets' && !tabFailed && (
                 assets.length === 0
                   ? <EmptyTab icon="sell" text={`${profile.nickname}님의 에셋이 없습니다.`} />
                   : <CardGrid variant="square">{assets.map(a => <AssetCard key={a.assetId} asset={a} />)}</CardGrid>
               )}
-              {tab === 'palettes' && (
+              {tab === 'palettes' && !tabFailed && (
                 palettes.length === 0
                   ? <EmptyTab icon="color_lens" text={`${profile.nickname}님의 팔레트가 없습니다.`} />
                   : <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{palettes.map(p => <PaletteCard key={p.paletteId} palette={p} />)}</div>
               )}
-              {tab === 'liked' && (
+              {tab === 'liked' && !tabFailed && (
                 liked.length === 0
                   ? <EmptyTab icon="favorite" text="좋아요한 작품이 없습니다." />
                   : <CardGrid variant="square">{liked.map(w => <WorkCard key={w.postId} post={w} showAuthor />)}</CardGrid>
               )}
-              {tab === 'following' && (
+              {tab === 'following' && !tabFailed && (
                 following.length === 0
                   ? <EmptyTab icon="person" text="팔로잉 중인 유저가 없습니다." />
                   : <CardGrid variant="user">{following.map(u => <UserCard key={u.userId} user={u} />)}</CardGrid>
               )}
-              {tab === 'followers' && (
+              {tab === 'followers' && !tabFailed && (
                 followers.length === 0
                   ? <EmptyTab icon="group" text="팔로워가 없습니다." />
                   : <CardGrid variant="user">{followers.map(u => <UserCard key={u.userId} user={u} />)}</CardGrid>

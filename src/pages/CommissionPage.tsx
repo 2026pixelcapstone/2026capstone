@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigationType, useSearchParams } from 'react-router-dom'
 import {
   requestPostApi, type RequestPostSummary, type RequestPostCreateRequest,
   artistServiceApi, type ArtistServiceSummary, type ArtistServiceCreateRequest,
@@ -178,6 +178,12 @@ function formatBudget(min?: number | null, max?: number | null) {
   return `~ ₩${max!.toLocaleString()}`
 }
 
+// ── 주소(URL)가 목록 상태의 정본 ──
+// 탭·카테고리·정렬·검색어를 주소에 두어, 상세에 갔다가 뒤로가기 하면 같은 화면으로 돌아오게 한다.
+// 주소 값은 사용자가 고칠 수 있으므로 허용 목록에 있는 값만 받고 나머지는 기본값.
+const DEFAULT_SORT = 'createdAt,desc'
+const MAX_KEYWORD_LENGTH = 100
+
 // URL ?tab 값을 실제 탭으로 해석 (mine은 로그인 시에만, 그 외/미지정은 작가 찾기)
 function resolveTab(param: string | null, isLoggedIn: boolean): CommissionTab {
   if (param === 'mine') return isLoggedIn ? 'mine' : 'artists'
@@ -185,21 +191,96 @@ function resolveTab(param: string | null, isLoggedIn: boolean): CommissionTab {
   return 'artists'
 }
 
+function resolveCategory(param: string | null): string {
+  return param && SERVICE_CATEGORIES.includes(param) ? param : '전체'
+}
+
+function resolveSort(tab: CommissionTab, param: string | null): string {
+  const options = tab === 'requests' ? REQUEST_SORTS : ARTIST_SORTS
+  return param && options.some(([, value]) => value === param) ? param : DEFAULT_SORT
+}
+
+function resolveKeyword(param: string | null): string {
+  return (param ?? '').trim().slice(0, MAX_KEYWORD_LENGTH)
+}
+
+// ── 뒤로가기 복원용 목록 캐시 ──
+// 상세로 갔다가 '뒤로가기'로 돌아오면 '더 보기'로 불러온 목록과 스크롤 위치를 되살린다.
+// 공개 목록(작가 찾기·의뢰 게시판)만 저장하고 '내 커미션'(개인 거래)은 저장하지 않는다.
+// 주소(탭·필터)별로 따로 저장, 한 번 꺼내면 지우고, 5분이 지나면 버린다. 로그아웃 시 전부 삭제.
+const LIST_CACHE_PREFIX = 'commission-list:'
+const LIST_CACHE_TTL_MS = 5 * 60 * 1000
+
+type ListCache =
+  | {
+      tab: 'artists'; items: ArtistServiceSummary[]; page: number; hasMore: boolean
+      portfolioMap: Record<number, string[]>; ratingMap: Record<number, ArtistRatingSummary>
+      scrollY: number; savedAt: number
+    }
+  | { tab: 'requests'; items: RequestPostSummary[]; page: number; hasMore: boolean; scrollY: number; savedAt: number }
+
+function listCacheKey(tab: CommissionTab, category: string, sort: string, keyword: string) {
+  return LIST_CACHE_PREFIX + JSON.stringify([tab, category, sort, keyword])
+}
+
+// sessionStorage는 사생활 보호 모드 등에서 막힐 수 있음 → 실패하면 복원 없이 평소처럼 동작
+function saveListCache(key: string, data: ListCache) {
+  try { sessionStorage.setItem(key, JSON.stringify(data)) } catch { /* 저장 실패는 무시 */ }
+}
+
+// 읽기만 한다(지우기는 removeListCache) — 상태 초기값 계산은 개발 모드에서 두 번 돌 수 있어 읽기에 부작용을 두지 않음
+function peekListCache(key: string): ListCache | null {
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return null
+    const data = JSON.parse(raw) as ListCache
+    if (!data || !Array.isArray(data.items) || typeof data.savedAt !== 'number') return null
+    if (Date.now() - data.savedAt > LIST_CACHE_TTL_MS) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+function removeListCache(key: string) {
+  try { sessionStorage.removeItem(key) } catch { /* 무시 */ }
+}
+
+function clearListCache() {
+  try {
+    Object.keys(sessionStorage)
+      .filter((k) => k.startsWith(LIST_CACHE_PREFIX))
+      .forEach((k) => sessionStorage.removeItem(k))
+  } catch { /* 무시 */ }
+}
+
 export default function CommissionPage() {
   const { isLoggedIn } = useAuthStore()
   // 탐색 목록(작가 찾기·의뢰 게시판)에서 차단한 사용자를 숨기기 위한 차단 목록.
   const { blockedUserIds, loaded: blocksLoaded } = useBlockStore()
-  // ?tab=mine|requests 로 직접 진입 지원 (메인 "내 커미션 전체" 링크 등)
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<CommissionTab>(() => resolveTab(searchParams.get('tab'), isLoggedIn))
+  // 탭·카테고리·정렬·검색어는 주소(?tab=&category=&sort=&q=)에서 읽는다(정본 = URL).
+  // 로그인 상태가 늦게 복원(hydration)돼도 렌더마다 다시 해석되므로 따로 동기화할 필요가 없다.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigationType = useNavigationType()
+  const tab = resolveTab(searchParams.get('tab'), isLoggedIn)
+  const activeCategory = resolveCategory(searchParams.get('category'))
+  const sort = resolveSort(tab, searchParams.get('sort'))
+  const searchKeyword = resolveKeyword(searchParams.get('q'))
 
-  // URL ?tab 또는 로그인 상태(hydration으로 false→true)가 바뀌면 탭 재동기화.
-  // tab 파라미터가 없으면 사용자가 수동 선택한 탭을 그대로 유지한다.
-  useEffect(() => {
-    const param = searchParams.get('tab')
-    // 파라미터가 아예 없으면(null) 수동 선택 탭 유지, 있으면(빈 문자열 포함) URL 기준으로 해석
-    if (param !== null) setTab(resolveTab(param, isLoggedIn))
-  }, [searchParams, isLoggedIn])
+  // 필터 변경은 방문 기록을 교체(replace) — 뒤로가기가 필터 변경을 하나하나 되짚지 않게
+  const updateParams = (patch: Record<string, string | null>) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === '') next.delete(key)
+        else next.set(key, value)
+      }
+      return next
+    }, { replace: true })
+  }
+  const setActiveCategory = (c: string) => updateParams({ category: c === '전체' ? null : c })
+  const setSort = (s: string) => updateParams({ sort: s === DEFAULT_SORT ? null : s })
+  const setSearchKeyword = (q: string) => updateParams({ q: q || null })
 
   // E-2 배너 — 진행 중 거래 상시 노출(어느 탭에서든). 내 커미션 탭 로더와 별개로 훅으로 조회.
   const { active: activeDeals } = useActiveCommissions()
@@ -209,29 +290,36 @@ export default function CommissionPage() {
   useEffect(() => {
     sessionRef.current++
   }, [isLoggedIn])
-  const [activeCategory, setActiveCategory] = useState('전체')
-  const [sort, setSort] = useState('createdAt,desc')
-
-  const [searchInput, setSearchInput] = useState('')
-  const [searchKeyword, setSearchKeyword] = useState('')
+  // 검색 입력칸은 입력 중 값이라 상태로 두고, 주소의 검색어가 바뀌면(뒤로가기 등) 맞춰 준다
+  const [searchInput, setSearchInput] = useState(searchKeyword)
+  useEffect(() => {
+    setSearchInput(searchKeyword)
+  }, [searchKeyword])
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // 뒤로가기(POP)로 들어왔고 저장해 둔 목록이 있으면 목록 상태의 초기값으로 바로 쓴다(다시 불러오지 않음)
+  const listKey = listCacheKey(tab, activeCategory, sort, searchKeyword)
+  const [initialCache] = useState<ListCache | null>(() =>
+    navigationType === 'POP' && tab !== 'mine' ? peekListCache(listKey) : null)
+  const initArtists = initialCache?.tab === 'artists' ? initialCache : null
+  const initRequests = initialCache?.tab === 'requests' ? initialCache : null
+
   // 작가 찾기 상태
-  const [artists, setArtists] = useState<ArtistServiceSummary[]>([])
+  const [artists, setArtists] = useState<ArtistServiceSummary[]>(initArtists?.items ?? [])
   const [artistLoading, setArtistLoading] = useState(false)
-  const [artistPage, setArtistPage] = useState(0)
-  const [artistHasMore, setArtistHasMore] = useState(true)
+  const [artistPage, setArtistPage] = useState(initArtists?.page ?? 0)
+  const [artistHasMore, setArtistHasMore] = useState(initArtists?.hasMore ?? true)
   // 작가별 포트폴리오 썸네일 (배치 조회 결과) + 로드 완료 여부
-  const [portfolioMap, setPortfolioMap] = useState<Record<number, string[]>>({})
-  const [portfolioLoaded, setPortfolioLoaded] = useState(false)
+  const [portfolioMap, setPortfolioMap] = useState<Record<number, string[]>>(initArtists?.portfolioMap ?? {})
+  const [portfolioLoaded, setPortfolioLoaded] = useState(!!initArtists)
   // 작가별 평점/완료건수 (배치 조회 결과)
-  const [ratingMap, setRatingMap] = useState<Record<number, ArtistRatingSummary>>({})
+  const [ratingMap, setRatingMap] = useState<Record<number, ArtistRatingSummary>>(initArtists?.ratingMap ?? {})
 
   // 의뢰 찾기 상태
-  const [requests, setRequests] = useState<RequestPostSummary[]>([])
+  const [requests, setRequests] = useState<RequestPostSummary[]>(initRequests?.items ?? [])
   const [reqLoading, setReqLoading] = useState(false)
-  const [reqPage, setReqPage] = useState(0)
-  const [reqHasMore, setReqHasMore] = useState(true)
+  const [reqPage, setReqPage] = useState(initRequests?.page ?? 0)
+  const [reqHasMore, setReqHasMore] = useState(initRequests?.hasMore ?? true)
 
   const { blocked: gateBlocked, guard: gate, gateProps } = useEmailGate()
   const [showModal, setShowModal] = useState(false)
@@ -254,13 +342,58 @@ export default function CommissionPage() {
   const [myLoaded, setMyLoaded] = useState(false)
   const [myError, setMyError] = useState(false)
 
-  // 탭/카테고리/정렬/검색어 변경 시 0페이지부터 서버 재조회 (탐색 탭만)
+  // ── 뒤로가기 복원 ──
+  const scrollYRef = useRef(initialCache?.scrollY ?? 0)   // 마지막 스크롤 위치(떠날 때 저장용)
+  // 복원한 목록이 그려진 뒤 맞출 스크롤 위치
+  const pendingScrollRef = useRef<number | null>(initialCache?.scrollY ?? null)
+  // 복원한 주소(키)는 첫 조회를 건너뜀. 다른 필터로 한 번이라도 조회하면 해제(돌아와도 새로 조회).
+  const skipFetchKeyRef = useRef<string | null>(initialCache ? listKey : null)
+
   useEffect(() => {
+    const onScroll = () => { scrollYRef.current = window.scrollY }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // 복원한 목록(초기 상태)이 화면에 그려진 다음 스크롤을 맞춘다
+  useEffect(() => {
+    const y = pendingScrollRef.current
+    if (y === null) return
+    pendingScrollRef.current = null
+    requestAnimationFrame(() => window.scrollTo(0, y))
+  }, [])
+
+  // 탭/카테고리/정렬/검색어 변경 시 0페이지부터 서버 재조회 (탐색 탭만)
+  // 단, 뒤로가기로 복원한 주소는 이미 목록이 있으므로 건너뛴다(개발 모드에서 effect가 두 번 돌아도 둘 다 건너뜀).
+  useEffect(() => {
+    if (tab === 'mine') return   // 'mine' 탭은 아래 별도 effect에서 처리(저장·복원 안 함)
+    const key = listCacheKey(tab, activeCategory, sort, searchKeyword)
+    if (skipFetchKeyRef.current === key) {
+      removeListCache(key)   // 한 번 쓴 저장분은 지움(다음 뒤로가기는 그때 새로 저장한 것으로)
+      return
+    }
+    skipFetchKeyRef.current = null
     if (tab === 'artists') fetchArtists(0)
-    else if (tab === 'requests') fetchRequests(0)
-    // 'mine' 탭은 아래 별도 effect에서 처리
+    else fetchRequests(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, activeCategory, sort, searchKeyword])
+
+  // 페이지를 떠날 때(상세로 이동 등) 현재 공개 목록과 스크롤 위치를 저장.
+  // 언마운트 시점의 최신 값을 쓰기 위해 저장 함수를 ref에 매 렌더 갱신해 둔다.
+  const saveOnLeaveRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    saveOnLeaveRef.current = () => {
+      if (tab === 'mine') return
+      const key = listCacheKey(tab, activeCategory, sort, searchKeyword)
+      const base = { scrollY: scrollYRef.current, savedAt: Date.now() }
+      if (tab === 'artists' && artists.length > 0) {
+        saveListCache(key, { tab, items: artists, page: artistPage, hasMore: artistHasMore, portfolioMap, ratingMap, ...base })
+      } else if (tab === 'requests' && requests.length > 0) {
+        saveListCache(key, { tab, items: requests, page: reqPage, hasMore: reqHasMore, ...base })
+      }
+    }
+  })
+  useEffect(() => () => saveOnLeaveRef.current(), [])
 
   // 내 커미션 로드 (재시도 버튼에서도 호출)
   const loadMyCommissions = useCallback(() => {
@@ -305,28 +438,27 @@ export default function CommissionPage() {
     loadMyCommissions()
   }, [isLoggedIn, tab, myLoaded, myLoading, myError, loadMyCommissions])
 
-  // 탭 전환 시 필터/정렬/검색 초기화
+  // 탭 전환 = 방문 기록에 추가(뒤로가기로 이전 탭 복귀). 주소에 탭만 남기므로 필터/정렬/검색도 초기화된다.
   const handleTabChange = (next: CommissionTab) => {
     if (next === tab) return
-    setTab(next)
-    setActiveCategory('전체')
-    setSort('createdAt,desc')
-    setSearchInput('')
-    setSearchKeyword('')
+    setSearchParams(next === 'artists' ? {} : { tab: next })
   }
 
-  // 로그아웃 시 개인 커미션 데이터 초기화 + '내 커미션' 탭이면 탐색 탭으로 복귀
+  // 로그아웃 시 개인 커미션 데이터 초기화
   // (언마운트 없이 다른 사용자가 로그인해도 이전 사용자 데이터가 남지 않도록)
+  // '내 커미션' 탭은 resolveTab이 비로그인이면 작가 찾기로 해석하므로 따로 전환할 필요 없음.
+  const wasLoggedInRef = useRef(isLoggedIn)
   useEffect(() => {
+    // 로그인 → 로그아웃으로 바뀐 순간에만 뒤로가기 복원용 목록 캐시도 비운다(첫 렌더 복원은 건드리지 않음)
+    if (wasLoggedInRef.current && !isLoggedIn) clearListCache()
+    wasLoggedInRef.current = isLoggedIn
     if (isLoggedIn) return
     setMyCommissions({ client: [], artist: [] })
     setMyRequestPosts([])
     setMyLoaded(false)
     setMyError(false)
     setMyLoading(false)
-    if (tab === 'mine') handleTabChange('artists')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, tab])
+  }, [isLoggedIn])
 
   const fetchArtists = async (page: number) => {
     setArtistLoading(true)

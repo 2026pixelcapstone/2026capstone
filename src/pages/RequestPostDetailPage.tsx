@@ -217,7 +217,7 @@ export default function RequestPostDetailPage() {
         style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
         <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>inbox</span>
         <p style={{ color: 'var(--color-on-surface-variant)' }}>존재하지 않는 의뢰입니다.</p>
-        <Link to="/commission" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>
+        <Link to="/commission?tab=requests" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>
           커미션 목록으로
         </Link>
       </div>
@@ -239,7 +239,7 @@ export default function RequestPostDetailPage() {
         <div className="flex items-center gap-1.5 mb-6 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
           <Link to="/commission" className="hover:text-white transition-colors">커미션</Link>
           <span className="material-symbols-outlined text-sm">chevron_right</span>
-          <Link to="/commission" className="hover:text-white transition-colors">의뢰 찾기</Link>
+          <Link to="/commission?tab=requests" className="hover:text-white transition-colors">의뢰 찾기</Link>
           <span className="material-symbols-outlined text-sm">chevron_right</span>
           <span style={{ color: 'var(--color-on-surface)' }} className="truncate max-w-xs">{post.title}</span>
         </div>
