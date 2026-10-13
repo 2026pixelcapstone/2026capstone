@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CanvasState, Point } from '../type/editor'
+import { CanvasState } from '../type/editor'
 import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, PALETTE_COLORS, ZOOM_LEVELS, CANVAS_PRESETS, MAX_CANVAS_SIZE} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
@@ -26,11 +26,14 @@ import MenuBar from '../components/editor/MenuBar'
 import PaletteBrowserModal, { type PaletteApplyMode } from '../components/editor/PaletteBrowserModal'
 import PaletteFormModal from '../components/palette/PaletteFormModal'
 import { paletteApi } from '../api/paletteApi'
-import { useDrawLine } from '../hooks/editor/useDrawLine'
-import { KonvaEventObject } from 'konva/lib/Node'
 import { useLayerCanvas } from '../hooks/editor/useLayerCanvas'
 import { useLayerCommit } from '../hooks/editor/useLayerCommit'
-import { useEditorProject } from '../hooks/editor/editorProject/useEditorProject'
+import { useEditorProject } from '../hooks/editor/project/useEditorProject'
+import { useCanvasTool } from '../hooks/editor/canvasTool/useCanvasTool'
+import { useCanvasDrawing } from '../hooks/editor/useCanvasDrawing'
+import { useColor } from '../hooks/editor/color/useColor'
+import { usePalette } from '../hooks/editor/color/usePalette'
+import { useCanvasSize } from '../hooks/editor/useCanvasSize'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -38,12 +41,8 @@ const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초�
 export default function EditorPage() {
   // ── Ref & Navigation ──────────────────────────
   const stageRef = useRef<Konva.Stage>(null);
-  //const layerCanvasRefs = useRef<Record<string, HTMLCanvasElement>>({})
-  const lineTarget = useRef<{ frameId: string; layerId: string; ctx: CanvasRenderingContext2D } | null>(null);
-  const isDrawing = useRef(false)
   const isDirty =  useRef(false); 
   const ppitInputRef = useRef<HTMLInputElement>(null)   // .ppit 불러오기 파일 입력
-
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams()
@@ -52,15 +51,8 @@ export default function EditorPage() {
   
   // ── status & state ──────────────────────────
   // ── 도구 관련 ──────────────
-  const [activeTool, setActiveTool]   = useState('pencil')
-  const [fgColor, setFgColor]         = useState('#2f81f7')
-  const [hexInput, setHexInput]       = useState('#2f81f7')
-  const [brushSize, setBrushSize]     = useState(1)
   const [opacity, setOpacity]         = useState(100)
-  const [pixelPerfect, setPixelPerfect] = useState(true)
-  const [isHexModal, setIsHexModal] = useState(false)
 
-  const {startLine, updateLine, endLine} = useDrawLine();
   // ── CanvasData 관련 ──────────────
   const [activeFrameId, setActiveFrameId] = useState<string | null>(
     initialCanvasData.frames[0]?.id || null
@@ -72,21 +64,12 @@ export default function EditorPage() {
   const [activeLayerId, setActiveLayerId] = useState<string | null>(
     initialCanvasData.frames[0]?.layers[0].id || null
   );
-  
-  const [customW, setCustomW]         = useState(32)
-  const [customH, setCustomH]         = useState(32)
 
-  // ── View ──────────────
-  const [cursorPos, setCursorPos]     = useState({ x: -1, y: -1 });
-  const [isScaleImage, setIsScaleImage] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true)
-
 
   // ── AI 가이드 ──────────────
   const[showAIGuide, setShowAIGuide] = useState(false);
   // ── AI 색 팔레트 추천 상태 ──────────────────────────────
-  // 팔레트를 고정 상수 → 상태로: AI 추천/사용자가 색을 추가할 수 있게 (세션 내, 저장 연동은 후속)
-  const [paletteColors, setPaletteColors] = useState<string[]>(PALETTE_COLORS);
   // ── 커뮤니티 팔레트 연동(C-1): 가져오기 모달 / 현재 팔레트 저장 모달 ──
   const [paletteBrowserOpen, setPaletteBrowserOpen] = useState(false);
   const [paletteSaveOpen, setPaletteSaveOpen] = useState(false);
@@ -108,18 +91,19 @@ export default function EditorPage() {
   // ── 프로젝트 관련  ──────────────
   const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false) 
-  const [unsaved, setUnsaved] = useState(false)
+  const [unsaved, setUnsaved] = useState(false);
+  
   // ── hook ──────────────────────────
-  // ── 히스토리 ──────────────
+  // ── useHistory 훅 ──────────────
   const {state, setWithHistory, undo, redo, reset} = useHistory<CanvasState>(initialCanvasData);
 
-  // ── 애니메이션 ──────────────
+  // ── useFrame 훅 ──────────────
   const{addFrame, deleteFrame, reorderFrames} = useFrame({
     frames: state.frames,
     activeFrameId,
     setWithHistory,
     setActiveFrameId,
-    setActiveLayer: setActiveLayerId,
+    setActiveLayerId,
     setUnsaved,
   });
   // 활성화된 프레임 찾기
@@ -133,9 +117,6 @@ export default function EditorPage() {
     setActiveLayer: setActiveLayerId,
     setUnsaved,
   });
-
-  // ── View 훅 ──────────────
-  const {zoom, setZoomIdx} = useCanvasView({ width: state.width, height: state.height });
 
   // ── useLayerCanvas 훅 ──────────────
   const { ensureLayerCanvas, peekLayerCanvas, clearAllLayerCanvas } = useLayerCanvas({
@@ -152,6 +133,55 @@ export default function EditorPage() {
     setWithHistory,
   });
 
+  // ── useColor 훅 ──────────────
+  const { isHexModal, hexInput, fgColor, rgb, setIsHexModal, setHexInput, setFgColor, applyHex, handleRgbChange } = useColor();
+  
+  // ── usePalette 훅 ──────────────
+  const {paletteColors, setPaletteColors, selectPaletteColor, addColorsToPalette} = usePalette({
+    setFgColor,
+    setHexInput,
+  })
+  // ── useCanvasTool 훅 ──────────────
+  const { applyDirectTool, activeTool, setActiveTool, brushSize, setBrushSize, 
+    pixelPerfect, setPixelPerfect
+  } = useCanvasTool({
+    fgColor,
+    isDirty,
+    setUnsaved,
+    selectPaletteColor,
+  });
+
+  // ── useCanvasDrawing 훅 ──────────────
+  const {cursorPos, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave} = useCanvasDrawing({
+    stageRef,
+    isDirty,
+    state,
+    activeFrameId,
+    activeLayerId,
+    activeTool,
+    brushSize,
+    fgColor,
+    setUnsaved,
+    commitLayerChanges,
+    applyDirectTool,
+    ensureLayerCanvas,
+  });
+
+  // ── CanvasSize 훅 ──────────────
+  const {
+    customW, customH, isScaleImage, setCustomW, setCustomH, setIsScaleImage, applyCanvasSize
+  } = useCanvasSize({
+      peekLayerCanvas,
+      width: state.width,
+      height: state.height,
+      frame: state.frames,
+      setWithHistory,
+      setUnsaved,
+  });
+
+  // ── View 훅 ──────────────
+  const {zoom, setZoomIdx} = useCanvasView({ width: state.width, height: state.height });
+
   // ── useEditorProject 훅 ──────────────
   const { 
     handleNewProject, handleSave, saving, openSaveModal, isSaveModalOpen, setIsSaveModalOpen, 
@@ -160,6 +190,8 @@ export default function EditorPage() {
     isLoggedIn,
     stageRef,
     state,
+    unsaved,
+    setUnsaved,
     setCustomW,
     setCustomH,
     reset,
@@ -226,265 +258,6 @@ export default function EditorPage() {
     const rafId = requestAnimationFrame(disableSmoothing);
     return () => cancelAnimationFrame(rafId);
   }, [activeLayerId, zoom, state.width, state.height]); // 프레임이 바뀌거나 줌이 바뀔 때 동기화
-  
-  //-------- 현재 픽셀의 정확한 위치를 넘겨주는 역할 -----------
-  const getPixel = useCallback(() : Point | null => {
-    const stage = stageRef.current;
-    if (!stage) return null
-
-    // 마우스 커서의 좌표 가져옴
-    const relativePos = stage.getRelativePointerPosition(); // 도화지 기준 상대 좌표 추출
-    if(!relativePos) return null;
-    
-    // 정확한 픽셀 인덱스 좌표를 계산
-    const x = Math.floor(relativePos.x);
-    const y = Math.floor(relativePos.y);
-
-    // 💡 도화지 영역 밖을 벗어난 마우스 좌표는 무시 (클리핑 방어)
-    if (x < 0 || x >= state.width || y < 0 || y >= state.height) {
-      return null;
-    }
-
-    return {x, y};
-  }, [state.width, state.height])
-  
-  // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
-  const applyDirectTool = useCallback((pos : Point | null) => {
-    const stage = stageRef.current;
-    if(!stage || !activeLayerId || !activeFrameId) return;
-    
-    const cacheKey = getCacheKey(activeFrameId, activeLayerId)
-    const nativeCanvas = ensureLayerCanvas(cacheKey);
-    if(!nativeCanvas) return;
-
-    const ctx = nativeCanvas.getContext('2d', { willReadFrequently: true });
-    
-    if (!ctx || !pos) return
-
-    const { x, y } = pos
-    if (x < 0 || x >= state.width || y < 0 || y >= state.height) return
-
-    // ─── [연필 도구] ──────────────────────────────────────────
-    if (activeTool === 'pencil') {
-      ctx.fillStyle = fgColor
-      ctx.fillRect(x, y, brushSize, brushSize)
-      ctx.globalAlpha = 1
-      isDirty.current = true; // 픽셀이 변경되었음을 표시
-      setUnsaved(true);
-    }
-    // ─── [지우개 도구] ────────────────────────────────────────
-    else if (activeTool === 'eraser') {
-      ctx.clearRect(x, y, brushSize, brushSize)
-      isDirty.current = true; // 픽셀이 변경되었음을 표시
-      setUnsaved(true);
-    }
-    // ─── [페인트 통 도구 (Fill) - Flood Fill 알고리즘 최적화 버전] ──────────
-    else if (activeTool === 'fill') {
-      // 현재 메모리에 있는 픽셀 데이터 캡처 (Raw RGBA 버퍼)
-      const imgData = ctx.getImageData(0, 0, state.width, state.height);
-      // R/G/B/A 4바이트를 32비트 정수 1개 단위로 재해석 (픽셀당 1개 인덱스로 대응)
-      const data32 = new Uint32Array(imgData.data.buffer);
-      
-      // 시작점의 색상 추출
-      // y * canvasW + x -> 2차원 좌표를 1차원 메모리 주소(인덱스)로 변환
-      const targetColor = data32[y * state.width + x]; 
-      
-      // 채우고자 하는 fgColor(Hex 문자열)를 32비트 정수(ABGR 구조)로 변환
-      const r = parseInt(fgColor.slice(1, 3), 16);
-      const g = parseInt(fgColor.slice(3, 5), 16);
-      const b = parseInt(fgColor.slice(5, 7), 16);
-      // 비트 시프트 연산(<<) 및 OR(|)로 32비트 색상값 생성, >>> 0 추가하여 Uint32 형태의 양수로 반환
-      const fillColor = (255 << 24) | (b << 16) | (g << 8) | r >>> 0;
-      
-      if (targetColor === fillColor) {
-        return;
-      }
-      const totalPixels = state.width * state.height;
-      // 고정 크기 인덱스 큐 (최대 픽셀 수만큼 미리 메모리를 할당하여 GC 과부하 방지)
-      const queue = new Int32Array(totalPixels);
-      let head = 0; // 읽기 포인터 (pop 연산 시 증가)
-      let tail = 0; // 쓰기 포인터 (push 연산 시 증가)
-
-      const startIdx = y * state.width + x; // 시작 픽셀 주소
-      queue[tail++] = startIdx; // 시작 주소를 큐에 push
-      data32[startIdx] = fillColor; // push 하자마자 즉시 색상 변경 (중복 방문 원천 차단)
-
-      // 큐에 처리할 픽셀이 남아있는 동안 BFS 탐색 반복
-      while (head < tail) { 
-        const idx = queue[head++]; // 큐의 맨 앞에서 현재 처리할 픽셀 주소를 하나 꺼내옴 (O(1) Pop)
-        
-        // 1차원 주소 idx를 2차원 좌표(cx, cy)로 복원하여 캔버스 경계 판단에 활용
-        const cx = idx % state.width; 
-        const cy = Math.floor(idx / state.width); // 소수점 버림 함수
-        
-        // 상/하/좌/우 이웃 검사 -> targetColor와 같은 색상을 가진 픽셀만 색칠 후 큐에 적재
-        
-        // 1. 좌측 이웃 검사
-        if (cx > 0) { // 왼쪽 벽에 붙어있지 않다면
-          const nIdx = idx - 1; // 현재 위치 기준 '좌'측 이웃 주소
-          if (data32[nIdx] === targetColor) {
-            data32[nIdx] = fillColor; // 즉시 색 변경 (중복 방문 방지)
-            queue[tail++] = nIdx;     // 큐에 추가 (Push)
-          }
-        }
-        
-        // 2. 우측 이웃 검사
-        if (cx < state.width - 1) { // 오른쪽 벽에 붙어있지 않다면
-          const nIdx = idx + 1; // 현재 위치 기준 '우'측 이웃 주소
-          if (data32[nIdx] === targetColor) {
-            data32[nIdx] = fillColor;
-            queue[tail++] = nIdx;
-          }
-        }
-        
-        // 3. 상단 이웃 검사
-        if (cy > 0) { // 위쪽 벽에 붙어있지 않다면
-          const nIdx = idx - state.width; // 현재 위치 기준 '상'측 이웃 주소 (한 줄 위)
-          if (data32[nIdx] === targetColor) {
-            data32[nIdx] = fillColor;
-            queue[tail++] = nIdx;
-          }
-        }
-        
-        // 4. 하단 이웃 검사
-        if (cy < state.height - 1) { // 아래쪽 벽에 붙어있지 않다면
-          const nIdx = idx + state.width; // 현재 위치 기준 '하'측 이웃 주소 (한 줄 아래)
-          if (data32[nIdx] === targetColor) {
-            data32[nIdx] = fillColor;
-            queue[tail++] = nIdx;
-          }
-        }
-      }
-      
-      ctx.putImageData(imgData, 0, 0);
-      isDirty.current = true; // 픽셀이 변경되었음을 표시
-      setUnsaved(true);
-    }
-  
-    // ─── [스포이트 도구 (Eyedropper)] ──────────────────────────
-    else if (activeTool === 'eyedrop') {
-      const imgData = ctx.getImageData(x, y, 1, 1).data;
-      // 투명한 영역(알파값 0)을 찍으면 기본 검정 처리 혹은 스킵
-      if (imgData[3] !== 0) {
-        const r = imgData[0].toString(16).padStart(2, '0');
-        const g = imgData[1].toString(16).padStart(2, '0');
-        const b = imgData[2].toString(16).padStart(2, '0');
-        const pickedHex = `#${r}${g}${b}`;
-        
-        // 앞서 만든 단일 진입점 변경 함수 호출!
-        selectPaletteColor(pickedHex);
-      }
-      return;
-    }
-
-    // 💡 캐시 키(cacheKey)와 달리, Konva 노드는 순수 레이어 고유 ID로 등록되어 있으므로 activeLayer로 찾습니다.
-    const activeLayerNode = stage.findOne(`#${activeLayerId}`);
-    if(activeLayerNode){
-      activeLayerNode.getLayer()?.batchDraw();
-    }
-  }, [activeTool, fgColor, brushSize, state.width, state.height, getPixel, activeLayerId, ensureLayerCanvas, activeFrameId])
-  
-  //-------- 마우스 동작 -----------
-  const handleMouseDown = () => {
-    isDrawing.current = true;        
-    const pos = getPixel();
-    if(!pos) return;
-    
-    if(activeTool === 'line'){
-      if(!activeFrameId || !activeLayerId) return;
-      const nativeCanvas = ensureLayerCanvas(getCacheKey(activeFrameId, activeLayerId));
-      const ctx = nativeCanvas?.getContext('2d');
-      
-      if(ctx){
-        lineTarget.current = { frameId: activeFrameId, layerId: activeLayerId, ctx };
-        startLine(ctx, state.width, state.height, pos,
-          {
-            brushSize,
-            color: fgColor,
-            snapAngle: false, // Shift 키는 마우스 이동 중에만 적용
-          }
-        );
-      }
-      return;
-    }
-
-    applyDirectTool(pos);
-  }
-  
-  const handleMouseMove = (e : KonvaEventObject<MouseEvent>) => {
-    const pos = getPixel();
-    if (!pos || !activeFrameId || !activeLayerId) return;
-    setCursorPos(pos);
-
-    if (!isDrawing.current) return;  
-    if(lineTarget.current){
-      const { ctx, layerId } = lineTarget.current;
-      if (ctx) {
-        updateLine(ctx, pos, {
-          brushSize,
-          color: fgColor,
-          snapAngle: e.evt.shiftKey,
-        });
-        // 화면 갱신
-        stageRef.current?.findOne(`#${layerId}`)?.getLayer()?.batchDraw();
-      }
-      return;
-    }
-
-    if(activeTool === 'pencil' || activeTool === 'eraser'){
-      applyDirectTool(pos);
-    }
-  };
-
-  const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
-    isDrawing.current = false;
-
-    const target = lineTarget.current;
-    if(target){
-      const pos = e ? getPixel() : null;
-      if (e && pos) {
-        updateLine(target.ctx, pos, {
-          brushSize,
-          color: fgColor,
-          snapAngle: e.evt.shiftKey,
-        });
-        stageRef.current?.findOne(`#${target.layerId}`)?.getLayer()?.batchDraw();
-      }
-      const isCommitted = endLine();
-      lineTarget.current = null;
-      if(isCommitted){
-        isDirty.current = true;
-        setUnsaved(true);
-      }
-    }
-    // 실제로 변경이 발생했을 때만 커밋 호출
-    if(isDirty.current){
-      commitLayerChanges(target?.frameId, target?.layerId);
-      isDirty.current = false;
-    }
-  }
-  
-  // --------  state.width/height 변경 시 CustomW/H 동기화 -----------
-  useEffect(() => {
-    setCustomW(state.width);
-    setCustomH(state.height);
-  }, [state.width, state.height])
-
-  // -------- 캔버스 크기 변경 -----------
-  const applyCanvasSize = (w: number, h: number) => {
-    if(state.width === w && state.height === h){
-      return;
-    }
-
-    setWithHistory((prev) => {
-      return {
-        ...prev,
-        width: w,
-        height: h,
-      };
-    })
-    setUnsaved(true); // 서버 저장 여부
-  }
 
   // ── 마우스 휠 스크롤을 이용한 줌 인/아웃 ──────────────
   useEffect(() => {
@@ -824,30 +597,11 @@ export default function EditorPage() {
   }
 
   // ── RGB ─────────────────
-  // HEX 입력 → 색상 반영
-  const applyHex = () => {
-    if (/^#[0-9a-fA-F]{6}$/.test(hexInput)) setFgColor(hexInput)
-  }
-
- // RGB 파싱
-  const hexToRgb = (hex: string) => ({
-    r: parseInt(hex.slice(1,3),16),
-    g: parseInt(hex.slice(3,5),16),
-    b: parseInt(hex.slice(5,7),16),
-  })
-  const rgb = hexToRgb(fgColor)
-
   // 툴 버튼 공통 스타일
   const toolBtn = (id: string) => ({
     background: activeTool === id ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'transparent',
     color: activeTool === id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
   })
-
-  // 팔레트 컬러 칩을 클릭했을 때 색상을 반영하는 함수
-  const selectPaletteColor = (color: string) => {
-    setFgColor(color);    // 1. 실제로 그려질 메인 전경색 변경
-    setHexInput(color);   // 2. 눈에 보이는 HEX 텍스트 입력창 글자도 동기화
-  };
 
   // AI 색 팔레트 추천 — 현재 프레임 캔버스(PNG) + 사용된 색 + 자연어 → 서버 → 어울리는 색
   const handleSuggestPalette = async () => {
@@ -879,21 +633,6 @@ export default function EditorPage() {
     } finally {
       setAiLoading(false);
     }
-  };
-
-  // 추천 색 세트를 팔레트에 추가(중복 제외, 세션 내)
-  const addColorsToPalette = (colors: string[]) => {
-    setPaletteColors((prev) => {
-      const seen = new Set(prev.map((c) => c.toUpperCase()));
-      const added = colors.filter((c) => {
-        const key = c.toUpperCase();
-        if (seen.has(key)) return false;
-        seen.add(key); // 응답 내 중복 색도 한 번만 추가
-        return true;
-      });
-      return added.length ? [...prev, ...added] : prev;
-    });
-    toast.success('팔레트에 추가했습니다.');
   };
 
   // 태그로 색 찾기 — 콤마 구분 태그 → 서버 → 어울리는 색
@@ -975,30 +714,6 @@ export default function EditorPage() {
     } finally {
       if (conceptReqIdRef.current === reqId) setConceptLoading(false);
     }
-  };
-
-  // ── [슬라이더 연동을 위해 새로 추가할 코드] ─────────────────
-  
-  // 1. 슬라이더의 RGB 숫자를 다시 #ffffff 형태의 HEX 문자로 바꿔주는 함수
-  const rgbToHex = (r: number, g: number, b: number) => {
-    const toHex = (c: number) => {
-      const hex = Math.max(0, Math.min(255, c)).toString(16);
-      return hex.length === 1 ? "0" + hex : hex; // 한 자리 수면 앞에 0 채우기 (예: f -> 0f)
-    };
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  };
-
-  // 2. R, G, B 슬라이더를 밀 때 호출될 핵심 핸들러 함수
-  const handleRgbChange = (channel: 'r' | 'g' | 'b', value: number) => {
-    // 슬라이더를 민 채널만 value로 바꾸고, 나머지는 기존 rgb 값 유지
-    const nextHex = rgbToHex(
-      channel === 'r' ? value : rgb.r,
-      channel === 'g' ? value : rgb.g,
-      channel === 'b' ? value : rgb.b
-    );
-    
-    setFgColor(nextHex);   // 에디터 메인 색상 변경 (도화지에 그려질 색)
-    setHexInput(nextHex);  // 눈에 보이는 HEX 입력창 글자도 동기화
   };
 
   // ── 애니메이션 ───────────────────────────────────
@@ -1610,12 +1325,8 @@ export default function EditorPage() {
               onMouseDown={() => {handleMouseDown()}}
               onMouseMove={(e) => {handleMouseMove(e)}}
               onMouseUp={(e) => {handleMouseUp(e)}}
-              onMouseLeave={(e) => { 
-                handleMouseUp(e);
-                setCursorPos({ x: -1, y: -1 }) 
-              }}
+              onMouseLeave={(e) => {handleMouseLeave(e)}}
             >
-              
               {(currentFrame?.layers ?? [])
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .map((layer) => (
@@ -1634,7 +1345,6 @@ export default function EditorPage() {
                       currentFrameId={activeFrameId}
                       peekLayerCanvas={peekLayerCanvas}
                       ensureLayerCanvas={ensureLayerCanvas}
-                      isScaleImage = {isScaleImage}
                     />
                   </KonvaLayer>
               ))}
@@ -1884,10 +1594,10 @@ export default function EditorPage() {
             </div>
           </div>
           
-          {/* ⏳레이어 섹션 */}
+          {/* 레이어 섹션 */}
           <div className="p-4 flex-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>Layers</div>
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>{currentFrame.layers.length} Layers</div>
               <div className="flex gap-1">
                 {layerButtons.map(([icon,tip, handler]) => (
                   <button key={icon} title={tip}
@@ -1962,7 +1672,7 @@ export default function EditorPage() {
           color={fgColor}
           onChange={selectPaletteColor}
         />
-        {/* ── ⏳AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
+        {/* ── AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
           style={{ 
             width: showAIGuide ? 350 : 0, // AI 가이드 온오프 상태에 따라 너비 조절
@@ -2182,13 +1892,6 @@ export default function EditorPage() {
         <span>Tool: {activeTool.charAt(0).toUpperCase() + activeTool.slice(1)}</span>
         <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
         <span>Active: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
-        <div className="ml-auto flex items-center gap-4">
-          <span>{currentFrame.layers.length} layers</span>
-          <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-          {unsaved
-            ? <span style={{ color: '#f59e0b' }}>● Unsaved</span>
-            : <span style={{ color: 'var(--color-success)' }}>● Saved</span>}
-        </div>
       </footer>
     </div>
   )

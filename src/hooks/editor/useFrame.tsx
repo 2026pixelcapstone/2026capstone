@@ -6,9 +6,9 @@ import {CanvasState, FrameData} from '../../type/editor'
 interface UseAnimationProps{
     frames: FrameData[];
     activeFrameId: string | null;
-    setWithHistory: React.Dispatch<React.SetStateAction<any>>;
+    setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     setActiveFrameId: React.Dispatch<React.SetStateAction<string | null>>;
-    setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>;
+    setActiveLayerId: React.Dispatch<React.SetStateAction<string | null>>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -17,7 +17,7 @@ export function useFrame({
     activeFrameId,
     setWithHistory, 
     setActiveFrameId,
-    setActiveLayer,
+    setActiveLayerId,
     setUnsaved,
 }: UseAnimationProps){
     /**
@@ -39,7 +39,7 @@ export function useFrame({
         const targetActiveLayerId = targetFrame?.layers[0]?.id || null;
 
         if(targetActiveLayerId){
-            setActiveLayer(targetActiveLayerId)
+            setActiveLayerId(targetActiveLayerId)
         }
 
         setWithHistory((prev: any) => ({
@@ -48,7 +48,7 @@ export function useFrame({
         }));
 
         setUnsaved(true);
-    }, [frames, setActiveFrameId, setWithHistory, setActiveLayer, setUnsaved]);
+    }, [frames, setActiveFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
     
     /**
      * 특정 인덱스의 프레임을 삭제합니다.
@@ -79,7 +79,7 @@ export function useFrame({
 
             if(nextActiveFrame){
                 setActiveFrameId(nextActiveFrame.id);
-                setActiveLayer(nextActiveFrame.layers[0]?.id || null);
+                setActiveLayerId(nextActiveFrame.layers[0]?.id || null);
             }
         }
 
@@ -89,7 +89,7 @@ export function useFrame({
         }));
 
         setUnsaved(true);
-    }, [frames, activeFrameId, setWithHistory, setActiveLayer, setUnsaved]);
+    }, [frames, activeFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
 
 
     /**

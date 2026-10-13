@@ -1,13 +1,10 @@
 import { FrameData, LayerData, LoadedEditorProject } from "../../../type/editor";
 import { editorApi } from "../../../api/editorApi";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 
 export function useEditorLoad(){
-    const lastLoadedIdRef = useRef<number | null>(null); // 과거 프로젝트 로드 기록
-
     const loadProject = useCallback(async (projectId: number, signal: AbortSignal) : Promise<LoadedEditorProject | null> => {
         if (signal.aborted) return null;
-        if (lastLoadedIdRef.current === projectId) return null; // 이미 로드된 프로젝트라면 무시
         try {
             const res = await editorApi.getProject(projectId, { signal });
             const proj = res.data.data;
@@ -59,7 +56,6 @@ export function useEditorLoad(){
                 })
             )
             if (signal.aborted) return null;
-            lastLoadedIdRef.current = projectId;
             return {
                 projectId: proj.projectId,
                 title: proj.title,
@@ -75,9 +71,5 @@ export function useEditorLoad(){
         }
     }, []);
 
-    // 이전 로드 기록을 포맷 합니다.
-    const clearLastLoaded = useCallback(() =>{
-        lastLoadedIdRef.current = null;
-    },[]) 
-    return { loadProject, clearLastLoaded }
+    return { loadProject }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasState, FrameData, SaveModelData } from "../../../type/editor";
 import { useEditorLoad } from "./useEditorLoad";
 import { useEditorSave } from "./useEditorSave";
@@ -12,6 +12,8 @@ interface UseEditorProjectProps {
     isLoggedIn: boolean;
     stageRef: React.RefObject<Konva.Stage | null>;
     state: CanvasState;
+    unsaved: boolean;
+    setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
     setCustomW: React.Dispatch<React.SetStateAction<number>>;
     setCustomH: React.Dispatch<React.SetStateAction<number>>;
     reset: (newState: { frames: FrameData[]; width: number; height: number }) => void;
@@ -26,6 +28,8 @@ export function useEditorProject({
     isLoggedIn,
     stageRef,
     state,
+    unsaved,
+    setUnsaved,
     setCustomW,
     setCustomH,
     reset,
@@ -48,13 +52,12 @@ export function useEditorProject({
     const [isPublic, setIsPublic] = useState<boolean>(false);
     //const [editingTitle, setEditingTitle] = useState(false);
     
-    const [unsaved, setUnsaved] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     
     const [searchParams, setSearchParams] = useSearchParams();
     const rawProjectId = searchParams.get('projectId');
 
-    const {loadProject, clearLastLoaded} = useEditorLoad();
+    const {loadProject} = useEditorLoad();
     const {saving, saveProject} = useEditorSave({
         stageRef,
         peekLayerCanvas,
@@ -133,10 +136,9 @@ export function useEditorProject({
         setProjectTitle('Untitled Project');
         setIsPublic(false);
         setUnsaved(false);
-        clearLastLoaded(); // 로드 기록 초기화
         // URL에 남은 projectId 쿼리 파라미터 제거
         setSearchParams({}, { replace: true })
-    }, [unsaved, setUnsaved, setSearchParams, setActiveFrameId, setActiveLayerId, reset, resetLayerCounters, clearAllLayerCanvas, clearLastLoaded, setProjectId])
+    }, [unsaved, setUnsaved, setSearchParams, setActiveFrameId, setActiveLayerId, reset, resetLayerCounters, clearAllLayerCanvas, setProjectId])
 
     const handleSave = useCallback(async (saveModelData: SaveModelData) => {
         if (!isLoggedIn) { 
@@ -200,7 +202,5 @@ export function useEditorProject({
         projectTitle,
         setProjectTitle,
         isPublic,
-        unsaved,
-        setUnsaved,
     };
 }

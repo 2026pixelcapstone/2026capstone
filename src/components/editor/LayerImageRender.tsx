@@ -11,7 +11,6 @@ interface LayerRendererProps {
     currentFrameId: string | null;
     ensureLayerCanvas: (cacheKey: string) => HTMLCanvasElement;
     peekLayerCanvas: (cacheKey: string) => HTMLCanvasElement | null;
-    isScaleImage: boolean;
 }
 
 // 각 레이어의 이미지를 렌더링하는 컴포넌트
@@ -23,59 +22,18 @@ export const LayerImageRenderer = ({
   currentFrameId,
   ensureLayerCanvas,
   peekLayerCanvas,
-  isScaleImage
 }: LayerRendererProps) => {
     
     const imageRef = useRef<Konva.Image>(null);
-
     const cacheKey = currentFrameId ? getCacheKey(currentFrameId, layerId) : '';
     
     // 2. Side Effect(캔버스 생성 및 리사이징)를 useLayoutEffect로 완벽히 격리
     useLayoutEffect(() => {
         if (!cacheKey) return;
-        const existingCanvas = peekLayerCanvas(cacheKey);
-        let canvas: HTMLCanvasElement;
-        if (!existingCanvas) {           
-            canvas = ensureLayerCanvas(cacheKey);
-        } else {
-            canvas = existingCanvas;
-            // 크기 변경 버튼을 눌러 canvasW/H가 바뀌었을 때 
-            // 런타임에 멈춰있는 기존 가상 캔버스의 하드웨어 해상도 크기를 즉시 리사이징합니다!
-            // 훅으로 리사이즈 정책을 옮기기 전까지 확대/가운데 정렬을 여기서 유지합니다.
-            if (existingCanvas.width !== canvasW || existingCanvas.height !== canvasH) {
-                
-                // 그림을 임시 가상 캔버스에 백업
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = existingCanvas.width;
-                tempCanvas.height = existingCanvas.height;
-                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-                if (tempCtx) tempCtx.drawImage(existingCanvas, 0, 0);
-                
-                // 크기 리사이징(이 순간 기존 데이터 포멧)
-                existingCanvas.width = canvasW;
-                existingCanvas.height = canvasH;
-
-                const ctx = existingCanvas.getContext('2d', { willReadFrequently: true });
-                if (ctx){ 
-                    ctx.imageSmoothingEnabled = false;
-                    if(isScaleImage){
-                        // 옵션 A (그림도 함께 보정 확대): 새 도화지 크기(canvasW, canvasH)에 맞춘다.
-                        ctx.drawImage(tempCanvas, 0, 0, canvasW, canvasH)
-                    }
-                    else{
-                        // 옵션 B (그림 크기 고정): 백업 도화지의 원래 크기(tempCanvas.width/height)를 유지한다.
-                        
-                        const offsetX = (canvasW - tempCanvas.width) / 2;
-                        const offsetY = (canvasH - tempCanvas.height) / 2;
-
-                        ctx.drawImage(tempCanvas, offsetX, offsetY, tempCanvas.width, tempCanvas.height);
-                    }
-                }
-            }
-        }
+        const canvas = ensureLayerCanvas(cacheKey);
         imageRef.current?.image(canvas);
         imageRef.current?.getLayer()?.batchDraw();
-    },[cacheKey, canvasW, canvasH, peekLayerCanvas, ensureLayerCanvas, isScaleImage])
+    },[cacheKey, ensureLayerCanvas])
  
 
     // 옛날 이미지 복원은 비동기 영역인 useEffect에서 차분히 수행합니다.
@@ -114,7 +72,7 @@ export const LayerImageRenderer = ({
             cancelled = true;
             img.onload = null;
         };
-    }, [cacheKey, pixelData, peekLayerCanvas])
+    }, [cacheKey, pixelData, canvasW, canvasH, peekLayerCanvas])
     
     if (!cacheKey) {
         return null;

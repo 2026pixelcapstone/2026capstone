@@ -46,8 +46,8 @@ export function useLayerCanvas({
     
         // 2. 크기가 바뀌었거나 아예 처음 만든 방이라면 메모리에 가상 도화지 새로 생성
         const nextCanvas = document.createElement('canvas')
-        nextCanvas.width = width
-        nextCanvas.height = height
+        nextCanvas.width = width;
+        nextCanvas.height = height;
     
         const ctx = nextCanvas.getContext('2d', { willReadFrequently: true })
         if (ctx) {
