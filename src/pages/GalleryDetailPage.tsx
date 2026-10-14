@@ -177,7 +177,7 @@ export default function GalleryDetailPage() {
 
   const handleShowInfo = () => {
       if (isInternalDraw) {
-          alert("PixelHub 인증 데이터를 포함한 상세 정보를 띄웁니다.");
+          alert("PixelPilot 인증 데이터를 포함한 상세 정보를 띄웁니다.");
       } else {
           alert("일반 파일 사양을 띄웁니다.");
       }

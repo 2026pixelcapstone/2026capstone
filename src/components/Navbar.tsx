@@ -35,7 +35,7 @@ export default function Navbar() {
         {/* 로고 */}
         <Link to="/" className="text-3xl font-bold tracking-tighter hover:opacity-80 transition-opacity"
           style={{ color: 'var(--color-primary)', fontFamily: 'Galmuri11' }}>
-          PixelHub
+          PixelPilot
         </Link>
 
         {/* 네비게이션 링크 */}

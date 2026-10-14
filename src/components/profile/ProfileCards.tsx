@@ -132,6 +132,21 @@ export function EmptyTab({ icon, text, action }: { icon: string; text: string; a
   )
 }
 
+/** 탭 불러오기 실패 — 실패를 '없음'(EmptyTab)으로 보이지 않게 안내 + 다시 시도 */
+export function TabLoadError({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div role="alert" className="flex flex-col items-center justify-center py-24 gap-3">
+      <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>cloud_off</span>
+      <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}을(를) 불러오지 못했습니다.</p>
+      <button type="button" onClick={onRetry}
+        className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
+        style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
+        다시 시도
+      </button>
+    </div>
+  )
+}
+
 /** 로딩 스켈레톤 — square: 작품·에셋 3열 6칸 / user: 유저 카드 4칸 */
 export function GridSkeleton({ variant }: { variant: 'square' | 'user' }) {
   if (variant === 'user') {
