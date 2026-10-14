@@ -52,11 +52,6 @@ export function useLayerCanvas({
         const ctx = nextCanvas.getContext('2d', { willReadFrequently: true })
         if (ctx) {
           ctx.imageSmoothingEnabled = false; // 픽셀아트 흐림 방지
-          
-          // 크기 조절 등으로 인해 기존 도화지를 복사해야 하는 상황
-          if (existingCanvas) {
-            ctx.drawImage(existingCanvas, 0, 0, existingCanvas.width, existingCanvas.height);
-          }
         }
         layerCanvasRefs.current[cacheKey] = nextCanvas;
         return nextCanvas;

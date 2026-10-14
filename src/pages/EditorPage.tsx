@@ -14,6 +14,7 @@ import { useLayers as useLayer } from '../hooks/editor/useLayer'
 import { Stage, Layer as KonvaLayer, Layer, Rect } from 'react-konva'
 import Konva from 'konva'
 import { LayerImageRenderer } from '../components/editor/LayerImageRender'
+import { resizedLayerCanvases } from '../utils/resizedLayerCanvas'
 import { getCacheKey, getLabel, getLayerImageData } from '../utils/editorUtils'
 import { ColorPickerModal } from '../components/ColorPickerModal'
 import { aiApi } from '../api/aiApi'
@@ -1340,10 +1341,10 @@ export default function EditorPage() {
                     <LayerImageRenderer
                       layerId={layer.id}
                       pixelData={layer.pixelData}
+                      preparedCanvas={resizedLayerCanvases.get(layer)}
                       canvasW={state.width}
                       canvasH={state.height}
                       currentFrameId={activeFrameId}
-                      peekLayerCanvas={peekLayerCanvas}
                       ensureLayerCanvas={ensureLayerCanvas}
                     />
                   </KonvaLayer>

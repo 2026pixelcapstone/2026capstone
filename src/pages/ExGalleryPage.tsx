@@ -281,17 +281,6 @@ export default function ExGalleryPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
       />
-
-      <footer className="border-t py-12 px-6" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
-        <div className="max-w-[1440px] mx-auto flex justify-between items-center">
-          <span className="text-xl font-bold" style={{ color: 'var(--color-primary)' }}>PixelHub</span>
-          <div className="flex gap-6 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
-            {['이용약관', '개인정보처리방침', '고객지원', '작가센터'].map(l => (
-              <a key={l} href="#" className="hover:text-white transition-colors">{l}</a>
-            ))}
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
