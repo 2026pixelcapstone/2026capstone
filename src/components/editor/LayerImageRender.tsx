@@ -30,6 +30,7 @@ export const LayerImageRenderer = ({
     // 디코딩 중에는 이전 표시를 유지하고, 복원된 이미지와 크기를 함께 반영합니다.
     useLayoutEffect(() => {
         if (!cacheKey) return;
+
         let cancelled = false;
 
         const restore = (image: HTMLImageElement | HTMLCanvasElement | null) => {
@@ -69,6 +70,7 @@ export const LayerImageRenderer = ({
         return () => {
             cancelled = true;
             img.onload = null;
+
             img.onerror = null;
         };
     }, [cacheKey, pixelData, canvasW, canvasH, ensureLayerCanvas, preparedCanvas]);

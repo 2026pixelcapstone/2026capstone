@@ -52,7 +52,6 @@ export function useLayerCanvas({
         const ctx = nextCanvas.getContext('2d', { willReadFrequently: true })
         if (ctx) {
           ctx.imageSmoothingEnabled = false; // 픽셀아트 흐림 방지
-          
         }
         layerCanvasRefs.current[cacheKey] = nextCanvas;
         return nextCanvas;

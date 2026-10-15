@@ -140,6 +140,7 @@ export function useEditorProject({
         setSearchParams({}, { replace: true })
     }, [unsaved, setUnsaved, setSearchParams, setActiveFrameId, setActiveLayerId, reset, resetLayerCounters, clearAllLayerCanvas, setProjectId])
 
+    //  ── 프로젝트 저장 ───────────────────────────────────
     const handleSave = useCallback(async (saveModelData: SaveModelData) => {
         if (!isLoggedIn) { 
             toast.error('로그인이 필요합니다.'); 

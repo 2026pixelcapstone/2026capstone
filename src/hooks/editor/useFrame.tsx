@@ -1,5 +1,5 @@
 // src/components/useAnimation.tsx
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { createDefaultLayer} from '../../constants/editor/editor';
 import {CanvasState, FrameData} from '../../type/editor'
 
@@ -20,6 +20,7 @@ export function useFrame({
     setActiveLayerId,
     setUnsaved,
 }: UseAnimationProps){
+     const [showFramePanel, setShowFramePanel] = useState(false)
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
      */
@@ -128,5 +129,5 @@ export function useFrame({
         setUnsaved(true);
     }, [frames, setWithHistory, setUnsaved]);
 
-    return {addFrame, deleteFrame, reorderFrames};
+    return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames};
 }

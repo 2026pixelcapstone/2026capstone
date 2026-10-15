@@ -11,7 +11,7 @@ interface UseCanvasSize{
     frame: FrameData[];
     setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
-    peekLayerCanvas: (cachekey: string) =>  HTMLCanvasElement | null
+    peekLayerCanvas: (cachekey: string) =>  HTMLCanvasElement | null;
 }
 
 export function useCanvasSize({
@@ -50,7 +50,9 @@ export function useCanvasSize({
         setCustomH(height);
     }, [width, height])
 
+
     const resizeLayer = useCallback(async (nextWidth: number, nextHeight: number, frameId: string, layerId: string, pixelData: string) => {
+
         let sourceCanvas: HTMLCanvasElement | HTMLImageElement | null = peekLayerCanvas(getCacheKey(frameId, layerId));
         
         if (!sourceCanvas && pixelData.trim()) {
@@ -62,6 +64,7 @@ export function useCanvasSize({
             });
         }
         // 캐시와 저장된 이미지가 모두 없으면 정상적인 빈 레이어입니다.
+
         if (!sourceCanvas) return { pixelData: '', canvas: null };
         // 그림을 임시 가상 캔버스에 백업
         const tempCanvas = document.createElement('canvas');
@@ -88,6 +91,7 @@ export function useCanvasSize({
             throw new Error('리사이즈한 이미지를 저장하지 못했습니다.');
         }
 
+
         return { pixelData: nextPixelData, canvas: tempCanvas };
     },[peekLayerCanvas, isScaleImage])
 
@@ -105,6 +109,7 @@ export function useCanvasSize({
                 frame.map(async frame => ({
                     ...frame,
                     layers: await Promise.all(
+
                         frame.layers.map(async layer => {
                             const result = await resizeLayer(w, h, frame.id, layer.id, layer.pixelData);
                             const resizedLayer = { ...layer, pixelData: result.pixelData };
