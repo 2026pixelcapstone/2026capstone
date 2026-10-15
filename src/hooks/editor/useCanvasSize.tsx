@@ -11,7 +11,7 @@ interface UseCanvasSize{
     frame: FrameData[];
     setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
-    peekLayerCanvas: (cachekey: string) =>  HTMLCanvasElement | null
+    peekLayerCanvas: (cachekey: string) =>  HTMLCanvasElement | null;
 }
 
 export function useCanvasSize({
