@@ -176,7 +176,7 @@ export function useEditorExport({
           console.error(err);
           toast.error('GIF 내보내기 처리 중 오류가 발생했습니다.');
         }
-    }, [stageRef, projectTitle, frames, state.width, state.height]);
+    }, [stageRef, projectTitle, state.frames, state.width, state.height, peekLayerCanvas]);
 
 
     // ── .ppit 내보내기/불러오기 ───────────────────────────
