@@ -38,8 +38,11 @@ export const SHAPE_TOOLS = [
   { id: 'ellipse',   icon: 'circle',              label: 'Ellipse (O)' },
 ]
 export const VIEW_TOOLS = [
-  { id: 'zoom',      icon: 'search',              label: 'Zoom (Z)' },
   { id: 'pan',       icon: 'pan_tool',            label: 'Pan (Space)' },
+]
+
+export const COLOR_TOOLS = [
+  {id: 'color', icon: 'color', label: 'Color' },
 ]
 
 export const PALETTE_COLORS = [

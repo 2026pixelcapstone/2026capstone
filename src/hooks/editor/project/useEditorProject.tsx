@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { CanvasState, FrameData, SaveModelData } from "../../../type/editor";
+import { CanvasState, SaveModelData } from "../../../type/editor";
 import { useEditorLoad } from "./useEditorLoad";
 import { useEditorSave } from "./useEditorSave";
 import { createInitialCanvasData } from "../../../constants/editor/editor";
@@ -16,7 +16,7 @@ interface UseEditorProjectProps {
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
     setCustomW: React.Dispatch<React.SetStateAction<number>>;
     setCustomH: React.Dispatch<React.SetStateAction<number>>;
-    reset: (newState: { frames: FrameData[]; width: number; height: number }) => void;
+    reset: (newState: CanvasState) => void;
     setActiveFrameId: React.Dispatch<React.SetStateAction<string | null>>;
     setActiveLayerId: React.Dispatch<React.SetStateAction<string | null>>;
     resetLayerCounters: () => void;
@@ -98,6 +98,7 @@ export function useEditorProject({
 
             setActiveFrameId(framesToReset[0]?.id ?? null);
             setActiveLayerId(framesToReset[0]?.layers[0]?.id ?? null);
+
             setUnsaved(false);
             toast.success('프로젝트를 성공적으로 불러왔습니다!')
         } catch {
@@ -111,6 +112,34 @@ export function useEditorProject({
         }
     }, [isLoggedIn, rawProjectId, loadProject, reset, setProjectId, setProjectTitle,
         setCustomW, setCustomH, setActiveFrameId, setActiveLayerId])
+
+
+    // ── 프로젝트 교체 ──────────────
+    const replaceProject = useCallback((canvasData: CanvasState, title: string) => {
+        const firstFrame = canvasData.frames[0];
+        const firstLayer = firstFrame?.layers[0];
+        setActiveFrameId(firstFrame?.id ?? null);
+        setActiveLayerId(firstLayer?.id ?? null);
+    
+        reset(canvasData);
+    
+        setProjectId(null);  // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
+        setProjectTitle(title || 'Untitled Project');
+        setUnsaved(true);
+    
+        // 새 작업이므로 URL의 projectId 제거 (새로고침 시 옛 서버 프로젝트 재로드 방지)
+        setSearchParams(prev => {
+          const p = new URLSearchParams(prev)
+          p.delete('projectId')
+          return p
+        }, { replace: true });
+        
+        setCustomW(canvasData.width);
+        setCustomH(canvasData.height);
+        
+        // 캔버스·히스토리·프로젝트 정보 등 초기화
+    }, [setActiveFrameId, setActiveLayerId, setProjectId, setProjectTitle, setUnsaved, setSearchParams, setCustomW, setCustomH]);
+
 
     // ── 새 프로젝트 ───────────────────────────────────
     const handleNewProject = useCallback(() => {
@@ -137,8 +166,20 @@ export function useEditorProject({
         setIsPublic(false);
         setUnsaved(false);
         // URL에 남은 projectId 쿼리 파라미터 제거
-        setSearchParams({}, { replace: true })
+        setSearchParams({}, { replace: true });
     }, [unsaved, setUnsaved, setSearchParams, setActiveFrameId, setActiveLayerId, reset, resetLayerCounters, clearAllLayerCanvas, setProjectId])
+
+    // 저장된 프로젝트 열기 (모달에서 선택) → URL projectId로 로드 effect 트리거
+    const openProject = useCallback((pid: number) => {
+        if (pid !== projectId &&
+            unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) {
+          return false;
+        }
+        setSearchParams({ projectId: String(pid) }, { replace: true })
+        return true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId, unsaved, setSearchParams])
+
 
     //  ── 프로젝트 저장 ───────────────────────────────────
     const handleSave = useCallback(async (saveModelData: SaveModelData) => {
@@ -192,16 +233,17 @@ export function useEditorProject({
     }, [isLoggedIn]);
 
     return { 
-        handleNewProject, 
-        handleSave, 
-        saving,
-        openSaveModal, 
-        isSaveModalOpen, 
-        setIsSaveModalOpen, 
         projectId, 
-        setProjectId,
         projectTitle,
-        setProjectTitle,
+        saving,
         isPublic,
+        isSaveModalOpen, 
+        setProjectTitle,
+        setIsSaveModalOpen, 
+        handleNewProject, 
+        handleSave,
+        openProject,
+        openSaveModal,
+        replaceProject,
     };
 }

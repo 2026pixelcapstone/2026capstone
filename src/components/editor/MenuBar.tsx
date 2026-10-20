@@ -46,7 +46,7 @@ export default function MenuBar({
     fileActions,
     editActions,
     viewActions,
-    layerActions, // <- 임시 주석
+    layerActions,
     pixelGuides,
 
 }: MenuBarProps){
@@ -77,13 +77,17 @@ export default function MenuBar({
             case MENU_ACTION.OPEN_PROJECT:
                 fileActions.setOpenProjectModalOpen(true);
                 break;
+            case MENU_ACTION.IMPORT_PROJECT:
+                
+                break;
             case MENU_ACTION.OPEN_PPIT:
                 fileActions.handleOpenPpit();
                 break;
             case MENU_ACTION.SAVE:
                 fileActions.openSaveModal();
                 break;
-            case MENU_ACTION.BROWSER_SAVE:
+            case MENU_ACTION.SAVE_AS:
+                
                 break;
             case MENU_ACTION.EXPORT_IMAGE:
                 fileActions.handleExportImage();
@@ -168,11 +172,9 @@ export default function MenuBar({
         <div ref={menuContainerRef} className="flex items-center h-full">
             {/* 메뉴 그룹 루프 */}
             {MENU_DEFS.map(menu => (
-                // relative -> absolute의 기준점으로, 드롭다운 박스가 정확히 클릭한 메뉴 버튼의 바로 아래에 띄워지게 된다
                 <div key={menu.id} className="relative h-full flex items-center">
                     <button // 상단 메뉴 버튼 설정
                         onClick={() => setOpenMenu(openMenu === menu.id ? null : menu.id)}
-                        // px-3: 버튼 내부의 좌우 여백 12px, h-full: 감지 범위도 상하로 넒어짐 text-sm: 글자 크기 14px, transition-colors: 마우스를 올리거나 메뉴가 열렸을 때 애니메이션 효과
                         className="px-3 h-full text-sm transition-colors" 
                         style={{
                             // --color-on-surface: 색상 값을 적는 대신 의미가 부여돈 이름으로 색상 관리

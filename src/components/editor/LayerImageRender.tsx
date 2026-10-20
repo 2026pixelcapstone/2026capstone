@@ -9,7 +9,7 @@ interface LayerRendererProps {
     canvasW: number;
     canvasH: number;
     currentFrameId: string | null;
-    ensureLayerCanvas: (cacheKey: string) => HTMLCanvasElement;
+    ensureLayerCanvas: (cacheKey: string) => HTMLCanvasElement | null;
     preparedCanvas?: HTMLCanvasElement;
 }
 
@@ -36,6 +36,7 @@ export const LayerImageRenderer = ({
         const restore = (image: HTMLImageElement | HTMLCanvasElement | null) => {
             if (cancelled) return;
             const canvas = ensureLayerCanvas(cacheKey);
+            if(!canvas) return;
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (!ctx) return;
 
