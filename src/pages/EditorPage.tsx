@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CanvasState } from '../type/editor'
-import {createInitialCanvasData, DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS, ZOOM_LEVELS, CANVAS_PRESETS, MAX_CANVAS_SIZE} from '../constants/editor/editor'
+import {createInitialCanvasData, ZOOM_LEVELS, CANVAS_PRESETS, MAX_CANVAS_SIZE} from '../constants/editor/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
 import EditorOpenProjectModal from '../components/editor/EditorOpenProjectModal'
@@ -10,18 +9,13 @@ import { toast } from '../store/toastStore'
 import {useFrame} from '../hooks/editor/useFrame'
 import { useHistory } from '../hooks/editor/useHistory'
 import { useLayers as useLayer } from '../hooks/editor/useLayer'
-import { Stage, Layer as KonvaLayer, Layer, Rect } from 'react-konva'
 import Konva from 'konva'
-import { LayerImageRenderer } from '../components/editor/LayerImageRender'
-import { resizedLayerCanvases } from '../utils/resizedLayerCanvas'
-import { getCacheKey, getLabel, getLayerImageData } from '../utils/editorUtils'
-import { ColorPickerModal } from '../components/ColorPickerModal'
+import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
+import { ColorPickerModal } from '../components/editor/ColorPickerModal'
 import { aiApi } from '../api/aiApi'
 import type { RelatedPost } from '../api/aiApi'
 import { extractUsedColors } from '../utils/colorExtract'
 import { getErrorMessage } from '../lib/errorUtils'
-import { parsePpit} from '../lib/ppit'
-import { ppitToCanvasData } from '../utils/ppitConvert'
 import MenuBar from '../components/editor/MenuBar'
 import PaletteBrowserModal, { type PaletteApplyMode } from '../components/editor/PaletteBrowserModal'
 import PaletteFormModal from '../components/palette/PaletteFormModal'
@@ -36,6 +30,11 @@ import { usePalette } from '../hooks/editor/color/usePalette'
 import { useCanvasSize } from '../hooks/editor/useCanvasSize'
 import { useAnimation } from '../hooks/editor/useAnimation'
 import { useEditorExport } from '../hooks/editor/useEditorExport'
+import { useEditorImport } from '../hooks/editor/useEditorImport'
+import { EditorToolBar } from '../components/editor/EditorToolBar'
+import { EditorFrameBar } from '../components/editor/FrameBar'
+import { EditorCanvas } from '../components/editor/EditorCanvas'
+import { AnimationPreview } from '../components/editor/AnimationPreview'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -94,10 +93,10 @@ export default function EditorPage() {
   
   // ── hook ──────────────────────────
   // ── useHistory 훅 ──────────────
-  const {state, setWithHistory, undo, redo, reset} = useHistory<CanvasState>(initialCanvasData);
+  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── useFrame 훅 ──────────────
-  const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames} = useFrame({
+  const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAllAnimDurations} = useFrame({
     frames: state.frames,
     activeFrameId,
     setWithHistory,
@@ -141,8 +140,8 @@ export default function EditorPage() {
     setHexInput,
   })
   // ── useCanvasTool 훅 ──────────────
-  const { applyDirectTool, activeTool, setActiveTool, brushSize, setBrushSize, 
-    pixelPerfect, setPixelPerfect
+  const { 
+    applyDirectTool, activeTool, setActiveTool, brushSize, setBrushSize, pixelPerfect, setPixelPerfect
   } = useCanvasTool({
     fgColor,
     isDirty,
@@ -182,14 +181,14 @@ export default function EditorPage() {
   const {zoom, setZoomIdx} = useCanvasView({ width: state.width, height: state.height });
 
   // ── useAnimation 훅 ──────────────
-  const { isPlaying, previewFrameIdx, setIsPlaying } = useAnimation({
-    frameLength: state.frames.length,
+  const { isPlaying, previewFrameIdx, setIsPlaying, fps, setFps } = useAnimation({
+    frames: state.frames,
   });
 
   // ── useEditorProject 훅 ──────────────
   const { 
-    handleNewProject, handleSave, saving, openSaveModal, isSaveModalOpen, setIsSaveModalOpen, 
-    projectId, setProjectId, projectTitle, setProjectTitle, isPublic
+    projectTitle,saving,isPublic,isSaveModalOpen, setProjectTitle,
+    setIsSaveModalOpen, handleNewProject, handleSave, openProject, openSaveModal, replaceProject,
   } = useEditorProject({
     isLoggedIn,
     stageRef,
@@ -205,6 +204,8 @@ export default function EditorPage() {
     peekLayerCanvas,
     clearAllLayerCanvas,
   });
+
+  const {loadPpitText} = useEditorImport({ replaceProject });
 
   // ── useEditorExport 훅 ──────────────
   const {handleExportImage, handleExportPpit } = useEditorExport({
@@ -317,34 +318,6 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [openSaveModal, undo, redo])
 
-  // .ppit 텍스트를 에디터 상태로 로드 (파일/URL 공통)
-  const loadPpitText = useCallback((text: string, title: string) => {
-    const ppit = parsePpit(text)
-    const cd = ppitToCanvasData(ppit)
-
-    const firstFrame = cd.frames[0];
-    const firstLayer = firstFrame?.layers[0];
-    
-    setActiveFrameId(firstFrame?.id ?? null);
-    setActiveLayerId(firstLayer?.id ?? null);
-
-    setCustomW(cd.width); 
-    setCustomH(cd.height);
-    reset(cd);
-
-    setProjectId(null);  // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
-    setProjectTitle(title || 'Untitled Project');
-    setUnsaved(true);
-
-    // 새 작업이므로 URL의 projectId 제거 (새로고침 시 옛 서버 프로젝트 재로드 방지)
-    setSearchParams(prev => {
-      const p = new URLSearchParams(prev)
-      p.delete('projectId')
-      return p
-    }, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reset, setActiveLayerId, setActiveFrameId, setProjectId, setSearchParams])
-
   const handleImportPpit = useCallback(async (file: File) => {
     // 미저장 변경 확인 (New Project와 동일)
     if (unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) return
@@ -358,14 +331,10 @@ export default function EditorPage() {
 
   // 저장된 프로젝트 열기 (모달에서 선택) → URL projectId로 로드 effect 트리거
   const handleOpenProject = useCallback((pid: number) => {
-    if (pid !== projectId &&
-        unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) {
-      return
+    if(openProject(pid)){
+      setOpenProjectModalOpen(false)
     }
-    setOpenProjectModalOpen(false)
-    setSearchParams({ projectId: String(pid) }, { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, unsaved, setSearchParams])
+  }, [setOpenProjectModalOpen])
 
   // ── 커뮤니티 팔레트에서 진입: ?palette=<id> → 에디터 팔레트를 그 팔레트로 교체 ──
   useEffect(() => {
@@ -443,13 +412,6 @@ export default function EditorPage() {
   const handleOpenPpit = () => {
     ppitInputRef.current?.click();
   }
-
-  // ── RGB ─────────────────
-  // 툴 버튼 공통 스타일
-  const toolBtn = (id: string) => ({
-    background: activeTool === id ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'transparent',
-    color: activeTool === id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
-  })
 
   // AI 색 팔레트 추천 — 현재 프레임 캔버스(PNG) + 사용된 색 + 자연어 → 서버 → 어울리는 색
   const handleSuggestPalette = async () => {
@@ -853,413 +815,137 @@ export default function EditorPage() {
       <div className="flex flex-1 min-h-0">
 
         {/* ── 좌측 툴바 ── */}
-        <aside className="flex flex-col items-center py-3 gap-1 flex-shrink-0 border-r"
-          style={{ width: 84, background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
-
-          {/* 그리기 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
-            {DRAW_TOOLS.map(t => (
-              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
-                style={toolBtn(t.id)}>
-                <span className="material-symbols-outlined text-2xl">{t.icon}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* 선택 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
-            {SELECT_TOOLS.map(t => (
-              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
-                style={toolBtn(t.id)}>
-                <span className="material-symbols-outlined text-2xl">{t.icon}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* 도형 도구 */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
-            {SHAPE_TOOLS.map(t => (
-              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
-                style={toolBtn(t.id)}>
-                <span className="material-symbols-outlined text-2xl">{t.icon}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* 뷰 도구 (하단 고정) */}
-          <div className="flex flex-col items-center gap-1 w-full px-2 mt-auto">
-            {VIEW_TOOLS.map(t => (
-              <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
-                style={toolBtn(t.id)}>
-                <span className="material-symbols-outlined text-2xl">{t.icon}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
+          <EditorToolBar
+            activeTool = {activeTool}
+            fgColor= {fgColor}
+            hexInput = {hexInput}
+            setActiveTool = {setActiveTool}
+            setIsHexModal = {setIsHexModal}
+            setHexInput = {setHexInput}
+            applyHex = {applyHex}
+          />
 
          {/* ── 프레임 패널 ─────────────────────────────── */}
-        <div className="flex flex-col flex-shrink-0 border-l"
-          style={{ width: showFramePanel ? 160 : 36, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', transition: 'width 0.2s' }}>
-          {/* 토글 버튼 */}
-          <button onClick={() => setShowFramePanel(v => !v)}
-            className="w-9 h-9 flex items-center justify-center flex-shrink-0 transition-colors hover:bg-surface-container"
-            style={{ color: showFramePanel ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}
-            title="Animation">
-            <span className="material-symbols-outlined text-xl">animation</span>
-          </button>
+          <EditorFrameBar
+            showFramePanel = {showFramePanel}
+            activeFrameId = {activeFrameId}
+            frames = {state.frames}
+            setShowFramePanel = {setShowFramePanel}
+            handleSelectFrame = {handleSelectFrame}
+            handleFrameDragStart = {handleFrameDragStart}
+            handleDragOver = {handleDragOver}
+            handleFrameDrop = {handleFrameDrop}
+            addFrame = {addFrame}
+            deleteFrame = {deleteFrame}
+          />
 
-          {showFramePanel && (
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
-                style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} > 
-                <span>Anim</span>
-                <span className='text-[10px]'>{state.frames.length} frame{state.frames.length > 1 ? 's' : ''}</span>  
-              </div>
-
-              {/* 프레임 목록 */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                {state.frames.map((frame, index) => {
-                    const isActive = frame.id === activeFrameId;
-                    return(
-                      <div
-                        key = {frame.id}
-                        draggable
-                        onClick={() => handleSelectFrame(frame.id)} // 프레임 선택 기능
-                        onDragStart={(e) => handleFrameDragStart(e, index)} // 드래그 시작
-                        onDragOver={(e) => handleDragOver(e)} // 드래그 오버 허용
-                        onDrop={(e) => handleFrameDrop(e, index)} // 드롭
-                        className='relative group rounded-lg border-2 p-1 cursor-pointer'
-                        style={{
-                          borderColor: isActive ? 'var(--color-primary)' : 'var(--color-outline)',
-                          background: isActive ? 'var(--color-surface-container-low)' : 'transparent'
-                        }}>
-
-                        <button onClick={(e) => {
-                          e.stopPropagation(); // 클릭 이벤트가 부모로 퍼지는 것 방지
-                          deleteFrame(frame.id);
-                        }}
-                          className='absolute top-1 right-1 z-10 w-5 h-5 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
-                          title='Delete Frame'>
-                          <span className='material-symbols-outlined text-[14px]'>close</span>
-                        </button>
-
-                        {/* 미리보기 영역 (Canvas thumbnail  등을 넣을 수 있음)*/}
-                        <div className="aspect-square checkerboard rounded overflow-hidden flex items-center justify-center relative">
-                          {(() => {
-                            // 레이어 탐색, 보이고 pixelData가 존재하는 레이어 중 첫 번째 레이어를 타깃으로 잡음
-                            const layerPreviews = (frame.layers ?? [])
-                              .filter((layer) => layer.isVisible) // 보이는 레이어만 필터링
-                              .map((layer) => {
-                                let src: string | null = null;
-                                if(layer.pixelData){
-                                  try{
-                                    const frameImages = layer.pixelData;
-                                    if(frameImages) src = frameImages;
-                                  } catch (e){
-                                    console.error("레이어 썸네일 파싱 에러", e);
-                                  }
-                                }
-                                return {id: layer.id, src, opacity: layer.opacity}
-                              });
-                              // 만약 모든 레이어에 아무런 그림이 없다면 Empty 표시
-                              const hasAnyImage = layerPreviews.some((lp) => lp.src);
-                              if(!hasAnyImage){
-                                return <span className="text-[10px] text-gray-500 z-10">Empty</span>; 
-                              }
-
-                              // 수집된 레이어들을 CSS 절대 좌표(absolute)를 이용해 아래서부터 위로 차곡차곡 겹쳐서 렌더링
-                              return(
-                                <div className='absolute inset-0 w-full h-full pointer-events-none'>
-                                  {layerPreviews.map((lp) => {
-                                    if(!lp.src) return null; // 해당 프레임에 그림이 없는 레이어는 패스
-                                    return (
-                                    <img
-                                      key={lp.id}
-                                      src={lp.src}
-                                      className="absolute inset-0 w-full h-full object-contain"
-                                      style={{
-                                        // 💡 픽셀 아트 깨짐(뭉개짐) 방지 및 레이어별 실제 투명도 실시간 반영!
-                                        imageRendering: 'pixelated', 
-                                        opacity: lp.opacity / 100, 
-                                      }}
-                                      alt="layer-thumb"
-                                    />
-                                  );
-                                  })}
-                                </div>
-                              )
-                          })()}
-                        </div>
-                      </div>
-                    )
-                })}
-            
-                {/* 프레임 추가 버튼 */}
-                <button
-                  onClick={() => addFrame()}
-                  className='w-full aspect-square rounded-lg border-2 border-dashed flex items-center justify-center transition-colors hover:bg-surface-container hover:border-on-surface-variant'
-                  style={{ borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
-                  <span className="material-symbols-outlined text-lg">add</span>
-                </button>
-              </div>
-
-              {/* 재생 컨트롤 */}
-              <div className="flex items-center justify-center gap-4 p-3 border-t" 
-                  style={{ borderColor: 'var(--color-outline)' }}>
-                
-                  {/* 이전 프레임으로 이동 */}
-                  <button 
-                    onClick={() => {
-                      if(state.frames.length === 0) return;
-
-                      const currentIdx = state.frames.findIndex((f) => f.id === activeFrameId);
-                      const safeIdx = currentIdx >= 0 ? currentIdx : 0;
-                      
-                      // 이전 프레임 idx 가공 및 주입
-                      const prevIdx = safeIdx >= 1 ? safeIdx - 1 : state.frames.length - 1;
-                      const targetFrame = state.frames[prevIdx];
-                      if(targetFrame){
-                        handleSelectFrame(targetFrame.id); 
-                      }
-                    }}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
-                    style={{ color: 'var(--color-on-surface-variant)' }}>
-                    <span className="material-symbols-outlined text-lg">skip_previous</span>
-                  </button>
-
-                  {/* 재생 / 일시정지 */}
-                  <button 
-                    onClick={() => setIsPlaying(!isPlaying)}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
-                    style={{ color: isPlaying ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
-                    <span className="material-symbols-outlined text-lg">
-                      {isPlaying ? 'pause' : 'play_arrow'}
-                    </span>
-                  </button>
-                    
-                  {/* 다음 프레임으로 이동 */}
-                  <button 
-                    onClick={() => {
-                      const currentIdx = state.frames.findIndex((f) => f.id === activeFrameId);
-                      const safeIdx = currentIdx >= 0 ? currentIdx : 0; 
-                      
-                      const nextIdx = (safeIdx + 1) % state.frames.length;
-                      const targetFrame = state.frames[nextIdx]
-
-                      if(targetFrame){
-                        handleSelectFrame(targetFrame.id); 
-                      }
-                    }}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container"
-                    style={{ color: 'var(--color-on-surface-variant)' }}>
-                    <span className="material-symbols-outlined text-lg">skip_next</span>
-                  </button>
-              </div>
-            </div>
-          )}
-        </div>
         {/* ── 캔버스 영역 ─────────────────────────────── */}
-        {/* 바깥 배경: 캔버스보다 약간 진한 중간 회색 (체커보드) */}
-        <main className="flex-1 flex items-center justify-center overflow-hidden relative"
-          style={{
-            backgroundColor: '#767676',
-            backgroundImage: [
-              'linear-gradient(45deg,#848484 25%,transparent 25%)',
-              'linear-gradient(-45deg,#848484 25%,transparent 25%)',
-              'linear-gradient(45deg,transparent 75%,#848484 75%)',
-              'linear-gradient(-45deg,transparent 75%,#848484 75%)',
-            ].join(','),
-            backgroundSize: '16px 16px',
-            backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
-          }}>
+          <EditorCanvas 
+            activeFrameId = {activeFrameId}
+            zoom = {zoom}
+            showGridLines = {showGridLines}
+            cursorPos = {cursorPos}
+            stageRef = {stageRef}
+            currentFrame = {currentFrame}
+            setZoomIdx = {setZoomIdx}
+            ensureLayerCanvas = {ensureLayerCanvas}
 
-          {/* 애니메이션 프리뷰 */}
-          <div className="absolute top-4 right-4 w-48 bg-[#1e2329] rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden z-50">
-            <div className="aspect-square checkerboard rounded overflow-hidden flex items-center justify-center relative">
-              {(() => {
-                const safePreviewFrameIdx = Math.max(0, Math.min(previewFrameIdx, state.frames.length - 1));
-                // 레이어 탐색, 보이고 pixelData가 존재하는 레이어 중 첫 번째 레이어를 타깃으로 잡음
-                const layerPreviews = (state.frames[safePreviewFrameIdx].layers ?? [])
-                  .filter((layer) => layer.isVisible) // 보이는 레이어만 필터링
-                  .map((layer) => {
-                    let src: string | null = null;
-                    if(layer.pixelData){
-                      try{
-                        const frameImages = layer.pixelData;
-                        if(frameImages) src = frameImages;
-                      } catch (e){
-                        console.error("레이어 썸네일 파싱 에러", e);
-                      }
-                    }
-                    return {id: layer.id, src, opacity: layer.opacity}
-                  });
-
-                  // 수집된 레이어들을 CSS 절대 좌표(absolute)를 이용해 아래서부터 위로 차곡차곡 겹쳐서 렌더링
-                  return(
-                    <div className='absolute inset-0 w-full h-full pointer-events-none'>
-                      {layerPreviews.map((lp) => {
-                        if(!lp.src) return null; // 해당 프레임에 그림이 없는 레이어는 패스
-                        return (
-                        <img
-                          key={lp.id}
-                          src={lp.src}
-                          className="absolute inset-0 w-full h-full object-contain"
-                          style={{
-                            // 💡 픽셀 아트 깨짐(뭉개짐) 방지 및 레이어별 실제 투명도 실시간 반영!
-                            imageRendering: 'pixelated', 
-                            opacity: lp.opacity / 100, 
-                          }}
-                          alt="layer-thumb"
-                        />
-                      );
-                      })}
-                    </div>
-                  )
-              })()}  
-            </div>
-          </div>
-
-          {/* 캔버스 래퍼 — backgroundColor로 연회색 보장 */}
-          <div className="relative shadow-2xl"
-              style={{ 
-                width: state.width, 
-                height: state.height,
-                transform: `scale(${zoom})`,
-                transformOrigin: 'center center',
-                backgroundColor: '#e8e8e8',
-                imageRendering: 'pixelated'
+            canvasProps={{
+              frames: state.frames,
+              width: state.width,
+              height: state.height,
             }}
-          >
-            {/* 픽셀 그리드 오버레이 */}
-            {showGridLines && zoom >= 8 && (
-              <div className="absolute inset-0 pointer-events-none z-20"
-                style={{
-                  backgroundImage: `linear-gradient(rgba(80,80,80,0.25) ${1/zoom}px, transparent 0), linear-gradient(90deg, rgba(80,80,80,0.25) ${1/zoom}px, transparent 0)`,
-                  backgroundSize: `1px 1px`,
-                }} />
-            )}
-            <Stage
-              ref={stageRef}
-              width={state.width}
-              height={state.height}
-              pixelRatio={1}
-              style={{imageRendering: 'pixelated'}}
-              onMouseDown={() => {handleMouseDown()}}
-              onMouseMove={(e) => {handleMouseMove(e)}}
-              onMouseUp={(e) => {handleMouseUp(e)}}
-              onMouseLeave={(e) => {handleMouseLeave(e)}}
-            >
-              {(currentFrame?.layers ?? [])
-                .sort((a, b) => a.layerOrder - b.layerOrder)
-                .map((layer) => (
-                  <KonvaLayer
-                    key={layer.id} 
-                    id={layer.id} 
-                    opacity={layer.opacity / 100}
-                    visible={layer.isVisible}>
-                    
-                    {/* 💡 복잡한 캔버스 생성 및 복원 로직은 이 블랙박스 컴포넌트가 알아서 수행합니다! */}
-                    <LayerImageRenderer
-                      layerId={layer.id}
-                      pixelData={layer.pixelData}
-                      preparedCanvas={resizedLayerCanvases.get(layer)}
-                      canvasW={state.width}
-                      canvasH={state.height}
-                      currentFrameId={activeFrameId}
-                      ensureLayerCanvas={ensureLayerCanvas}
-                    />
-                  </KonvaLayer>
-              ))}
-              {cursorPos.x >= 0 && cursorPos.y >= 0 && (
-                <Layer>
-                  <Rect
-                    x={cursorPos.x}
-                    y={cursorPos.y}
-                    width={1}
-                    height={1}
-                    fill="rgba(128, 128, 128, 0.6)" // 기준 색상을 흰색으로 설정
-                    listening={false}
-                  />
-                </Layer>
-              )}
-            </Stage>
-          </div>
 
-          {/* 줌 컨트롤 (하단 중앙 플로팅) */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
-            style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
-            <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
-              style={{ color: 'var(--color-on-surface-variant)' }}>
-              <span className="material-symbols-outlined text-sm">remove</span>
-            </button>
-            <span className="text-xs font-bold w-12 text-center">x{zoom}</span>
-            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_LEVELS.length-1, i+1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
-              style={{ color: 'var(--color-on-surface-variant)' }}>
-              <span className="material-symbols-outlined text-sm">add</span>
-            </button>
-          </div>
-
-          {/* 커서 위치 (우하단 플로팅) */}
-          <div className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 shadow border text-xs font-bold"
-            style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
-            {cursorPos.x >= 0 ? `x: ${cursorPos.x}  y: ${cursorPos.y}` : 'x: —  y: —'}
-          </div>
-        </main>
+            mouseEvnetProps={{
+              handleMouseDown,
+              handleMouseMove,
+              handleMouseUp,
+              handleMouseLeave,
+            }}
+          />
 
         {/* ── 우측 패널 ──────── */}
         <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"
           style={{ width: 300, background: 'var(--color-surface)', borderColor: 'var(--color-outline)',
             scrollbarWidth: 'thin', scrollbarColor: 'var(--color-surface-container) transparent' }}>
-
-          {/* 색상 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Color</div>
-            {/* FG / BG 색상 */}
-            <div className="flex items-center gap-4 mb-4 px-1">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
-                  style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
-                  title="Foreground"
-                  onClick={() => setIsHexModal(true)} 
-                />
-                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm"
-                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }} title="Background" />
-              </div>
-              <div className="flex-1">
-                <div className="text-xs mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>HEX</div>
-                <input type="text" value={hexInput}
-                  onChange={e => setHexInput(e.target.value)}
-                  onBlur={applyHex}
-                  onKeyDown={e => e.key === 'Enter' && applyHex()}
-                  className="w-full text-sm font-bold rounded-lg px-2 py-1.5 outline-none"
-                  style={{ background: 'var(--color-surface-container-low)', border: 'none', color: 'var(--color-on-surface)' }} />
+          
+          {/* 애니메이션 프리뷰 섹션 */}
+          <AnimationPreview 
+            fps={fps}
+            setFps={setFps}
+            previewFrameIdx = {previewFrameIdx}
+            isPlaying = {isPlaying}
+            frames = {state.frames}
+            setIsPlaying = {setIsPlaying}
+            updateAllAnimDurations={updateAllAnimDurations}
+          />          
+          
+          {/* 레이어 섹션 */}
+         <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>{currentFrame.layers.length} Layer{currentFrame.layers.length === 1 ? '' : 's'}</div>
+              <div className="flex gap-1">
+                {layerButtons.map(([icon,tip, handler]) => (
+                  <button key={icon} title={tip}
+                    onClick={() => {
+                      if(!handler) return;
+                      if (icon === 'add') {
+                        handler();
+                      } else if (icon === 'delete') {
+                        // deleteLayer는 (frameIdx, layerId) 두 개를 받으므로 맞춰서 전달
+                        handler();
+                      }
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
+                    style={{ color: 'var(--color-on-surface-variant)' }}>
+                    <span className="material-symbols-outlined text-sm">{icon}</span>
+                  </button>
+                ))}
               </div>
             </div>
-            {/* RGB 슬라이더 */}
-            <div className="space-y-2 px-1">
-              {[
-                { ch: 'R', val: rgb.r, color: '#ef4444', accent: 'accent-red-500' },
-                { ch: 'G', val: rgb.g, color: '#22c55e', accent: 'accent-emerald-500' },
-                { ch: 'B', val: rgb.b, color: '#3b82f6', accent: 'accent-blue-500' },
-              ].map(({ ch, val, color: col, accent }) => (
-                <div key={ch} className="flex items-center gap-2">
-                  <span className="text-xs font-bold w-3 flex-shrink-0" style={{ color: col }}>{ch}</span>
-
-                  <input 
-                    type="range"
-                    min={0}
-                    max={255}
-                    value={val}
-                    className={`flex-1 h-1.5 cursor-pointer ${accent}`} 
-                    onChange={(e) => handleRgbChange(ch.toLowerCase() as 'r' | 'g' | 'b', Number(e.target.value))}
-                    />
-                  <span className="text-xs font-bold w-7 text-right" style={{ color: 'var(--color-on-surface-variant)' }}>{val}</span>
+            <div className="space-y-0.5">
+              {reversedLayersWithIdx.map(({layer, originalIndex}) => (
+                <div 
+                  key={layer.id}
+                  role="button"
+                  draggable // 드래그 가능하도록 설정
+                  onDragStart={(e) => handleLayerDragStart(e, originalIndex)}
+                  onDragOver={(e) => handleDragOver(e)}
+                  onDrop={(e) => handleLayerDrop(e, originalIndex)}
+                  onClick={() => selectLayer(layer.id)}
+                  onKeyDown={(e) => {
+                    if(e.key === 'Enter' || e.key === ' '){
+                      e.preventDefault();
+                      selectLayer(layer.id);
+                    }
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
+                  style={{
+                    background: activeLayerId === layer.id ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)' : 'transparent',
+                    color: activeLayerId === layer.id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+                    fontWeight: activeLayerId === layer.id ? 700 : 400,
+                  }}>
+                  
+                  {/* 레이어 눈 토글 버튼 활성화 */}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation(); // 💡 중요: 버튼을 누를 때 부모 div의 selectLayer가 트리거되는 것을 방지!
+                      toggleVisibility(activeFrameId, layer.id);
+                    }}
+                    className="flex items-center justify-center p-0.5 rounded hover:bg-surface-container-highest transition-colors"
+                    style={{ color: layer.isVisible ? 'var(--color-primary)' : 'var(--color-outline-strong)' }}
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      {layer.isVisible ? 'visibility' : 'visibility_off'}
+                    </span>
+                  </button>
+                  {/* 레이어 썸네일 박스 */}
+                  <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none"
+                    style={{
+                      borderColor: activeLayerId === layer.id ? 'var(--color-primary)' : 'var(--color-outline)',
+                    }} />
+                    
+                  <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
                 </div>
               ))}
             </div>
@@ -1420,82 +1106,15 @@ export default function EditorPage() {
             </div>
           </div>
           
-          {/* 레이어 섹션 */}
-          <div className="p-4 flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>{currentFrame.layers.length} Layer{currentFrame.layers.length === 1 ? '' : 's'}</div>
-              <div className="flex gap-1">
-                {layerButtons.map(([icon,tip, handler]) => (
-                  <button key={icon} title={tip}
-                    onClick={() => {
-                      if(!handler) return;
-                      if (icon === 'add') {
-                        handler();
-                      } else if (icon === 'delete') {
-                        // deleteLayer는 (frameIdx, layerId) 두 개를 받으므로 맞춰서 전달
-                        handler();
-                      }
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
-                    style={{ color: 'var(--color-on-surface-variant)' }}>
-                    <span className="material-symbols-outlined text-sm">{icon}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-0.5">
-              {reversedLayersWithIdx.map(({layer, originalIndex}) => (
-                <div 
-                  key={layer.id}
-                  role="button"
-                  draggable // 드래그 가능하도록 설정
-                  onDragStart={(e) => handleLayerDragStart(e, originalIndex)}
-                  onDragOver={(e) => handleDragOver(e)}
-                  onDrop={(e) => handleLayerDrop(e, originalIndex)}
-                  onClick={() => selectLayer(layer.id)}
-                  onKeyDown={(e) => {
-                    if(e.key === 'Enter' || e.key === ' '){
-                      e.preventDefault();
-                      selectLayer(layer.id);
-                    }
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all text-sm"
-                  style={{
-                    background: activeLayerId === layer.id ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)' : 'transparent',
-                    color: activeLayerId === layer.id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
-                    fontWeight: activeLayerId === layer.id ? 700 : 400,
-                  }}>
-                  
-                  {/* 레이어 눈 토글 버튼 활성화 */}
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation(); // 💡 중요: 버튼을 누를 때 부모 div의 selectLayer가 트리거되는 것을 방지!
-                      toggleVisibility(activeFrameId, layer.id);
-                    }}
-                    className="flex items-center justify-center p-0.5 rounded hover:bg-surface-container-highest transition-colors"
-                    style={{ color: layer.isVisible ? 'var(--color-primary)' : 'var(--color-outline-strong)' }}
-                  >
-                    <span className="material-symbols-outlined text-sm">
-                      {layer.isVisible ? 'visibility' : 'visibility_off'}
-                    </span>
-                  </button>
-                  {/* 레이어 썸네일 박스 */}
-                  <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none"
-                    style={{
-                      borderColor: activeLayerId === layer.id ? 'var(--color-primary)' : 'var(--color-outline)',
-                    }} />
-                    
-                  <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+
         </aside>
         
         <ColorPickerModal 
           isOpen={isHexModal}
-          onClose={() => setIsHexModal(false)}
+          rgb={rgb}
           color={fgColor}
+          handleRgbChange={handleRgbChange}
+          onClose={() => setIsHexModal(false)}
           onChange={selectPaletteColor}
         />
         {/* ── AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
