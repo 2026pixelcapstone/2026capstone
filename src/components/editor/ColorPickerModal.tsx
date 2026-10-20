@@ -20,8 +20,6 @@ export function ColorPickerModal({
   onChange 
 }: ColorPickerModalProps){
   
-  if (!isOpen) return null; // 열려있지 않으면 아무것도 안 띄움
-  
   // ESC 키 다운 시 모달 닫기 이벤트 리스너 격리 구현
   useEffect(() => {
     if (!isOpen) return;
