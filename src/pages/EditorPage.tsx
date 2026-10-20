@@ -36,6 +36,7 @@ import { EditorFrameBar } from '../components/editor/FrameBar'
 import { EditorCanvas } from '../components/editor/EditorCanvas'
 import { AnimationPreview } from '../components/editor/AnimationPreview'
 
+
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
 // ── 컴포넌트 ──────────────────────────────────────────
@@ -97,6 +98,7 @@ export default function EditorPage() {
 
   // ── useFrame 훅 ──────────────
   const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAllAnimDurations} = useFrame({
+
     frames: state.frames,
     activeFrameId,
     setWithHistory,
