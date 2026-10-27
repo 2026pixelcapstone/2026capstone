@@ -40,7 +40,7 @@ export function useEditorProject({
     clearAllLayerCanvas,
 }: UseEditorProjectProps) {
     // 프로젝트 세대(버전)를 추적하는 ref
-    const projectGenerationRef = useRef<number>(Date.now());
+    const projectGenerationRef = useRef<number>(0);
 
     const [projectId, setProjectIdState] = useState<number | null>(null);
     // ID 갱신은 로드를 시작시키지 않고, URL 변경 시 중복 여부만 판단합니다.
@@ -120,7 +120,7 @@ export function useEditorProject({
     // ── 프로젝트 교체 ──────────────
     const replaceProject = useCallback((canvasData: CanvasState, title: string) => {
         // 프로젝트 교체 시 새로운 세대 발급
-        projectGenerationRef.current = Date.now();
+        projectGenerationRef.current += 1;
 
         loadControllerRef.current?.abort();
         loadControllerRef.current = null;
@@ -156,7 +156,8 @@ export function useEditorProject({
     // ── 새 프로젝트 ───────────────────────────────────
     const handleNewProject = useCallback(() => {
         if (unsaved && !confirm('저장되지 않은 변경사항이 있습니다. 계속하시겠습니까?')) return
-        
+        projectGenerationRef.current += 1;
+
         loadControllerRef.current?.abort();
         loadControllerRef.current = null;
         const defaultCanvasData = createInitialCanvasData();
@@ -187,6 +188,7 @@ export function useEditorProject({
             unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) {
           return false;
         }
+        projectGenerationRef.current += 1; 
         setSearchParams({ projectId: String(pid) }, { replace: true })
         return true;
         // eslint-disable-next-line react-hooks/exhaustive-deps

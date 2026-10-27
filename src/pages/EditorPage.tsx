@@ -225,6 +225,7 @@ export default function EditorPage() {
   const {handleExportImage, handleExportPpit } = useEditorExport({
     stageRef,
     state,
+    fps,
     projectTitle,
     peekLayerCanvas,
   });
