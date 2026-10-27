@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FrameData } from "../../type/editor";
+import { MIN_DURATION_30FPS } from "../../constants/editor/editor";
 
 interface UseAnimation {
     frames: FrameData[];
@@ -29,8 +30,10 @@ export function useAnimation({
         ? getDuration(frames[safePreviewFrameIdx])
         : 1000 / draftFps;
     const fps = draftFps ?? Number((1000 / getDuration(frames[0])).toFixed(2));
-    const defaultDuration = Math.round(1000 / Math.max(1, fps));
 
+    // 기본 지속시간(새 프레임 생성 등에 사용)
+    const defaultDuration = draftFps === null ? getDuration(frames[0]) : 1000 / draftFps;
+    
     // Fps 지정
     const setFps = (nextFps: number) => {
         if (Number.isFinite(nextFps) && nextFps > 0) {
@@ -38,7 +41,7 @@ export function useAnimation({
         }
     };
 
-    // setWithHistory 변경시 setDraft 초기화
+    // frames 변경시 setDraft 초기화
     useEffect(()=> {
         setDraft(null);
     }, [frames])
@@ -51,10 +54,15 @@ export function useAnimation({
         }
         if (frames.length <= 1) return;
 
+        // 재생 안전가드 적용
+        const safePlayDuration = (Number.isFinite(duration) && duration > 0)
+        ? Math.max(MIN_DURATION_30FPS, duration) 
+        : 1000; // 계산 실패 시 안전하게 1초(1000ms) 대기
+        
         // 각 프레임에 저장된 표시 시간만큼 기다린 뒤 다음 프레임으로 이동한다.
         const timeout = setTimeout(() => {
             setPreviewFrameIdx((safePreviewFrameIdx + 1) % frames.length);
-        }, duration);
+        }, safePlayDuration);
         return () => clearTimeout(timeout);
     }, [isPlaying, frames.length, safePreviewFrameIdx, duration]);
 

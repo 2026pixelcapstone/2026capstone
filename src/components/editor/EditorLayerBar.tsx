@@ -97,13 +97,13 @@ export function EditorLayerBar({
                   key={layer.id}
                   role="button"
                   tabIndex={0}
-                  aria-pressed={activeLayerId == layer.id}
                   draggable // 드래그 가능하도록 설정
                   onDragStart={(e) => handleLayerDragStart(e, originalIndex)}
                   onDragOver={(e) => handleDragOver(e)}
                   onDrop={(e) => handleLayerDrop(e, originalIndex)}
                   onClick={() => selectLayer(layer.id)}
                   onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
                     if(e.key === 'Enter' || e.key === ' '){
                       e.preventDefault();
                       selectLayer(layer.id);

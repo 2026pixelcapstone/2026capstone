@@ -116,13 +116,18 @@ export function useEditorProject({
 
     // ── 프로젝트 교체 ──────────────
     const replaceProject = useCallback((canvasData: CanvasState, title: string) => {
+        loadControllerRef.current?.abort();
+        loadControllerRef.current = null;
+
         const firstFrame = canvasData.frames[0];
         const firstLayer = firstFrame?.layers[0];
         setActiveFrameId(firstFrame?.id ?? null);
         setActiveLayerId(firstLayer?.id ?? null);
     
         reset(canvasData);
-    
+        resetLayerCounters();
+        clearAllLayerCanvas();
+
         setProjectId(null);  // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
         setProjectTitle(title || 'Untitled Project');
         setIsPublic(false);

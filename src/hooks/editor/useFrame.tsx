@@ -33,7 +33,6 @@ export function useFrame({
             duration: defaultDuration ?? 1000,
             layers: [createDefaultLayer()],
         };
-        console.log("newFrame.duration: " + newFrame.duration);
         const nextFrames = [...frames, newFrame];
 
         const nextIdx = nextFrames.length - 1;

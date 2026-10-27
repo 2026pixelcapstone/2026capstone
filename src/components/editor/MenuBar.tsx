@@ -78,7 +78,6 @@ export default function MenuBar({
                 fileActions.setOpenProjectModalOpen(true);
                 break;
             case MENU_ACTION.IMPORT_PROJECT:
-                
                 break;
             case MENU_ACTION.OPEN_PPIT:
                 fileActions.handleOpenPpit();
@@ -87,7 +86,6 @@ export default function MenuBar({
                 fileActions.openSaveModal();
                 break;
             case MENU_ACTION.SAVE_AS:
-                
                 break;
             case MENU_ACTION.EXPORT_IMAGE:
                 fileActions.handleExportImage();
