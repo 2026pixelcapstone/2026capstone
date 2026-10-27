@@ -1,23 +1,24 @@
 import { useCallback, useReducer } from "react";
 import {MAX_HISTORY_SIZE} from '../../constants/editor/editor'
+import { CanvasState } from "../../type/editor";
 
 // 1. 상태 타입 정의
-interface HistoryState<T>{
-    past: T[];
-    present: T;
-    future: T[];
+interface HistoryState{
+    past: CanvasState[];
+    present: CanvasState;
+    future: CanvasState[];
 }
 
 // 2. 액션 타입 정의
-type HistoryAction<T> = 
-    | {type: "SET"; newPresent: T | ((prev: T) => T)}
-    | {type: "SET_WITHOUT_HISTORY"; newPresent: T | ((prev: T) => T)}
+type HistoryAction = 
+    | {type: "SET"; newPresent: CanvasState | ((prev: CanvasState) => CanvasState)}
+    | {type: "SET_WITHOUT_HISTORY"; newPresent: CanvasState | ((prev: CanvasState) => CanvasState)}
     | {type: "UNDO"}
     | {type: "REDO"}
-    | {type: "RESET"; newPresent: T};
+    | {type: "RESET"; newPresent: CanvasState};
 
 // 3. 순수 리듀서 함수 (Side-effect 없음, 예측 가능성 높음)
-function historyReducer<T>(state: HistoryState<T>, action: HistoryAction<T>): HistoryState<T> {
+function historyReducer(state: HistoryState, action: HistoryAction): HistoryState {
     const { past, present, future } = state;
 
     switch (action.type){
@@ -84,19 +85,19 @@ function historyReducer<T>(state: HistoryState<T>, action: HistoryAction<T>): Hi
     }
 }
 
-export function useHistory<T>(initialState: T){
-    const [history, dispatch] = useReducer(historyReducer<T>, {
+export function useHistory(initialState: CanvasState){
+    const [history, dispatch] = useReducer(historyReducer, {
         past: [],
         present: initialState,
         future: [],
     });
 
     // 객체와 함수를 매개변수로 받아서 매게변수로 받은 newPresent를 배열에 추가
-    const setWithHistory = useCallback((value: T | ((prev: T) => T)) => {
+    const setWithHistory = useCallback((value: CanvasState | ((prev : CanvasState) => CanvasState)) => {
         dispatch({ type: "SET", newPresent: value});
     }, []);
     
-    const setWithoutHistory = useCallback((value: T | ((prev: T) => T)) => {
+    const setWithoutHistory = useCallback((value: CanvasState | ((prev: CanvasState) => CanvasState)) => {
         dispatch({ type: "SET_WITHOUT_HISTORY", newPresent: value});
     }, []);
     // undo/redo -> 타입을 보내주면 기존에 저장되어있는 배열 객체로 처리
@@ -109,7 +110,7 @@ export function useHistory<T>(initialState: T){
     }, [])
 
     // 매개변수로 받은 newPresent로 리셋함
-    const reset = useCallback((newPresent: T) => {
+    const reset = useCallback((newPresent: CanvasState) => {
         dispatch({type: "RESET", newPresent});
     }, [])
 

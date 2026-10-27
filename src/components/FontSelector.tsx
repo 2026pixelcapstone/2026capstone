@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useFontStore, PRESET_FONTS, type CustomFont } from '../store/fontStore'
 
-const PREVIEW_TEXT = '픽셀아트 PixelHub'
+const PREVIEW_TEXT = '픽셀아트 PixelPilot'
 const MAX_FONT_BYTES = 3 * 1024 * 1024 // 3MB (localStorage 보호)
 
 // Google Fonts CSS URL에서 family 이름 추론 (예: ...family=Nanum+Gothic:wght@400 → "Nanum Gothic")

@@ -84,7 +84,7 @@ export default function SignupPage() {
           <Link to="/" className="inline-flex items-center gap-2 text-3xl font-bold hover:opacity-80 transition-opacity"
             style={{ color: 'var(--color-primary)' }}>
             <span className="material-symbols-outlined text-3xl">grid_view</span>
-            PixelHub
+            PixelPilot
           </Link>
           <p className="text-sm mt-2" style={{ color: 'var(--color-on-surface-variant)' }}>픽셀 아트 크리에이터 커뮤니티</p>
         </div>
@@ -136,7 +136,7 @@ export default function SignupPage() {
                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-lg"
                   style={{ color: 'var(--color-on-surface-variant)' }}>mail</span>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="example@pixelhub.io"
+                  placeholder="example@pixelpilot.art"
                   className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none transition-all"
                   style={{
                     background: 'var(--color-surface-container-low)',
@@ -230,9 +230,7 @@ export default function SignupPage() {
                         {item.prefix}
                       </span>
                       {item.label}
-                      {item.required && (
-                        <a href="#" className="hover:underline ml-1 text-xs" style={{ color: 'var(--color-primary)' }}>보기</a>
-                      )}
+                      {/* 약관 '보기' 링크는 약관 페이지가 생기면 연결(지금은 갈 곳이 없어 숨김) */}
                     </span>
                   </label>
                 ))}

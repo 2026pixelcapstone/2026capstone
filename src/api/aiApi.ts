@@ -19,6 +19,25 @@ export interface ConceptResult {
   relatedPosts: RelatedPost[]
 }
 
+/** 명암 제안 재질 — base는 그 재질 칸의 원래 색, ramp는 단계(-2~2)별 색(#rrggbb). */
+export interface ShadeMaterial {
+  base: string
+  pixels: number
+  used: number[]
+  ramp: Record<string, string>
+}
+
+/** 명암 제안 결과 — levels는 행 우선 height×width(-2~2, 외곽선·투명은 null). */
+export interface ShadeSuggestResult {
+  width: number
+  height: number
+  angle: number
+  outlinePixels: number
+  levels: (number | null)[][]
+  materials: ShadeMaterial[]
+  model: string
+}
+
 export const aiApi = {
   /**
    * 내 작업물 색 추천 — 현재 캔버스 이미지 + 사용된 색 + 자연어(선택)를 근거로 어울리는 색 팔레트 제안.
@@ -38,4 +57,11 @@ export const aiApi = {
    */
   suggestConcept: (body: { description: string }) =>
     api.post<{ success: boolean; data: ConceptResult }>('/api/ai/concept', body, { timeout: AI_TIMEOUT_MS }),
+
+  /**
+   * 명암 제안(자체 모델) — 64×64 이하 PNG + 광원 각도(0=오른쪽, 90=위, 135=왼쪽 위) → 칸별 명암 단계.
+   * 같은 사람은 5초에 한 번(429).
+   */
+  suggestShade: (body: { imageBase64: string; angle: number }) =>
+    api.post<{ success: boolean; data: ShadeSuggestResult }>('/api/ai/shade-suggest', body, { timeout: AI_TIMEOUT_MS }),
 }

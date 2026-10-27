@@ -37,10 +37,22 @@ export interface PopularUser {
   recentLikes: number
 }
 
+/** 메인 '내 판매 리포트' — 에셋 판매(환불 제외)·무료 취득·커미션 수익. 금액은 원 단위 */
+export interface SalesSummary {
+  assetSales: { count: number; revenue: number; recentCount: number; recentRevenue: number; recentDays: number }
+  freeAcquisitions: number
+  commissions: { completedCount: number; earned: number; activeCount: number }
+  topAsset: { assetId: number; title: string; sales: number } | null
+}
+
 export const userApi = {
   // 내 프로필 조회
   getMe: () =>
     api.get<{ success: boolean; data: UserProfileResponse }>('/api/users/me'),
+
+  // 내 판매 리포트(본인만)
+  getMySalesSummary: () =>
+    api.get<{ success: boolean; data: SalesSummary }>('/api/users/me/sales-summary'),
 
   // 내 프로필 수정
   updateMe: (data: ProfileUpdateRequest) =>

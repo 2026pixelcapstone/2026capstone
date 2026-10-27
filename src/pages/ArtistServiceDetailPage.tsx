@@ -251,7 +251,7 @@ export default function ArtistServiceDetailPage() {
     const token = ++orderRequestId.current
     try {
       const price = resolvedPrice
-      await commissionApi.createCommission({
+      const res = await commissionApi.createCommission({
         commissionType: service.serviceType === 'OPTION' ? 'SERVICE_OPTION' : 'SERVICE_QUOTE',
         artistId: service.artistId,
         serviceId: service.serviceId,
@@ -261,7 +261,14 @@ export default function ArtistServiceDetailPage() {
       if (token !== orderRequestId.current) return  // 다른 서비스로 이동한 경우 무시
       setOrdered(true)
       setShowOrderModal(false)
-      toast.success('의뢰가 접수되었습니다.')
+      // 결제는 거래룸에서 하므로 바로 거래룸으로 이동(id가 없으면 이 화면에 머무름)
+      const commissionId = res.data?.data?.commissionId
+      if (commissionId) {
+        toast.success('의뢰가 접수되었습니다. 거래룸에서 결제를 진행해주세요.')
+        navigate(`/commission/${commissionId}`)
+      } else {
+        toast.success('의뢰가 접수되었습니다.')
+      }
     } catch (err) {
       if (token !== orderRequestId.current) return
       toast.error(getErrorMessage(err, '의뢰 접수에 실패했습니다.'))

@@ -53,7 +53,7 @@ export function useLayerCommit({
                 frames: updatedFrames,
             };
         });
-    }, [activeFrameId, activeLayerId, setWithHistory]);
+    }, [activeFrameId, activeLayerId, setWithHistory, peekLayerCanvas]);
 
     return { commitLayerChanges };
 }

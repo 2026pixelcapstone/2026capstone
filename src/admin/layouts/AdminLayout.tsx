@@ -16,7 +16,7 @@ const AdminLayout = () => {
             {/* 사이드바 - w-72 */}
             <aside className="w-72 bg-slate-900 text-white p-8 shadow-2xl flex flex-col sticky top-0 h-screen">
                 <h2 className="text-3xl font-black mb-12 text-blue-400 tracking-tight">
-                    PixelHub
+                    PixelPilot
                 </h2>
                 
                 <nav className="flex-1 space-y-6 overflow-y-auto">

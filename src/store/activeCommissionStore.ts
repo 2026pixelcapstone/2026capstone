@@ -73,6 +73,7 @@ export function partnerNickname(c: ActiveCommission): string {
 }
 
 export const ACTIVE_STATUS_LABEL: Record<string, string> = {
+  PENDING_PAYMENT: '결제 대기',
   IN_PROGRESS: '진행 중',
   REVIEW: '검토 중',
 }

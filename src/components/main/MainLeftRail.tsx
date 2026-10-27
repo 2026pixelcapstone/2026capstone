@@ -3,6 +3,7 @@ import type { UserProfileResponse } from '../../api/userApi'
 import type { ProjectSummary } from '../../api/editorApi'
 import { ACTIVE_STATUS_LABEL, partnerNickname, type ActiveCommission } from '../../hooks/useActiveCommissions'
 import { RailCard, gradientOf } from './MainShared'
+import MySalesReport, { type SalesReportState } from './MySalesReport'
 
 interface MainLeftRailProps {
   /** rail: 넓은 화면 왼쪽 세로 레일 / inline: 그보다 좁을 때 가운데 맨 위 가로 배치 */
@@ -11,13 +12,16 @@ interface MainLeftRailProps {
   me: UserProfileResponse | null
   projects: ProjectSummary[]
   active: ActiveCommission[]
+  /** 내 판매 리포트(MainPage가 한 번 받아 내려 줌), null = 받는 중 */
+  sales: SalesReportState | null
+  onRetrySales: () => void
 }
 
 const SHORTCUTS = [
   { to: '/editor', icon: 'brush', label: '새 작품 그리기' },
   { to: '/assets/create', icon: 'upload', label: '에셋 등록' },
   { to: '/community/palettes', icon: 'palette', label: '팔레트' },
-  { to: '/mypage', icon: 'shopping_bag', label: '구매/받은 에셋' },
+  { to: '/mypage?tab=library', icon: 'shopping_bag', label: '구매/받은 에셋' },
 ]
 
 const GUEST_SHORTCUTS = [
@@ -27,7 +31,7 @@ const GUEST_SHORTCUTS = [
 ]
 
 /** 메인 왼쪽 '나' 레일 — 로그인: 프로필 요약·이어 그리기·진행 중 거래·바로가기 / 로그아웃: 가입 안내 + 둘러보기 */
-export default function MainLeftRail({ variant, isLoggedIn, me, projects, active }: MainLeftRailProps) {
+export default function MainLeftRail({ variant, isLoggedIn, me, projects, active, sales, onRetrySales }: MainLeftRailProps) {
   const layout = variant === 'rail' ? 'flex flex-col gap-4' : 'grid gap-4 sm:grid-cols-2'
   const muted = { color: 'var(--color-on-surface-variant)' }
 
@@ -73,7 +77,7 @@ export default function MainLeftRail({ variant, isLoggedIn, me, projects, active
       </Link>
 
       {/* 이어 그리기 */}
-      <RailCard title="이어 그리기" icon="brush" to="/mypage" linkLabel="전체">
+      <RailCard title="이어 그리기" icon="brush" to="/mypage?tab=saved" linkLabel="전체">
         {projects.length === 0 ? (
           <Link to="/editor" className="text-xs hover:underline" style={muted}>저장한 프로젝트가 없어요. 새로 그려 볼까요?</Link>
         ) : (
@@ -108,6 +112,9 @@ export default function MainLeftRail({ variant, isLoggedIn, me, projects, active
           </ul>
         </RailCard>
       )}
+
+      {/* 내 판매 리포트 */}
+      <MySalesReport state={sales} onRetry={onRetrySales} />
 
       {/* 바로가기 */}
       <RailCard title="바로가기" icon="bolt">

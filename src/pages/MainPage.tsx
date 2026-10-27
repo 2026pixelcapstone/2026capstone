@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/authStore'
 import { useActiveCommissions } from '../hooks/useActiveCommissions'
 import { useEmailGate } from '../hooks/useEmailGate'
 import MainLeftRail from '../components/main/MainLeftRail'
+import type { SalesReportState } from '../components/main/MySalesReport'
 import MainRightRail from '../components/main/MainRightRail'
 import MainChallengeHero from '../components/main/MainChallengeHero'
 import { SectionHeader, SkeletonCard, WorkTile, gradientOf } from '../components/main/MainShared'
@@ -78,13 +79,26 @@ export default function MainPage() {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [following, setFollowing] = useState<GalleryPostSummary[]>([])
   const [followingLoaded, setFollowingLoaded] = useState(false)
+  // 내 판매 리포트 — null = 받는 중. 레일이 넓은/좁은 화면용으로 두 번 그려지므로 여기서 한 번만 받아 내려 준다
+  const [sales, setSales] = useState<SalesReportState | null>(null)
+  const [salesRetry, setSalesRetry] = useState(0)
 
   // 사용자가 바뀌면(로그아웃·계정 전환) 렌더 중에 바로 비움 — 이전 사용자 데이터가 한 프레임도 안 보이게
   const [owner, setOwner] = useState(uid)
   if (owner !== uid) {
     setOwner(uid)
-    setMe(null); setProjects([]); setFollowing([]); setFollowingLoaded(false)
+    setMe(null); setProjects([]); setFollowing([]); setFollowingLoaded(false); setSales(null)
   }
+
+  useEffect(() => {
+    if (!uid) return
+    let alive = true   // 응답이 오기 전에 사용자가 바뀌면 버림
+    userApi.getMySalesSummary()
+      .then(res => { if (alive) setSales({ data: res.data.data, failed: false }) })
+      .catch(() => { if (alive) setSales({ data: null, failed: true }) })
+    return () => { alive = false }
+  }, [uid, salesRetry])
+  const retrySales = useCallback(() => { setSales(null); setSalesRetry(n => n + 1) }, [])
 
   useEffect(() => {
     if (!uid) return
@@ -124,7 +138,7 @@ export default function MainPage() {
   const showSkeleton = loading || (isLoggedIn && !blocksLoaded)
   const trendingTop = visibleTrending.slice(0, 8)
 
-  const leftRailProps = { isLoggedIn, me, projects, active }
+  const leftRailProps = { isLoggedIn, me, projects, active, sales, onRetrySales: retrySales }
 
   return (
     <div className="pb-20" style={{ background: 'var(--color-background)' }}>

@@ -68,7 +68,7 @@ const dummyUsers: User[] = [
     id: 1,
     userId: 'pixel_king',
     name: '김화백',
-    email: 'king@pixelhub.com',
+    email: 'king@pixelpilot.art',
     joinDate: '2026-01-15',
     role: '일반 회원',
     lastLogin: '2026-05-19 14:32',

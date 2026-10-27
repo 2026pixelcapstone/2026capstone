@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="forgot-email" className="block text-sm font-bold mb-1.5">이메일</label>
-                <input id="forgot-email" type="email" autoComplete="email" placeholder="example@pixelhub.io"
+                <input id="forgot-email" type="email" autoComplete="email" placeholder="example@pixelpilot.art"
                   value={email} onChange={e => setEmail(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                   style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />

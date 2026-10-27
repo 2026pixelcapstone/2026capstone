@@ -6,10 +6,11 @@ import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { useFocusTrap } from '../hooks/useFocusTrap'
-import { useProfileTabs, type SortKey } from '../hooks/useProfileTabs'
+import { useProfileTabs } from '../hooks/useProfileTabs'
+import { useProfileTabParams } from '../hooks/useProfileTabParams'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { ProfileTabSidebar, ProfileTabMobile, SortToggle, type ProfileTab } from '../components/profile/ProfileTabs'
-import { WorkCard, AssetCard, LibraryAssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid } from '../components/profile/ProfileCards'
+import { WorkCard, AssetCard, LibraryAssetCard, UserCard, EmptyTab, GridSkeleton, CardGrid, TabLoadError } from '../components/profile/ProfileCards'
 import PaletteCard from '../components/palette/PaletteCard'
 import ProfileImageField from '../components/profile/ProfileImageField'
 import AccountSettings from '../components/profile/AccountSettings'
@@ -31,9 +32,13 @@ const TABS: ProfileTab[] = [
 // 페이지 진입 시 숫자를 미리 받아 둘 탭(팔로잉/팔로워는 프로필 응답에 숫자가 있고, 차단은 blockStore 담당)
 const COUNT_TABS = ['works', 'assets', 'palettes', 'liked', 'saved', 'library', 'commission'] as const
 
+const TAB_KEYS = TABS.map((t) => t.key)
+// 서버에서 목록을 받아 오는 탭(실패 안내 대상). 구매/받은 에셋은 하위 탭 안에서 따로, 차단·계정은 해당 없음
+const LIST_TABS = ['works', 'assets', 'palettes', 'liked', 'following', 'followers', 'saved', 'commission']
+
 export default function MyPage() {
-  const [tab, setTab]   = useState('works')
-  const [sort, setSort] = useState<SortKey>('recent')
+  // 탭·정렬·하위 탭은 주소에서(뒤로가기·바로가기 링크 지원)
+  const { tab, sort, sub, setTab, setSort, setSub } = useProfileTabParams(TAB_KEYS)
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
   const uid = profile?.userId
   // uid만 의존 — 프로필 수정으로 profile 객체가 바뀌어도 탭 재요청 안 함
@@ -44,8 +49,13 @@ export default function MyPage() {
 
   const { blockedUserIds, blockedUsers, blockedTags, unblockUser, unblockTag, loaded: blocksLoaded } = useBlockStore()
 
-  const [commissionSubTab, setCommissionSubTab] = useState<'client' | 'artist'>('client')
-  const [librarySubTab, setLibrarySubTab] = useState<'purchased' | 'free'>('purchased')
+  const tabFailed = LIST_TABS.includes(tab) && loadFailed(tab)
+
+  // 하위 탭(?sub=) — 탭마다 허용 값만, 그 외는 기본값
+  const commissionSubTab: 'client' | 'artist' = tab === 'commission' && sub === 'artist' ? 'artist' : 'client'
+  const librarySubTab: 'purchased' | 'free' = tab === 'library' && sub === 'free' ? 'free' : 'purchased'
+  const setCommissionSubTab = (s: 'client' | 'artist') => setSub(s === 'client' ? null : s)
+  const setLibrarySubTab = (s: 'purchased' | 'free') => setSub(s === 'purchased' ? null : s)
   const libraryItems = librarySubTab === 'purchased' ? library.purchased : library.free
 
   // 프로필 편집 모달
@@ -191,50 +201,53 @@ export default function MyPage() {
             )}
           </div>
 
+          {/* 불러오기 실패(받은 적 없음)를 '없음'으로 보이지 않게 — 목록 탭 공통(구매/받은 에셋은 하위 탭 안에서 따로) */}
+          {tabFailed && <TabLoadError label={TABS.find((t) => t.key === tab)?.label ?? '목록'} onRetry={() => reload(tab)} />}
+
           {/* 작품 탭 */}
-          {tab === 'works' && (
+          {tab === 'works' && !tabFailed && (
             showSpinner('works') ? <GridSkeleton variant="square" />
             : works.length === 0 ? <EmptyTab icon="palette" text="아직 작품이 없습니다." action={{ to: '/editor', label: '첫 작품 만들기' }} />
             : <CardGrid variant="square">{works.map(w => <WorkCard key={w.postId} post={w} />)}</CardGrid>
           )}
 
           {/* 에셋 탭 */}
-          {tab === 'assets' && (
+          {tab === 'assets' && !tabFailed && (
             showSpinner('assets') ? <GridSkeleton variant="square" />
             : assets.length === 0 ? <EmptyTab icon="sell" text="등록한 에셋이 없습니다." action={{ to: '/assets', label: '에셋 스토어 보기' }} />
             : <CardGrid variant="square">{assets.map(a => <AssetCard key={a.assetId} asset={a} />)}</CardGrid>
           )}
 
           {/* 팔레트 탭 */}
-          {tab === 'palettes' && (
+          {tab === 'palettes' && !tabFailed && (
             showSpinner('palettes') ? <GridSkeleton variant="square" />
             : palettes.length === 0 ? <EmptyTab icon="color_lens" text="등록한 팔레트가 없습니다." action={{ to: '/community/palettes', label: '팔레트 둘러보기' }} />
             : <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{palettes.map(p => <PaletteCard key={p.paletteId} palette={p} />)}</div>
           )}
 
           {/* 좋아요 탭 */}
-          {tab === 'liked' && (
+          {tab === 'liked' && !tabFailed && (
             showSpinner('liked') ? <GridSkeleton variant="square" />
             : liked.length === 0 ? <EmptyTab icon="favorite" text="좋아요한 작품이 없습니다." action={{ to: '/gallery/free', label: '갤러리 둘러보기' }} />
             : <CardGrid variant="square">{liked.map(w => <WorkCard key={w.postId} post={w} showAuthor />)}</CardGrid>
           )}
 
           {/* 팔로잉 */}
-          {tab === 'following' && (
+          {tab === 'following' && !tabFailed && (
             showSpinner('following') ? <GridSkeleton variant="user" />
             : following.length === 0 ? <EmptyTab icon="person" text="팔로잉 중인 유저가 없습니다." />
             : <CardGrid variant="user">{following.map(u => <UserCard key={u.userId} user={u} />)}</CardGrid>
           )}
 
           {/* 팔로워 */}
-          {tab === 'followers' && (
+          {tab === 'followers' && !tabFailed && (
             showSpinner('followers') ? <GridSkeleton variant="user" />
             : followers.length === 0 ? <EmptyTab icon="group" text="팔로워가 없습니다." />
             : <CardGrid variant="user">{followers.map(u => <UserCard key={u.userId} user={u} />)}</CardGrid>
           )}
 
           {/* 저장된 프로젝트 */}
-          {tab === 'saved' && (
+          {tab === 'saved' && !tabFailed && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
               {projects.map(p => (
                 <Link key={p.projectId} to={`/editor?projectId=${p.projectId}`}
@@ -291,17 +304,7 @@ export default function MyPage() {
               </div>
 
               {/* 실패를 '없음'으로 보이지 않게 — 받은 적 없으면 실패 안내 또는 스켈레톤, 빈 상태 문구는 받은 뒤에만 */}
-              {loadFailed('library') ? (
-                <div role="alert" className="flex flex-col items-center justify-center py-24 gap-3">
-                  <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-outline)' }}>cloud_off</span>
-                  <p className="text-sm font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>구매/받은 에셋을 불러오지 못했습니다.</p>
-                  <button type="button" onClick={() => reload('library')}
-                    className="px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90"
-                    style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
-                    다시 시도
-                  </button>
-                </div>
-              )
+              {loadFailed('library') ? <TabLoadError label="구매/받은 에셋" onRetry={() => reload('library')} />
                 : !isLoaded('library') ? <GridSkeleton variant="square" />
                 : libraryItems.length === 0
                   ? <EmptyTab icon="shopping_bag"
@@ -312,7 +315,7 @@ export default function MyPage() {
           )}
 
           {/* 커미션 */}
-          {tab === 'commission' && (
+          {tab === 'commission' && !tabFailed && (
             <div>
               {/* 서브탭 */}
               <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit"

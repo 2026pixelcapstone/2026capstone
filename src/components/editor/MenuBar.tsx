@@ -1,6 +1,6 @@
 import { getLabel } from "../../utils/editorUtils";
 import { MENU_DEFS } from "../../constants/editor/menuConfig";
-import { MENU_ACTION, MenuActionId } from "../../type/editor";
+import { AiTool, MENU_ACTION, MenuActionId } from "../../type/editor";
 import React, { useEffect, useRef, useState } from "react";
 
 interface FileActions{
@@ -30,9 +30,17 @@ interface LayerAction{
 }
 
 interface PixelGuide{
-    showAIGuide: boolean;
-    setShowAIGuide: React.Dispatch<React.SetStateAction<boolean>>;
+    aiTool: AiTool | null;
+    setAiTool: React.Dispatch<React.SetStateAction<AiTool | null>>;
 }
+
+// AI 가이드 메뉴 항목 → 패널에 보일 기능
+const AI_TOOL_OF: Partial<Record<MenuActionId, AiTool>> = {
+    [MENU_ACTION.AI_SHADE]: 'shade',
+    [MENU_ACTION.AI_PALETTE]: 'palette',
+    [MENU_ACTION.AI_TAG_COLOR]: 'tagColor',
+    [MENU_ACTION.AI_CONCEPT]: 'concept',
+};
 
 interface MenuBarProps {
    fileActions: FileActions;
@@ -46,7 +54,7 @@ export default function MenuBar({
     fileActions,
     editActions,
     viewActions,
-    layerActions, // <- 임시 주석
+    layerActions,
     pixelGuides,
 
 }: MenuBarProps){
@@ -77,13 +85,15 @@ export default function MenuBar({
             case MENU_ACTION.OPEN_PROJECT:
                 fileActions.setOpenProjectModalOpen(true);
                 break;
+            case MENU_ACTION.IMPORT_PROJECT:
+                break;
             case MENU_ACTION.OPEN_PPIT:
                 fileActions.handleOpenPpit();
                 break;
             case MENU_ACTION.SAVE:
                 fileActions.openSaveModal();
                 break;
-            case MENU_ACTION.BROWSER_SAVE:
+            case MENU_ACTION.SAVE_AS:
                 break;
             case MENU_ACTION.EXPORT_IMAGE:
                 fileActions.handleExportImage();
@@ -159,20 +169,24 @@ export default function MenuBar({
                 break;
             case MENU_ACTION.TOGGLE_GRID_SNAP:
                 break;
-            case MENU_ACTION.TOGGLE_AI_GUIDE:
-                pixelGuides.setShowAIGuide(!pixelGuides.showAIGuide)
-                break;            
+            // AI 가이드 — 고른 기능만 패널에, 같은 기능을 다시 고르면 닫기
+            case MENU_ACTION.AI_SHADE:
+            case MENU_ACTION.AI_PALETTE:
+            case MENU_ACTION.AI_TAG_COLOR:
+            case MENU_ACTION.AI_CONCEPT: {
+                const tool = AI_TOOL_OF[actionId] ?? null;
+                pixelGuides.setAiTool((prev) => (prev === tool ? null : tool));
+                break;
+            }
         }
     };
     return(
         <div ref={menuContainerRef} className="flex items-center h-full">
             {/* 메뉴 그룹 루프 */}
             {MENU_DEFS.map(menu => (
-                // relative -> absolute의 기준점으로, 드롭다운 박스가 정확히 클릭한 메뉴 버튼의 바로 아래에 띄워지게 된다
                 <div key={menu.id} className="relative h-full flex items-center">
                     <button // 상단 메뉴 버튼 설정
                         onClick={() => setOpenMenu(openMenu === menu.id ? null : menu.id)}
-                        // px-3: 버튼 내부의 좌우 여백 12px, h-full: 감지 범위도 상하로 넒어짐 text-sm: 글자 크기 14px, transition-colors: 마우스를 올리거나 메뉴가 열렸을 때 애니메이션 효과
                         className="px-3 h-full text-sm transition-colors" 
                         style={{
                             // --color-on-surface: 색상 값을 적는 대신 의미가 부여돈 이름으로 색상 관리
@@ -219,6 +233,9 @@ export default function MenuBar({
                                         style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
                                     )}
                                     <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{getLabel(itemlabel)}</span>
+                                    {AI_TOOL_OF[item.id] && AI_TOOL_OF[item.id] === pixelGuides.aiTool && (
+                                    <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-primary)' }}>check</span>
+                                    )}
                                     {item.shortcut && (
                                     <span className="text-xs ml-4" style={{ color: 'var(--color-on-surface-variant)' }}>{item.shortcut}</span>
                                     )}

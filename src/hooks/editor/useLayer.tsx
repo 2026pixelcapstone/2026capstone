@@ -21,7 +21,8 @@ export const useLayers = ({
     const layerCountersRef = useRef<Record<string, number>>({});
     
     // ── 레이어 추가 ───────────────────────────────────
-    const addLayer = useCallback((targetFrameId: string | null) => {
+    // init: 이름·그림을 채운 레이어로 추가(AI 명암 제안 등). 없으면 기존처럼 빈 'Layer N'
+    const addLayer = useCallback((targetFrameId: string | null, init?: { name: string; pixelData: string }) => {
         if(!targetFrameId){
             return;
         }
@@ -32,7 +33,7 @@ export const useLayers = ({
         }
 
         const currentLayerCount = layerCountersRef.current[targetFrameId];
-        layerCountersRef.current[targetFrameId] += 1;
+        if(!init) layerCountersRef.current[targetFrameId] += 1; // 이름을 받은 레이어는 번호를 쓰지 않음
 
         setWithHistory((prev: any) => {
             const updatedFrames = prev.frames.map((frame: FrameData) => {
@@ -40,14 +41,14 @@ export const useLayers = ({
                 
                 const newLayer: LayerData = {
                     id: newLayerId,
-                    name: `Layer ${currentLayerCount}`,
+                    name: init?.name ?? `Layer ${currentLayerCount}`,
                     layerOrder: frame.layers.length, // 현재 프레임의 레이어 개수를 기준으로 순서 부여
                     blendMode: 'NORMAL',
                     isLocked: false,
                     isVisible: true,
                     opacity: 100, // 0~100 스케일 통일
                     color: '#818cf8',
-                    pixelData: '', // 새 레이어니까 도화지는 깨끗하게 빈 값
+                    pixelData: init?.pixelData ?? '', // 새 레이어니까 도화지는 깨끗하게 빈 값
                 };
                 return{...frame, layers: [...frame.layers, newLayer]};
             });
