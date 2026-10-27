@@ -5,6 +5,7 @@ import {CanvasState, FrameData} from '../../type/editor'
 
 interface UseAnimationProps{
     frames: FrameData[];
+    defaultDuration: number;
     activeFrameId: string | null;
     setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     setActiveFrameId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -13,8 +14,9 @@ interface UseAnimationProps{
 }
 
 export function useFrame({
-    frames, 
+    frames,
     activeFrameId,
+    defaultDuration,
     setWithHistory, 
     setActiveFrameId,
     setActiveLayerId,
@@ -28,6 +30,7 @@ export function useFrame({
         const newFrame: FrameData = {
             id: `frame-${crypto.randomUUID()}`,
             frameOrder: frames.length, // 새 프레임은 현재 개수 기준으로 순서 부여
+            duration: defaultDuration ?? 1000,
             layers: [createDefaultLayer()],
         };
         const nextFrames = [...frames, newFrame];
@@ -49,7 +52,7 @@ export function useFrame({
         }));
 
         setUnsaved(true);
-    }, [frames, setActiveFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
+    }, [frames, defaultDuration, setActiveFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
     
     /**
      * 특정 인덱스의 프레임을 삭제합니다.
@@ -129,5 +132,22 @@ export function useFrame({
         setUnsaved(true);
     }, [frames, setWithHistory, setUnsaved]);
 
-    return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames};
+    // 변경된 애니메이션의 속도를 히스토리에 일괄 저장합니다.
+    const updateAllAnimDurations = useCallback((duration: number) => {  
+        if(frames.every(frame => (frame.duration ?? 100) === duration)) return;
+        setWithHistory((prev) => {
+            if (prev.frames.every(frame => (frame.duration ?? 100) === duration)) return prev;
+            return{
+                ...prev,
+                frames: prev.frames.map(
+                    frame =>({
+                        ...frame, 
+                        duration
+                    })
+                ),
+            }
+        })
+        setUnsaved(true);
+    },[frames, setWithHistory, setUnsaved]);
+    return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAllAnimDurations};
 }

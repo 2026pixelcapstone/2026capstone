@@ -10,7 +10,8 @@ import { serializePpit } from "../../lib/ppit";
 
 interface UseEditorExport{
     stageRef:React.RefObject<Stage | null>;
-    state: CanvasState
+    state: CanvasState;
+    fps: number;
     projectTitle: string | null;
     peekLayerCanvas: (cachekey: string) => HTMLCanvasElement | null;
 }
@@ -18,6 +19,7 @@ interface UseEditorExport{
 export function useEditorExport({
     stageRef,
     state,
+    fps,
     projectTitle,
     peekLayerCanvas,
 }: UseEditorExport){
@@ -189,14 +191,14 @@ export function useEditorExport({
             return;
         }
         try {
-        const ppit = canvasDataToPpit(state, PALETTE_COLORS)
+        const ppit = canvasDataToPpit(state, PALETTE_COLORS, fps);
         const blob = new Blob([serializePpit(ppit)], { type: 'application/json' })
         downloadBlob(blob, `${safeFileName(projectTitle)}.ppit`)
         } catch {
         toast.error('.ppit 내보내기에 실패했습니다.')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state, projectTitle])
+    }, [state, projectTitle, fps])
       
     return {handleExportImage, handleExportPpit}
 }

@@ -8,10 +8,11 @@ export const MENU_DEFS: MenuGroup[] = [
     items: [
       { id: MENU_ACTION.NEW_PROJECT, label: { ko: '새 프로젝트', en: 'New Project' }, icon: 'add', shortcut: 'Ctrl+N' },
       { id: MENU_ACTION.OPEN_PROJECT, label: { ko: '프로젝트 열기…', en: 'Open Project…' }, icon: 'folder' },
+      { id: MENU_ACTION.IMPORT_PROJECT, label: { ko: '프로젝트 가져오기', en: 'Import Project' }, icon: 'library_add'},
       { id: MENU_ACTION.OPEN_PPIT, label: { ko: '.ppit 파일 열기…', en: 'Open .ppit…' }, icon: 'folder_open' },
       { separator: true },
-      { id: MENU_ACTION.SAVE, label: { ko: '저장', en: 'Save' }, icon: 'save', shortcut: 'Ctrl+S' },
-      { id: MENU_ACTION.BROWSER_SAVE, label: { ko: '브라우저에 저장', en: 'Browser Save' }, icon: 'open_in_browser', shortcut: 'Ctrl + Shift + S' },
+      { id: MENU_ACTION.SAVE, label: { ko: '저장', en: 'Save' }, icon: 'Save', shortcut: 'Ctrl+S' },
+      { id: MENU_ACTION.SAVE_AS, label: {ko: '다른 이름으로 저장', en: 'Save_As...'}, icon: 'save_as' , shortcut: 'Ctrl+Shift+S' },
       { separator: true },
       { id: MENU_ACTION.EXPORT_IMAGE, label: { ko: '이미지 내보내기', en: 'Export Image' }, icon: 'image' },
       { id: MENU_ACTION.EXPORT_SPRITESHEET, label: { ko: '스프라이트시트 내보내기', en: 'Export Spritesheet' }, icon: 'grid_on' },

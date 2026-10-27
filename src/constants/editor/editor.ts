@@ -38,8 +38,11 @@ export const SHAPE_TOOLS = [
   { id: 'ellipse',   icon: 'circle',              label: 'Ellipse (O)' },
 ]
 export const VIEW_TOOLS = [
-  { id: 'zoom',      icon: 'search',              label: 'Zoom (Z)' },
   { id: 'pan',       icon: 'pan_tool',            label: 'Pan (Space)' },
+]
+
+export const COLOR_TOOLS = [
+  {id: 'color', icon: 'color', label: 'Color' },
 ]
 
 export const PALETTE_COLORS = [
@@ -57,3 +60,4 @@ export const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128', '25
 export const MAX_CANVAS_SIZE = 512; // 캔버스 최대 크기 제한
 export const MAX_HISTORY_SIZE = 50; // 최대 히스토리 스택 크기 제한
 
+export const MIN_DURATION_30FPS = 33; // 애니메이션 재생 속도 제한
