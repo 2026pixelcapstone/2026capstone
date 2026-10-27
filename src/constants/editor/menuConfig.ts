@@ -82,7 +82,10 @@ export const MENU_DEFS: MenuGroup[] = [
     id: MENU_GROUP_ID.DRAWING_GUIDE,
     label: { ko: 'AI 가이드', en: 'AI Guide' },
     items: [
-      { id: MENU_ACTION.TOGGLE_AI_GUIDE, label: { ko: 'AI 가이드', en: 'AI Guide' }, icon: 'auto_awesome' },
+      { id: MENU_ACTION.AI_SHADE, label: { ko: '명암 가이드', en: 'Shading Guide' }, icon: 'contrast' },
+      { id: MENU_ACTION.AI_PALETTE, label: { ko: '색 팔레트 추천', en: 'Palette Suggestion' }, icon: 'palette' },
+      { id: MENU_ACTION.AI_TAG_COLOR, label: { ko: '태그로 색 찾기', en: 'Colors by Tags' }, icon: 'sell' },
+      { id: MENU_ACTION.AI_CONCEPT, label: { ko: '컨셉 도우미', en: 'Concept Helper' }, icon: 'lightbulb' },
     ],
   },
 ];
