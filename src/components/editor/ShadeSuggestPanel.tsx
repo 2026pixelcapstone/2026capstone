@@ -120,7 +120,9 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
       toast.error('명암을 요청한 프레임이 없어 추가할 수 없습니다.')
       return
     }
-    toast.success('‘명암 제안’ 레이어를 추가했습니다.')
+    toast.success(snap.frameId === frameId
+      ? '‘명암 제안’ 레이어를 추가했습니다.'
+      : '요청한 프레임에 ‘명암 제안’ 레이어를 추가했습니다.')
   }
 
   const angleLabel = (a: number) => DIRECTIONS.find((d) => d.angle === a)?.label ?? `${a}°`

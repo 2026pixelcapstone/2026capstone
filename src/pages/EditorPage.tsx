@@ -649,9 +649,11 @@ export default function EditorPage() {
   // AI 명암 제안 결과를 요청한 프레임에 새 레이어로(프레임이 지워졌으면 false)
   const handleAddShadeLayer = useCallback((frameId: string, pixelData: string) => {
     if (!state.frames.some((f) => f.id === frameId)) return false;
+    const prevLayerId = activeLayerId;
     addLayer(frameId, { name: '명암 제안', pixelData });
+    if (frameId !== activeFrameId) setActiveLayerId(prevLayerId);   // 다른 프레임에 넣었으면 지금 선택 유지
     return true;
-  }, [state.frames, addLayer]);
+  }, [state.frames, addLayer, activeFrameId, activeLayerId, setActiveLayerId]);
   
   const selectLayer = useCallback((layerIdToSelect: string) => {
     if(activeLayerId === layerIdToSelect) return;
