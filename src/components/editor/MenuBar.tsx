@@ -1,6 +1,6 @@
 import { getLabel } from "../../utils/editorUtils";
 import { MENU_DEFS } from "../../constants/editor/menuConfig";
-import { MENU_ACTION, MenuActionId } from "../../type/editor";
+import { AiTool, MENU_ACTION, MenuActionId } from "../../type/editor";
 import React, { useEffect, useRef, useState } from "react";
 
 interface FileActions{
@@ -30,9 +30,17 @@ interface LayerAction{
 }
 
 interface PixelGuide{
-    showAIGuide: boolean;
-    setShowAIGuide: React.Dispatch<React.SetStateAction<boolean>>;
+    aiTool: AiTool | null;
+    setAiTool: React.Dispatch<React.SetStateAction<AiTool | null>>;
 }
+
+// AI 가이드 메뉴 항목 → 패널에 보일 기능
+const AI_TOOL_OF: Partial<Record<MenuActionId, AiTool>> = {
+    [MENU_ACTION.AI_SHADE]: 'shade',
+    [MENU_ACTION.AI_PALETTE]: 'palette',
+    [MENU_ACTION.AI_TAG_COLOR]: 'tagColor',
+    [MENU_ACTION.AI_CONCEPT]: 'concept',
+};
 
 interface MenuBarProps {
    fileActions: FileActions;
@@ -161,9 +169,15 @@ export default function MenuBar({
                 break;
             case MENU_ACTION.TOGGLE_GRID_SNAP:
                 break;
-            case MENU_ACTION.TOGGLE_AI_GUIDE:
-                pixelGuides.setShowAIGuide(!pixelGuides.showAIGuide)
-                break;            
+            // AI 가이드 — 고른 기능만 패널에, 같은 기능을 다시 고르면 닫기
+            case MENU_ACTION.AI_SHADE:
+            case MENU_ACTION.AI_PALETTE:
+            case MENU_ACTION.AI_TAG_COLOR:
+            case MENU_ACTION.AI_CONCEPT: {
+                const tool = AI_TOOL_OF[actionId] ?? null;
+                pixelGuides.setAiTool((prev) => (prev === tool ? null : tool));
+                break;
+            }
         }
     };
     return(
@@ -219,6 +233,9 @@ export default function MenuBar({
                                         style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
                                     )}
                                     <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{getLabel(itemlabel)}</span>
+                                    {AI_TOOL_OF[item.id] && AI_TOOL_OF[item.id] === pixelGuides.aiTool && (
+                                    <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-primary)' }}>check</span>
+                                    )}
                                     {item.shortcut && (
                                     <span className="text-xs ml-4" style={{ color: 'var(--color-on-surface-variant)' }}>{item.shortcut}</span>
                                     )}

@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {createInitialCanvasData, ZOOM_LEVELS, CANVAS_PRESETS, MAX_CANVAS_SIZE} from '../constants/editor/editor'
+
+import { AiTool, CanvasState } from '../type/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
 import EditorSaveProjectModal from '../components/editor/EditorSaveProjectModal'
 import EditorOpenProjectModal from '../components/editor/EditorOpenProjectModal'
@@ -36,9 +38,17 @@ import { EditorFrameBar } from '../components/editor/EditorFrameBar'
 import { EditorCanvas } from '../components/editor/EditorCanvas'
 import { AnimationPreview } from '../components/editor/AnimationPreview'
 import { EditorLayerBar } from '../components/editor/EditorLayerBar'
-
+import ShadeSuggestPanel from '../components/editor/ShadeSuggestPanel'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
+
+// AI 패널 머리글(메뉴 항목 이름과 같게)
+const AI_TOOL_TITLE: Record<AiTool, string> = {
+  shade: '명암 가이드',
+  palette: '색 팔레트 추천',
+  tagColor: '태그로 색 찾기',
+  concept: '컨셉 도우미',
+};
 
 // ── 컴포넌트 ──────────────────────────────────────────
 export default function EditorPage() {
@@ -68,7 +78,7 @@ export default function EditorPage() {
   const [showGridLines, setShowGridLines] = useState(true)
 
   // ── AI 가이드 ──────────────
-  const[showAIGuide, setShowAIGuide] = useState(false);
+  const [aiTool, setAiTool] = useState<AiTool | null>(null);   // AI 패널에 보이는 기능(null = 닫힘)
   // ── AI 색 팔레트 추천 상태 ──────────────────────────────
   // ── 커뮤니티 팔레트 연동(C-1): 가져오기 모달 / 현재 팔레트 저장 모달 ──
   const [paletteBrowserOpen, setPaletteBrowserOpen] = useState(false);
@@ -608,6 +618,14 @@ export default function EditorPage() {
   const handleDeleteLayer = () => {
     deleteLayer(activeFrameId, activeLayerId)
   }
+  // AI 명암 제안 결과를 요청한 프레임에 새 레이어로(프레임이 지워졌으면 false)
+  const handleAddShadeLayer = useCallback((frameId: string, pixelData: string) => {
+    if (!state.frames.some((f) => f.id === frameId)) return false;
+    const prevLayerId = activeLayerId;
+    addLayer(frameId, { name: '명암 제안', pixelData });
+    if (frameId !== activeFrameId) setActiveLayerId(prevLayerId);   // 다른 프레임에 넣었으면 지금 선택 유지
+    return true;
+  }, [state.frames, addLayer, activeFrameId, activeLayerId, setActiveLayerId]);
   
   const selectLayer = useCallback((layerIdToSelect: string) => {
     if(activeLayerId === layerIdToSelect) return;
@@ -733,8 +751,8 @@ export default function EditorPage() {
                   handleDeleteLayer
                 }}
                 pixelGuides={{
-                  showAIGuide,
-                  setShowAIGuide,
+                  aiTool,
+                  setAiTool,
                 }}
               />
         </div>
@@ -1025,28 +1043,39 @@ export default function EditorPage() {
         {/* ── AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
           style={{ 
-            width: showAIGuide ? 350 : 0, // AI 가이드 온오프 상태에 따라 너비 조절
+            width: aiTool ? 350 : 0, // AI 가이드 온오프 상태에 따라 너비 조절
             background: 'var(--color-background)',        // 메인 패널보다 살짝 더 어두운 배경 (구분감)
             borderColor: 'var(--color-outline)',
-            opacity: showAIGuide ? 1 : 0  // 닫혔을 때 잔상 방지
+            opacity: aiTool ? 1 : 0  // 닫혔을 때 잔상 방지
           }}>
           
           {/* 헤더: VS Code 패널 느낌 */}
           <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-lg">auto_awesome</span>
-              <span className="text-xs font-bold uppercase tracking-widest text-on-surface">AI Assistant</span>
+              <span className="text-xs font-bold tracking-widest text-on-surface">{aiTool ? AI_TOOL_TITLE[aiTool] : 'AI 가이드'}</span>
             </div>
-            <button onClick={() => setShowAIGuide(false)} className="hover:text-on-surface text-on-surface-variant">
+            <button onClick={() => setAiTool(null)} className="hover:text-on-surface text-on-surface-variant">
               <span className="material-symbols-outlined text-sm">close</span>
             </button>
           </div>
 
           {/* 컨텐츠: 큼직한 가이드 영역 */}
           <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+            {/* 기능마다 메뉴 항목 하나 — 고른 것만 보이고, 숨긴 기능도 결과는 유지(지우지 않고 숨김) */}
+            {/* 🌓 명암 가이드 — 자체 모델(바뀌는 칸만 새 레이어로) */}
+            <div hidden={aiTool !== 'shade'}>
+              <ShadeSuggestPanel
+                stageRef={stageRef}
+                frameId={activeFrameId}
+                canvasW={state.width}
+                canvasH={state.height}
+                onAddLayer={handleAddShadeLayer}
+              />
+            </div>
+
             {/* 🎨 색 팔레트 추천 — 현재 작업물+자연어 기반 */}
-            <div className="mb-4 p-3 rounded-lg bg-surface-container-low border border-outline">
-              <div className="text-xs font-bold mb-2 text-on-surface">🎨 색 팔레트 추천</div>
+            <div hidden={aiTool !== 'palette'} className="p-3 rounded-lg bg-surface-container-low border border-outline">
               <textarea
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
@@ -1090,8 +1119,7 @@ export default function EditorPage() {
             </div>
 
             {/* 🏷️ 태그로 색 찾기 — 키워드 기반(이미지 없음) */}
-            <div className="mb-4 p-3 rounded-lg bg-surface-container-low border border-outline">
-              <div className="text-xs font-bold mb-2 text-on-surface">🏷️ 태그로 색 찾기</div>
+            <div hidden={aiTool !== 'tagColor'} className="p-3 rounded-lg bg-surface-container-low border border-outline">
               <input
                 type="text"
                 value={tagInput}
@@ -1134,9 +1162,8 @@ export default function EditorPage() {
               )}
             </div>
 
-            {/* 🎨 컨셉 도우미 — 자연어 → 색 + 관련 작품(우리 갤러리) */}
-            <div className="mb-4 p-3 rounded-lg bg-surface-container-low border border-outline">
-              <div className="text-xs font-bold mb-2 text-on-surface">🎨 컨셉 도우미</div>
+            {/* 💡 컨셉 도우미 — 자연어 → 색 + 관련 작품(우리 갤러리) */}
+            <div hidden={aiTool !== 'concept'} className="p-3 rounded-lg bg-surface-container-low border border-outline">
               <textarea
                 value={conceptInput}
                 onChange={(e) => setConceptInput(e.target.value)}

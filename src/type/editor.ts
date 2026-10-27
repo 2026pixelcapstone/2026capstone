@@ -119,10 +119,17 @@ export const MENU_ACTION = {
   TOGGLE_PIXEL_COUNTER: 'TOGGLE_PIXEL_COUNTER', // 실시간 픽셀 수치/길이 표시 토글
   TOGGLE_RATIO_GUIDE: 'TOGGLE_RATIO_GUIDE',     // 대각선 비율(2:1 등) 가이드 토글
   TOGGLE_GRID_SNAP: 'TOGGLE_GRID_SNAP',         // 8/16/32px 단위 스냅 토글
-  TOGGLE_AI_GUIDE: 'TOGGLE_AI_GUIDE',           // AI 기반 스타일/드로잉 보조 가이드
+  // Menu -> AI 가이드 (기능마다 항목 하나, 고르면 오른쪽 패널에 그 기능만)
+  AI_SHADE: 'AI_SHADE',               // 명암 가이드(자체 모델)
+  AI_PALETTE: 'AI_PALETTE',           // 색 팔레트 추천
+  AI_TAG_COLOR: 'AI_TAG_COLOR',       // 태그로 색 찾기
+  AI_CONCEPT: 'AI_CONCEPT',           // 컨셉 도우미
 } as const;
 
 export type MenuActionId = typeof MENU_ACTION[keyof typeof MENU_ACTION];
+
+/** AI 패널에 지금 보이는 기능(null = 패널 닫힘) */
+export type AiTool = 'shade' | 'palette' | 'tagColor' | 'concept';
 
 export interface BaseMenuItem {
   id: MenuActionId; // 실행할 Command ID
