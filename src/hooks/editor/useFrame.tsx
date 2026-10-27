@@ -5,6 +5,7 @@ import {CanvasState, FrameData} from '../../type/editor'
 
 interface UseAnimationProps{
     frames: FrameData[];
+    defaultDuration: number;
     activeFrameId: string | null;
     setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     setActiveFrameId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -15,6 +16,7 @@ interface UseAnimationProps{
 export function useFrame({
     frames,
     activeFrameId,
+    defaultDuration,
     setWithHistory, 
     setActiveFrameId,
     setActiveLayerId,
@@ -28,8 +30,10 @@ export function useFrame({
         const newFrame: FrameData = {
             id: `frame-${crypto.randomUUID()}`,
             frameOrder: frames.length, // 새 프레임은 현재 개수 기준으로 순서 부여
+            duration: defaultDuration ?? 1000,
             layers: [createDefaultLayer()],
         };
+        console.log("newFrame.duration: " + newFrame.duration);
         const nextFrames = [...frames, newFrame];
 
         const nextIdx = nextFrames.length - 1;
@@ -49,7 +53,7 @@ export function useFrame({
         }));
 
         setUnsaved(true);
-    }, [frames, setActiveFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
+    }, [frames, defaultDuration, setActiveFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
     
     /**
      * 특정 인덱스의 프레임을 삭제합니다.

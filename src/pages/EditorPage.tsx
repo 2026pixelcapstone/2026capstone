@@ -97,10 +97,15 @@ export default function EditorPage() {
   // ── useHistory 훅 ──────────────
   const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
+  // ── useAnimation 훅 ──────────────
+  const { isPlaying, previewFrameIdx, fps, defaultDuration, setIsPlaying, setFps } = useAnimation({
+    frames: state.frames,
+  });
+
   // ── useFrame 훅 ──────────────
   const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAllAnimDurations} = useFrame({
-
     frames: state.frames,
+    defaultDuration,
     activeFrameId,
     setWithHistory,
     setActiveFrameId,
@@ -183,11 +188,6 @@ export default function EditorPage() {
   // ── View 훅 ──────────────
   const {zoom, setZoomIdx} = useCanvasView({ width: state.width, height: state.height });
 
-  // ── useAnimation 훅 ──────────────
-  const { isPlaying, previewFrameIdx, setIsPlaying, fps, setFps } = useAnimation({
-    frames: state.frames,
-  });
-
   // ── useEditorProject 훅 ──────────────
   const { 
     projectTitle,saving,isPublic,isSaveModalOpen, setProjectTitle,
@@ -208,6 +208,7 @@ export default function EditorPage() {
     clearAllLayerCanvas,
   });
 
+  // ── useEditorImport 훅 ──────────────
   const {loadPpitText} = useEditorImport({ replaceProject });
 
   // ── useEditorExport 훅 ──────────────
