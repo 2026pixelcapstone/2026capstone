@@ -88,7 +88,7 @@ export function EditorCanvas({
                 onMouseUp={(e) => {mouseEvnetProps.handleMouseUp(e)}}
                 onMouseLeave={(e) => {mouseEvnetProps.handleMouseLeave(e)}}
             >
-                {(currentFrame?.layers ?? [])
+                {...(currentFrame?.layers ?? [])
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .map((layer) => (
                     <Layer

@@ -125,6 +125,7 @@ export function useEditorProject({
     
         setProjectId(null);  // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
         setProjectTitle(title || 'Untitled Project');
+        setIsPublic(false);
         setUnsaved(true);
     
         // 새 작업이므로 URL의 projectId 제거 (새로고침 시 옛 서버 프로젝트 재로드 방지)

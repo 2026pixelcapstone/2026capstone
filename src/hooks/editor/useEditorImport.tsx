@@ -16,7 +16,6 @@ export function useEditorImport({
         const cd = ppitToCanvasData(ppit);
         
         replaceProject(cd, title);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [replaceProject]);
 
     return{ loadPpitText }

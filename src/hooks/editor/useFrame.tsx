@@ -130,17 +130,21 @@ export function useFrame({
     }, [frames, setWithHistory, setUnsaved]);
 
     // 변경된 애니메이션의 속도를 히스토리에 일괄 저장합니다.
-    const updateAllAnimDurations = useCallback((duration: number) => {
-        
+    const updateAllAnimDurations = useCallback((duration: number) => {  
+        if(frames.every(frame => (frame.duration ?? 100) === duration)) return;
         setWithHistory((prev) => {
             if (prev.frames.every(frame => (frame.duration ?? 100) === duration)) return prev;
             return{
                 ...prev,
-                frames: prev.frames.map(frame => ({ ...frame, duration })),
+                frames: prev.frames.map(
+                    frame =>({
+                        ...frame, 
+                        duration
+                    })
+                ),
             }
         })
-
         setUnsaved(true);
-    },[setWithHistory, setUnsaved]);
+    },[frames, setWithHistory, setUnsaved]);
     return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAllAnimDurations};
 }

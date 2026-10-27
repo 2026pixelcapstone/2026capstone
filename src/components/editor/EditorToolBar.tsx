@@ -71,13 +71,18 @@ export function EditorToolBar({
                 {/* FG / BG 색상 */}
                 <div className="flex flex-col items-center gap-4 mb-4 px-1">
                     <div className="relative">
-                        <div className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
-                        style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
-                        title="Foreground"
-                        onClick={() => setIsHexModal(true)} 
+                        <button type = "button" 
+                            className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
+                            style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
+                            title="Foreground"
+                            onClick={() => setIsHexModal(true)} 
                         />
-                        <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm"
-                        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }} title="Background" />
+                        <div 
+                            className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm"
+                            style={{ background: 'var(--color-surface)', 
+                            borderColor: 'var(--color-outline)' }} 
+                            title="Background" 
+                        />
                     </div>
                     <div className="w-full">
                         <div className="text-xs mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>HEX</div>
