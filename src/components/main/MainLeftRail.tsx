@@ -22,6 +22,8 @@ const SHORTCUTS = [
   { to: '/assets/create', icon: 'upload', label: '에셋 등록' },
   { to: '/community/palettes', icon: 'palette', label: '팔레트' },
   { to: '/mypage?tab=library', icon: 'shopping_bag', label: '구매/받은 에셋' },
+  { to: '/commission?tab=mine', icon: 'work_history', label: '내 커미션 관리' },
+  { to: '/community/challenge', icon: 'emoji_events', label: '이번 주 챌린지' },
 ]
 
 const GUEST_SHORTCUTS = [
@@ -30,7 +32,7 @@ const GUEST_SHORTCUTS = [
   { to: '/community', icon: 'groups', label: '커뮤니티' },
 ]
 
-/** 메인 왼쪽 '나' 레일 — 로그인: 프로필 요약·이어 그리기·진행 중 거래·바로가기 / 로그아웃: 가입 안내 + 둘러보기 */
+/** 메인 왼쪽 '나' 레일 — 로그인: 프로필 요약 → 판매·거래(수익) → 바로가기 → 이어 그리기(작업) / 로그아웃: 가입 안내 + 둘러보기 */
 export default function MainLeftRail({ variant, isLoggedIn, me, projects, active, sales, onRetrySales }: MainLeftRailProps) {
   const layout = variant === 'rail' ? 'flex flex-col gap-4' : 'grid gap-4 sm:grid-cols-2'
   const muted = { color: 'var(--color-on-surface-variant)' }
@@ -76,25 +78,15 @@ export default function MainLeftRail({ variant, isLoggedIn, me, projects, active
         </div>
       </Link>
 
-      {/* 이어 그리기 */}
-      <RailCard title="이어 그리기" icon="brush" to="/mypage?tab=saved" linkLabel="전체">
-        {projects.length === 0 ? (
-          <Link to="/editor" className="text-xs hover:underline" style={muted}>저장한 프로젝트가 없어요. 새로 그려 볼까요?</Link>
-        ) : (
-          <div className="grid grid-cols-3 gap-2">
-            {projects.slice(0, 3).map(p => (
-              <Link key={p.projectId} to={`/editor?projectId=${p.projectId}`} title={p.title}
-                className="aspect-square rounded-md overflow-hidden checkerboard border hover:opacity-90" style={{ borderColor: 'var(--color-outline)' }}>
-                {p.thumbnailUrl && <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />}
-              </Link>
-            ))}
-          </div>
-        )}
-      </RailCard>
+      {/* ── 수익·거래 ── */}
+      {/* 내 판매 리포트 */}
+      <MySalesReport state={sales} onRetry={onRetrySales} />
 
-      {/* 진행 중 거래 */}
-      {active.length > 0 && (
-        <RailCard title={`진행 중 거래 ${active.length}건`} icon="handshake" to="/commission?tab=mine" linkLabel="전체">
+      {/* 진행 중 거래 — 0건이어도 자리 유지(커미션 입구) */}
+      <RailCard title={`진행 중 거래${active.length > 0 ? ` ${active.length}건` : ''}`} icon="handshake" to="/commission?tab=mine" linkLabel="전체">
+        {active.length === 0 ? (
+          <Link to="/commission" className="text-xs hover:underline" style={muted}>진행 중인 거래가 없어요. 커미션 둘러보기</Link>
+        ) : (
           <ul className="space-y-1.5">
             {active.slice(0, 3).map(c => (
               <li key={c.commissionId}>
@@ -110,11 +102,8 @@ export default function MainLeftRail({ variant, isLoggedIn, me, projects, active
               </li>
             ))}
           </ul>
-        </RailCard>
-      )}
-
-      {/* 내 판매 리포트 */}
-      <MySalesReport state={sales} onRetry={onRetrySales} />
+        )}
+      </RailCard>
 
       {/* 바로가기 */}
       <RailCard title="바로가기" icon="bolt">
@@ -127,6 +116,23 @@ export default function MainLeftRail({ variant, isLoggedIn, me, projects, active
             </li>
           ))}
         </ul>
+      </RailCard>
+
+      {/* ── 작업 ── */}
+      {/* 이어 그리기 */}
+      <RailCard title="이어 그리기" icon="brush" to="/mypage?tab=saved" linkLabel="전체">
+        {projects.length === 0 ? (
+          <Link to="/editor" className="text-xs hover:underline" style={muted}>저장한 프로젝트가 없어요. 새로 그려 볼까요?</Link>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {projects.slice(0, 3).map(p => (
+              <Link key={p.projectId} to={`/editor?projectId=${p.projectId}`} title={p.title}
+                className="aspect-square rounded-md overflow-hidden checkerboard border hover:opacity-90" style={{ borderColor: 'var(--color-outline)' }}>
+                {p.thumbnailUrl && <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />}
+              </Link>
+            ))}
+          </div>
+        )}
       </RailCard>
     </div>
   )
