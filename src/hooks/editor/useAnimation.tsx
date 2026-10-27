@@ -28,11 +28,14 @@ export function useAnimation({
     // previewFrameIdx번 프레임의 duration 추출
     const duration = draftFps === null
         ? getDuration(frames[safePreviewFrameIdx])
-        : 1000 / draftFps;
-    const fps = draftFps ?? Number((1000 / getDuration(frames[0])).toFixed(2));
+        : Math.max(MIN_DURATION_30FPS, Math.round(1000 / draftFps));
+    
+    // Fps 화면 표시
+    const fps = draftFps ?? Math.round(1000 / getDuration(frames[0]));
 
     // 기본 지속시간(새 프레임 생성 등에 사용)
-    const defaultDuration = draftFps === null ? getDuration(frames[0]) : 1000 / draftFps;
+    const defaultDuration = draftFps === null 
+        ? getDuration(frames[0]) : Math.round(1000 / Math.max(1, draftFps));
     
     // Fps 지정
     const setFps = (nextFps: number) => {

@@ -20,7 +20,7 @@ export function useEditorImport({
     const importedFps = ppit.canvas?.fps ?? PPIT_DEFAULT_FPS;
 
     // duration 변환 공식 적용
-    const safeDuration = Math.round(1000 / Math.max(MIN_DURATION_30FPS, importedFps));
+    const safeDuration = Math.round(Math.max(MIN_DURATION_30FPS, 1000 / Math.max(1, importedFps)));
 
     // 변환된 duration을 모든 프레임에 일괄 적용하여 저장
     replaceProject({

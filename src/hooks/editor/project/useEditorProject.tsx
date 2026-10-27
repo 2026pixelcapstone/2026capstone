@@ -39,6 +39,9 @@ export function useEditorProject({
     peekLayerCanvas,
     clearAllLayerCanvas,
 }: UseEditorProjectProps) {
+    // 프로젝트 세대(버전)를 추적하는 ref
+    const projectGenerationRef = useRef<number>(Date.now());
+
     const [projectId, setProjectIdState] = useState<number | null>(null);
     // ID 갱신은 로드를 시작시키지 않고, URL 변경 시 중복 여부만 판단합니다.
     const currentProjectIdRef = useRef<number | null>(null);
@@ -116,6 +119,9 @@ export function useEditorProject({
 
     // ── 프로젝트 교체 ──────────────
     const replaceProject = useCallback((canvasData: CanvasState, title: string) => {
+        // 프로젝트 교체 시 새로운 세대 발급
+        projectGenerationRef.current = Date.now();
+
         loadControllerRef.current?.abort();
         loadControllerRef.current = null;
 
@@ -193,6 +199,9 @@ export function useEditorProject({
             toast.error('로그인이 필요합니다.'); 
             return;
         }
+        // 저장을 시작할 때의 세대를 기억
+        const generationAtSaveStart = projectGenerationRef.current;
+
         const nextTitle = saveModelData?.title.trim() || projectTitle.trim();
         const isNextPublic = saveModelData?.isPublic || false;
 
@@ -213,6 +222,11 @@ export function useEditorProject({
 
             if(!result){ return; }      
                   
+            // 비동기 저장 완료 후, 세대가 일치하는지 검사
+            if (generationAtSaveStart !== projectGenerationRef.current) {
+                toast.error("저장 도중 프로젝트가 교체되어 메타데이터를 갱신하지 않습니다.");
+                return; // 덮어쓰기 방지를 위해 여기서 즉시 종료
+            }
             setProjectId(result.projectId);
             setSearchParams(prev => {
                 const next = new URLSearchParams(prev);
