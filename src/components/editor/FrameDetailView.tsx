@@ -51,7 +51,7 @@ export function FrameDetailView({
                         defaultValue={frameViewData.duration || 100}
                         onKeyDown={(e) => {
                             // 숫자 입력창에서 허용되는 기호 입력을 막음
-                            if(['e','E','+','-'].includes(e.key)){
+                            if(['e','E','+','-', '.'].includes(e.key)){
                                 e.preventDefault();
                             }
                         }}
@@ -72,7 +72,7 @@ export function FrameDetailView({
                         }}
                         onBlur={(e) => {
                             // 입력창에서 빠져나올 때 값을 검사하고 교정함
-                            let value = Number(e.target.value);
+                            let value = Math.round(Number(e.target.value));
                             value = Math.max(MIN_DURATION_30FPS, Math.min(MAX_DURATION, value)); // 최소값과 최대값 제한
                             
                             e.target.value = String(value); // 입력창에 교정된 값 반영

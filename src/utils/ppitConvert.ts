@@ -32,7 +32,6 @@ export function canvasDataToPpit(
     palette: paletteColors.length > 0 ? { colors: [...paletteColors] } : undefined,
     frames: state.frames.map((f, fi) => ({
       id: f.id || `frame-${fi}`,
-      duration: f.duration,
       layers: f.layers.map((l, li) => ({
         id: l.id,
         name: l.name,

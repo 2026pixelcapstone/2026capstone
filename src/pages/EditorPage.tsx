@@ -848,10 +848,11 @@ export default function EditorPage() {
           />
 
           <FrameDetailView
+              key={currentFrame.id}
               detailFrameId={detailFrameId}
               frameViewData = {{
                 id: currentFrame.id,
-                duration: currentFrame.duration,
+                duration: currentFrame.duration ?? 100,
               }}
               updateAnimDurations = {updateAnimDurations}
           />

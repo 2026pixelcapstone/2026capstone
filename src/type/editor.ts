@@ -41,7 +41,7 @@ export interface CanvasState{
 export interface FrameData{
   id: string;
   frameOrder?: number;
-  duration: number;
+  duration?: number;
   layers: LayerData[]
 }
 

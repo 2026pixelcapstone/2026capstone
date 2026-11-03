@@ -74,6 +74,7 @@ export function LayerDetailView({
                   onPointerDown={() => { startOpacity.current ??= layerViewData.opacity ?? 100; }}
                   onChange={(e) => {
                     const newOpacity = Number(e.target.value);
+                    startOpacity.current ??= layerViewData.opacity ?? 100;
                     updateLayer(activeFrameId, layerViewData.id, {opacity: newOpacity}, true);
                   }}
                   onPointerUp={(e) => {
