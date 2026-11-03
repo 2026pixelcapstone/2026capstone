@@ -37,7 +37,7 @@ export function useCanvasTool({
         }
         // ─── [지우개 도구] ────────────────────────────────────────
         else if (activeTool === 'eraser') {
-          ctx.clearRect(x, y, brushSize, brushSize)
+          ctx.clearRect(x, y, pixelSize, pixelSize)
           isDirty.current = true; // 픽셀이 변경되었음을 표시
           setUnsaved(true);
         }

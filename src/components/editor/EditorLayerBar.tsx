@@ -2,10 +2,11 @@ import { FrameData } from "../../type/editor";
 import React, { useMemo } from "react";
 
 interface EditorLayerProps{
+    detailLayer: string | null;
     activeFrameId: string | null;
     activeLayerId: string | null;
     currentFrame: FrameData;
-    openDetail: (layerId: string | null) => void;
+    setDetailLayer: React.Dispatch<React.SetStateAction<string | null>>;
     selectLayer: (layerIdToSelect: string) => void;
     reorderLayers: (targetFrameId: string | null, layerStartIndex: number, layerEndIndex: number) => void;
     toggleVisibility: (targetFrameId: string | null, layerId: string | null) => void;
@@ -14,10 +15,11 @@ interface EditorLayerProps{
 }
 
 export function EditorLayerBar({
+    detailLayer,
     activeFrameId,
     activeLayerId,
     currentFrame,
-    openDetail,
+    setDetailLayer,
     selectLayer,
     reorderLayers,
     toggleVisibility,
@@ -156,14 +158,20 @@ export function EditorLayerBar({
                 <button
                   onClick={(e) => {
                     e.stopPropagation(); // 레이어 선택 이벤트 버블링 방지
-                    // 로직
-                    openDetail(layer.id);
+                    selectLayer(layer.id);
                     
+                    // 이미 열려있는 레이어의 설정 버튼을 한번 더 눌렀을 경우
+                    if(detailLayer === layer.id){
+                      setDetailLayer(null);
+                    }
+                    else{
+                      setDetailLayer(layer.id);
+                    }
                   }}
-                  className={`flex items-center justify-center p-1 rounded hover:bg-surface-container-highest trasition-opercity flex-shrink-0 ${
-                    isActive ? 'opacity-100' : 'opacity-0 group-hover: opacity-100'
+                  className={`flex items-center justify-center p-1 rounded hover:bg-surface-container-highest trasition-opacity flex-shrink-0 ${
+                    isActive ? 'opacity-100' : 'opacity-0 group-hover: opacity-100 focus-visible:opacity-100'
                   }`}
-                  style={{color: isActive ? 'var(--color-primary)' : 'var(--color-on-surface-variant'}}
+                  style={{color: isActive ? 'var(--color-primary)' : 'var(--color-on-surface-variant)'}}
                   title="레이어 설정"
                 >
                   <span className="material-symbols-outlined text-sm">settings</span>

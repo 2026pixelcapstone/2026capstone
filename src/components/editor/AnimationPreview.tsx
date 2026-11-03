@@ -80,9 +80,8 @@ export function AnimationPreview({
                         )
                     })()}
                 
-                    {/* 컨트롤 버튼 그룹 (부모 div에 우측 상단 배치 및 호버 로직 통합) */}
-                    <div className="absolute right-2 top-2 z-10 flex gap-1.5 opacity-0 pointer-events-none transition-opacity group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
-                        
+                   {/* 컨트롤 버튼 그룹 (부모 div에 우측 상단 배치 및 호버 로직 통합) */}
+                    <div className="absolute right-2 top-2 z-10 flex gap-1.5 transition-opacity opacity-100 pointer-events-auto [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:pointer-events-none group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto has-[:focus-visible]:opacity-100 has-[:focus-visible]:pointer-events-auto">
                         {/* 전체 화면 버튼 (왼쪽) */}
                         <button
                             type="button"

@@ -32,6 +32,7 @@ export function canvasDataToPpit(
     palette: paletteColors.length > 0 ? { colors: [...paletteColors] } : undefined,
     frames: state.frames.map((f, fi) => ({
       id: f.id || `frame-${fi}`,
+      duration: f.duration,
       layers: f.layers.map((l, li) => ({
         id: l.id,
         name: l.name,
@@ -54,6 +55,7 @@ export function ppitToCanvasData(ppit: PpitFile): CanvasState {
     height: ppit.canvas.height,
     frames: ppit.frames.map((f, fi) => ({
       id: f.id || `frame-${fi}`,
+      duration: f.duration,
       layers: [...f.layers]
         .sort((a, b) => a.layerOrder - b.layerOrder)
         .map((l) => ({

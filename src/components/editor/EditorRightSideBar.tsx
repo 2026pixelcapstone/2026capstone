@@ -19,7 +19,7 @@ export function EditorRightSideBar({
                     setActiveRightTab('main');
                 }}
                 title="홈"
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors${
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
                     activeRightTab === 'main'
                     ? 'bg-primary/20 text-primary'
                     : 'text-on-surface-variant hover:bg-surface-container'

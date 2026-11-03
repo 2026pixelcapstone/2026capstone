@@ -21,6 +21,7 @@ export interface PpitLayer {
 
 export interface PpitFrame {
   id: string
+  duration: number
   layers: PpitLayer[]
 }
 
@@ -97,7 +98,7 @@ export function parsePpit(text: string): PpitFile {
         pixelData,
       }
     })
-    return { id: String(fr.id ?? `frame-${fi}`), layers }
+    return { id: String(fr.id ?? `frame-${fi}`), duration: f.duration, layers }
   })
 
   const paletteRaw = d.palette as Record<string, unknown> | undefined

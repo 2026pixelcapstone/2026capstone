@@ -43,10 +43,10 @@ import { EditorRightSideBar } from '../components/editor/EditorRightSideBar'
 import { EditorPalette } from '../components/editor/EditorPalette'
 import { EditorCanvasSize } from '../components/editor/EditorCanvasSize'
 import { LayerDetailView } from '../components/editor/LayerDetailView'
-import { useLayerNavigation } from '../hooks/editor/useLayerNavigation'
 import { PaletteTap } from '../components/editor/PaletteTap'
 import { LayerTap } from '../components/editor/LayerTap'
 import { LeftToolBarOptionBar } from '../components/editor/LeftToolBarOptionBar'
+import { FrameDetailView } from '../components/editor/FrameDetailView'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -108,7 +108,7 @@ export default function EditorPage() {
   const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false) 
   const [unsaved, setUnsaved] = useState(false);
-  
+
   // ── hook ──────────────────────────
   // ── useHistory 훅 ──────────────
   const {state, setWithHistory, setWithoutHistory, undo, redo, reset} = useHistory(initialCanvasData);
@@ -119,7 +119,7 @@ export default function EditorPage() {
   });
 
   // ── useFrame 훅 ──────────────
-  const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations} = useFrame({
+  const{showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations} = useFrame({
     frames: state.frames,
     defaultDuration,
     activeFrameId,
@@ -135,7 +135,7 @@ export default function EditorPage() {
   const currentLayer = currentFrame.layers.find((l) => l.id === activeLayerId) ?? currentFrame.layers[0];
 
   // ── useLayer 훅 ──────────────
-  const { addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters} = useLayer({
+  const {detailLayer, setDetailLayer, addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters} = useLayer({
     frames: state.frames,
     setWithHistory, 
     setWithoutHistory,
@@ -239,9 +239,6 @@ export default function EditorPage() {
     projectTitle,
     peekLayerCanvas,
   });
-
-  // ── useLayerNavigation 훅 ──────────────
-  const {isDetailOpen, openDetail, closeDetail} = useLayerNavigation();
 
 
   // ── Navigation / Page Control ───────────────────────────────────
@@ -837,16 +834,29 @@ export default function EditorPage() {
           <EditorFrameBar
             showFramePanel = {showFramePanel}
             activeFrameId = {activeFrameId}
+            detailFrameId= {detailFrameId}
             frames = {state.frames}
             setShowFramePanel = {setShowFramePanel}
+            setActiveFrameId= {setActiveFrameId}
+            setDetailFrameId={setDetailFrameId}
             handleSelectFrame = {handleSelectFrame}
             handleFrameDragStart = {handleFrameDragStart}
             handleDragOver = {handleDragOver}
             handleFrameDrop = {handleFrameDrop}
             addFrame = {addFrame}
             deleteFrame = {deleteFrame}
-            updateAnimDurations={updateAnimDurations}
           />
+
+          <FrameDetailView
+              detailFrameId={detailFrameId}
+              frameViewData = {{
+                id: currentFrame.id,
+                duration: currentFrame.duration,
+              }}
+              updateAnimDurations = {updateAnimDurations}
+          />
+  
+          
 
           {/* ── 중앙 영역 ─────────────────────────────── */}
           <div className="flex flex-col flex-1 min-w-0">
@@ -896,7 +906,7 @@ export default function EditorPage() {
           <aside className="flex flex-col flex-shrink-0 border-l overflow-y-scroll"
             style={{ width: 300, background: 'var(--color-surface)', borderColor: 'var(--color-outline)',
               scrollbarWidth: 'thin', scrollbarColor: 'var(--color-surface-container) transparent' }}>
-            {activeRightTab === 'main' && isDetailOpen === null  && (
+            {activeRightTab === 'main' && detailLayer === null  && (
               <div>
                 {/* 애니메이션 프리뷰 섹션 */}
                 <AnimationPreview 
@@ -911,7 +921,7 @@ export default function EditorPage() {
               </div>
             )}
             {/* 레이어 섹션 */}
-            {isDetailOpen !== null && activeRightTab === 'main' && (
+            {detailLayer !== null && activeRightTab === 'main' && (
               <>
                 {/*레이어 상세 뷰*/}
                 <LayerDetailView
@@ -923,8 +933,8 @@ export default function EditorPage() {
                     opacity: currentLayer.opacity,
                     blendMode: currentLayer.blendMode,
                   }}
-                  onBack = {closeDetail}
-                  onUpdateLayer = {updateLayer}
+                  setDetailLayer={setDetailLayer}
+                  updateLayer = {updateLayer}
                 />
               </>
             )}
@@ -932,10 +942,11 @@ export default function EditorPage() {
               <>
                 {/* 레이어 바 */}
                 <EditorLayerBar
+                  detailLayer={detailLayer}
                   activeFrameId = {activeFrameId}
                   activeLayerId = {activeLayerId}
                   currentFrame = {currentFrame}
-                  openDetail = {openDetail}
+                  setDetailLayer = {setDetailLayer}
                   selectLayer = {selectLayer}
                   reorderLayers= {reorderLayers}
                   toggleVisibility = {toggleVisibility}

@@ -9,11 +9,17 @@ export interface LoadedEditorProject{
 }
 
 // ── 상세 화면 타입 ──────────────────────────────────────────────
+
+export interface FrameViewData{
+  id: string | null;
+  duration: number | null;
+}
+
 export interface LayerViewData{
-    id: string | null;
-    name: string;
-    opacity: number;
-    blendMode: string;
+  id: string | null;
+  name: string;
+  opacity: number;
+  blendMode: string;
 }
 
 //  ── Canvas Object Type ──────────────────────────────────────────────
@@ -35,7 +41,7 @@ export interface CanvasState{
 export interface FrameData{
   id: string;
   frameOrder?: number;
-  duration?: number;
+  duration: number;
   layers: LayerData[]
 }
 

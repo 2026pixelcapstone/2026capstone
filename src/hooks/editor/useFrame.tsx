@@ -24,7 +24,9 @@ export function useFrame({
     setActiveLayerId,
     setUnsaved,
 }: UseAnimationProps){
-     const [showFramePanel, setShowFramePanel] = useState(false)
+    const [showFramePanel, setShowFramePanel] = useState(false);
+    const [detailFrameId, setDetailFrameId] = useState<string | null>(null);
+     
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
      */
@@ -154,13 +156,13 @@ export function useFrame({
     },[frames, setWithHistory, setUnsaved]);
 
     // 특정 프레임의 애니메이션 속도를 히스토리에 저장합니다.
-    const updateAnimDurations = useCallback((frameId: string | null, duration: number | null, skipHistory: boolean = false) => {
+    const updateAnimDurations = useCallback((frameId: string | null, duration: number | null, skipHistory: boolean = false, forceCommit: boolean = false) => {
         if(!frameId || !duration) return;
 
         const updateLogic = (prev: CanvasState) => {
             // 현재 바꾸려는 프레임의 duration이 이미 입력된 값과 같다면 무시
             const targetFrame = prev.frames.find(f => f.id === frameId);
-            if(targetFrame && (targetFrame.duration ?? 100) === duration){
+            if(!forceCommit && targetFrame && (targetFrame.duration ?? 100) === duration){
                 return prev;
             }
 
@@ -183,5 +185,5 @@ export function useFrame({
         
         setUnsaved(true);
     }, [setWithHistory, setWithoutHistory, setUnsaved]);
-    return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations};
+    return {showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations};
 }

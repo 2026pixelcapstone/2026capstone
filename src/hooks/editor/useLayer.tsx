@@ -1,5 +1,5 @@
 import { CanvasState, FrameData, LayerData } from "../../type/editor";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
 interface UseLayersProps{
     frames: FrameData[];
@@ -18,6 +18,8 @@ export const useLayers = ({
     setActiveLayer,
     setUnsaved,
 }: UseLayersProps) => {
+
+    const[detailLayer, setDetailLayer] = useState<string | null>(null);
 
     // 프레임별 카운터를 맵 형태로 저장
     const layerCountersRef = useRef<Record<string, number>>({});
@@ -183,5 +185,5 @@ export const useLayers = ({
         layerCountersRef.current = {};
     }, [layerCountersRef]);
 
-    return { addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters};
+    return {detailLayer, setDetailLayer ,addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters};
 }
