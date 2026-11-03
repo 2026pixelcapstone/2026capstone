@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../api/authApi'
 import { userApi } from '../api/userApi'
 import { useAuthStore } from '../store/authStore'
+import { getErrorCode } from '../lib/errorUtils'
 
 function getPwStrength(pw: string) {
   let score = 0
@@ -26,6 +27,7 @@ export default function SignupPage() {
   const [allTerms, setAllTerms] = useState(false)
   const [terms, setTerms] = useState([false, false, false])
   const [error, setError] = useState('')
+  const [emailTaken, setEmailTaken] = useState(false)   // 이미 가입된 이메일 → 비밀번호 찾기 안내
   const [loading, setLoading] = useState(false)
   const { setTokens, setUser } = useAuthStore()
   const navigate = useNavigate()
@@ -51,6 +53,7 @@ export default function SignupPage() {
     e.preventDefault()
     if (!canSubmit) return
     setError('')
+    setEmailTaken(false)
     setLoading(true)
     try {
       const res = await authApi.signup({ email, password, nickname: username })
@@ -63,7 +66,10 @@ export default function SignupPage() {
       } catch { /* MainLayout에서 재시도 */ }
       navigate('/')
     } catch (err: any) {
-      setError(err.response?.data?.message ?? '회원가입에 실패했습니다.')
+      const message: string = err.response?.data?.message ?? '회원가입에 실패했습니다.'
+      setError(message)
+      // 남이 내 이메일로 먼저 가입했어도 비밀번호 찾기(재설정 메일)로 계정을 되찾을 수 있다는 안내
+      setEmailTaken(getErrorCode(err) === 'EMAIL_ALREADY_EXISTS')
     } finally {
       setLoading(false)
     }
@@ -239,6 +245,15 @@ export default function SignupPage() {
 
             {error && (
               <p className="text-sm px-1" style={{ color: 'var(--color-error)' }}>{error}</p>
+            )}
+            {emailTaken && (
+              <p className="text-xs px-1" style={{ color: 'var(--color-on-surface-variant)' }}>
+                본인 이메일인데 가입한 적이 없다면{' '}
+                <Link to="/forgot-password" className="font-bold hover:underline" style={{ color: 'var(--color-primary)' }}>
+                  비밀번호 찾기
+                </Link>
+                로 계정을 되찾을 수 있어요.
+              </p>
             )}
 
             <button type="submit" disabled={!canSubmit || loading}

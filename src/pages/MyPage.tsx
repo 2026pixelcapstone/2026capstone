@@ -86,7 +86,6 @@ export default function MyPage() {
       nickname: profile?.nickname ?? '',
       bio: profile?.bio ?? '',
       websiteUrl: profile?.websiteUrl ?? '',
-      isPublic: profile?.isPublic ?? true,
     })
     setEditError('')
     setShowEditModal(true)
@@ -501,21 +500,7 @@ export default function MyPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p id="profile-edit-public-label" className="text-sm font-bold">프로필 공개</p>
-                  <p id="profile-edit-public-desc" className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>비공개 시 다른 사용자에게 프로필이 숨겨집니다</p>
-                </div>
-                <button type="button"
-                  role="switch" aria-checked={!!editForm.isPublic}
-                  aria-labelledby="profile-edit-public-label" aria-describedby="profile-edit-public-desc"
-                  onClick={() => setEditForm(f => ({ ...f, isPublic: !f.isPublic }))}
-                  className="relative w-11 h-6 rounded-full transition-colors"
-                  style={{ background: editForm.isPublic ? 'var(--color-primary)' : 'var(--color-surface-container-highest)' }}>
-                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
-                    style={{ left: editForm.isPublic ? '22px' : '2px' }} />
-                </button>
-              </div>
+              {/* '프로필 공개' 스위치는 뺌 — 서버가 저장만 하고 어디서도 적용하지 않아(작품은 갤러리에 그대로 보임) 안내와 실제가 달랐음 */}
 
               {editError && (
                 <p role="alert" className="text-sm" style={{ color: 'var(--color-error)' }}>{editError}</p>
