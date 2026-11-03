@@ -1,5 +1,8 @@
-import { FrameData } from "@/type/editor";
-import { Dispatch, DragEvent, SetStateAction } from "react";
+import { createPortal } from "react-dom";
+import { FrameData } from "../../type/editor";
+import { Dispatch, DragEvent, SetStateAction, useState } from "react";
+import { MAX_DURATION, MIN_DURATION_30FPS } from "../../constants/editor/editor";
+
 
 interface FrameProps{
     showFramePanel: boolean;
@@ -10,8 +13,9 @@ interface FrameProps{
     handleFrameDragStart: (e: DragEvent<HTMLDivElement>, frameIdx: number) => void;
     handleDragOver: (e: DragEvent<HTMLDivElement>) => void;
     handleFrameDrop: (e: DragEvent<HTMLDivElement>, frameIdx: number) => void;
-    addFrame: () => void
-    deleteFrame: (frameId: string) => void;
+    addFrame: () => void;
+    deleteFrame: (frameId: string | null) => void;
+    updateAnimDurations: (frameId: string | null, duration: number | null, skipHistory: boolean) => void;
 }
 
 export function EditorFrameBar({
@@ -25,11 +29,15 @@ export function EditorFrameBar({
     handleFrameDrop,
     addFrame,
     deleteFrame,
+    updateAnimDurations,
 }: FrameProps){
 
+    const [popupConfig, setPopupConfig] = useState<{ id: string, top: number, left: number} | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    
     return(
         <div 
-            className="flex flex-col flex-shrink-0 border-l min-h-0"
+            className="flex flex-col flex-shrink-0 border-r min-h-0"
             style={{ 
                 width: showFramePanel ? 160 : 36, 
                 background: 'var(--color-surface)', 
@@ -79,6 +87,33 @@ export function EditorFrameBar({
                             <span className='material-symbols-outlined text-[14px]'>close</span>
                             </button>
 
+                            <button onClick={(e) => {
+                                e.stopPropagation(); // 캔버스 클릭 처리 방지
+                                // 설정창 팝업 토글 로직
+                                if(popupConfig?.id === frame.id){
+                                    setPopupConfig(null);
+                                }
+                                else{
+                                    const frameRect = e.currentTarget.parentElement?.getBoundingClientRect();
+                                    
+                                    if(frameRect){
+                                        setPopupConfig({
+                                            id: frame.id, 
+                                            top: frameRect.top, 
+                                            left: frameRect.right + 13
+                                        })
+                                    }
+                                }
+                            }}
+                            className={`absolute bottom-1 right-1 z-10 w-5 h-5 bg-gray-600/80 hover:bg-gray-500 text-white rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity${
+                                isActive 
+                                ? 'bg-gray-500/80 hover:bg-gray-400 text-white' // 활성화 상태: 밝은 배경과 흰색 아이콘
+                                : 'bg-gray-800/80 hover:bg-gray-600 text-gray-400' // 비활성화 상태: 어두운 배경과 회색 아이콘
+                            }`}
+                            title='Frame Settings'>
+                                <span className = 'material-symbols-outlined text-[14px]'>settings</span>
+                            </button>
+
                             {/* 미리보기 영역 (Canvas thumbnail  등을 넣을 수 있음)*/}
                             <div className="aspect-square checkerboard rounded overflow-hidden flex items-center justify-center relative">
                             {(() => {
@@ -126,10 +161,80 @@ export function EditorFrameBar({
                                 )
                             })()}
                             </div>
+                            {/* 프레임 설정 팝업창 (Portal 사용) */}
+                            {popupConfig?.id === frame.id && createPortal(
+                                <div 
+                                    // fixed 속성으로 브라우저 뷰포트 기준 위치를 고정합니다.
+                                    className="fixed w-64 bg-surface border border-outline rounded-xl p-4 shadow-xl z-9999 flex flex-col gap-4 text-on-surface"
+                                    style={{ 
+                                        top: `${popupConfig.top}px`, 
+                                        left: `${popupConfig.left}px` 
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {/* 1. 상단 헤더 영역 */}
+                                    <div className="flex items-center justify-between pb-3 border-b" style={{borderColor: 'var(--color-outline)'}}>
+                                        <span className="text-base font-bold">프레임 설정</span>
+                                        <button className="p-1 rounded hover:bg-surface-container-highest transition-colors">
+                                            <span className="material-symbols-outlined text-[18px]">tune</span>
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        {/*  라벨과 에러 메시지를 가로로 나란히 배치 */}
+                                        <div className="flex items-center justify-between">
+                                            {errorMessage && (
+                                                <span className="text-[12px] text-red-400 animate-in fade-in duration-200">
+                                                    {errorMessage}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {/* 지속 시간 설정 영역 */}
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[13px]">지속 시간 (ms)</span>
+                                            <input
+                                                type="number"
+                                                className="w-15 bg-surface px-1 rounded text-right border border-outline"
+                                                max={MAX_DURATION}
+                                                min={MIN_DURATION_30FPS}
+                                                defaultValue={frame.duration || 100}
+                                                onKeyDown={(e) => {
+                                                    // 숫자 입력창에서 허용되는 기호 입력을 막음
+                                                    if(['e','E','+','-'].includes(e.key)){
+                                                        e.preventDefault();
+                                                    }
+                                                }}
+                                                onChange={(e) => {
+                                                    const rawValue = Number(e.target.value);
+                                                    // 입력값을 안전하게 제한하여 최소값과 최대값 사이로 조정
+                                                    if(rawValue < MIN_DURATION_30FPS){
+                                                        setErrorMessage(`최소 ${MIN_DURATION_30FPS}ms 이에요.`);
+                                                    }
+                                                    else if(rawValue > MAX_DURATION){
+                                                        setErrorMessage(`최대 ${MAX_DURATION}ms 이에요.`);
+                                                    }
+                                                    else {
+                                                        setErrorMessage(null);
+                                                    }
+                                                    const safeValue = Math.max(MIN_DURATION_30FPS, Math.min(MAX_DURATION, rawValue));
+                                                    updateAnimDurations(frame.id, safeValue, true);
+                                                }}
+                                                onBlur={(e) => {
+                                                    // 입력창에서 빠져나올 때 값을 검사하고 교정함
+                                                    let value = Number(e.target.value);
+                                                    value = Math.max(MIN_DURATION_30FPS, Math.min(MAX_DURATION, value)); // 최소값과 최대값 제한
+                                                    
+                                                    e.target.value = String(value); // 입력창에 교정된 값 반영
+                                                    updateAnimDurations(frame.id, value, false);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            , document.body)}
                         </div>
                         )
                     })}
-                
+
                     {/* 프레임 추가 버튼 */}
                     <button
                     onClick={() => addFrame()}
@@ -138,8 +243,8 @@ export function EditorFrameBar({
                     <span className="material-symbols-outlined text-lg">add</span>
                     </button>
                 </div>
-                </div>
-            )}
-        </div>
+            </div>
+        )}
+    </div>
     )
 }

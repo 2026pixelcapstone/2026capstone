@@ -13,7 +13,7 @@ interface UseCanvasDrawing{
     activeLayerId: string | null;
     activeTool: string | null;
     fgColor: string;
-    brushSize: number;
+    pixelSize: number;
     setUnsaved: React.Dispatch<SetStateAction<boolean>>;
     commitLayerChanges: (frameId: string | null, layerId: string | null) => void;
     applyDirectTool: (ctx: CanvasRenderingContext2D, pos: Point | null) => void
@@ -27,8 +27,8 @@ export function useCanvasDrawing({
     activeFrameId,
     activeLayerId,
     activeTool,
-    brushSize,
     fgColor,
+    pixelSize,
     setUnsaved,
     commitLayerChanges,
     applyDirectTool,
@@ -81,7 +81,7 @@ export function useCanvasDrawing({
         if(activeTool === 'line'){
             startLine(ctx, state.width, state.height, pos,
               {
-                brushSize,
+                pixelSize,
                 color: fgColor,
                 snapAngle: false, // Shift 키는 마우스 이동 중에만 적용
               }
@@ -102,7 +102,7 @@ export function useCanvasDrawing({
 
         if (activeTool === 'line') {
             updateLine(target.ctx, pos, {
-                brushSize,
+                pixelSize,
                 color: fgColor,
                 snapAngle: e.evt.shiftKey,
             });
@@ -126,7 +126,7 @@ export function useCanvasDrawing({
           if (e && pos) {
             if(activeTool === 'line'){
                 updateLine(target.ctx, pos, {
-                    brushSize,
+                    pixelSize,
                     color: fgColor,
                     snapAngle: e.evt.shiftKey,
                 });

@@ -1,12 +1,13 @@
 import { getLabel } from "../../utils/editorUtils";
 import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS } from "../../constants/editor/editor";
 import { Dispatch, SetStateAction } from "react";
+import { EditorToolId } from "../../type/editor";
 
 interface EditorToolProps{
-    activeTool: string;
+    activeTool: EditorToolId;
     fgColor: string;
     hexInput: string;
-    setActiveTool: Dispatch<SetStateAction<string>>;
+    setActiveTool: Dispatch<SetStateAction<EditorToolId>>;
     setIsHexModal: Dispatch<SetStateAction<boolean>>;
     setHexInput: Dispatch<SetStateAction<string>>;
     applyHex: () => void;
@@ -30,14 +31,23 @@ export function EditorToolBar({
 
     {/* ── 좌측 툴바 ── */}
     return (
-        <aside className="flex flex-col items-center py-3 gap-1 flex-shrink-0 border-r"
-            style={{ width: 100, background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+        <aside className="flex flex-col py-3 gap-1 flex-shrink-0 border-r"
+            style={{ width: 115, background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
 
+            {/* 제목 */}
+            <div className="w-full px-3 mb-2 text-center">
+                <span 
+                    className="text-[15px] font-bold tracking-tight" 
+                    style = {{color: 'var(--color-on-surface-variant)' }}
+                >
+                  도구 모음  
+                </span>
+            </div>
             {/* 그리기 도구 */}
-            <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="grid grid-cols-2 gap-0 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {DRAW_TOOLS.map(t => (
                 <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                className="w-12 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
                 </button>
@@ -45,10 +55,10 @@ export function EditorToolBar({
             </div>
 
             {/* 선택 도구 */}
-            <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="grid grid-cols-2 gap-0 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SELECT_TOOLS.map(t => (
                 <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                className="w-12 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
                 </button>
@@ -56,8 +66,19 @@ export function EditorToolBar({
             </div>
 
             {/* 도형 도구 */}
-            <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="grid grid-cols-2 gap-0 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
             {SHAPE_TOOLS.map(t => (
+                <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
+                className="w-12 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                style={toolBtn(t.id)}>
+                <span className="material-symbols-outlined text-2xl">{t.icon}</span>
+                </button>
+            ))}
+            </div>
+
+            {/* 뷰 도구 (하단 고정) */}
+            <div className="flex flex-col items-center gap-1 w-full px-2 pb-3 mb-1 border-b" style={{ borderColor: 'var(--color-outline)' }}>
+            {VIEW_TOOLS.map(t => (
                 <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={toolBtn(t.id)}>
@@ -94,19 +115,6 @@ export function EditorToolBar({
                         style={{ background: 'var(--color-surface-container-low)', border: 'none', color: 'var(--color-on-surface)' }} />
                     </div>
                 </div>
-
-            </div>
-
-
-            {/* 뷰 도구 (하단 고정) */}
-            <div className="flex flex-col items-center gap-1 w-full px-2 mt-auto">
-            {VIEW_TOOLS.map(t => (
-                <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
-                style={toolBtn(t.id)}>
-                <span className="material-symbols-outlined text-2xl">{t.icon}</span>
-                </button>
-            ))}
             </div>
         </aside>
     )

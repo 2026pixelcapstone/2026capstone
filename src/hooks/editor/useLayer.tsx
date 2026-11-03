@@ -4,6 +4,7 @@ import { useCallback, useRef } from "react";
 interface UseLayersProps{
     frames: FrameData[];
     setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
+    setWithoutHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     activeLayer: string | null;
     setActiveLayer: React.Dispatch<React.SetStateAction<string | null>>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
@@ -12,6 +13,7 @@ interface UseLayersProps{
 export const useLayers = ({
     frames,
     setWithHistory,
+    setWithoutHistory,
     activeLayer,
     setActiveLayer,
     setUnsaved,
@@ -104,7 +106,7 @@ export const useLayers = ({
             setActiveLayer(nextActiveId);
         }
         setUnsaved(true);
-    }, [frames, activeLayer, setWithHistory, setActiveLayer]);
+    }, [frames, activeLayer, setWithHistory, setActiveLayer, setUnsaved]);
 
     // ── 레이어 눈 켜기/끄기 ───────────────────────────────────
     const toggleVisibility = useCallback((targetFrameId: string | null, layerId: string | null) => {
@@ -114,7 +116,7 @@ export const useLayers = ({
             const updatedFrames = prev.frames.map((frame: FrameData) => {
                 if (frame.id !== targetFrameId) return frame;
                 
-                const updatedLayers = frame.layers.map((layer: any) =>
+                const updatedLayers = frame.layers.map((layer: LayerData) =>
                     layer.id === layerId ? { ...layer, isVisible: !layer.isVisible } : layer
                 );
                 return { ...frame, layers: updatedLayers };
@@ -122,7 +124,7 @@ export const useLayers = ({
             return { ...prev, frames: updatedFrames };
         });
         setUnsaved(true);
-    }, [setWithHistory]);
+    }, [setWithHistory, setUnsaved]);
     
     // ── 레이어의 순서 바꾸기 ───────────────────────────────────
     const reorderLayers = useCallback((targetFrameId: string | null, layerStartIndex: number , layerEndIndex: number) => {
@@ -145,12 +147,41 @@ export const useLayers = ({
                 return { ...frame, layers: reorderedLayers};
             });
             return { ...prev, frames: updatedFrames };
-        })
+        });
         setUnsaved(true);
-    },[setWithHistory])
+    },[setWithHistory, setUnsaved]);
     
+    // ── 단일 레이어 속성 업데이트 ───────────────────────────────────
+    const updateLayer = useCallback((frameId: string | null, layerId: string | null, updates: Partial<LayerData>, skipHistory: boolean) =>{
+        if(!frameId || !layerId) return;
+
+        const updateLogic = (prev: CanvasState) => {
+            const updatedFrames = prev.frames.map((frame: FrameData)=> {
+                if(frame.id !== frameId) return frame;
+
+                const updatedLayers = frame.layers.map((layer: LayerData) =>
+                    layer.id === layerId ? { ...layer, ...updates } : layer
+                );
+                return { ...frame, layers: updatedLayers };
+            });
+            return { ...prev, frames: updatedFrames };
+        }
+
+        if(skipHistory){
+            setWithoutHistory(updateLogic);
+        }
+        else
+        {
+            setWithHistory(updateLogic);
+        }
+        
+        setUnsaved(true);
+    },[setWithHistory, setWithoutHistory, setUnsaved]);
+    
+    // ── 레이어 카운터 초기화 ───────────────────────────────────
     const resetLayerCounters = useCallback(() => {
         layerCountersRef.current = {};
     }, [layerCountersRef]);
-    return { addLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters};
+
+    return { addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters};
 }

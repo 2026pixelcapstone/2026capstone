@@ -1,4 +1,5 @@
-import { Point } from "../../../type/editor";
+import { DRAW_TOOLS } from "../../../constants/editor/editor";
+import { EditorToolId, Point } from "../../../type/editor";
 import React, { useCallback, useState } from "react";
 
 interface UseCanvasTool {
@@ -13,10 +14,11 @@ export function useCanvasTool({
   setUnsaved,
   selectPaletteColor,
 }: UseCanvasTool){
-    const [activeTool, setActiveTool]   = useState('pencil');
+    const [activeTool, setActiveTool]   = useState<EditorToolId>(DRAW_TOOLS[0].id); // 기본 도구는 연필(pencil)
+    const [pixelSize, setPixelSize] = useState(1);
     const [brushSize, setBrushSize]     = useState(1);
     const [pixelPerfect, setPixelPerfect] = useState(true);
-    
+
     // -------- 활성 프레임의 활성 레이어에 대한 캔버스에다가 픽셀 도구 효과를 적용하는 로직 -----------
     const applyDirectTool = useCallback((ctx: CanvasRenderingContext2D, pos : Point | null) => {
         if (!ctx || !pos) return
@@ -28,7 +30,7 @@ export function useCanvasTool({
         // ─── [연필 도구] ──────────────────────────────────────────
         if (activeTool === 'pencil') {
           ctx.fillStyle = fgColor
-          ctx.fillRect(x, y, brushSize, brushSize)
+          ctx.fillRect(x, y, pixelSize, pixelSize)
           ctx.globalAlpha = 1
           isDirty.current = true; // 픽셀이 변경되었음을 표시
           setUnsaved(true);
@@ -137,7 +139,7 @@ export function useCanvasTool({
           }
           return;
         }
-    }, [activeTool, fgColor, brushSize]);
+    }, [activeTool,  pixelSize, fgColor, isDirty, setUnsaved, selectPaletteColor]);
 
-    return {applyDirectTool, activeTool, setActiveTool, brushSize, setBrushSize, pixelPerfect, setPixelPerfect}
+    return {activeTool, pixelSize, brushSize, pixelPerfect, setActiveTool, setPixelSize, setBrushSize, setPixelPerfect, applyDirectTool}
 }
