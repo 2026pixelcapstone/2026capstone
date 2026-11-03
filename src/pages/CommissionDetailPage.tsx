@@ -265,7 +265,9 @@ export default function CommissionDetailPage() {
   const canCancel = (isClient || isArtist) && !paying
     && (commission.status === 'IN_PROGRESS' || commission.status === 'PENDING_PAYMENT')
   const canReview = isClient && commission.status === 'COMPLETED'
-  const dDay = commission.agreedDeadline
+  // 마감 배지는 진행 중인 거래만 — 완료·취소된 거래에 'D-30'이 계속 보이던 문제
+  const isClosed = commission.status === 'COMPLETED' || commission.status === 'CANCELLED'
+  const dDay = commission.agreedDeadline && !isClosed
     ? Math.ceil((new Date(commission.agreedDeadline).getTime() - Date.now()) / 86400000)
     : null
 

@@ -4,6 +4,22 @@ import { toast } from '../store/toastStore'
 export const MAX_UPLOAD_MB = 10
 export const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
+// 서버가 이미지 폴더에 받는 형식(UploadFolder IMAGE — 확장자 기준). BMP·SVG·AVIF 등은 서버가 400으로 거절
+const UPLOADABLE_IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+/** 파일 선택창 accept 값 — 고를 때부터 받을 수 있는 이미지만 보이게 */
+export const UPLOADABLE_IMAGE_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp'
+
+/**
+ * 업로드 가능한 이미지만 남김(드래그&드롭은 accept가 안 걸려서 여기서 거름). 빠진 게 있으면 토스트.
+ */
+export function filterUploadableImages(files: File[]): File[] {
+  const ok = files.filter(f => UPLOADABLE_IMAGE_EXTS.includes(f.name.split('.').pop()?.toLowerCase() ?? ''))
+  if (ok.length < files.length) {
+    toast.error(`PNG·JPG·GIF·WebP 이미지만 올릴 수 있어요. ${files.length - ok.length}개를 제외했습니다.`)
+  }
+  return ok
+}
+
 /**
  * 파일 크기 사전 검증. 하나라도 한도를 초과하면 토스트 후 false.
  * @returns 전부 통과 시 true
