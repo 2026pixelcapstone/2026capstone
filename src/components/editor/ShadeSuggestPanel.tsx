@@ -8,17 +8,20 @@ import {
   toLayerPixelData, type ShadeCrop,
 } from '../../lib/shadeSuggest'
 
-/** 광원 8방향(3×3에서 가운데 제외). 각도는 0=오른쪽, 90=위 — 모델 규칙 */
+/**
+ * 광원 8방향(3×3에서 가운데 = 그림). 버튼 자리 = 빛이 오는 곳, 화살표 = 빛이 나아가는 방향(그림 쪽).
+ * 예: 왼쪽 위 버튼은 ↘ — '왼쪽 위로 빛이 나간다'로 오해하지 않게. 각도는 0=오른쪽, 90=위 — 모델 규칙
+ */
 const DIRECTIONS: { angle: number | null; arrow: string; label: string }[] = [
-  { angle: 135, arrow: '↖', label: '왼쪽 위' },
-  { angle: 90, arrow: '↑', label: '위' },
-  { angle: 45, arrow: '↗', label: '오른쪽 위' },
-  { angle: 180, arrow: '←', label: '왼쪽' },
-  { angle: null, arrow: '☀', label: '' },
-  { angle: 0, arrow: '→', label: '오른쪽' },
-  { angle: 225, arrow: '↙', label: '왼쪽 아래' },
-  { angle: 270, arrow: '↓', label: '아래' },
-  { angle: 315, arrow: '↘', label: '오른쪽 아래' },
+  { angle: 135, arrow: '↘', label: '왼쪽 위' },
+  { angle: 90, arrow: '↓', label: '위' },
+  { angle: 45, arrow: '↙', label: '오른쪽 위' },
+  { angle: 180, arrow: '→', label: '왼쪽' },
+  { angle: null, arrow: '■', label: '' },
+  { angle: 0, arrow: '←', label: '오른쪽' },
+  { angle: 225, arrow: '↗', label: '왼쪽 아래' },
+  { angle: 270, arrow: '↑', label: '아래' },
+  { angle: 315, arrow: '↖', label: '오른쪽 아래' },
 ]
 const PREVIEW_BOX = 280   // 미리보기 최대 한 변(px)
 /** 서버 강도(모델이 정한 명암 양에 곱하는 값) → 화면 이름 */
@@ -133,11 +136,11 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
 
   return (
     <div className="p-3 rounded-lg bg-surface-container-low border border-outline">
-      <div className="text-[11px] mb-2 text-on-surface-variant">광원 방향</div>
+      <div className="text-[11px] mb-2 text-on-surface-variant">광원 방향 · 빛이 오는 곳을 고르세요</div>
       <div className="grid grid-cols-3 gap-1 w-24 mb-2">
         {DIRECTIONS.map((d) =>
           d.angle === null ? (
-            <span key="center" className="aspect-square flex items-center justify-center text-sm text-on-surface-variant">{d.arrow}</span>
+            <span key="center" title="그림" aria-hidden="true" className="aspect-square flex items-center justify-center text-sm text-on-surface-variant">{d.arrow}</span>
           ) : (
             <button
               key={d.angle}
