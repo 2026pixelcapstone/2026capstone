@@ -5,6 +5,7 @@ import { fileApi } from '../api/fileApi'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
+import { UPLOADABLE_IMAGE_ACCEPT, filterUploadableImages } from '../lib/fileValidation'
 import TagInput from '../components/TagInput'
 
 const MAX_IMAGES = 5
@@ -150,7 +151,7 @@ export default function AssetUpdatePage() {
 
   // ── 이미지 추가 ──────────────────────────────────────────
   const addImages = useCallback((files: File[]) => {
-    const imageFiles = files.filter(f => f.type.startsWith('image/'))
+    const imageFiles = filterUploadableImages(files)
     setImages(prev => {
       const remaining = MAX_IMAGES - prev.length
       const toAdd = imageFiles.slice(0, remaining).map(file => ({
@@ -427,7 +428,7 @@ export default function AssetUpdatePage() {
               이미지를 드래그하거나 클릭하여 추가<br />
               <span className="text-on-surface-variant text-xs">PNG, JPG, GIF (최대 {MAX_IMAGES}장)</span>
             </p>
-            <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
+            <input ref={imageInputRef} type="file" accept={UPLOADABLE_IMAGE_ACCEPT} multiple onChange={handleImageChange} className="hidden" />
           </div>
 
           {images.length > 0 && (

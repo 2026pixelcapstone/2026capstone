@@ -4,6 +4,7 @@ import { assetApi, type AssetCategory, type AssetLicenseType } from '../api/asse
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
+import { UPLOADABLE_IMAGE_ACCEPT, filterUploadableImages } from '../lib/fileValidation'
 import TagInput from '../components/TagInput'
 
 const MAX_IMAGES = 5
@@ -49,7 +50,7 @@ export default function AssetCreatePage() {
 
   // ── 미리보기 이미지 ───────────────────────────────────────
   const addImages = useCallback((files: File[]) => {
-    const imageFiles = files.filter(f => f.type.startsWith('image/'))
+    const imageFiles = filterUploadableImages(files)
     setImages(prev => {
       const remaining = MAX_IMAGES - prev.length
       if (remaining <= 0) return prev
@@ -342,7 +343,7 @@ export default function AssetCreatePage() {
               이미지를 드래그하거나 클릭하여 업로드<br />
               <span className="text-on-surface-variant text-xs">PNG, JPG, GIF (최대 {MAX_IMAGES}장)</span>
             </p>
-            <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
+            <input ref={imageInputRef} type="file" accept={UPLOADABLE_IMAGE_ACCEPT} multiple onChange={handleImageChange} className="hidden" />
           </div>
 
           {images.length > 0 && (

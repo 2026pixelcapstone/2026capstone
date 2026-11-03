@@ -8,7 +8,7 @@ import { tagApi } from '../api/tagApi'
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
-import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '../lib/fileValidation'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB, UPLOADABLE_IMAGE_ACCEPT, filterUploadableImages } from '../lib/fileValidation'
 import { challengeEntryMessage, type ChallengeEntryResult } from '../api/challengeApi'
 import ChallengeEntryCheckbox from './challenge/ChallengeEntryCheckbox'
 import {
@@ -221,7 +221,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
 
   // ── 이미지 추가 (FREE) ──
   const addImages = useCallback((files: FileList | File[]) => {
-    let arr = Array.from(files).filter(f => f.type.startsWith('image/'))
+    let arr = filterUploadableImages(Array.from(files))
     const oversized = arr.filter(f => f.size > MAX_UPLOAD_BYTES)
     if (oversized.length > 0) {
       toast.error(`${oversized.length}개 이미지가 ${MAX_UPLOAD_MB}MB를 초과해 제외했습니다.`)
@@ -995,7 +995,7 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
               </>
             )}
 
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+            <input ref={fileInputRef} type="file" accept={UPLOADABLE_IMAGE_ACCEPT} multiple className="hidden"
               onChange={e => { if (e.target.files) addImages(e.target.files); e.target.value = '' }} />
             <input ref={ppitInputRef} type="file" accept=".ppit,.json,application/json" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) processFile(f) }} />
