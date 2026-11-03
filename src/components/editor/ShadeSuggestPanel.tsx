@@ -5,22 +5,27 @@ import { toast } from '../../store/toastStore'
 import { getErrorMessage } from '../../lib/errorUtils'
 import {
   SHADE_MAX_SIDE, SHADE_MIN_OPAQUE, buildShadeOverlay, cropOpaque, isValidShadeResult, rgbaToCanvas,
-  toLayerPixelData, type ShadeCrop, type ShadeStrength,
+  toLayerPixelData, type ShadeCrop,
 } from '../../lib/shadeSuggest'
 
-/** 광원 8방향(3×3에서 가운데 제외). 각도는 0=오른쪽, 90=위 — 모델 규칙 */
+/**
+ * 광원 8방향(3×3에서 가운데 = 그림). 버튼 자리 = 빛이 오는 곳, 화살표 = 빛이 나아가는 방향(그림 쪽).
+ * 예: 왼쪽 위 버튼은 ↘ — '왼쪽 위로 빛이 나간다'로 오해하지 않게. 각도는 0=오른쪽, 90=위 — 모델 규칙
+ */
 const DIRECTIONS: { angle: number | null; arrow: string; label: string }[] = [
-  { angle: 135, arrow: '↖', label: '왼쪽 위' },
-  { angle: 90, arrow: '↑', label: '위' },
-  { angle: 45, arrow: '↗', label: '오른쪽 위' },
-  { angle: 180, arrow: '←', label: '왼쪽' },
-  { angle: null, arrow: '☀', label: '' },
-  { angle: 0, arrow: '→', label: '오른쪽' },
-  { angle: 225, arrow: '↙', label: '왼쪽 아래' },
-  { angle: 270, arrow: '↓', label: '아래' },
-  { angle: 315, arrow: '↘', label: '오른쪽 아래' },
+  { angle: 135, arrow: '↘', label: '왼쪽 위' },
+  { angle: 90, arrow: '↓', label: '위' },
+  { angle: 45, arrow: '↙', label: '오른쪽 위' },
+  { angle: 180, arrow: '→', label: '왼쪽' },
+  { angle: null, arrow: '■', label: '' },
+  { angle: 0, arrow: '←', label: '오른쪽' },
+  { angle: 225, arrow: '↗', label: '왼쪽 아래' },
+  { angle: 270, arrow: '↑', label: '아래' },
+  { angle: 315, arrow: '↖', label: '오른쪽 아래' },
 ]
 const PREVIEW_BOX = 280   // 미리보기 최대 한 변(px)
+/** 서버 강도(모델이 정한 명암 양에 곱하는 값) → 화면 이름 */
+const STRENGTH_LABEL: Record<string, string> = { '0.3': '적게', '0.5': '보통', '0.7': '많게', '1': '최대' }
 
 /** 요청 시점 기준 결과 — 이후 그림을 고쳐도 이 그림 기준으로 추가 */
 interface ShadeSnapshot {
@@ -46,7 +51,7 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
   const [angle, setAngle] = useState(135)
   const [loading, setLoading] = useState(false)
   const [snap, setSnap] = useState<ShadeSnapshot | null>(null)
-  const [strength, setStrength] = useState<ShadeStrength>(1)
+  const [strength, setStrength] = useState(0.5)
   const [showOriginal, setShowOriginal] = useState(false)
   const reqIdRef = useRef(0)            // 세대 가드(늦게 온 응답이 최신 결과를 덮지 않게)
   const previewRef = useRef<HTMLCanvasElement>(null)
@@ -96,6 +101,7 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
         throw new Error('명암 제안 응답 형식이 올바르지 않습니다.')
       }
       setSnap({ crop, data, ...req })
+      setStrength(data.defaultStrength)
       setShowOriginal(false)
     } catch (e) {
       if (reqIdRef.current !== reqId) return
@@ -130,11 +136,11 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
 
   return (
     <div className="p-3 rounded-lg bg-surface-container-low border border-outline">
-      <div className="text-[11px] mb-2 text-on-surface-variant">광원 방향</div>
+      <div className="text-[11px] mb-2 text-on-surface-variant">광원 방향 · 빛이 오는 곳을 고르세요</div>
       <div className="grid grid-cols-3 gap-1 w-24 mb-2">
         {DIRECTIONS.map((d) =>
           d.angle === null ? (
-            <span key="center" className="aspect-square flex items-center justify-center text-sm text-on-surface-variant">{d.arrow}</span>
+            <span key="center" title="그림" aria-hidden="true" className="aspect-square flex items-center justify-center text-sm text-on-surface-variant">{d.arrow}</span>
           ) : (
             <button
               key={d.angle}
@@ -189,9 +195,9 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
             <canvas ref={previewRef} style={{ imageRendering: 'pixelated', maxWidth: '100%' }}
               aria-label={showOriginal ? '원본 미리보기' : '명암 제안 미리보기'} role="img" />
           </div>
-          <div className="text-[11px] mb-1 text-on-surface-variant">강도</div>
+          <div className="text-[11px] mb-1 text-on-surface-variant">명암 양</div>
           <div className="flex gap-1 mb-2">
-            {([1, 2] as const).map((s) => (
+            {snap.data.strengths.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -202,7 +208,7 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
                   ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
                   : { borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}
               >
-                {s === 1 ? '약하게 (1단계)' : '강하게 (2단계)'}
+                {STRENGTH_LABEL[String(s)] ?? `${Math.round(s * 100)}%`}
               </button>
             ))}
           </div>
