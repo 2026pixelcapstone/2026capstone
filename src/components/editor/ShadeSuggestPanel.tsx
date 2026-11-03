@@ -5,7 +5,7 @@ import { toast } from '../../store/toastStore'
 import { getErrorMessage } from '../../lib/errorUtils'
 import {
   SHADE_MAX_SIDE, SHADE_MIN_OPAQUE, buildShadeOverlay, cropOpaque, isValidShadeResult, rgbaToCanvas,
-  toLayerPixelData, type ShadeCrop, type ShadeStrength,
+  toLayerPixelData, type ShadeCrop,
 } from '../../lib/shadeSuggest'
 
 /** 광원 8방향(3×3에서 가운데 제외). 각도는 0=오른쪽, 90=위 — 모델 규칙 */
@@ -21,6 +21,8 @@ const DIRECTIONS: { angle: number | null; arrow: string; label: string }[] = [
   { angle: 315, arrow: '↘', label: '오른쪽 아래' },
 ]
 const PREVIEW_BOX = 280   // 미리보기 최대 한 변(px)
+/** 서버 강도(모델이 정한 명암 양에 곱하는 값) → 화면 이름 */
+const STRENGTH_LABEL: Record<string, string> = { '0.3': '적게', '0.5': '보통', '0.7': '많게', '1': '최대' }
 
 /** 요청 시점 기준 결과 — 이후 그림을 고쳐도 이 그림 기준으로 추가 */
 interface ShadeSnapshot {
@@ -46,7 +48,7 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
   const [angle, setAngle] = useState(135)
   const [loading, setLoading] = useState(false)
   const [snap, setSnap] = useState<ShadeSnapshot | null>(null)
-  const [strength, setStrength] = useState<ShadeStrength>(1)
+  const [strength, setStrength] = useState(0.5)
   const [showOriginal, setShowOriginal] = useState(false)
   const reqIdRef = useRef(0)            // 세대 가드(늦게 온 응답이 최신 결과를 덮지 않게)
   const previewRef = useRef<HTMLCanvasElement>(null)
@@ -96,6 +98,7 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
         throw new Error('명암 제안 응답 형식이 올바르지 않습니다.')
       }
       setSnap({ crop, data, ...req })
+      setStrength(data.defaultStrength)
       setShowOriginal(false)
     } catch (e) {
       if (reqIdRef.current !== reqId) return
@@ -189,9 +192,9 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
             <canvas ref={previewRef} style={{ imageRendering: 'pixelated', maxWidth: '100%' }}
               aria-label={showOriginal ? '원본 미리보기' : '명암 제안 미리보기'} role="img" />
           </div>
-          <div className="text-[11px] mb-1 text-on-surface-variant">강도</div>
+          <div className="text-[11px] mb-1 text-on-surface-variant">명암 양</div>
           <div className="flex gap-1 mb-2">
-            {([1, 2] as const).map((s) => (
+            {snap.data.strengths.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -202,7 +205,7 @@ export default function ShadeSuggestPanel({ stageRef, frameId, canvasW, canvasH,
                   ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
                   : { borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}
               >
-                {s === 1 ? '약하게 (1단계)' : '강하게 (2단계)'}
+                {STRENGTH_LABEL[String(s)] ?? `${Math.round(s * 100)}%`}
               </button>
             ))}
           </div>
