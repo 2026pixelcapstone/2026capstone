@@ -9,6 +9,7 @@ import { useBlockStore } from '../store/blockStore'
 import { useLikeStore } from '../store/likeStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { userApi } from '../api/userApi'
+import { showFlashToast } from '../lib/flashToast'
 
 export default function MainLayout() {
   const { isLoggedIn, user, setUser } = useAuthStore()
@@ -16,6 +17,9 @@ export default function MainLayout() {
   const { clearGalleryLikes } = useLikeStore()
   const { startPolling, stopPolling, clear: clearNotifications, fetchUnread } = useNotificationStore()
   const location = useLocation()
+
+  // 새로고침으로 넘어온 한 번짜리 안내(탈퇴 완료 등)
+  useEffect(() => { showFlashToast() }, [])
 
   // 로그인 상태인데 user 정보가 없거나(새로고침/첫 로그인) emailVerified 정보가 없으면
   // (이 기능 이전에 로그인해 둔 레거시 세션) 서버에서 복구

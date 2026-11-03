@@ -62,6 +62,10 @@ export const userApi = {
   changePassword: (currentPassword: string, newPassword: string) =>
     api.patch<{ success: boolean; message: string; data: TokenResponse }>('/api/users/me/password', { currentPassword, newPassword }),
 
+  // 회원 탈퇴 — 비밀번호 계정은 password, 소셜 전용 계정은 confirmNickname(현재 닉네임). 진행 중 거래가 있으면 409
+  withdraw: (body: { password?: string; confirmNickname?: string }) =>
+    api.post<{ success: boolean; message: string }>('/api/users/me/withdrawal', body),
+
   // 프로필 사진 업로드/교체 — PNG·JPEG·GIF·WebP, 최대 2MB(서버 검증). 저장 경로는 서버가 정함
   uploadProfileImage: (image: Blob, filename: string) => {
     const form = new FormData()
