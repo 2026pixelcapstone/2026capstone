@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authApi } from '../api/authApi'
 import FontSelector from './FontSelector'
@@ -9,7 +9,6 @@ import { useEmailGate } from '../hooks/useEmailGate'
 
 export default function Navbar() {
   const location = useLocation()
-  const navigate = useNavigate()
   const { isLoggedIn, user, logout } = useAuthStore()
   const { blocked: gateBlocked, message: gateMessage } = useEmailGate()
   const [galleryOpen, setGalleryOpen] = useState(false)
@@ -20,8 +19,10 @@ export default function Navbar() {
     } catch {
       // 실패해도 클라이언트 로그아웃은 진행
     } finally {
+      // 전체 새로고침으로 메인 이동 — 라우터 이동은 전환(transition)으로 늦게 반영돼, 로그인 필수 화면(마이페이지 등)에서는
+      // 로그아웃이 먼저 그려져 /login으로 보내졌음. 새로고침은 메모리에 남은 사용자별 상태도 함께 비움(공용 PC 대비)
       logout()
-      navigate('/')
+      window.location.replace('/')
     }
   }
 

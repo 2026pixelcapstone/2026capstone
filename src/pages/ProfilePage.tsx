@@ -1,3 +1,4 @@
+import { isWithdrawnNickname } from '../lib/withdrawnUser'
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { userApi, type UserProfileResponse } from '../api/userApi'
@@ -37,8 +38,11 @@ export default function ProfilePage() {
   const [followLoading, setFollowLoading] = useState(false)
   const [blockLoading, setBlockLoading] = useState(false)
 
+  // 탈퇴한 사용자 이름(댓글·리뷰·거래 기록에서 넘어옴) — 서버는 없는 사용자로 답하므로 부르지 않고 안내만
+  const withdrawn = isWithdrawnNickname(username)
+
   useEffect(() => {
-    if (!username) return
+    if (!username || withdrawn) return
     setLoading(true)
     setNotFound(false)
     userApi.getUserByNickname(username)
@@ -86,7 +90,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (loading) {
+  if (loading && !withdrawn) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--color-background)' }}>
         <div className="animate-spin rounded-full w-10 h-10 border-2" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
@@ -94,11 +98,11 @@ export default function ProfilePage() {
     )
   }
 
-  if (notFound || !profile) {
+  if (withdrawn || notFound || !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
         <span className="material-symbols-outlined text-5xl" style={{ color: 'var(--color-outline)' }}>person_off</span>
-        <p style={{ color: 'var(--color-on-surface-variant)' }}>존재하지 않는 사용자입니다.</p>
+        <p style={{ color: 'var(--color-on-surface-variant)' }}>{withdrawn ? '탈퇴한 사용자입니다.' : '존재하지 않는 사용자입니다.'}</p>
         <Link to="/" className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>메인으로 돌아가기</Link>
       </div>
     )
