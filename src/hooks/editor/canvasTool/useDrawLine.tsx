@@ -2,7 +2,7 @@ import { Point } from "../../../type/editor";
 import { useCallback, useRef } from "react";
 
 export interface DrawLineOptions{
-    brushSize?: number;
+    pixelSize?: number;
     color: string;
     snapAngle?: boolean; // Shift 키 등으로 0도, 45도, 90도 각도 제한 여부
     centerBrush?: boolean; // 브러시 크기 확대 시 중심 기준 정렬 여부
@@ -80,14 +80,14 @@ export function useDrawLine(){
         snapshot.current = ctx.getImageData(0, 0, width, height);
 
         const { 
-            brushSize = 1,
+            pixelSize = 1,
             color,
             centerBrush = true
         } = options;
         
-        const offset = centerBrush ? Math.floor((brushSize - 1) / 2) : 0;
+        const offset = centerBrush ? Math.floor((pixelSize - 1) / 2) : 0;
         ctx.fillStyle = color;
-        ctx.fillRect(pos.x - offset, pos.y - offset, brushSize, brushSize);
+        ctx.fillRect(pos.x - offset, pos.y - offset, pixelSize, pixelSize);
     }, [startPos, snapshot]);
 
     // 드래그 중: 이전 스냅샷 복구 후 실시간 미리보기 렌더링
@@ -100,7 +100,7 @@ export function useDrawLine(){
 
         // 옵션 기본값 설정(구조 분해 할당)
         const {
-            brushSize = 1,
+            pixelSize = 1,
             color,
             snapAngle = false,
             centerBrush = true,
@@ -121,12 +121,12 @@ export function useDrawLine(){
         );
 
         // 4. 브러시 크기 오프셋 계산 (중심 정렬 여부)
-        const offset = centerBrush ? Math.floor((brushSize - 1) / 2) : 0;
+        const offset = centerBrush ? Math.floor((pixelSize - 1) / 2) : 0;
 
         // 5. 픽셀 도포
         ctx.fillStyle = color;
         for (const pt of points) {
-            ctx.fillRect(pt.x - offset, pt.y - offset, brushSize, brushSize);
+            ctx.fillRect(pt.x - offset, pt.y - offset, pixelSize, pixelSize);
         }
     }, [startPos, snapshot]);
 

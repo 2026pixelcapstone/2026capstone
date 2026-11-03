@@ -27,9 +27,15 @@ export function AnimationPreview({
         updateAllAnimDurations(1000 / pendingFps.current);
         pendingFps.current = null;
     };
-
+    
     return(
         <div className="p-4 border-b shrink-0" style={{ borderColor: 'var(--color-outline)' }}>
+            <div className="w-full px-3 mb-2 text-center">
+                <span className="text-[15px] font-bold tracking-tight" style={{color: 'var(--color-on-surface-variant)'}}> 
+                    애니메이션
+                </span>
+            </div>
+            
             {/* 애니메이션 프리뷰 */}
             <div className="w-48 mx-auto bg-[#1e2329] rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden">
                 <div className="group/preview aspect-square checkerboard rounded overflow-hidden flex items-center justify-center relative">
@@ -73,18 +79,35 @@ export function AnimationPreview({
                         </div>
                         )
                     })()}
-                    {/* 재생 / 정지 (정지하면 첫 프레임으로 돌아감) */}
-                    <button 
-                        type="button"
-                        aria-label={isPlaying ? '애니메이션 정지' : '애니메이션 재생'}
-                        title={isPlaying ? '정지' : '재생'}
-                        onClick={() => setIsPlaying(prev => !prev)}
-                        className="absolute right-2 top-2 z-10 w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 pointer-events-none transition-opacity group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-2 focus-visible:outline-white" >
-                        <span className="material-symbols-outlined text-lg">
-                        {isPlaying ? 'pause' : 'play_arrow'}
-                        </span>
-                    </button>
+                
+                   {/* 컨트롤 버튼 그룹 (부모 div에 우측 상단 배치 및 호버 로직 통합) */}
+                    <div className="absolute right-2 top-2 z-10 flex gap-1.5 transition-opacity opacity-100 pointer-events-auto [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:pointer-events-none group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto has-[:focus-visible]:opacity-100 has-[:focus-visible]:pointer-events-auto">
+                        {/* 전체 화면 버튼 (왼쪽) */}
+                        <button
+                            type="button"
+                            aria-label="애니메이션 화면 전체 보기"
+                            title="전체 보기"
+                            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-white transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-lg">
+                                fullscreen
+                            </span>
+                        </button>
 
+                        {/* 재생 / 정지 버튼 (오른쪽) */}
+                        <button 
+                            type="button"
+                            aria-label={isPlaying ? '애니메이션 정지' : '애니메이션 재생'}
+                            title={isPlaying ? '정지' : '재생'}
+                            onClick={() => setIsPlaying(prev => !prev)}
+                            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-white transition-colors" 
+                        >
+                            <span className="material-symbols-outlined text-lg">
+                                {isPlaying ? 'pause' : 'play_arrow'}
+                            </span>
+                        </button>
+
+                    </div>
                 </div>
 
                 {/* 재생 컨트롤 */}

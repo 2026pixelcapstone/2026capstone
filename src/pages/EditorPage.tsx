@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import {createInitialCanvasData, ZOOM_LEVELS, CANVAS_PRESETS, MAX_CANVAS_SIZE} from '../constants/editor/editor'
+import {createInitialCanvasData, ZOOM_LEVELS} from '../constants/editor/editor'
 
 import { AiTool } from '../type/editor'
 import {useCanvasView} from '../hooks/editor/useCanvasView'
@@ -39,6 +39,14 @@ import { EditorCanvas } from '../components/editor/EditorCanvas'
 import { AnimationPreview } from '../components/editor/AnimationPreview'
 import { EditorLayerBar } from '../components/editor/EditorLayerBar'
 import ShadeSuggestPanel from '../components/editor/ShadeSuggestPanel'
+import { EditorRightSideBar } from '../components/editor/EditorRightSideBar'
+import { EditorPalette } from '../components/editor/EditorPalette'
+import { EditorCanvasSize } from '../components/editor/EditorCanvasSize'
+import { LayerDetailView } from '../components/editor/LayerDetailView'
+import { PaletteTap } from '../components/editor/PaletteTap'
+import { LayerTap } from '../components/editor/LayerTap'
+import { LeftToolBarOptionBar } from '../components/editor/LeftToolBarOptionBar'
+import { FrameDetailView } from '../components/editor/FrameDetailView'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -61,11 +69,6 @@ export default function EditorPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn } = useAuthStore()
 
-  
-  // ── status & state ──────────────────────────
-  // ── 도구 관련 ──────────────
-  const [opacity, setOpacity]         = useState(100)
-
   // ── CanvasData 관련 ──────────────
   const [activeFrameId, setActiveFrameId] = useState<string | null>(
     initialCanvasData.frames[0]?.id || null
@@ -76,6 +79,9 @@ export default function EditorPage() {
 
   // ── 메뉴 관련 ──────────────
   const [showGridLines, setShowGridLines] = useState(true)
+  
+  // ── 우측 탭 관련 ──────────────
+  const [activeRightTab, setActiveRightTab] = useState<'main' | 'layers' | 'palette' | 'CanvasSize'>('main');
 
   // ── AI 가이드 ──────────────
   const [aiTool, setAiTool] = useState<AiTool | null>(null);   // AI 패널에 보이는 기능(null = 닫힘)
@@ -102,10 +108,10 @@ export default function EditorPage() {
   const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false) 
   const [unsaved, setUnsaved] = useState(false);
-  
+
   // ── hook ──────────────────────────
   // ── useHistory 훅 ──────────────
-  const {state, setWithHistory, undo, redo, reset} = useHistory(initialCanvasData);
+  const {state, setWithHistory, setWithoutHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── useAnimation 훅 ──────────────
   const { isPlaying, previewFrameIdx, fps, defaultDuration, setIsPlaying, setFps } = useAnimation({
@@ -113,22 +119,26 @@ export default function EditorPage() {
   });
 
   // ── useFrame 훅 ──────────────
-  const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAllAnimDurations} = useFrame({
+  const{showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations} = useFrame({
     frames: state.frames,
     defaultDuration,
     activeFrameId,
     setWithHistory,
+    setWithoutHistory,
     setActiveFrameId,
     setActiveLayerId,
     setUnsaved,
   });
   // 활성화된 프레임 찾기
   const currentFrame = state.frames.find((f) => f.id === activeFrameId) ?? state.frames[0];
+  // 활성화된 레이어 찾기
+  const currentLayer = currentFrame.layers.find((l) => l.id === activeLayerId) ?? currentFrame.layers[0];
 
-  // ── 레이어 훅 ──────────────
-  const { addLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters} = useLayer({
+  // ── useLayer 훅 ──────────────
+  const {detailLayer, setDetailLayer, addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters} = useLayer({
     frames: state.frames,
     setWithHistory, 
+    setWithoutHistory,
     activeLayer: activeLayerId, 
     setActiveLayer: setActiveLayerId,
     setUnsaved,
@@ -159,7 +169,7 @@ export default function EditorPage() {
   })
   // ── useCanvasTool 훅 ──────────────
   const { 
-    applyDirectTool, activeTool, setActiveTool, brushSize, setBrushSize, pixelPerfect, setPixelPerfect
+    activeTool, pixelSize, brushSize, pixelPerfect, setActiveTool, setPixelSize, setBrushSize, setPixelPerfect, applyDirectTool 
   } = useCanvasTool({
     fgColor,
     isDirty,
@@ -175,7 +185,7 @@ export default function EditorPage() {
     activeFrameId,
     activeLayerId,
     activeTool,
-    brushSize,
+    pixelSize,
     fgColor,
     setUnsaved,
     commitLayerChanges,
@@ -229,6 +239,7 @@ export default function EditorPage() {
     projectTitle,
     peekLayerCanvas,
   });
+
 
   // ── Navigation / Page Control ───────────────────────────────────
   const handleBackToMain = useCallback((e?: React.MouseEvent) => {
@@ -712,9 +723,9 @@ export default function EditorPage() {
       />
 
       {/* ── TOP BAR (Photoshop 스타일 메뉴 툴바) ─────── */}
-      <header className="h-10 flex items-center flex-shrink-0 border-b select-none"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
-
+    <header className="h-10 flex items-center flex-shrink-0 border-b select-none"
+      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+        
         {/* 좌: 로고 + 메뉴바 */}
         <div className="flex items-center h-full">
           {/* 로고 */}
@@ -757,9 +768,20 @@ export default function EditorPage() {
                 }}
               />
         </div>
-
+        
+        {/* 상태바 */}
+        <div className='flex-1 flex items-center gap-4 px-6 border-l ml-2 h-6'
+          style={{borderColor: 'var(--color-surface-container-highest)'}}
+        >
+          <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>Canvas: {state.width} × {state.height}</span>
+          <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
+          <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>Active: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
+        </div>
+        
         {/* 우: 파일명 + 저장 */}
-        <div className="ml-auto flex items-center gap-2 pr-3">
+        <div className="ml-auto flex items-center gap-2 pr-3 border-l"
+          style={{borderColor: 'var(--color-surface-container-highest)'}}
+        >
           <div className="flex items-center gap-1.5">
             <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>description</span>
             {editingTitle ? (
@@ -808,12 +830,15 @@ export default function EditorPage() {
             applyHex = {applyHex}
           />
 
-         {/* ── 프레임 패널 ─────────────────────────────── */}
+         {/* ── 프레임 패널 ── */}
           <EditorFrameBar
             showFramePanel = {showFramePanel}
             activeFrameId = {activeFrameId}
+            detailFrameId= {detailFrameId}
             frames = {state.frames}
             setShowFramePanel = {setShowFramePanel}
+            setActiveFrameId= {setActiveFrameId}
+            setDetailFrameId={setDetailFrameId}
             handleSelectFrame = {handleSelectFrame}
             handleFrameDragStart = {handleFrameDragStart}
             handleDragOver = {handleDragOver}
@@ -822,217 +847,169 @@ export default function EditorPage() {
             deleteFrame = {deleteFrame}
           />
 
-        {/* ── 캔버스 영역 ─────────────────────────────── */}
-          <EditorCanvas 
-            activeFrameId = {activeFrameId}
-            zoom = {zoom}
-            showGridLines = {showGridLines}
-            cursorPos = {cursorPos}
-            stageRef = {stageRef}
-            currentFrame = {currentFrame}
-            setZoomIdx = {setZoomIdx}
-            ensureLayerCanvas = {ensureLayerCanvas}
-
-            canvasProps={{
-              frames: state.frames,
-              width: state.width,
-              height: state.height,
-            }}
-
-            mouseEvnetProps={{
-              handleMouseDown,
-              handleMouseMove,
-              handleMouseUp,
-              handleMouseLeave,
-            }}
+          <FrameDetailView
+              key={currentFrame.id}
+              detailFrameId={detailFrameId}
+              frameViewData = {{
+                id: currentFrame.id,
+                duration: currentFrame.duration ?? 100,
+              }}
+              updateAnimDurations = {updateAnimDurations}
           />
-
-        {/* ── 우측 패널 ──────── */}
-        <aside className="flex flex-col flex-shrink-0 border-l overflow-y-auto"
-          style={{ width: 300, background: 'var(--color-surface)', borderColor: 'var(--color-outline)',
-            scrollbarWidth: 'thin', scrollbarColor: 'var(--color-surface-container) transparent' }}>
+  
           
-          {/* 애니메이션 프리뷰 섹션 */}
-          <AnimationPreview 
-            fps={fps}
-            setFps={setFps}
-            previewFrameIdx = {previewFrameIdx}
-            isPlaying = {isPlaying}
-            frames = {state.frames}
-            setIsPlaying = {setIsPlaying}
-            updateAllAnimDurations={updateAllAnimDurations}
-          />          
-          
-          {/* 레이어 섹션 */}
-          <EditorLayerBar
-            activeFrameId = {activeFrameId}
-            activeLayerId = {activeLayerId}
-            currentFrame = {currentFrame}
-            selectLayer = {selectLayer}
-            reorderLayers= {reorderLayers}
-            toggleVisibility = {toggleVisibility}
-            handleAddLayer= {handleAddLayer}
-            handleDeleteLayer= {handleDeleteLayer}
-          />
 
-          {/* 팔레트 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>Palette</div>
-              <div className="flex gap-1">
-                {([
-                  ['add', '현재 색을 팔레트에 추가', () => addColorsToPalette([fgColor])],
-                  ['upload', '팔레트 가져오기', () => setPaletteBrowserOpen(true)],
-                  ['save', '현재 팔레트를 커뮤니티에 저장', () => setPaletteSaveOpen(true)],
-                ] as const).map(([icon, tip, onClick]) => (
-                  <button key={icon} type="button" title={tip} aria-label={tip} onClick={onClick}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container"
-                    style={{ color: 'var(--color-on-surface-variant)' }}>
-                    <span className="material-symbols-outlined text-sm">{icon}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-7 gap-1.5 px-1">
-              {paletteColors.map(c => (
-                <button
-                  key={c}
-                  onClick={() => { selectPaletteColor(c) }}
-                  aria-label={`색상 ${c}`}
-                  title={c}
-                  className="w-8 h-8 rounded cursor-pointer transition-all border-2 hover:scale-110"
-                  style={{ background: c, borderColor: fgColor === c ? 'var(--color-on-surface)' : 'transparent' }} />
-              ))}
-            </div>
-            <button type="button" onClick={() => setPaletteBrowserOpen(true)}
-              className="mt-3 text-xs font-bold hover:underline px-1"
-              style={{ color: 'var(--color-primary)' }}>팔레트 둘러보기…</button>
+          {/* ── 중앙 영역 ─────────────────────────────── */}
+          <div className="flex flex-col flex-1 min-w-0">
+            {/* ── 왼쪽 툴바 옵션 ── */}
+            <LeftToolBarOptionBar
+              activeTool={activeTool}
+              pixelSize={pixelSize}
+              brushSize={brushSize}
+              pixelPerfect={pixelPerfect}
+              setPixelSize={setPixelSize}
+              setBrushSize={setBrushSize}
+              setPixelPerfect={setPixelPerfect}
+            />
+            {/* ── 캔버스 영역 ── */}
+            <EditorCanvas 
+              activeFrameId = {activeFrameId}
+              zoom = {zoom}
+              showGridLines = {showGridLines}
+              cursorPos = {cursorPos}
+              stageRef = {stageRef}
+              currentFrame = {currentFrame}
+              setZoomIdx = {setZoomIdx}
+              ensureLayerCanvas = {ensureLayerCanvas}
+
+              canvasProps={{
+                frames: state.frames,
+                width: state.width,
+                height: state.height,
+              }}
+
+              mouseEvnetProps={{
+                handleMouseDown,
+                handleMouseMove,
+                handleMouseUp,
+                handleMouseLeave,
+              }}
+            />
           </div>
 
-          {/* 툴 옵션 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Tool Options</div>
-            <div className="space-y-4 px-1">
+        {/* ── 우측 패널 사이드 바 ──────── */}
+        <div className='flex h-full z-10'>
+            <EditorRightSideBar
+              activeRightTab={activeRightTab}
+              setActiveRightTab={setActiveRightTab}
+            />
+          {/* ── 우측 패널 ──────── */}
+          <aside className="flex flex-col flex-shrink-0 border-l overflow-y-scroll"
+            style={{ width: 300, background: 'var(--color-surface)', borderColor: 'var(--color-outline)',
+              scrollbarWidth: 'thin', scrollbarColor: 'var(--color-surface-container) transparent' }}>
+            {activeRightTab === 'main' && detailLayer === null  && (
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Brush Size</span>
-                  <span className="text-sm font-bold">{brushSize}px</span>
-                </div>
-                <input type="range" min={1} max={16} value={brushSize}
-                  onChange={e => setBrushSize(Number(e.target.value))}
-                  className="w-full h-1.5 cursor-pointer accent-primary" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Opacity</span>
-                  <span className="text-sm font-bold">{opacity}%</span>
-                </div>
-                <input type="range" min={0} max={100} value={opacity}
-                  onChange={e => setOpacity(Number(e.target.value))}
-                  className="w-full h-1.5 cursor-pointer accent-primary" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Pixel Perfect</span>
-                <button onClick={() => setPixelPerfect(v => !v)}
-                  className="w-11 h-6 rounded-full relative transition-all flex-shrink-0"
-                  style={{ background: pixelPerfect ? 'var(--color-primary)' : 'var(--color-surface-container-highest)' }}>
-                  <span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
-                    style={{ left: pixelPerfect ? 'calc(100% - 22px)' : '2px' }} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* 캔버스 크기 섹션 */}
-          <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-on-surface-variant)' }}>Canvas Size</div>
-            <div className="px-1 space-y-2">
-              {/* 1. 프리셋 버튼 grid */}
-              <div className="grid grid-cols-3 gap-1">
-                {CANVAS_PRESETS.map(p => {
-                  const [w, h] = p.split('×').map(Number)
-                  const active = state.width === w && state.height === h
-                  return (
-                    <button 
-                      key={p} 
-                      onClick={() =>{
-                        setCustomW(w);
-                        setCustomH(h);
-                        
-                      }}
-                      className="py-1 text-xs rounded-lg font-bold transition-all border"
-                      style={{
-                        background: active ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'var(--color-surface-container-low)',
-                        borderColor: active ? 'var(--color-primary)' : 'var(--color-outline)',
-                        color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
-                      }}>{p}</button>
-                  )
-                })}
-              </div>
-
-              {/* 2. 커스텀 크기 설정 및 Apply 버튼 */}
-              <div className="flex items-center gap-1.5 pt-1">
-                <input type="number" value={customW} min={1} max={512}
-                  onChange={e => setCustomW(Number(e.target.value))}
-                  className="w-16 px-2 py-1 rounded text-xs outline-none text-center font-bold"
-                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
-                <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>×</span>
-                <input type="number" value={customH} min={1} max={512}
-                  onChange={e => setCustomH(Number(e.target.value))}
-                  className="w-16 px-2 py-1 rounded text-xs outline-none text-center font-bold"
-                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
-                <button onClick={() => {
-                  // 최대 크기 초과 방지 유효성 검사
-                  if (customW > MAX_CANVAS_SIZE || customH > MAX_CANVAS_SIZE) {
-                      alert(`캔버스 크기는 최대 ${MAX_CANVAS_SIZE}x${MAX_CANVAS_SIZE}까지 설정할 수 있습니다.`);
-                      return;
-                  }
-                  if (customW < 1 || customH < 1) {
-                      alert('캔버스 크기는 최소 1 이상이어야 합니다.');
-                      return;
-                  }
-                  
-                  if (!Number.isInteger(customW) || !Number.isInteger(customH)) {
-                    alert('캔버스 크기는 정수여야 합니다.');
-                    return;
-                  } 
-                  applyCanvasSize(customW, customH)
-
-                }}
-                  className="flex-1 py-1 rounded text-xs font-bold transition-all hover:opacity-90"
-                  style={{ background: 'var(--color-primary)', color: '#fff' }}>Apply</button>
-              </div>
-              
-              {/*3. 이미지 비율 보정 체크 박스*/}
-              <div className="flex items-center gap-2 pt-1 pb-0.5 select-none cursor-pointer"
-                onClick={() => setIsScaleImage(prev => !prev)} // 글씨를 클릭해도 토글되게 유저 경험 개선
-              >
-                <input
-                  type="checkbox"
-                  id="scale-image-toggle"
-                  checked={isScaleImage}
-                  onChange={(e) => setIsScaleImage(e.target.checked)}
-                  className="rounded cursor-pointer accent-primary bg-surface-container-low" 
-                  style={{ 
-                    width: '13px', 
-                    height: '13px',
-                    border: '1px solid var(--color-outline)'
-                  }}
+                {/* 애니메이션 프리뷰 섹션 */}
+                <AnimationPreview 
+                  fps={fps}
+                  setFps={setFps}
+                  previewFrameIdx = {previewFrameIdx}
+                  isPlaying = {isPlaying}
+                  frames = {state.frames}
+                  setIsPlaying = {setIsPlaying}
+                  updateAllAnimDurations={updateAllAnimDurations}
                 />
-                <label
-                  htmlFor="scale-image-toggle"
-                  className="text-[11px] font-semibold cursor-pointer" // 전체 UI 비율에 맞춰 폰트 크기를 약간 슬림하게 조절
-                  style={{ color: 'var(--color-on-surface-variant)' }}
-                >
-                  크기 변경 시 기존 이미지 비율 보정
-                </label>
               </div>
-            </div>
-          </div>
-          
+            )}
+            {/* 레이어 섹션 */}
+            {detailLayer !== null && activeRightTab === 'main' && (
+              <>
+                {/*레이어 상세 뷰*/}
+                <LayerDetailView
+                  key = {currentLayer.id}
+                  activeFrameId = {activeFrameId}
+                  layerViewData = {{
+                    id: currentLayer.id,
+                    name: currentLayer.name,
+                    opacity: currentLayer.opacity,
+                    blendMode: currentLayer.blendMode,
+                  }}
+                  setDetailLayer={setDetailLayer}
+                  updateLayer = {updateLayer}
+                />
+              </>
+            )}
+            {activeRightTab === 'main' && (
+              <>
+                {/* 레이어 바 */}
+                <EditorLayerBar
+                  detailLayer={detailLayer}
+                  activeFrameId = {activeFrameId}
+                  activeLayerId = {activeLayerId}
+                  currentFrame = {currentFrame}
+                  setDetailLayer = {setDetailLayer}
+                  selectLayer = {selectLayer}
+                  reorderLayers= {reorderLayers}
+                  toggleVisibility = {toggleVisibility}
+                  handleAddLayer= {handleAddLayer}
+                  handleDeleteLayer= {handleDeleteLayer}
+                />
+              </>
+            )}
+            {activeRightTab === 'layers' && (
+              <>
+                {/* 레이어 탭 */}
+                <LayerTap
+                
+                />
+              </>
+            )}
 
-        </aside>
+            {/* 팔레트 섹션 */}
+            {activeRightTab === 'main' &&(
+              <>
+                <EditorPalette
+                  paletteColors={paletteColors}
+                  fgColor = {fgColor}
+                  setPaletteBrowserOpen = {setPaletteBrowserOpen}
+                  setPaletteSaveOpen = {setPaletteSaveOpen}
+                  addColorsToPalette = {addColorsToPalette}
+                  selectPaletteColor = {selectPaletteColor}
+                />
+              </>
+            )}
+
+            
+            {activeRightTab === 'palette' &&(
+              <>
+                {/* 팔레트 탭 */}
+                <PaletteTap
+                
+                />
+              </>
+            )}
+            
+            {activeRightTab === 'CanvasSize' &&(
+              <>
+                {/* 캔버스 크기 섹션 */}
+                <EditorCanvasSize
+                  customW = {customW}
+                  customH = {customH}
+                  isScaleImage = {isScaleImage}
+                  width = {state.width}
+                  height = {state.height}
+                  setCustomW = {setCustomW}
+                  setCustomH = {setCustomH}
+                  setIsScaleImage = {setIsScaleImage}
+                  applyCanvasSize = {applyCanvasSize}
+                />
+              </>
+            )}
+            
+          </aside>
+        </div>
         
+        {/* ── HEX 색상 입력 모달 ── */}
         <ColorPickerModal 
           isOpen={isHexModal}
           rgb={rgb}
@@ -1041,6 +1018,7 @@ export default function EditorPage() {
           onClose={() => setIsHexModal(false)}
           onChange={selectPaletteColor}
         />
+
         {/* ── AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
           style={{ 
@@ -1257,20 +1235,6 @@ export default function EditorPage() {
           </div>
         </div>
       </div>
-
-      {/* ── 하단 상태바 ──────────── */}
-      <footer className="flex items-center gap-6 px-5 flex-shrink-0 border-t text-sm font-bold"
-        style={{ height: 42, background: 'var(--color-surface)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface-variant)' }}>
-        <span>Canvas: {state.width} × {state.height}</span>
-        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-        <span>Zoom: {Math.round(zoom * 100)}%</span>
-        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-        <span>{cursorPos.x >= 0 ? `Cursor: ${cursorPos.x}, ${cursorPos.y}` : 'Cursor: —'}</span>
-        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-        <span>Tool: {activeTool.charAt(0).toUpperCase() + activeTool.slice(1)}</span>
-        <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-        <span>Active: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
-      </footer>
     </div>
   )
 }

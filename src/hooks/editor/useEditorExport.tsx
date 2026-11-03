@@ -197,7 +197,6 @@ export function useEditorExport({
         } catch {
         toast.error('.ppit 내보내기에 실패했습니다.')
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state, projectTitle, fps])
       
     return {handleExportImage, handleExportPpit}

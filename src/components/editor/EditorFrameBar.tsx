@@ -1,24 +1,30 @@
-import { FrameData } from "@/type/editor";
-import { Dispatch, DragEvent, SetStateAction } from "react";
+import { FrameData} from "../../type/editor";
+import { Dispatch, DragEvent, SetStateAction} from "react";
 
 interface FrameProps{
     showFramePanel: boolean;
     activeFrameId: string | null;
-    frames: FrameData[]; 
+    detailFrameId: string | null;
+    frames: FrameData[];
     setShowFramePanel: Dispatch<SetStateAction<boolean>>;
+    setActiveFrameId: Dispatch<SetStateAction<string | null>>;
+    setDetailFrameId: Dispatch<SetStateAction<string | null>>;
     handleSelectFrame: (frameId: string) => void;
     handleFrameDragStart: (e: DragEvent<HTMLDivElement>, frameIdx: number) => void;
     handleDragOver: (e: DragEvent<HTMLDivElement>) => void;
     handleFrameDrop: (e: DragEvent<HTMLDivElement>, frameIdx: number) => void;
-    addFrame: () => void
-    deleteFrame: (frameId: string) => void;
+    addFrame: () => void;
+    deleteFrame: (frameId: string | null) => void;
 }
 
 export function EditorFrameBar({
     showFramePanel,
     activeFrameId,
+    detailFrameId,
     frames,
     setShowFramePanel,
+    setActiveFrameId,
+    setDetailFrameId,
     handleSelectFrame,
     handleFrameDragStart,
     handleDragOver,
@@ -26,10 +32,10 @@ export function EditorFrameBar({
     addFrame,
     deleteFrame,
 }: FrameProps){
-
+    
     return(
         <div 
-            className="flex flex-col flex-shrink-0 border-l min-h-0"
+            className="flex flex-col flex-shrink-0 border-r min-h-0"
             style={{ 
                 width: showFramePanel ? 160 : 36, 
                 background: 'var(--color-surface)', 
@@ -77,6 +83,22 @@ export function EditorFrameBar({
                             className='absolute top-1 right-1 z-10 w-5 h-5 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
                             title='Delete Frame'>
                             <span className='material-symbols-outlined text-[14px]'>close</span>
+                            </button>
+
+                            <button onClick={(e) => {
+                                e.stopPropagation(); // 캔버스 클릭 처리 방지
+                                // 설정창 팝업 토글 로직
+                                if(detailFrameId === frame.id){
+                                    setDetailFrameId(null);
+                                }
+                                else{
+                                    setActiveFrameId(frame.id)
+                                    setDetailFrameId(frame.id);
+                                }
+                            }}
+                                className='absolute bottom-1 right-1 z-10 w-5 h-5 bg-gray-600/80 hover:bg-gray-500 text-white rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
+                                title='Frame Settings'>
+                                    <span className = 'material-symbols-outlined text-[14px]'>settings</span>
                             </button>
 
                             {/* 미리보기 영역 (Canvas thumbnail  등을 넣을 수 있음)*/}
@@ -129,7 +151,7 @@ export function EditorFrameBar({
                         </div>
                         )
                     })}
-                
+
                     {/* 프레임 추가 버튼 */}
                     <button
                     onClick={() => addFrame()}
@@ -138,8 +160,8 @@ export function EditorFrameBar({
                     <span className="material-symbols-outlined text-lg">add</span>
                     </button>
                 </div>
-                </div>
-            )}
-        </div>
+            </div>
+        )}
+    </div>
     )
 }

@@ -1,4 +1,4 @@
-import { CanvasState, LayerData } from "../../type/editor";
+import { BlendMode, CanvasState, LayerData } from "../../type/editor";
 
 // ── 캔버스 기본 값 ──────────────────────────────────────────────
 export const createDefaultLayer = (): LayerData => ({
@@ -14,36 +14,38 @@ export const createDefaultLayer = (): LayerData => ({
 });
 
 export const createInitialCanvasData = (): CanvasState => ({
-  frames: [{id: `frame-${crypto.randomUUID()}`, frameOrder: 0, layers: [createDefaultLayer()]}],
+  frames: [{id: `frame-${crypto.randomUUID()}`, frameOrder: 0, duration: 100, layers: [createDefaultLayer()]}],
   width: 32,
   height: 32,
 });
 
-// ── 상수 ──────────────────────────────────────────────
+// ── 도구 구성 ──────────────────────────────────────────────
 export const DRAW_TOOLS = [
   { id: 'pencil',    icon: 'edit',               label: 'Pencil (P)' },
   { id: 'eraser',    icon: 'ink_eraser',          label: 'Eraser (E)' },
   { id: 'fill',      icon: 'format_color_fill',   label: 'Fill (G)' },
   { id: 'eyedrop',   icon: 'colorize',            label: 'Eyedropper (I)' },
-]
+] as const;
 
 export const SELECT_TOOLS = [
   { id: 'marquee',   icon: 'select_all',          label: 'Marquee (M)' },
   { id: 'lasso',     icon: 'gesture',             label: 'Lasso (L)' },
   { id: 'move',      icon: 'open_with',           label: 'Move (V)' },
-]
+] as const;
 export const SHAPE_TOOLS = [
   { id: 'line',      icon: 'horizontal_rule',     label: 'Line' },
   { id: 'rect',      icon: 'rectangle',           label: 'Rectangle (R)' },
   { id: 'ellipse',   icon: 'circle',              label: 'Ellipse (O)' },
-]
+] as const;
+
 export const VIEW_TOOLS = [
   { id: 'pan',       icon: 'pan_tool',            label: 'Pan (Space)' },
-]
+] as const;
 
 export const COLOR_TOOLS = [
   {id: 'color', icon: 'color', label: 'Color' },
-]
+] as const;
+
 
 export const PALETTE_COLORS = [
   '#2f81f7','#818cf8','#c0c1ff','#29282b',
@@ -54,10 +56,22 @@ export const PALETTE_COLORS = [
   '#d97706',
 ]
 
+// ── 블렌드 모드 상수 ──────────────────────────────────────────────
+export const BLEND_MODES: { value: BlendMode; label: string }[] = [
+    { value: 'NORMAL', label: 'Normal' },
+    { value: 'MULTIPLY', label: 'Multiply' },
+    { value: 'SCREEN', label: 'Screen' },
+    { value: 'OVERLAY', label: 'Overlay' },
+    { value: 'DARKEN', label: 'Darken' },
+    { value: 'LIGHTEN', label: 'Lighten' },
+];
+
+// ── 캔버스 설정 상수 ──────────────────────────────────────────────
 export const ZOOM_LEVELS = [1, 2, 4, 8, 10, 16, 20, 32, 64];
 export const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128', '256×256', '512×512'];
 
 export const MAX_CANVAS_SIZE = 512; // 캔버스 최대 크기 제한
 export const MAX_HISTORY_SIZE = 50; // 최대 히스토리 스택 크기 제한
 
+export const MAX_DURATION = 10000; // 애니메이션 프레임 최대 지속 시간 제한
 export const MIN_DURATION_30FPS = 33; // 애니메이션 재생 속도 제한

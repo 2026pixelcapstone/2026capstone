@@ -9,6 +9,7 @@ import { validateFilesSize } from '../lib/fileValidation'
 import { downloadFileForced } from '../lib/download'
 import CommissionReviewModal from '../components/CommissionReviewModal'
 import { startCommissionPayment } from '../lib/toss'
+import PixelFitImage from '../components/PixelFitImage'
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: '결제 대기',
@@ -464,7 +465,7 @@ export default function CommissionDetailPage() {
                           <button type="button" onClick={() => setLightboxOpen(true)}
                             className="block w-full cursor-zoom-in" aria-label="미리보기 크게 보기">
                             <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
-                              className="w-full rounded-lg" style={{ border: '1px solid var(--color-outline)' }}
+                              className="w-full rounded-lg" style={{ border: '1px solid var(--color-outline)', imageRendering: 'pixelated' }}
                               onContextMenu={e => e.preventDefault()} draggable={false} />
                           </button>
                           {/* GIF 원본에서 생성된 미리보기 → 첫 프레임임을 안내 */}
@@ -681,7 +682,7 @@ export default function CommissionDetailPage() {
               </button>
             </>
           )}
-          <img src={current.imageUrl} alt={`미리보기 ${currentIndex + 1}`}
+          <PixelFitImage src={current.imageUrl} target={640} alt={`미리보기 ${currentIndex + 1}`}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={e => e.preventDefault()} draggable={false}
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
