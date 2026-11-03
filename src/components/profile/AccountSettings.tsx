@@ -4,6 +4,7 @@ import { userApi } from '../../api/userApi'
 import { useAuthStore } from '../../store/authStore'
 import { toast } from '../../store/toastStore'
 import { getErrorMessage } from '../../lib/errorUtils'
+import WithdrawalSection from './WithdrawalSection'
 
 const MIN_PASSWORD = 8   // 서버 가입 규칙과 동일(8~100자)
 
@@ -11,10 +12,12 @@ interface AccountSettingsProps {
   email: string | undefined
   /** 비밀번호 로그인 가능 여부 — false면 소셜 전용 계정. 아직 모르면 null/undefined */
   hasPassword: boolean | null | undefined
+  /** 소셜 전용 계정 탈퇴 확인용(닉네임 직접 입력) */
+  nickname?: string
 }
 
-/** 마이페이지 '계정 설정' 탭 — 비밀번호 변경(회원 탈퇴는 추후 이 탭에 추가 예정) */
-export default function AccountSettings({ email, hasPassword }: AccountSettingsProps) {
+/** 마이페이지 '계정 설정' 탭 — 비밀번호 변경·회원 탈퇴 */
+export default function AccountSettings({ email, hasPassword, nickname }: AccountSettingsProps) {
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -102,6 +105,8 @@ export default function AccountSettings({ email, hasPassword }: AccountSettingsP
           </form>
         )}
       </section>
+
+      <WithdrawalSection hasPassword={hasPassword} nickname={nickname} />
     </div>
   )
 }

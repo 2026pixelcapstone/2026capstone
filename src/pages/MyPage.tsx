@@ -345,7 +345,7 @@ export default function MyPage() {
           )}
 
           {/* 계정 설정 */}
-          {tab === 'account' && <AccountSettings email={profile?.email} hasPassword={profile?.hasPassword} />}
+          {tab === 'account' && <AccountSettings email={profile?.email} hasPassword={profile?.hasPassword} nickname={profile?.nickname} />}
 
           {/* 차단 관리 */}
           {tab === 'blocked' && (
