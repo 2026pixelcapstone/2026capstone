@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../api/authApi'
 import { userApi } from '../api/userApi'
 import { useAuthStore } from '../store/authStore'
+import { getErrorCode } from '../lib/errorUtils'
 
 function getPwStrength(pw: string) {
   let score = 0
@@ -67,9 +68,8 @@ export default function SignupPage() {
     } catch (err: any) {
       const message: string = err.response?.data?.message ?? '회원가입에 실패했습니다.'
       setError(message)
-      // 서버 오류 응답에 코드가 없어 409 + 문구로 구분(닉네임 중복도 409라서) — 남이 내 이메일로 먼저 가입했어도
-      // 비밀번호 찾기(재설정 메일)로 계정을 되찾을 수 있다는 안내
-      setEmailTaken(err.response?.status === 409 && message.includes('이메일'))
+      // 남이 내 이메일로 먼저 가입했어도 비밀번호 찾기(재설정 메일)로 계정을 되찾을 수 있다는 안내
+      setEmailTaken(getErrorCode(err) === 'EMAIL_ALREADY_EXISTS')
     } finally {
       setLoading(false)
     }

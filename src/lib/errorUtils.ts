@@ -20,3 +20,16 @@ export function getErrorStatus(error: unknown): number | null {
   }
   return null
 }
+
+/**
+ * 백엔드 실패 응답의 오류 코드(ErrorCode 이름, 예: 'EMAIL_ALREADY_EXISTS') 반환, 없으면 null.
+ * 분기는 문구(message) 대신 이 값으로 — 문구는 바뀔 수 있음.
+ * 우리 서버가 아닌 응답(Cloudflare 429·네트워크 오류 등)은 code가 없어 null.
+ */
+export function getErrorCode(error: unknown): string | null {
+  if (axios.isAxiosError(error)) {
+    const code = error.response?.data?.code
+    return typeof code === 'string' ? code : null
+  }
+  return null
+}
