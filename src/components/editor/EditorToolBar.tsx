@@ -8,6 +8,7 @@ interface EditorToolProps{
     fgColor: string;
     hexInput: string;
     setActiveTool: Dispatch<SetStateAction<EditorToolId>>;
+
     setIsHexModal: Dispatch<SetStateAction<boolean>>;
     setHexInput: Dispatch<SetStateAction<string>>;
     applyHex: () => void;
@@ -59,6 +60,7 @@ export function EditorToolBar({
             {SELECT_TOOLS.map(t => (
                 <button key={t.id} title={getLabel(t.label)} onClick={() => setActiveTool(t.id)}
                 className="w-12 h-14 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+
                 style={toolBtn(t.id)}>
                 <span className="material-symbols-outlined text-2xl">{t.icon}</span>
                 </button>

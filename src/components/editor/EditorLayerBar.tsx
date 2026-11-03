@@ -24,7 +24,6 @@ export function EditorLayerBar({
     handleAddLayer,
     handleDeleteLayer,
 }:EditorLayerProps){
-
   // 1. 컴포넌트 내부 상단에 배열을 변수로 분리 (as const 적용)
   const layerButtons = [
       ['add', '레이어 추가', handleAddLayer],

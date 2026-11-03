@@ -10,6 +10,18 @@ import { downloadFileForced } from '../lib/download'
 import Dropdown from '../components/GalleryDetailDropdown';
 import GalleryCreateModal from '../components/GalleryCreateModal'
 import ChallengeEntryCard from '../components/challenge/ChallengeEntryCard'
+import PixelFitImage from '../components/PixelFitImage'
+
+/** 상세 뷰어에서 작은 그림을 키울 때 긴 변 목표(px) — 자유 갤러리 뷰어·전용 뷰어 처음 배율 */
+const VIEW_TARGET = 480
+/** 라이트박스(크게 보기)에서 작은 그림 긴 변 목표(px) */
+const LIGHTBOX_TARGET = 640
+
+/** 전용 갤러리 처음 배율 — 캔버스 긴 변이 VIEW_TARGET에 가깝게(1~32배, 캔버스 정보 없으면 64 기준) */
+function fitZoom(w?: number | null, h?: number | null): number {
+  const side = Math.max(w ?? 64, h ?? 64)
+  return Math.min(32, Math.max(1, Math.floor(VIEW_TARGET / side)))
+}
 
 export default function GalleryDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,7 +36,7 @@ export default function GalleryDetailPage() {
   const [loading, setLoading] = useState(true)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [zoom, setZoom] = useState(4)
+  const [zoom, setZoom] = useState(4)   // 전용 뷰어 배율 — 작품을 불러오면 캔버스 크기에 맞춰 다시 정함
   const [downloading, setDownloading] = useState(false)
   const [activeImageIdx, setActiveImageIdx] = useState(0)   // 자유 갤러리 다중 이미지 캐러셀
   const [showEditModal, setShowEditModal] = useState(false) // 작성자 수정 모달
@@ -55,6 +67,7 @@ export default function GalleryDetailPage() {
         const postData = postRes.data.data;
         const cachedLike = getGalleryLike(postData.postId)
         setPost(cachedLike !== undefined ? { ...postData, isLiked: cachedLike } : postData);
+        setZoom(fitZoom(postData.canvasWidth, postData.canvasHeight));
         setComments(commentsRes.data.data.content);
         setIsInternalDraw(postData.galleryType === 'DEDICATED');
       } catch (err) {
@@ -247,6 +260,7 @@ export default function GalleryDetailPage() {
   const paletteColors = post.palette?.colors ?? []
   const showPalette = isDedicated && vis.palette !== false && paletteColors.length > 0
   const isAnimated = !!post.thumbnailUrl && /\.gif(\?|$)/i.test(post.thumbnailUrl)
+  const maxZoom = Math.max(8, fitZoom(post.canvasWidth, post.canvasHeight) * 2)
 
   // 자유 갤러리 다중 이미지 캐러셀 (전용은 .ppit 합성 썸네일 1장 → 픽셀 뷰어)
   const galleryImages = (post.imageUrls && post.imageUrls.length > 0)
@@ -286,9 +300,11 @@ export default function GalleryDetailPage() {
               )}
               <button type="button" onClick={() => setLightboxOpen(true)}
                 className="cursor-zoom-in" aria-label="사진 크게 보기">
-                <img src={activeImage ?? undefined} alt={post.title}
-                  className="max-w-full rounded-lg shadow-[0_0_80px_color-mix(in srgb, var(--color-primary) 25%, transparent)]"
-                  style={{ maxHeight: 600, objectFit: 'contain' }} />
+                {activeImage && (
+                  <PixelFitImage src={activeImage} target={VIEW_TARGET} alt={post.title}
+                    className="max-w-full rounded-lg shadow-[0_0_80px_color-mix(in srgb, var(--color-primary) 25%, transparent)]"
+                    style={{ maxHeight: 600, objectFit: 'contain' }} />
+                )}
               </button>
               {multiImage && (
                 <button
@@ -349,7 +365,7 @@ export default function GalleryDetailPage() {
                 <span className="material-symbols-outlined text-sm">remove</span>
               </button>
               <span className="text-white text-xs px-2">{zoom * 100}%</span>
-              <button onClick={() => setZoom(z => Math.min(8, z + 1))} className="text-white">
+              <button onClick={() => setZoom(z => Math.min(maxZoom, z + 1))} className="text-white">
                 <span className="material-symbols-outlined text-sm">add</span>
               </button>
             </div>
@@ -702,7 +718,7 @@ export default function GalleryDetailPage() {
           )}
           {/* 줌 스크롤 가능한 이미지 영역 */}
           <div className="max-w-[92vw] max-h-[88vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <img src={activeImage} alt={post.title}
+            <PixelFitImage src={activeImage} target={LIGHTBOX_TARGET} alt={post.title}
               style={{ transform: `scale(${lightboxZoom})`, transformOrigin: 'center', transition: 'transform 0.1s' }}
               className="max-w-[92vw] max-h-[88vh] object-contain select-none" draggable={false} />
           </div>

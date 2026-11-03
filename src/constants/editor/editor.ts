@@ -46,6 +46,7 @@ export const COLOR_TOOLS = [
   {id: 'color', icon: 'color', label: 'Color' },
 ] as const;
 
+
 export const PALETTE_COLORS = [
   '#2f81f7','#818cf8','#c0c1ff','#29282b',
   '#191c1e','#494454','#7b7486','#f7f9fb',

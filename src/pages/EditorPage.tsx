@@ -848,7 +848,6 @@ export default function EditorPage() {
             updateAnimDurations={updateAnimDurations}
           />
 
-        
           {/* ── 중앙 영역 ─────────────────────────────── */}
           <div className="flex flex-col flex-1 min-w-0">
             {/* ── 왼쪽 툴바 옵션 ── */}

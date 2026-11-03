@@ -3,7 +3,6 @@ import { FrameData } from "../../type/editor";
 import { Dispatch, DragEvent, SetStateAction, useState } from "react";
 import { MAX_DURATION, MIN_DURATION_30FPS } from "../../constants/editor/editor";
 
-
 interface FrameProps{
     showFramePanel: boolean;
     activeFrameId: string | null;
@@ -38,6 +37,7 @@ export function EditorFrameBar({
     return(
         <div 
             className="flex flex-col flex-shrink-0 border-r min-h-0"
+
             style={{ 
                 width: showFramePanel ? 160 : 36, 
                 background: 'var(--color-surface)', 
@@ -161,6 +161,7 @@ export function EditorFrameBar({
                                 )
                             })()}
                             </div>
+
                             {/* 프레임 설정 팝업창 (Portal 사용) */}
                             {popupConfig?.id === frame.id && createPortal(
                                 <div 

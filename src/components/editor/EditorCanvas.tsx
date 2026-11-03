@@ -45,7 +45,6 @@ export function EditorCanvas({
 
     {/* 바깥 배경: 캔버스보다 약간 진한 중간 회색 (체커보드) */}
     return(
-
         <main className="flex-1 flex items-center justify-center overflow-hidden relative"
             style={{
             backgroundColor: '#767676',
@@ -127,6 +126,7 @@ export function EditorCanvas({
             {/* 줌 컨트롤 (하단 중앙 플로팅) */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg border"
                 style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}>
+
             <button onClick={() => setZoomIdx(i => Math.max(0, i-1))}
                 className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-surface-container-high"
                 style={{ color: 'var(--color-on-surface-variant)' }}>

@@ -7,6 +7,7 @@ import { getErrorMessage, getErrorStatus } from '../lib/errorUtils'
 import { downloadFileForced } from '../lib/download'
 import { startAssetPayment } from '../lib/toss'
 import StarRating from '../components/StarRating'
+import PixelFitImage from '../components/PixelFitImage'
 
 const MIN_RATINGS = 4   // 이 개수 미만이면 "평가 부족" 표시(유니티 방식)
 
@@ -168,7 +169,7 @@ export default function AssetDetailPage() {
             <div className="checkerboard rounded-2xl border mb-3 flex items-center justify-center overflow-hidden"
               style={{ height: 320, borderColor: 'var(--color-outline)' }}>
               {images[selectedThumb]
-                ? <img src={images[selectedThumb]} alt={asset.title}
+                ? <PixelFitImage src={images[selectedThumb]} target={288} alt={asset.title}
                     className="max-w-full max-h-full object-contain"
                     style={{ imageRendering: 'pixelated' }} />
                 : <div className="w-48 h-48 rounded-xl" style={{ background: 'linear-gradient(135deg, var(--color-surface), var(--color-surface-container))' }} />
