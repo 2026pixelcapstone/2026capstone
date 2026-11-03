@@ -1,4 +1,4 @@
-
+// ── 프로젝트 로드 타입(useEditorLoad 훅에서 쓰임) ──────────────────────────────────────────────
 export interface LoadedEditorProject{
   projectId: number;
   title: string;
@@ -6,11 +6,34 @@ export interface LoadedEditorProject{
   height: number;
   frames: FrameData[];
   isPublic: boolean;
-  
 }
+
+// ── 상세 화면 타입 ──────────────────────────────────────────────
+
+export interface FrameViewData{
+  id: string | null;
+  duration: number | null;
+}
+
+export interface LayerViewData{
+  id: string | null;
+  name: string;
+  opacity: number;
+  blendMode: string;
+}
+
 //  ── Canvas Object Type ──────────────────────────────────────────────
+interface AnimationTag {
+    id: string;
+    name: string;        // 예: "Walk", "Attack"
+    color: string;       // 태그의 시각적 구분 색상 (예: #ff0000)
+    fromIndex: number;   // 태그 시작 프레임 인덱스
+    toIndex: number;     // 태그 끝 프레임 인덱스
+}
+
 export interface CanvasState{
   frames: FrameData[];
+  animationTags?: AnimationTag[];
   width : number;
   height: number;
 }
@@ -35,6 +58,7 @@ export interface LayerData{
   color: string | null; // 색상이 없을 수도 있으니 null 허용
   pixelData: string;
 }
+
 export interface CanvasSize{
   width: number;
   height: number;
@@ -45,16 +69,10 @@ export interface SaveModelData{
     isPublic: boolean;
 }
 
-// ── ToolType ──────────────────────────────────────────────
-export interface Point {
-    x: number;
-    y: number;
-}
-
 // ── 번역(한글 | 영문) ──────────────────────────────────────────────
 export type Lang = 'ko' | 'en';
 
-// 💡 기본 언어 설정 (현재 'ko'로 고정)
+// 기본 언어 설정 (현재 'ko'로 고정)
 export const CURRENT_LANG: Lang = 'ko';
 
 export interface LocalizedText {
@@ -151,3 +169,19 @@ export interface MenuGroup {
   items: MenuItem[];
 }
 
+// ── ToolType ──────────────────────────────────────────────
+
+// 도구 아이디 타입 정의
+export type DrawToolId = 'pencil' | 'eraser' | 'fill' | 'eyedrop';
+export type SelectToolId = 'marquee' | 'lasso' | 'move';
+export type ShapeToolId = 'line' | 'rect' | 'ellipse';
+export type ViewToolId = 'pan';
+export type ColorToolId = 'color';
+
+// 도구 아이디를 하나로 묶은 타입 정의
+export type EditorToolId = DrawToolId | SelectToolId | ShapeToolId | ViewToolId | ColorToolId;
+
+export interface Point {
+    x: number;
+    y: number;
+}

@@ -21,6 +21,7 @@ export interface PpitLayer {
 
 export interface PpitFrame {
   id: string
+  duration?: number
   layers: PpitLayer[]
 }
 

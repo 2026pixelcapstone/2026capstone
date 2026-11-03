@@ -8,6 +8,7 @@ interface UseAnimationProps{
     defaultDuration: number;
     activeFrameId: string | null;
     setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
+    setWithoutHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     setActiveFrameId: React.Dispatch<React.SetStateAction<string | null>>;
     setActiveLayerId: React.Dispatch<React.SetStateAction<string | null>>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
@@ -18,11 +19,14 @@ export function useFrame({
     activeFrameId,
     defaultDuration,
     setWithHistory, 
+    setWithoutHistory,
     setActiveFrameId,
     setActiveLayerId,
     setUnsaved,
 }: UseAnimationProps){
-     const [showFramePanel, setShowFramePanel] = useState(false)
+    const [showFramePanel, setShowFramePanel] = useState(false);
+    const [detailFrameId, setDetailFrameId] = useState<string | null>(null);
+     
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
      */
@@ -59,8 +63,9 @@ export function useFrame({
      * 최소 1개의 프레임은 유지되어야 하며, 삭제 후 안전한 인덱스로 이동합니다.
      * index - 삭제할 프레임의 위치 인덱스
      */
-    const deleteFrame = useCallback((frameIdToDelete: string) => {
-        if(frames.length <= 1) return;
+    const deleteFrame = useCallback((frameIdToDelete: string | null) => {
+
+        if(frames.length <= 1 || !frameIdToDelete) return;
         
         // 삭제할 프레임의 위치 파악
         const targetIdx = frames.findIndex((f) => f.id === frameIdToDelete);
@@ -149,5 +154,36 @@ export function useFrame({
         })
         setUnsaved(true);
     },[frames, setWithHistory, setUnsaved]);
-    return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAllAnimDurations};
+
+    // 특정 프레임의 애니메이션 속도를 히스토리에 저장합니다.
+    const updateAnimDurations = useCallback((frameId: string | null, duration: number | null, skipHistory: boolean = false, forceCommit: boolean = false) => {
+        if(!frameId || !duration) return;
+
+        const updateLogic = (prev: CanvasState) => {
+            // 현재 바꾸려는 프레임의 duration이 이미 입력된 값과 같다면 무시
+            const targetFrame = prev.frames.find(f => f.id === frameId);
+            if(!forceCommit && targetFrame && (targetFrame.duration ?? 100) === duration){
+                return prev;
+            }
+
+            // 상태 업데이트
+            const nextFrames = prev.frames.map((frame: FrameData) => {
+                if(frame.id !== frameId) return frame;
+                
+                return {...frame, duration};
+            });
+            return {...prev, frames: nextFrames};
+        }
+        
+        // 분기 처리
+        if (skipHistory) {
+            setWithoutHistory(updateLogic); // 타이핑 중: 화면만 실시간 업데이트
+        } 
+        else{
+            setWithHistory(updateLogic); // 입력 완료: 히스토리에 기록
+        }
+        
+        setUnsaved(true);
+    }, [setWithHistory, setWithoutHistory, setUnsaved]);
+    return {showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations};
 }
