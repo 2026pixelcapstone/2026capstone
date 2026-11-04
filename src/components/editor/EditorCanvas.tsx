@@ -12,6 +12,7 @@ interface EditorCanvasProps{
     zoom: number;
     showGridLines: boolean;
     cursorPos: Point;
+    pixelSize: number;
     stageRef: React.RefObject<Konva.Stage | null>;
     currentFrame: FrameData;
     setZoomIdx: React.Dispatch<React.SetStateAction<number>>;
@@ -35,6 +36,7 @@ export function EditorCanvas({
     zoom,
     showGridLines,
     cursorPos,
+    pixelSize,
     stageRef,
     currentFrame,
     setZoomIdx,
@@ -113,8 +115,8 @@ export function EditorCanvas({
                         <Rect
                         x={cursorPos.x}
                         y={cursorPos.y}
-                        width={1}
-                        height={1}
+                        width={pixelSize}
+                        height={pixelSize}
                         fill="rgba(128, 128, 128, 0.6)" // 기준 색상을 흰색으로 설정
                         listening={false}
                         />

@@ -1,4 +1,4 @@
-import { FrameData} from "../../type/editor";
+import { AnimationTag, FrameData} from "../../type/editor";
 import { Dispatch, DragEvent, SetStateAction} from "react";
 
 interface FrameProps{
@@ -6,6 +6,7 @@ interface FrameProps{
     activeFrameId: string | null;
     detailFrameId: string | null;
     frames: FrameData[];
+    animationTags: AnimationTag[] | null;
     setShowFramePanel: Dispatch<SetStateAction<boolean>>;
     setActiveFrameId: Dispatch<SetStateAction<string | null>>;
     setDetailFrameId: Dispatch<SetStateAction<string | null>>;
@@ -22,6 +23,7 @@ export function EditorFrameBar({
     activeFrameId,
     detailFrameId,
     frames,
+    animationTags,
     setShowFramePanel,
     setActiveFrameId,
     setDetailFrameId,
@@ -62,6 +64,9 @@ export function EditorFrameBar({
                 <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                     {frames.map((frame, index) => {
                         const isActive = frame.id === activeFrameId;
+
+                        // 현재 프레임의 tagId와 일치하는 태그 정보를 찾습니다.
+                        const currentTag = animationTags?.find(tag => tag.id === frame.tagId);
                         return(
                         <div
                             key = {frame.id}
@@ -76,9 +81,18 @@ export function EditorFrameBar({
                             background: isActive ? 'var(--color-surface-container-low)' : 'transparent'
                             }}>
 
+                            {/* 💡 새로 추가된 태그 라벨 (좌측 상단, Hover 시 표출) */}
+                            {currentTag && (
+                                <div 
+                                    className="absolute top-1 left-1 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                                    style={{ backgroundColor: currentTag.color }}
+                                >
+                                    {currentTag.name}
+                                </div>
+                            )}
                             <button onClick={(e) => {
-                            e.stopPropagation(); // 클릭 이벤트가 부모로 퍼지는 것 방지
-                            deleteFrame(frame.id);
+                                e.stopPropagation(); // 클릭 이벤트가 부모로 퍼지는 것 방지
+                                deleteFrame(frame.id);
                             }}
                             className='absolute top-1 right-1 z-10 w-5 h-5 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
                             title='Delete Frame'>

@@ -185,5 +185,20 @@ export function useFrame({
         
         setUnsaved(true);
     }, [setWithHistory, setWithoutHistory, setUnsaved]);
-    return {showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations};
+
+
+    const updateFrameTag = useCallback((frameId: string | null, tagId: string | null) => {
+        if(!frameId || !tagId) return;
+        
+        setWithHistory((prev) => {
+            // 상태 업데이트
+            const nextFrames = prev.frames.map((frame: FrameData) => {
+                if(frame.id !== frameId) return frame;
+
+                return {...frame, tagId};
+            });
+            return {...prev, frames: nextFrames};
+        })
+    }, [setWithHistory])
+    return {showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag};
 }

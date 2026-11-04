@@ -1,4 +1,4 @@
-import { CanvasState, Point } from "../../type/editor";
+import { CanvasState, EditorToolId, Point } from "../../type/editor";
 import { getCacheKey } from "../../utils/editorUtils";
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
@@ -11,7 +11,7 @@ interface UseCanvasDrawing{
     state: CanvasState;
     activeFrameId: string | null;
     activeLayerId: string | null;
-    activeTool: string | null;
+    activeTool: EditorToolId;
     fgColor: string;
     pixelSize: number;
     setUnsaved: React.Dispatch<SetStateAction<boolean>>;

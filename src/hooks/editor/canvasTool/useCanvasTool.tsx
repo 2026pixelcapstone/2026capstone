@@ -29,9 +29,9 @@ export function useCanvasTool({
     
         // ─── [연필 도구] ──────────────────────────────────────────
         if (activeTool === 'pencil') {
-          ctx.fillStyle = fgColor
-          ctx.fillRect(x, y, pixelSize, pixelSize)
-          ctx.globalAlpha = 1
+          ctx.fillStyle = fgColor;
+          ctx.fillRect(x, y, pixelSize, pixelSize);
+          ctx.globalAlpha = 1;
           isDirty.current = true; // 픽셀이 변경되었음을 표시
           setUnsaved(true);
         }

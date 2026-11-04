@@ -25,7 +25,7 @@ export function EditorRightSideBar({
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}   
             >
-                <span className="material-symbols-outlined text-[35px]">home</span>
+                <span className="material-symbols-outlined text-[38px]">home</span>
             </button>
             
             <button 
@@ -39,7 +39,7 @@ export function EditorRightSideBar({
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}
             >
-                <span className="material-symbols-outlined text-[35px]">layers</span>
+                <span className="material-symbols-outlined text-[38px]">layers</span>
             </button>
 
             <button 
@@ -53,7 +53,7 @@ export function EditorRightSideBar({
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}
             >
-                <span className="material-symbols-outlined text-[35px]">palette</span>
+                <span className="material-symbols-outlined text-[38px]">palette</span>
             </button>
             
             {/* 크기 설정 영역 위쪽 테두리 (구분선) */}
@@ -71,7 +71,7 @@ export function EditorRightSideBar({
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}
             >
-                <span className="material-symbols-outlined text-[35px]">crop_free</span>
+                <span className="material-symbols-outlined text-[38px]">aspect_ratio</span>
             </button>
 
             {/* 추후 도구 옵션 등 추가 탭 버튼이 들어갈 자리 */}

@@ -47,6 +47,7 @@ import { PaletteTap } from '../components/editor/PaletteTap'
 import { LayerTap } from '../components/editor/LayerTap'
 import { LeftToolBarOptionBar } from '../components/editor/LeftToolBarOptionBar'
 import { FrameDetailView } from '../components/editor/FrameDetailView'
+import { AnimationDetailView } from '../components/editor/AnimationDetailView'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -114,12 +115,14 @@ export default function EditorPage() {
   const {state, setWithHistory, setWithoutHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── useAnimation 훅 ──────────────
-  const { isPlaying, previewFrameIdx, fps, defaultDuration, setIsPlaying, setFps } = useAnimation({
+  const {animDetailView, isPlaying, previewFrameIdx, fps, defaultDuration, setAnimDetailView, setIsPlaying, setFps, createAnimationTag } = useAnimation({
     frames: state.frames,
   });
 
   // ── useFrame 훅 ──────────────
-  const{showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations} = useFrame({
+  const{showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, 
+    reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag
+  } = useFrame({
     frames: state.frames,
     defaultDuration,
     activeFrameId,
@@ -682,6 +685,14 @@ export default function EditorPage() {
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
     <div className="fixed inset-0 top-0 flex flex-col" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', zIndex: 60 }}>
+      <AnimationDetailView
+        isOpen = {animDetailView}
+        onClose = {setAnimDetailView}
+        frames = {state.frames} 
+        fps = {fps}
+        animationTags = {state.animationTags}
+      />
+      
       <EditorSaveProjectModal
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
@@ -836,6 +847,7 @@ export default function EditorPage() {
             activeFrameId = {activeFrameId}
             detailFrameId= {detailFrameId}
             frames = {state.frames}
+            animationTags={state.animationTags ?? null}
             setShowFramePanel = {setShowFramePanel}
             setActiveFrameId= {setActiveFrameId}
             setDetailFrameId={setDetailFrameId}
@@ -850,11 +862,15 @@ export default function EditorPage() {
           <FrameDetailView
               key={currentFrame.id}
               detailFrameId={detailFrameId}
+              animationTags={state.animationTags ?? []}
               frameViewData = {{
                 id: currentFrame.id,
                 duration: currentFrame.duration ?? 100,
+                tagId: currentFrame.tagId ?? 'default',
               }}
               updateAnimDurations = {updateAnimDurations}
+              updateFrameTag={updateFrameTag}
+              createAnimationTag={createAnimationTag}
           />
   
           
@@ -877,6 +893,7 @@ export default function EditorPage() {
               zoom = {zoom}
               showGridLines = {showGridLines}
               cursorPos = {cursorPos}
+              pixelSize = {pixelSize}
               stageRef = {stageRef}
               currentFrame = {currentFrame}
               setZoomIdx = {setZoomIdx}
@@ -897,6 +914,24 @@ export default function EditorPage() {
             />
           </div>
 
+          {activeRightTab === 'CanvasSize' &&(
+            <>
+              {/* 캔버스 크기 섹션 */}
+              <EditorCanvasSize
+                customW = {customW}
+                customH = {customH}
+                isScaleImage = {isScaleImage}
+                width = {state.width}
+                height = {state.height}
+                setCustomW = {setCustomW}
+                setCustomH = {setCustomH}
+                setIsScaleImage = {setIsScaleImage}
+                applyCanvasSize = {applyCanvasSize}
+              />
+            </>
+          )}
+            
+
         {/* ── 우측 패널 사이드 바 ──────── */}
         <div className='flex h-full z-10'>
             <EditorRightSideBar
@@ -907,7 +942,7 @@ export default function EditorPage() {
           <aside className="flex flex-col flex-shrink-0 border-l overflow-y-scroll"
             style={{ width: 300, background: 'var(--color-surface)', borderColor: 'var(--color-outline)',
               scrollbarWidth: 'thin', scrollbarColor: 'var(--color-surface-container) transparent' }}>
-            {activeRightTab === 'main' && detailLayer === null  && (
+            {(activeRightTab === 'main' || activeRightTab === 'CanvasSize') && detailLayer === null  && (
               <div>
                 {/* 애니메이션 프리뷰 섹션 */}
                 <AnimationPreview 
@@ -916,13 +951,14 @@ export default function EditorPage() {
                   previewFrameIdx = {previewFrameIdx}
                   isPlaying = {isPlaying}
                   frames = {state.frames}
+                  setAnimDetailView={setAnimDetailView}
                   setIsPlaying = {setIsPlaying}
                   updateAllAnimDurations={updateAllAnimDurations}
                 />
               </div>
             )}
             {/* 레이어 섹션 */}
-            {detailLayer !== null && activeRightTab === 'main' && (
+            {detailLayer !== null && (activeRightTab === 'main' || activeRightTab === 'CanvasSize') && (
               <>
                 {/*레이어 상세 뷰*/}
                 <LayerDetailView
@@ -939,7 +975,7 @@ export default function EditorPage() {
                 />
               </>
             )}
-            {activeRightTab === 'main' && (
+            {(activeRightTab === 'main' || activeRightTab === 'CanvasSize') && (
               <>
                 {/* 레이어 바 */}
                 <EditorLayerBar
@@ -966,7 +1002,7 @@ export default function EditorPage() {
             )}
 
             {/* 팔레트 섹션 */}
-            {activeRightTab === 'main' &&(
+            {(activeRightTab === 'main' || activeRightTab === 'CanvasSize') &&(
               <>
                 <EditorPalette
                   paletteColors={paletteColors}
@@ -989,23 +1025,7 @@ export default function EditorPage() {
               </>
             )}
             
-            {activeRightTab === 'CanvasSize' &&(
-              <>
-                {/* 캔버스 크기 섹션 */}
-                <EditorCanvasSize
-                  customW = {customW}
-                  customH = {customH}
-                  isScaleImage = {isScaleImage}
-                  width = {state.width}
-                  height = {state.height}
-                  setCustomW = {setCustomW}
-                  setCustomH = {setCustomH}
-                  setIsScaleImage = {setIsScaleImage}
-                  applyCanvasSize = {applyCanvasSize}
-                />
-              </>
-            )}
-            
+
           </aside>
         </div>
         
