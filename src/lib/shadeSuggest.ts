@@ -1,10 +1,8 @@
 import type { ShadeSuggestResult } from '../api/aiApi'
 
 /** 명암 제안(자체 모델) 화면 쪽 계산 — 그림 자르기·응답 검증·명암 레이어 만들기. 서버 규칙과 맞춘 값. */
-export const SHADE_MAX_SIDE = 64      // 모델 캔버스
+export const SHADE_MAX_SIDE = 128     // v2 — 서버가 64 이하는 64, 그 이상은 128 캔버스로 계산
 export const SHADE_MIN_OPAQUE = 100   // 이보다 작은 그림은 대상 아님
-
-export type ShadeStrength = 1 | 2
 
 /** 보낸 그림(불투명 부분만 자른 것)과 캔버스 안 위치 */
 export interface ShadeCrop {
@@ -46,7 +44,7 @@ export function cropOpaque(source: HTMLCanvasElement): ShadeCrop | null {
     const from = ((minY + y) * w + minX) * 4
     rgba.set(all.subarray(from, from + cw * 4), y * cw * 4)
   }
-  // 64를 넘으면 보내지 않으므로 PNG도 만들지 않는다
+  // 최대 크기를 넘으면 보내지 않으므로 PNG도 만들지 않는다
   let dataUrl = ''
   if (cw <= SHADE_MAX_SIDE && ch <= SHADE_MAX_SIDE) {
     dataUrl = rgbaToCanvas(rgba, cw, ch).toDataURL('image/png')
@@ -63,15 +61,30 @@ export function isValidShadeResult(r: unknown, width: number, height: number): r
   const rowsOk = res.levels.every((row) => Array.isArray(row) && row.length === width
     && row.every((v) => v === null || (Number.isInteger(v) && v >= -2 && v <= 2)))
   if (!rowsOk || !Array.isArray(res.materials)) return false
-  return res.materials.every((m) => m && typeof m.base === 'string' && hex.test(m.base) && m.ramp
+  const materialsOk = res.materials.every((m) => m && typeof m.base === 'string' && hex.test(m.base) && m.ramp
     && ['-2', '-1', '0', '1', '2'].every((k) => typeof m.ramp[k] === 'string' && hex.test(m.ramp[k])))
+  if (!materialsOk) return false
+  // 강도별 결과: 길이 width×height, '.'(대상 아님) 자리는 levels의 null 자리와 같아야
+  if (!Array.isArray(res.strengths) || res.strengths.length === 0 || !res.levelsByStrength
+    || !res.strengths.includes(res.defaultStrength)) return false
+  return res.strengths.every((k) => {
+    const s = res.levelsByStrength[String(k)]
+    if (typeof s !== 'string' || s.length !== width * height) return false
+    for (let i = 0; i < s.length; i++) {
+      const none = res.levels[Math.floor(i / width)][i % width] === null
+      const c = s.charCodeAt(i)
+      if (none ? s[i] !== '.' : c < 48 || c > 52) return false   // '0'(48)~'4'(52)
+    }
+    return true
+  })
 }
 
 /**
  * 명암이 바뀌는 칸만 칠한 그림(자른 크기). 재질은 칸의 원래 색으로 찾는다(서버 재질 기준색 = 원래 색).
- * 외곽선·투명·단계 0·반투명 칸은 비운다. strength 1이면 ±2를 ±1로 줄인다.
+ * 외곽선·투명·단계 0·반투명 칸은 비운다. strength는 서버가 보낸 강도 중 하나(levelsByStrength의 그 결과를 씀).
  */
-export function buildShadeOverlay(crop: ShadeCrop, result: ShadeSuggestResult, strength: ShadeStrength) {
+export function buildShadeOverlay(crop: ShadeCrop, result: ShadeSuggestResult, strength: number) {
+  const levels = result.levelsByStrength[String(strength)] ?? result.levelsByStrength[String(result.defaultStrength)]
   const ramps = new Map<number, Record<string, string>>()
   for (const m of result.materials) ramps.set(parseInt(m.base.slice(1), 16), m.ramp)
 
@@ -80,14 +93,14 @@ export function buildShadeOverlay(crop: ShadeCrop, result: ShadeSuggestResult, s
   let changed = 0
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const lv = result.levels[y][x]
-      if (lv === null || lv === 0) continue
+      const ch = levels[y * w + x]
+      if (ch === '.' || ch === '2') continue                          // 대상 아님 · 단계 0
+      const lv = Number(ch) - 2
       const i = (y * w + x) * 4
       if (rgba[i + 3] !== 255) continue
       const ramp = ramps.get((rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2])
       if (!ramp) continue
-      const level = strength === 1 ? Math.sign(lv) : lv
-      const c = parseInt(ramp[String(level)].slice(1), 16)
+      const c = parseInt(ramp[String(lv)].slice(1), 16)
       out[i] = (c >> 16) & 255
       out[i + 1] = (c >> 8) & 255
       out[i + 2] = c & 255

@@ -27,7 +27,10 @@ export interface ShadeMaterial {
   ramp: Record<string, string>
 }
 
-/** 명암 제안 결과 — levels는 행 우선 height×width(-2~2, 외곽선·투명은 null). */
+/**
+ * 명암 제안 결과 — levels는 기본 강도의 결과(행 우선 height×width, -2~2, 외곽선·투명은 null).
+ * levelsByStrength는 강도마다 단계 문자열(행 우선, '0'~'4' = -2~+2, '.' = 대상 아님), 키는 String(강도)("0.3"·"1").
+ */
 export interface ShadeSuggestResult {
   width: number
   height: number
@@ -36,6 +39,10 @@ export interface ShadeSuggestResult {
   levels: (number | null)[][]
   materials: ShadeMaterial[]
   model: string
+  version: string
+  strengths: number[]
+  defaultStrength: number
+  levelsByStrength: Record<string, string>
 }
 
 export const aiApi = {
