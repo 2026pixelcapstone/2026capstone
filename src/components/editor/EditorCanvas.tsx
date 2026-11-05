@@ -28,6 +28,7 @@ interface EditorCanvasProps{
     overlayProps: OverlayProps;
     previewProps: PreviewProps;
     onionProps: OnionProps;
+    referenceProps: ReferenceProps;
 }
 // 손 도구: 래퍼를 CSS로 옮김
 interface PanProps{
@@ -47,6 +48,16 @@ interface OverlayProps{
 interface OnionProps{
     prev: HTMLCanvasElement | null;
     next: HTMLCanvasElement | null;
+}
+// 참조 이미지(그림에 안 들어감): 캔버스에 맞춰 반투명하게 위·아래로
+interface ReferenceProps{
+    url: string | null;
+    visible: boolean;
+    opacity: number;
+    front: boolean;
+    setOpacity: (v: number) => void;
+    setFront: (v: boolean) => void;
+    close: () => void;
 }
 interface PreviewProps{
     open: boolean;
@@ -81,7 +92,9 @@ export function EditorCanvas({
     overlayProps,
     previewProps,
     onionProps,
+    referenceProps,
 }: EditorCanvasProps){
+    const showRef = !!referenceProps.url && referenceProps.visible;
 
     const offset = Math.floor((pixelSize - 1) / 2);
     const isPan = activeTool === 'pan';
@@ -139,6 +152,11 @@ export function EditorCanvas({
                         backgroundImage: `linear-gradient(rgba(80,80,80,0.25) ${1/zoom}px, transparent 0), linear-gradient(90deg, rgba(80,80,80,0.25) ${1/zoom}px, transparent 0)`,
                         backgroundSize: `1px 1px`,
                     }} />
+                )}
+                {showRef && (
+                    <img src={referenceProps.url!} alt="" aria-hidden draggable={false}
+                        className="absolute inset-0 w-full h-full pointer-events-none select-none"
+                        style={{ objectFit: 'contain', opacity: referenceProps.opacity / 100, zIndex: referenceProps.front ? 15 : 0 }} />
                 )}
                 {/* 어니언 스킨: Stage 밖 DOM 캔버스(Stage를 그림으로 뽑을 때 섞이지 않게), Stage 아래에 깔림 */}
                 <OnionSkinCanvas prev={onionProps.prev} next={onionProps.next} width={canvasProps.width} height={canvasProps.height} />
@@ -232,6 +250,25 @@ export function EditorCanvas({
                     style={{ background: 'rgba(33,38,45,0.9)', borderColor: 'var(--color-outline)',
                         color: dragLabel.clean === false ? 'var(--color-warning)' : 'var(--color-on-surface)' }}>
                     {dragLabel.text}
+                </div>
+            )}
+
+            {/* 참조 이미지 조절(우상단 플로팅) */}
+            {showRef && (
+                <div className="absolute top-4 right-4 z-30 rounded-xl border shadow-lg px-3 py-2 flex items-center gap-2 text-xs"
+                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}
+                    onMouseDown={e => e.stopPropagation()}>
+                    <span className="font-bold">참조</span>
+                    <input type="range" min={5} max={100} value={referenceProps.opacity} aria-label="참조 이미지 투명도"
+                        onChange={e => referenceProps.setOpacity(Number(e.target.value))} className="w-20 accent-primary" />
+                    <button type="button" onClick={() => referenceProps.setFront(!referenceProps.front)}
+                        className="px-2 py-0.5 rounded border font-bold" style={{ borderColor: 'var(--color-outline)' }}>
+                        {referenceProps.front ? '그림 위' : '그림 아래'}
+                    </button>
+                    <button type="button" onClick={referenceProps.close} aria-label="참조 이미지 닫기"
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
                 </div>
             )}
 

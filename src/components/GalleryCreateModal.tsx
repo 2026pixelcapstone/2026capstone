@@ -51,9 +51,13 @@ interface Props {
   onClose: () => void
   editPost?: GalleryPostResponse        // 있으면 수정 모드 (없으면 등록)
   onUpdated?: (post: GalleryPostResponse) => void
+  // 에디터에서 바로 공유(PR-C): 열릴 때 넣어 둘 .ppit, 챌린지 참가 체크, 등록 후 이동 대신 부를 함수
+  initialPpitFile?: File
+  initialChallengeEntry?: boolean
+  onCreated?: (postId: number) => void
 }
 
-export default function GalleryCreateModal({ type, isOpen, onClose, editPost, onUpdated }: Props) {
+export default function GalleryCreateModal({ type, isOpen, onClose, editPost, onUpdated, initialPpitFile, initialChallengeEntry, onCreated }: Props) {
   const navigate = useNavigate()
   const isFree = type === 'FREE'
   const isEdit = !!editPost
@@ -283,6 +287,13 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
     reader.readAsText(file)
   }, [])
 
+  // 에디터에서 연 경우: 열릴 때 .ppit·챌린지 체크를 미리 넣음(초기화 effect 뒤에 실행되도록 여기 둠)
+  useEffect(() => {
+    if (!isOpen || editPost) return
+    if (initialPpitFile) processFile(initialPpitFile)
+    if (initialChallengeEntry) setChallengeEntry(true)
+  }, [isOpen, editPost, initialPpitFile, initialChallengeEntry, processFile])
+
   // ── 태그 ──
   const addTag = (name: string) => {
     const t = name.trim().replace(/^#/, '')
@@ -417,7 +428,8 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
         toast.success('게시글이 등록되었습니다.')
         notifyChallengeResult(res.data.data)
         onClose()
-        navigate(`/gallery/${res.data.data.postId}`)
+        if (onCreated) onCreated(res.data.data.postId)
+        else navigate(`/gallery/${res.data.data.postId}`)
         return
       }
 
@@ -463,7 +475,8 @@ export default function GalleryCreateModal({ type, isOpen, onClose, editPost, on
       toast.success('게시글이 등록되었습니다.')
       notifyChallengeResult(res.data.data)
       onClose()
-      navigate(`/gallery/${res.data.data.postId}`)
+      if (onCreated) onCreated(res.data.data.postId)
+      else navigate(`/gallery/${res.data.data.postId}`)
     } catch (err) {
       // 게시글 생성 전 업로드된 R2 파일 보상 삭제 (베스트 에포트)
       if (uploaded.length > 0) fileApi.deleteFiles(uploaded).catch(() => {})
