@@ -16,6 +16,16 @@ interface FileActions{
 interface EditActions{
     undo: () => void;
     redo: () => void;
+    openResize: () => void;   // 크기 조절 = 오른쪽 캔버스 크기 창 열기
+}
+
+// 이미지 메뉴(PR-B) — 반전·회전은 바로, 색 조정은 조정 창을 그 탭으로 엶
+type AdjustTabId = 'hsb' | 'invert' | 'gray' | 'palette' | 'outline' | 'replace';
+interface ImageActions{
+    transform: (op: 'flipH' | 'flipV' | 'rot90cw' | 'rot90ccw' | 'rot180') => void;
+    openAdjust: (tab: AdjustTabId) => void;
+    paletteLock: boolean;
+    setPaletteLock: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface ViewActions{
@@ -29,11 +39,17 @@ interface ViewActions{
     setRatioGuide: React.Dispatch<React.SetStateAction<boolean>>;
     previewOpen: boolean;
     setPreviewOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    onionSkin: boolean;
+    setOnionSkin: React.Dispatch<React.SetStateAction<boolean>>;
+    fitScreen: () => void;
 }
 
 interface LayerAction{
     handleAddLayer: () => void;
     handleDeleteLayer: () => void;
+    duplicateLayer: () => void;
+    moveLayer: (dir: 1 | -1) => void;
+    mergeLayers: (mode: 'visible' | 'flatten') => void;
 }
 
 interface PixelGuide{
@@ -54,6 +70,7 @@ interface MenuBarProps {
    editActions: EditActions;
    viewActions: ViewActions;
    layerActions: LayerAction;
+   imageActions: ImageActions;
    pixelGuides: PixelGuide;
 }
 
@@ -62,6 +79,7 @@ export default function MenuBar({
     editActions,
     viewActions,
     layerActions,
+    imageActions,
     pixelGuides,
 
 }: MenuBarProps){
@@ -84,7 +102,9 @@ export default function MenuBar({
     const isToggleOn = (id: MenuActionId) =>
         (id === MENU_ACTION.TOGGLE_PIXEL_COUNTER && viewActions.pixelCounter)
         || (id === MENU_ACTION.TOGGLE_RATIO_GUIDE && viewActions.ratioGuide)
-        || (id === MENU_ACTION.TOGGLE_PREVIEW && viewActions.previewOpen);
+        || (id === MENU_ACTION.TOGGLE_PREVIEW && viewActions.previewOpen)
+        || (id === MENU_ACTION.TOGGLE_ONION_SKIN && viewActions.onionSkin)
+        || (id === MENU_ACTION.TOGGLE_PALETTE_LOCK && imageActions.paletteLock);
 
     // 통합 액션 핸들러
     const handleAction = (actionId: MenuActionId) => {
@@ -134,6 +154,7 @@ export default function MenuBar({
             case MENU_ACTION.PASTE:
                 break;
             case MENU_ACTION.RESIZE:
+                editActions.openResize();
                 break;
             case MENU_ACTION.SELECT_ALL:
                 break;
@@ -141,14 +162,47 @@ export default function MenuBar({
                 break;
             // image
             case MENU_ACTION.FLIP_HORIZONTAL:
+                imageActions.transform('flipH');
                 break;
             case MENU_ACTION.FLIP_VERTICAL:
+                imageActions.transform('flipV');
                 break;
             case MENU_ACTION.ROTATE_90_CW:
+                imageActions.transform('rot90cw');
+                break;
+            case MENU_ACTION.ROTATE_90_CCW:
+                imageActions.transform('rot90ccw');
+                break;
+            case MENU_ACTION.ROTATE_180:
+                imageActions.transform('rot180');
+                break;
+            case MENU_ACTION.ADJUST_HSB:
+                imageActions.openAdjust('hsb');
+                break;
+            case MENU_ACTION.ADJUST_INVERT:
+                imageActions.openAdjust('invert');
+                break;
+            case MENU_ACTION.ADJUST_GRAY:
+                imageActions.openAdjust('gray');
+                break;
+            case MENU_ACTION.SNAP_TO_PALETTE:
+                imageActions.openAdjust('palette');
+                break;
+            case MENU_ACTION.ADD_OUTLINE:
+                imageActions.openAdjust('outline');
+                break;
+            case MENU_ACTION.REPLACE_COLOR:
+                imageActions.openAdjust('replace');
+                break;
+            case MENU_ACTION.TOGGLE_PALETTE_LOCK:
+                imageActions.setPaletteLock(v => !v);
                 break;
             // view
             case MENU_ACTION.FIT_SCREEN:
-                //viewActions.setZoomIdx(6); -> 줌을 6으로 지정하지 않고 캔버스 크기 등을 고려해서 지정하게 설계 예정
+                viewActions.fitScreen();   // 캔버스 영역 크기에 들어가는 가장 큰 배율 + 화면 이동 초기화
+                break;
+            case MENU_ACTION.TOGGLE_ONION_SKIN:
+                viewActions.setOnionSkin(v => !v);
                 break;
             /*case MENU_ACTION.100:
                 break;
@@ -165,14 +219,19 @@ export default function MenuBar({
                 layerActions.handleDeleteLayer();
                 break;
             case MENU_ACTION.DUPLICATE:
+                layerActions.duplicateLayer();
                 break;
             case MENU_ACTION.MOVE_UP:
+                layerActions.moveLayer(1);
                 break;
             case MENU_ACTION.MOVE_DOWN:
+                layerActions.moveLayer(-1);
                 break;
             case MENU_ACTION.MERGE_VISIBLE:
+                layerActions.mergeLayers('visible');
                 break;
             case MENU_ACTION.FLATTEN:
+                layerActions.mergeLayers('flatten');
                 break;
             
             // pixel-guide

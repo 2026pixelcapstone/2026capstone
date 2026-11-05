@@ -1,7 +1,7 @@
 import { EditorToolId, FrameData, Point } from "../../type/editor";
 import { KonvaEventObject } from "konva/lib/Node";
 import { LayerImageRenderer } from "./LayerImageRender";
-import { Layer, Rect, Stage } from "react-konva";
+import { Image as KonvaImage, Layer, Rect, Stage } from "react-konva";
 import Konva from "konva";
 import { resizedLayerCanvases } from "../../utils/resizedLayerCanvas";
 import React from "react";
@@ -26,6 +26,7 @@ interface EditorCanvasProps{
     panProps: PanProps;
     overlayProps: OverlayProps;
     previewProps: PreviewProps;
+    onionProps: OnionProps;
 }
 // 손 도구: 래퍼를 CSS로 옮김
 interface PanProps{
@@ -40,6 +41,11 @@ interface OverlayProps{
     ratioGuide: boolean;
     symmetryX: boolean;
     symmetryY: boolean;
+}
+// 어니언 스킨: 앞(빨강)·뒤(초록) 프레임을 물들인 그림
+interface OnionProps{
+    prev: HTMLCanvasElement | null;
+    next: HTMLCanvasElement | null;
 }
 interface PreviewProps{
     open: boolean;
@@ -73,6 +79,7 @@ export function EditorCanvas({
     panProps,
     overlayProps,
     previewProps,
+    onionProps,
 }: EditorCanvasProps){
 
     const offset = Math.floor((pixelSize - 1) / 2);
@@ -143,6 +150,12 @@ export function EditorCanvas({
                     onMouseUp={(e) => {mouseEvnetProps.handleMouseUp(e)}}
                     onMouseLeave={(e) => {mouseEvnetProps.handleMouseLeave(e)}}
                 >
+                    {(onionProps.prev || onionProps.next) && (
+                        <Layer listening={false} opacity={0.35}>
+                            {onionProps.prev && <KonvaImage image={onionProps.prev} x={0} y={0} />}
+                            {onionProps.next && <KonvaImage image={onionProps.next} x={0} y={0} />}
+                        </Layer>
+                    )}
                     {...(currentFrame?.layers ?? [])
                     .sort((a, b) => a.layerOrder - b.layerOrder)
                     .map((layer) => (
