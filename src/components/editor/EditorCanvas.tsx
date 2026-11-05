@@ -1,7 +1,8 @@
 import { EditorToolId, FrameData, Point } from "../../type/editor";
 import { KonvaEventObject } from "konva/lib/Node";
 import { LayerImageRenderer } from "./LayerImageRender";
-import { Image as KonvaImage, Layer, Rect, Stage } from "react-konva";
+import { Layer, Rect, Stage } from "react-konva";
+import { OnionSkinCanvas } from "./OnionSkinCanvas";
 import Konva from "konva";
 import { resizedLayerCanvases } from "../../utils/resizedLayerCanvas";
 import React from "react";
@@ -139,6 +140,9 @@ export function EditorCanvas({
                         backgroundSize: `1px 1px`,
                     }} />
                 )}
+                {/* 어니언 스킨: Stage 밖 DOM 캔버스(Stage를 그림으로 뽑을 때 섞이지 않게), Stage 아래에 깔림 */}
+                <OnionSkinCanvas prev={onionProps.prev} next={onionProps.next} width={canvasProps.width} height={canvasProps.height} />
+                <div style={{ position: 'relative', zIndex: 1 }}>
                 <Stage
                     ref={stageRef}
                     width={canvasProps.width}
@@ -150,12 +154,6 @@ export function EditorCanvas({
                     onMouseUp={(e) => {mouseEvnetProps.handleMouseUp(e)}}
                     onMouseLeave={(e) => {mouseEvnetProps.handleMouseLeave(e)}}
                 >
-                    {(onionProps.prev || onionProps.next) && (
-                        <Layer listening={false} opacity={0.35}>
-                            {onionProps.prev && <KonvaImage image={onionProps.prev} x={0} y={0} />}
-                            {onionProps.next && <KonvaImage image={onionProps.next} x={0} y={0} />}
-                        </Layer>
-                    )}
                     {...(currentFrame?.layers ?? [])
                     .sort((a, b) => a.layerOrder - b.layerOrder)
                     .map((layer) => (
@@ -204,6 +202,7 @@ export function EditorCanvas({
                     </Layer>
                     )}
                 </Stage>
+                </div>
 
                 {/* 화면 보조 선(대칭 축·비율 가이드) — 캔버스 좌표 SVG. 확대가 CSS scale이라 non-scaling-stroke가 안 먹음 → 굵기를 1/zoom으로 */}
                 {(symmetryX || symmetryY || (ratioGuide && dragShape?.tool === 'line')) && (
