@@ -265,7 +265,7 @@ export default function EditorPage() {
 
   // ── useEditorProject 훅 ──────────────
   const { 
-    projectTitle,saving,isPublic,isSaveModalOpen, setProjectTitle,
+    projectTitle,saving,isPublic,isSaveModalOpen, isSaveAsMode, setProjectTitle,
     setIsSaveModalOpen, handleNewProject, handleSave, openProject, openSaveModal, replaceProject,
   } = useEditorProject({
     isLoggedIn,
@@ -409,14 +409,21 @@ export default function EditorPage() {
     }
   }, [setZoomIdx])
   
-  // ── Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
+  // ── Ctrl 단축키 ────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isMod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       if (isMod && key === 's') {
         e.preventDefault();
-        openSaveModal();
+
+        if (e.shiftKey) {
+          // Ctrl + Shift + S : 다른 이름으로 저장 (Save As)
+          openSaveModal(true); 
+        } else {
+          // Ctrl + S : 일반 저장 (Save)
+          openSaveModal(false); 
+        }
       }
       else if(isMod && !e.shiftKey && key === 'z'){
         e.preventDefault();
@@ -808,6 +815,7 @@ export default function EditorPage() {
 
       <EditorSaveProjectModal
         isOpen={isSaveModalOpen}
+        isSaveAsMode = {isSaveAsMode}
         onClose={() => setIsSaveModalOpen(false)}
         onSave={handleSave}
         initialTitle={projectTitle}
@@ -971,7 +979,7 @@ export default function EditorPage() {
           </div>
           <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
           <button
-            onClick={openSaveModal}
+            onClick={() => openSaveModal(false)}
             disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-surface-container-low disabled:opacity-50"
             style={{ color: saving ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
