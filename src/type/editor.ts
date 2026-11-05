@@ -88,6 +88,7 @@ export const MENU_GROUP_ID = {
   IMAGE: 'image',
   VIEW: 'view',
   LAYER: 'layer',
+  FRAME: 'frame',
   DRAWING_GUIDE: 'guide',
 } as const;
 
@@ -140,6 +141,10 @@ export const MENU_ACTION = {
   TOGGLE_GRID: 'TOGGLE_GRID',
   TOGGLE_ONION_SKIN: 'TOGGLE_ONION_SKIN',
   TOGGLE_REFERENCE: 'TOGGLE_REFERENCE',
+  TILE_PREVIEW: 'TILE_PREVIEW',         // 미리보기 창을 타일 모드로
+  RECOLOR: 'RECOLOR',                   // 팔레트로 다시 칠하기
+  DUPLICATE_FRAME: 'DUPLICATE_FRAME',   // 프레임 복제
+  GAME_PREVIEW: 'GAME_PREVIEW',         // 게임 미리보기
 
   // Menu -> Layer
   ADD_LAYER: 'ADD_LAYER',

@@ -28,6 +28,12 @@ interface LeftToolOptionBarProps{
     toolOptions: ToolOptions;
     setToolOptions: SetToolOptions;
     onResetPan: () => void;
+    // 선택·그리드 스냅(PR-D)
+    gridSnap: boolean;
+    setGridSnap: React.Dispatch<React.SetStateAction<boolean>>;
+    gridSize: number;
+    setGridSize: React.Dispatch<React.SetStateAction<number>>;
+    hasSelection: boolean;
 }
 
 const label = "font-bold text-[13px] tracking-wider text-on-surface-variant";
@@ -55,6 +61,11 @@ export function LeftToolBarOptionBar({
     toolOptions,
     setToolOptions,
     onResetPan,
+    gridSnap,
+    setGridSnap,
+    gridSize,
+    setGridSize,
+    hasSelection,
 }: LeftToolOptionBarProps){
     const o = toolOptions, s = setToolOptions;
     return(
@@ -104,6 +115,22 @@ export function LeftToolBarOptionBar({
                         className="px-2 py-0.5 rounded border text-xs font-bold hover:bg-surface-container-high"
                         style={{ borderColor: 'var(--color-outline)' }}>가운데로</button>
                 </div>
+            )}
+            {['marquee', 'lasso', 'move', 'rect', 'ellipse'].includes(activeTool) && (
+                <div className="flex items-center gap-2">
+                    <Check text="그리드 스냅" title="선택·도형·이동이 격자에 맞춰 붙어요(보기 메뉴에서도 켜고 끌 수 있어요)" checked={gridSnap} onChange={setGridSnap} />
+                    {gridSnap && [8, 16, 32].map(g => (
+                        <button key={g} type="button" onClick={() => setGridSize(g)} aria-pressed={gridSize === g}
+                            className="px-1.5 py-0.5 rounded border text-xs font-bold"
+                            style={{ borderColor: 'var(--color-outline)', background: gridSize === g ? 'var(--color-primary)' : 'transparent', color: gridSize === g ? 'var(--color-on-primary)' : undefined }}>{g}</button>
+                    ))}
+                </div>
+            )}
+            {(activeTool === 'marquee' || activeTool === 'lasso') && (
+                <span className="text-xs text-on-surface-variant">끌어서 선택 · 클릭하면 해제(Esc) · Ctrl+A 전체 · Ctrl+C·X·V · Delete 지우기</span>
+            )}
+            {activeTool === 'move' && (
+                <span className="text-xs text-on-surface-variant">{hasSelection ? '선택한 부분을 끌어서 옮겨요' : '선택이 없으면 레이어 전체를 옮겨요'}</span>
             )}
             {activeTool === 'eyedrop' && (
                 <span className="text-xs text-on-surface-variant">다른 도구에서도 Alt를 누른 채 클릭하면 색을 집어요</span>
