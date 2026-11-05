@@ -206,7 +206,7 @@ export function useEditorProject({
         const generationAtSaveStart = projectGenerationRef.current;
 
         const nextTitle = saveModelData?.title.trim() || projectTitle.trim();
-        const isNextPublic = saveModelData?.isPublic || false;
+        const isNextPublic = saveModelData?.isPublic || isPublic;
 
         if (!nextTitle) {
             toast.error('프로젝트 이름을 입력해주세요');
@@ -240,6 +240,8 @@ export function useEditorProject({
             setProjectTitle(result.title);
             setIsPublic(result.isPublic);
             setUnsaved(false);
+
+            setIsSaveModalOpen(false);
             toast.success('성공적으로 저장되었습니다.');
         }
         catch(error){
@@ -248,7 +250,7 @@ export function useEditorProject({
         }
     }, [isLoggedIn, saving, saveProject, projectId, state, projectTitle, setSearchParams])
 
-    const handleEditorSave = useCallback((isSaveAs: boolean = false) => {
+    const openSaveModal = useCallback((isSaveAs: boolean = false) => {
         if (!isLoggedIn) {
             toast.error('로그인이 필요합니다.');
             return;
@@ -265,7 +267,7 @@ export function useEditorProject({
             handleSave(null, false);
         }
 
-    }, [isLoggedIn]);
+    }, [isLoggedIn, projectId, handleSave]);
 
     return { 
         projectId, 
@@ -279,7 +281,7 @@ export function useEditorProject({
         handleNewProject, 
         handleSave,
         openProject,
-        openSaveModal: handleEditorSave,
+        openSaveModal,
         replaceProject,
     };
 }

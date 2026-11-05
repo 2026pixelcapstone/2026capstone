@@ -54,7 +54,9 @@ export default function EditorSaveProjectModal({
     return (
         <div style={styles.overlay} onClick={onClose}>
             <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-                <h2 style={styles.title}>프로젝트 저장하기</h2>
+                <h2 style={styles.title}>
+                    {isSaveAsMode ? '다른 이름으로 저장' : '프로젝트 저장하기'}
+                </h2>
 
                 <form onSubmit={handleSubmit} style={styles.form}>
                     <label style={styles.formGroup}>프로젝트 이름</label>
@@ -137,7 +139,7 @@ export default function EditorSaveProjectModal({
                                  cursor: saving ? 'wait' : (!title.trim() ? 'not-allowed' : 'pointer'),
                             }}
                             >
-                            {saving ? '저장 중...' : '저장하기'}
+                            {saving ? '저장 중...' : (isSaveAsMode ? '새로 저장하기' : '저장하기')}
                         </button>
                     </div>
                 </form>

@@ -357,14 +357,21 @@ export default function EditorPage() {
     }
   }, [setZoomIdx])
   
-  // ── Ctrl+S, Ctrl+Y, Ctrl+Z 단축키 ────────────────────────────────
+  // ── Ctrl 단축키 ────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isMod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       if (isMod && key === 's') {
         e.preventDefault();
-        openSaveModal(false);
+
+        if (e.shiftKey) {
+          // Ctrl + Shift + S : 다른 이름으로 저장 (Save As)
+          openSaveModal(true); 
+        } else {
+          // Ctrl + S : 일반 저장 (Save)
+          openSaveModal(false); 
+        }
       }
       else if(isMod && !e.shiftKey && key === 'z'){
         e.preventDefault();
