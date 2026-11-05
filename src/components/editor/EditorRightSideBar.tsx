@@ -55,6 +55,7 @@ export function EditorRightSideBar({
                 }`}   
             >
                 <span className="material-symbols-outlined text-[40px]">home</span>
+
             </button>
             
             <button 
@@ -69,6 +70,7 @@ export function EditorRightSideBar({
                 }`}
             >
                 <span className="material-symbols-outlined text-[40px]">layers</span>
+
             </button>
 
             <button 
@@ -83,6 +85,7 @@ export function EditorRightSideBar({
                 }`}
             >
                 <span className="material-symbols-outlined text-[40px]">palette</span>
+
             </button>
             
             {/* 크기 설정 영역 위쪽 테두리 (구분선) */}

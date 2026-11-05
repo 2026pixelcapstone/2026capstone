@@ -199,5 +199,6 @@ export function useFrame({
             return {...prev, frames: nextFrames};
         })
     }, [setWithHistory])
+
     return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag};
 }

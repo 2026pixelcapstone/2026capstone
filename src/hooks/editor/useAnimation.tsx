@@ -20,7 +20,6 @@ export function useAnimation({
     const [isPlaying, setIsPlaying] = useState(false);
     const [previewFrameIdx, setPreviewFrameIdx] = useState(0);
 
-
     // 임시 속도
     const [draft, setDraft] = useState<{ frames: FrameData[]; fps: number } | null>(null);
     const draftFps = draft?.frames === frames ? draft.fps : null; 

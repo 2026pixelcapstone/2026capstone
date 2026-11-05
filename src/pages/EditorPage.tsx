@@ -112,11 +112,13 @@ export default function EditorPage() {
 
   // ── useAnimation 훅 ──────────────
   const {isPlaying, previewFrameIdx, fps, defaultDuration, setIsPlaying, setFps, createAnimationTag } = useAnimation({
+
     frames: state.frames,
   });
 
   // ── useFrame 훅 ──────────────
   const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag } = useFrame({
+
     frames: state.frames,
     defaultDuration,
     activeFrameId,
