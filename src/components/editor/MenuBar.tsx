@@ -7,7 +7,7 @@ interface FileActions{
     handleNewProject: () => void;
     setOpenProjectModalOpen: React.Dispatch<React.SetStateAction<boolean>>
     handleOpenPpit: () => void;
-    openSaveModal: () => void;
+    openSaveModal: (isSaveAs: boolean) => void;
     handleExportImage: () => void;
     handleExportPpit: () => void;
     handleBackToMain: () => void;
@@ -104,9 +104,10 @@ export default function MenuBar({
                 fileActions.handleOpenPpit();
                 break;
             case MENU_ACTION.SAVE:
-                fileActions.openSaveModal();
+                fileActions.openSaveModal(false);
                 break;
             case MENU_ACTION.SAVE_AS:
+                fileActions.openSaveModal(true)
                 break;
             case MENU_ACTION.EXPORT_IMAGE:
                 fileActions.handleExportImage();

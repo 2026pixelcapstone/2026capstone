@@ -43,7 +43,7 @@ export const useEditorSave = ({
         try {
             const uploadFormData = new FormData();
             const uploadedLayerKeys: string[] = []; // : 의미 -> 타입 지정, = [] 의미 -> 빈 배열로 시작한다는 의미
-            uploadFormData.append("folder", "pixel-art"); // folder : pixel-art -> R2가 folder 감지
+            uploadFormData.set("folder", "gallery/dedicated"); // folder : pixel-art -> R2가 folder 감지
 
             // 1. 스테이지 썸네일 추출 (WebP 최적화)
             const thumDataURL = canvas.toDataURL({

@@ -56,7 +56,8 @@ export function useEditorProject({
     //const [editingTitle, setEditingTitle] = useState(false);
     
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-    
+    const [isSaveAsMode, setIsSaveAsMode] = useState(false);
+
     const [searchParams, setSearchParams] = useSearchParams();
     const rawProjectId = searchParams.get('projectId');
 
@@ -196,7 +197,7 @@ export function useEditorProject({
 
 
     //  ── 프로젝트 저장 ───────────────────────────────────
-    const handleSave = useCallback(async (saveModelData: SaveModelData) => {
+    const handleSave = useCallback(async (saveModelData: SaveModelData | null, isSaveAs: boolean = false) => {
         if (!isLoggedIn) { 
             toast.error('로그인이 필요합니다.'); 
             return;
@@ -212,11 +213,12 @@ export function useEditorProject({
             return; // 여기서는 아직 setSaving(true) 전이므로 안전하게 탈출합니다.
         }
         if (saving) return;
-        toast.info('저장중...');
+
+        const targetProjectId = isSaveAs ? null : projectId;
 
         try{
             const result = await saveProject(
-                projectId,
+                targetProjectId,
                 state,
                 nextTitle,
                 isNextPublic,
@@ -246,12 +248,23 @@ export function useEditorProject({
         }
     }, [isLoggedIn, saving, saveProject, projectId, state, projectTitle, setSearchParams])
 
-    const openSaveModal = useCallback(() => {
+    const handleEditorSave = useCallback((isSaveAs: boolean = false) => {
         if (!isLoggedIn) {
             toast.error('로그인이 필요합니다.');
             return;
         }
-        setIsSaveModalOpen(true);
+
+        // 1. 최초 저장(!projectId)이거나 '다른 이름으로 저장(isSaveAs)'인 경우 -> 모달 열기
+        if (!projectId || isSaveAs) {
+            setIsSaveModalOpen(true);
+            setIsSaveAsMode(true);
+        } 
+        // 2. 이미 저장된 프로젝트가 있고, 단순 '저장' 버튼/단축키를 누른 경우 -> 조용히 덮어쓰기
+        else {
+            toast.info('저장중...'); // 덮어쓰기 시에만 가볍게 토스트 띄우기
+            handleSave(null, false);
+        }
+
     }, [isLoggedIn]);
 
     return { 
@@ -260,12 +273,13 @@ export function useEditorProject({
         saving,
         isPublic,
         isSaveModalOpen, 
+        isSaveAsMode,
         setProjectTitle,
         setIsSaveModalOpen, 
         handleNewProject, 
         handleSave,
         openProject,
-        openSaveModal,
+        openSaveModal: handleEditorSave,
         replaceProject,
     };
 }

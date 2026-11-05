@@ -4,8 +4,9 @@ import {SaveModelData} from '../../type/editor';
 // 모달에 관한 함수
 export interface SaveProjectModeProps{
     isOpen: boolean; // 모달이 열려있는지 여부
+    isSaveAsMode: boolean;
     onClose: () => void; // 모달을 닫는 함수
-    onSave:(projectData: SaveModelData) => void; // 최종 저장을 처리할 함수
+    onSave:(projectData: SaveModelData, isSaveAsMode: boolean) => void; // 최종 저장을 처리할 함수
     initialTitle?:string;
     initialIsPublic?: boolean;
     saving?: boolean; // 저장 중 상태를 나타내는 플래그
@@ -13,6 +14,7 @@ export interface SaveProjectModeProps{
 
 export default function EditorSaveProjectModal({
     isOpen,
+    isSaveAsMode,
     onClose,
     onSave,
     initialTitle = '',
@@ -47,7 +49,7 @@ export default function EditorSaveProjectModal({
         return;
         }
 
-        onSave({ title, isPublic });
+        onSave({ title, isPublic }, isSaveAsMode);
     };
     return (
         <div style={styles.overlay} onClick={onClose}>
@@ -111,7 +113,7 @@ export default function EditorSaveProjectModal({
                         <button 
                             type="submit"
                             className="transition-all duration-300 ease-in-out motion-reduce:transition-none"
-                            disabled={!title.trim()}
+                            disabled={!title.trim() || saving}
                             onMouseEnter={() => setIsSaveHovered(true)}
                             onMouseLeave={() => { 
                                 setIsSaveHovered(false);
