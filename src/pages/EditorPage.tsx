@@ -29,6 +29,9 @@ import { useCanvasDrawing } from '../hooks/editor/useCanvasDrawing'
 import { useColor } from '../hooks/editor/color/useColor'
 import { usePalette } from '../hooks/editor/color/usePalette'
 import { useCanvasSize } from '../hooks/editor/useCanvasSize'
+import { useCanvasPan } from '../hooks/editor/useCanvasPan'
+import { useEditorShortcuts } from '../hooks/editor/useEditorShortcuts'
+import { useViewOverlays } from '../hooks/editor/useViewOverlays'
 import { useAnimation } from '../hooks/editor/useAnimation'
 import { useEditorExport } from '../hooks/editor/useEditorExport'
 import { useEditorImport } from '../hooks/editor/useEditorImport'
@@ -167,7 +170,8 @@ export default function EditorPage() {
   })
   // ── useCanvasTool 훅 ──────────────
   const { 
-    activeTool, pixelSize, brushSize, pixelPerfect, setActiveTool, setPixelSize, setBrushSize, setPixelPerfect, applyDirectTool 
+    activeTool, pixelSize, brushSize, pixelPerfect, setActiveTool, setPixelSize, setBrushSize, setPixelPerfect, applyDirectTool,
+    brushOptions, toolOptions, setToolOptions,
   } = useCanvasTool({
     fgColor,
     isDirty,
@@ -176,7 +180,7 @@ export default function EditorPage() {
   });
 
   // ── useCanvasDrawing 훅 ──────────────
-  const {cursorPos, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave} = useCanvasDrawing({
+  const {cursorPos, dragShape, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave} = useCanvasDrawing({
     stageRef,
     isDirty,
     state,
@@ -185,11 +189,19 @@ export default function EditorPage() {
     activeTool,
     pixelSize,
     fgColor,
+    pixelPerfect,
+    shapeFill: toolOptions.shapeFill,
+    brushOptions,
     setUnsaved,
     commitLayerChanges,
     applyDirectTool,
     ensureLayerCanvas,
   });
+
+  // ── 손 도구·단축키·화면 보조(PR-A) ──────────────
+  const { pan, panning, startPan, resetPan } = useCanvasPan();
+  const { pixelCounter, setPixelCounter, ratioGuide, setRatioGuide, previewOpen, setPreviewOpen } = useViewOverlays();
+  useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, handleSwapColors });
 
   // ── CanvasSize 훅 ──────────────
   const {
@@ -755,6 +767,12 @@ export default function EditorPage() {
                   setZoomIdx,
                   showGridLines,
                   setShowGridLines,
+                  pixelCounter,
+                  setPixelCounter,
+                  ratioGuide,
+                  setRatioGuide,
+                  previewOpen,
+                  setPreviewOpen,
                 }}
                 layerActions={{
                   handleAddLayer,
@@ -864,6 +882,9 @@ export default function EditorPage() {
               setPixelSize={setPixelSize}
               setBrushSize={setBrushSize}
               setPixelPerfect={setPixelPerfect}
+              toolOptions={toolOptions}
+              setToolOptions={setToolOptions}
+              onResetPan={resetPan}
             />
             {/* ── 캔버스 영역 ── */}
             <EditorCanvas
@@ -890,6 +911,15 @@ export default function EditorPage() {
                 handleMouseUp,
                 handleMouseLeave,
               }}
+              panProps={{ offset: pan, panning, startPan }}
+              overlayProps={{
+                dragShape,
+                pixelCounter,
+                ratioGuide,
+                symmetryX: toolOptions.symmetryX,
+                symmetryY: toolOptions.symmetryY,
+              }}
+              previewProps={{ open: previewOpen, onClose: () => setPreviewOpen(false), peekLayerCanvas }}
             />
           </div>
 

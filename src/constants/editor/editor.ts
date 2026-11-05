@@ -30,17 +30,17 @@ export const DRAW_TOOLS = [
 
 export const SELECT_TOOLS = [
   { id: 'marquee',   icon: 'select_all',          label: 'Marquee (M)' },
-  { id: 'lasso',     icon: 'gesture',             label: 'Lasso (L)' },
+  { id: 'lasso',     icon: 'gesture',             label: 'Lasso (Q)' },
   { id: 'move',      icon: 'open_with',           label: 'Move (V)' },
 ] as const;
 export const SHAPE_TOOLS = [
-  { id: 'line',      icon: 'horizontal_rule',     label: 'Line' },
+  { id: 'line',      icon: 'horizontal_rule',     label: 'Line (L)' },
   { id: 'rect',      icon: 'rectangle',           label: 'Rectangle (R)' },
   { id: 'ellipse',   icon: 'circle',              label: 'Ellipse (O)' },
 ] as const;
 
 export const VIEW_TOOLS = [
-  { id: 'pan',       icon: 'pan_tool',            label: 'Pan (Space)' },
+  { id: 'pan',       icon: 'pan_tool',            label: 'Pan (H, Space)' },
 ] as const;
 
 export const COLOR_TOOLS = [
