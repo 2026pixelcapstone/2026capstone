@@ -1,6 +1,6 @@
 import { getLabel } from "../../utils/editorUtils";
 import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS } from "../../constants/editor/editor";
-import { Dispatch, SetStateAction, useRef, useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { EditorToolId } from "../../type/editor";
 import { ColorPickerModal } from "./ColorPickerModal";
 
@@ -33,7 +33,6 @@ export function EditorToolBar({
 }: EditorToolProps){
 
     const [isHexModal, setIsHexModal] = useState(false);
-    const colorBtnRef = useRef<HTMLButtonElement>(null);
     const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
 
     // 툴 버튼 공통 스타일
@@ -42,16 +41,14 @@ export function EditorToolBar({
         color: activeTool === id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
     })
 
-    const handleOpenModal = () => {
-        if (colorBtnRef.current) {
-            // 버튼의 화면상 크기와 위치 정보 가져오기
-            const rect = colorBtnRef.current.getBoundingClientRect();
-            setModalPos({
-                top: rect.top, // 버튼의 상단과 맞춤
-                left: rect.right + 10, // 버튼의 오른쪽 끝 + 여백 10px 위치
-            });
-            setIsHexModal(true);
-        }
+    const handleOpenModal = (e: React.MouseEvent<HTMLButtonElement>) => {
+        // 버튼의 화면상 크기와 위치 정보 가져오기
+        const rect = e.currentTarget.getBoundingClientRect();
+        setModalPos({
+            top: rect.top, // 버튼의 상단과 맞춤
+            left: rect.right + 10, // 버튼의 오른쪽 끝 + 여백 10px 위치
+        });
+        setIsHexModal(true)
     };
 
     const handleColorPickerChange = (newColor: string) => {
@@ -141,13 +138,12 @@ export function EditorToolBar({
                             </span>
                         </button>
                         <button type = "button" 
-                            ref={colorBtnRef}
                             className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
                             style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
                             title="Foreground"
-                            onClick={() => {
+                            onClick={(e) => {
                                 setActiveColorTarget('fg');
-                                handleOpenModal();
+                                handleOpenModal(e);
                             }} 
                         />
                         {/* 서브 색상 (Background) */}
@@ -156,9 +152,9 @@ export function EditorToolBar({
                             className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm cursor-pointer hover:scale-105 transition-transform"
                             style={{ background: bgColor, borderColor: 'var(--color-outline)' }} 
                             title="Background (Click to swap)" 
-                            onClick={() =>{
+                            onClick={(e) =>{
                                 setActiveColorTarget('bg');
-                                handleOpenModal();
+                                handleOpenModal(e);
                             }}
                         />
                     </div>

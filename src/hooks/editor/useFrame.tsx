@@ -25,7 +25,6 @@ export function useFrame({
     setUnsaved,
 }: UseAnimationProps){
     const [showFramePanel, setShowFramePanel] = useState(false);
-    const [detailFrameId, setDetailFrameId] = useState<string | null>(null);
      
     /**
      * 새로운 프레임을 생성하고 리스트에 추가합니다.
@@ -200,5 +199,5 @@ export function useFrame({
             return {...prev, frames: nextFrames};
         })
     }, [setWithHistory])
-    return {showFramePanel, detailFrameId, setShowFramePanel, setDetailFrameId, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag};
+    return {showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag};
 }

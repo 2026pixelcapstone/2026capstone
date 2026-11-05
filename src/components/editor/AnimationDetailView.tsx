@@ -6,7 +6,7 @@ interface AnimationDetailViewProps {
     onClose: React.Dispatch<React.SetStateAction<boolean>>;
     frames: FrameData[];
     fps: number;
-    animationTags?: AnimationTag[];
+    animationTags?: AnimationTag[] | null;
 }
 
 export function AnimationDetailView({ 

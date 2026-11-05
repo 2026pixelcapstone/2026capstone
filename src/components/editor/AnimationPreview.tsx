@@ -1,12 +1,13 @@
-import { FrameData } from "../../type/editor";
-import React, { useRef } from "react";
+import { AnimationTag, FrameData } from "../../type/editor";
+import React, { useRef, useState } from "react";
+import { AnimationDetailView } from "./AnimationDetailView";
 
 interface AnimPreviewProps{
     previewFrameIdx: number;
     isPlaying: boolean;
     fps: number;
+    animationTags: AnimationTag[] | null;
     setFps: (fps: number) => void;
-    setAnimDetailView: React.Dispatch<React.SetStateAction<boolean>>;
     frames: FrameData[];
     setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
     updateAllAnimDurations: (duration: number) => void
@@ -16,13 +17,14 @@ export function AnimationPreview({
     previewFrameIdx,
     isPlaying,
     fps,
+    animationTags,
     setFps,
-    setAnimDetailView,
     frames,
     setIsPlaying,
     updateAllAnimDurations,
 }: AnimPreviewProps){
     const pendingFps = useRef<number | null>(null);
+    const [animDetailView, setAnimDetailView] = useState(false);
 
     const commitDuration = () => {
         if (pendingFps.current === null) return;
@@ -143,6 +145,13 @@ export function AnimationPreview({
                     </label>
                 </div>
             </div>
+            <AnimationDetailView
+                isOpen = {animDetailView}
+                onClose = {setAnimDetailView}
+                frames = {frames} 
+                fps = {fps}
+                animationTags = {animationTags ?? null}
+            />
         </div>
     )
 }
