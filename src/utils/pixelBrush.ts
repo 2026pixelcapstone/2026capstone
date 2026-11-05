@@ -186,7 +186,7 @@ function hexToAbgr(hex: string): number {
  * 투명 픽셀 잠금: 시작 칸이 투명이면 안 칠함. 체크무늬: 이어진 칸 중 (x+y) 짝수 칸만 칠함(나머지는 원래 색).
  * @returns 바뀐 칸이 있었는지
  */
-export function floodFill(ctx: CanvasRenderingContext2D, sx: number, sy: number, color: string, o: Omit<BrushOptions, 'size' | 'color'>): boolean {
+export function floodFill(ctx: CanvasRenderingContext2D, sx: number, sy: number, color: string, o: Omit<BrushOptions, 'size' | 'color'> & { mask?: Uint8Array | null }): boolean {
     const { width, height } = ctx.canvas;
     const img = ctx.getImageData(0, 0, width, height);
     const data32 = new Uint32Array(img.data.buffer);
@@ -202,6 +202,7 @@ export function floodFill(ctx: CanvasRenderingContext2D, sx: number, sy: number,
     for (const s of seeds) {
         const start = s.y * width + s.x;
         if (visited[start]) continue;
+        if (o.mask && !o.mask[start]) continue;   // 선택 밖에서 시작하면 안 칠함(PR-D)
         const target = data32[start];
         if (o.alphaLock && (target >>> 24) === 0) continue;
         if (target === fill && !o.dither) continue;
@@ -216,7 +217,7 @@ export function floodFill(ctx: CanvasRenderingContext2D, sx: number, sy: number,
                 if (data32[idx] !== fill) { data32[idx] = fill; changed = true; }
             }
             const push = (n: number) => {
-                if (!visited[n] && data32[n] === target) { visited[n] = 1; queue[tail++] = n; }
+                if (!visited[n] && data32[n] === target && (!o.mask || o.mask[n])) { visited[n] = 1; queue[tail++] = n; }
             };
             if (cx > 0) push(idx - 1);
             if (cx < width - 1) push(idx + 1);

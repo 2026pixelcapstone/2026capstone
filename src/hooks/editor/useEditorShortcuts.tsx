@@ -21,6 +21,9 @@ const TOOL_KEYS: Record<string, EditorToolId> = {
     KeyR: 'rect',
     KeyO: 'ellipse',
     KeyH: 'pan',
+    KeyM: 'marquee',
+    KeyQ: 'lasso',
+    KeyV: 'move',
 };
 
 export const MIN_PIXEL_SIZE = 1;

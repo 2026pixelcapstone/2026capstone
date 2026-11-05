@@ -88,6 +88,7 @@ export const MENU_GROUP_ID = {
   IMAGE: 'image',
   VIEW: 'view',
   LAYER: 'layer',
+  FRAME: 'frame',
   DRAWING_GUIDE: 'guide',
 } as const;
 
@@ -99,6 +100,11 @@ export const MENU_ACTION = {
   OPEN_PROJECT: 'OPEN_PROJECT',
   IMPORT_PROJECT: 'IMPORT_PROJECT',
   OPEN_PPIT: 'OPEN_PPIT',
+  IMPORT_IMAGE: 'IMPORT_IMAGE',         // 이미지 불러오기(새 레이어)
+  OPEN_REFERENCE: 'OPEN_REFERENCE',     // 참조 이미지 열기
+  SHARE_GALLERY: 'SHARE_GALLERY',       // 갤러리에 공유
+  JOIN_CHALLENGE: 'JOIN_CHALLENGE',     // 이번 주 챌린지에 참가
+  REGISTER_ASSET: 'REGISTER_ASSET',     // 에셋 스토어에 등록
   SAVE: 'SAVE',
   SAVE_AS: 'SAVE_AS',
   EXPORT_IMAGE: 'EXPORT_IMAGE',
@@ -134,6 +140,11 @@ export const MENU_ACTION = {
   FIT_SCREEN: 'FIT_SCREEN',
   TOGGLE_GRID: 'TOGGLE_GRID',
   TOGGLE_ONION_SKIN: 'TOGGLE_ONION_SKIN',
+  TOGGLE_REFERENCE: 'TOGGLE_REFERENCE',
+  TILE_PREVIEW: 'TILE_PREVIEW',         // 미리보기 창을 타일 모드로
+  RECOLOR: 'RECOLOR',                   // 팔레트로 다시 칠하기
+  DUPLICATE_FRAME: 'DUPLICATE_FRAME',   // 프레임 복제
+  GAME_PREVIEW: 'GAME_PREVIEW',         // 게임 미리보기
 
   // Menu -> Layer
   ADD_LAYER: 'ADD_LAYER',

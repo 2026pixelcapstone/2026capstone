@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { assetApi, type AssetCategory, type AssetLicenseType } from '../api/assetApi'
 import { fileApi } from '../api/fileApi'
 import { toast } from '../store/toastStore'
 import { getErrorMessage } from '../lib/errorUtils'
 import { UPLOADABLE_IMAGE_ACCEPT, filterUploadableImages } from '../lib/fileValidation'
 import TagInput from '../components/TagInput'
+import { takeAssetDraft } from '../lib/editorHandoff'
 
 const MAX_IMAGES = 5
 
@@ -44,6 +45,27 @@ export default function AssetCreatePage() {
       .catch(() => { if (!cancelled) toast.error('카테고리/라이선스 목록을 불러오지 못했습니다.') })
     return () => { cancelled = true }
   }, [])
+
+  // 에디터 '에셋 스토어에 등록'에서 넘어온 파일(?draft=) — 미리보기·다운로드 파일·제목을 미리 채움(PR-C)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const draftId = searchParams.get('draft')
+  useEffect(() => {
+    if (!draftId) return
+    let cancelled = false
+    takeAssetDraft(draftId)
+      .then(draft => {
+        if (cancelled) return
+        if (!draft) { toast.error('에디터에서 넘긴 파일을 찾지 못했어요. 다시 시도해 주세요.'); return }
+        if (draft.title) setTitle(prev => prev || draft.title)
+        const previewUrl = URL.createObjectURL(draft.preview)   // 업데이트 함수 밖에서(StrictMode가 함수를 두 번 불러도 주소는 하나)
+        setImages(prev => (prev.length ? prev : [{ file: draft.preview, previewUrl }]))
+        setAssetFile(prev => prev ?? draft.bundle)
+        toast.success('에디터 작업을 불러왔어요. 정보를 채워 등록해 주세요.')
+      })
+      .catch(() => { if (!cancelled) toast.error('에디터에서 넘긴 파일을 읽지 못했어요.') })
+      .finally(() => { if (!cancelled) setSearchParams({}, { replace: true }) })
+    return () => { cancelled = true }
+  }, [draftId, setSearchParams])
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)

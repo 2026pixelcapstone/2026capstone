@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { OpScope } from "../../hooks/editor/useImageOps";
 import {
-    addOutline, adjustHsb, grayscale, HsbAdjust, invertColors, OutlineOptions, replaceColor, snapToPalette, usedColors,
+    addOutline, adjustHsb, grayscale, HsbAdjust, invertColors, OutlineOptions, rankMap, recolorByMap, replaceColor, snapToPalette, usedColors,
 } from "../../utils/pixelOps";
 
-export type AdjustTab = 'hsb' | 'invert' | 'gray' | 'palette' | 'outline' | 'replace';
+export type AdjustTab = 'hsb' | 'invert' | 'gray' | 'palette' | 'outline' | 'replace' | 'recolor';
 
 export const ADJUST_TABS: { id: AdjustTab; label: string }[] = [
     { id: 'hsb', label: '색조·채도·밝기' },
@@ -14,6 +14,7 @@ export const ADJUST_TABS: { id: AdjustTab; label: string }[] = [
     { id: 'palette', label: '팔레트로 맞추기' },
     { id: 'outline', label: '외곽선' },
     { id: 'replace', label: '색 바꾸기' },
+    { id: 'recolor', label: '팔레트로 다시 칠하기' },
 ];
 
 const SCOPES: { id: OpScope; label: string }[] = [
@@ -27,6 +28,7 @@ interface ImageAdjustModalProps {
     onTab: (t: AdjustTab) => void;
     onClose: () => void;
     palette: string[];
+    recolorPalettes: { name: string; colors: string[] }[];   // 다시 칠하기 후보(지금 팔레트·AI 추천 색 등, 비어 있지 않은 것만)
     fgColor: string;
     busy: boolean;
     loadPreviewSource: () => Promise<HTMLCanvasElement | null>;
@@ -37,7 +39,7 @@ interface ImageAdjustModalProps {
  * 이미지 > 색 조정 창(PR-B). 탭마다 설정 → 지금 레이어로 전·후 미리보기 → 범위(레이어·프레임·모든 프레임) 골라 적용.
  * 적용은 되돌리기 한 번에 통째로 돌아감(useImageOps).
  */
-export function ImageAdjustModal({ tab, onTab, onClose, palette, fgColor, busy, loadPreviewSource, onApply }: ImageAdjustModalProps) {
+export function ImageAdjustModal({ tab, onTab, onClose, palette, recolorPalettes, fgColor, busy, loadPreviewSource, onApply }: ImageAdjustModalProps) {
     const ref = useRef<HTMLDivElement>(null);
     useFocusTrap(true, ref, onClose);
     const [scope, setScope] = useState<OpScope>('layer');
@@ -57,6 +59,17 @@ export function ImageAdjustModal({ tab, onTab, onClose, palette, fgColor, busy, 
 
     const colors = useMemo(() => (source ? usedColors(source) : []), [source]);
 
+    // 다시 칠하기: 후보 팔레트 고르기 → 밝기 순서 자동 대응 → 색마다 바꾸기(고른 줄의 새 색을 팔레트에서 클릭)
+    const [recolorIdx, setRecolorIdx] = useState(0);
+    const [overrides, setOverrides] = useState<Record<string, string>>({});
+    const [pickFor, setPickFor] = useState<string | null>(null);
+    const target = recolorPalettes[Math.min(recolorIdx, recolorPalettes.length - 1)];
+    const recolorMap = useMemo(() => {
+        const m = rankMap(colors, target?.colors ?? []);
+        Object.entries(overrides).forEach(([k, v]) => { if (m.has(k)) m.set(k, v); });
+        return m;
+    }, [colors, target, overrides]);
+
     /** 지금 탭 설정으로 만든 변환 */
     const fn = useMemo<((c: HTMLCanvasElement) => HTMLCanvasElement) | null>(() => {
         switch (tab) {
@@ -66,8 +79,9 @@ export function ImageAdjustModal({ tab, onTab, onClose, palette, fgColor, busy, 
             case 'palette': return palette.length ? (c => snapToPalette(c, palette)) : null;
             case 'outline': return c => addOutline(c, outline);
             case 'replace': return from ? (c => replaceColor(c, from, to)) : null;
+            case 'recolor': return recolorMap.size ? (c => recolorByMap(c, recolorMap)) : null;
         }
-    }, [tab, hsb, palette, outline, from, to]);
+    }, [tab, hsb, palette, outline, from, to, recolorMap]);
 
     // 전·후 미리보기(지금 레이어)
     useEffect(() => {
@@ -164,6 +178,45 @@ export function ImageAdjustModal({ tab, onTab, onClose, palette, fgColor, busy, 
                                     onChange={e => setOutline(o => ({ ...o, diagonal: e.target.checked }))} />
                                 대각선 칸까지(두꺼운 외곽선)
                             </label>
+                        </div>
+                    )}
+                    {tab === 'recolor' && (
+                        <div className="space-y-2 text-sm">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="mr-1">새 팔레트</span>
+                                {recolorPalettes.map((pl, i) => (
+                                    <button key={pl.name} type="button" onClick={() => { setRecolorIdx(i); setOverrides({}); setPickFor(null); }}
+                                        aria-pressed={recolorIdx === i} className="px-2 py-0.5 rounded border text-xs font-bold" style={chip(recolorIdx === i)}>
+                                        {pl.name} ({pl.colors.length})
+                                    </button>
+                                ))}
+                            </div>
+                            {colors.length === 0 ? (
+                                <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>지금 레이어에 칠한 칸이 없어요.</p>
+                            ) : (
+                                <div className="max-h-28 overflow-y-auto grid grid-cols-2 gap-x-4 gap-y-1">
+                                    {[...recolorMap.entries()].map(([fromC, toC]) => (
+                                        <div key={fromC} className="flex items-center gap-2 text-xs">
+                                            <span className="w-5 h-5 rounded border" style={{ background: fromC, borderColor: 'var(--color-outline)' }} title={fromC} />
+                                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                                            <button type="button" onClick={() => setPickFor(pickFor === fromC ? null : fromC)} aria-label={`${fromC}의 새 색 바꾸기`}
+                                                className="w-5 h-5 rounded border-2" style={{ background: toC, borderColor: pickFor === fromC ? 'var(--color-primary)' : 'var(--color-outline)' }} title={toC} />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {pickFor && target && (
+                                <div className="flex flex-wrap gap-1 pt-1">
+                                    {target.colors.map(c => (
+                                        <button key={c} type="button" title={c} aria-label={`새 색 ${c}`}
+                                            onClick={() => { setOverrides(o => ({ ...o, [pickFor]: c })); setPickFor(null); }}
+                                            className="w-5 h-5 rounded border" style={{ background: c, borderColor: 'var(--color-outline)' }} />
+                                    ))}
+                                </div>
+                            )}
+                            <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>
+                                어두운 색은 어두운 색으로, 밝은 색은 밝은 색으로 자동 대응해요(명암 순서 유지). 오른쪽 색을 눌러 바꿀 수 있어요.
+                            </p>
                         </div>
                     )}
                     {tab === 'replace' && (

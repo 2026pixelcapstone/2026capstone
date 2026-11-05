@@ -28,6 +28,8 @@ interface EditorCanvasProps{
     overlayProps: OverlayProps;
     previewProps: PreviewProps;
     onionProps: OnionProps;
+    referenceProps: ReferenceProps;
+    selectionProps: SelectionOverlayProps;
 }
 // 손 도구: 래퍼를 CSS로 옮김
 interface PanProps{
@@ -48,10 +50,29 @@ interface OnionProps{
     prev: HTMLCanvasElement | null;
     next: HTMLCanvasElement | null;
 }
+// 참조 이미지(그림에 안 들어감): 캔버스에 맞춰 반투명하게 위·아래로
+interface ReferenceProps{
+    url: string | null;
+    visible: boolean;
+    opacity: number;
+    front: boolean;
+    setOpacity: (v: number) => void;
+    setFront: (v: boolean) => void;
+    close: () => void;
+}
+// 선택(PR-D): 점선 테두리 경로·올가미 미리보기·선택 크기, 그리드 스냅 격자
+interface SelectionOverlayProps{
+    outline: string;
+    lasso: Point[] | null;
+    size: { w: number; h: number } | null;
+    gridSnap: boolean;
+    gridSize: number;
+}
 interface PreviewProps{
     open: boolean;
     onClose: () => void;
     peekLayerCanvas: (cacheKey: string) => HTMLCanvasElement | null;
+    mode: 'normal' | 'tile';
 }
 interface CanvasProps{
     frames: FrameData[];
@@ -81,7 +102,10 @@ export function EditorCanvas({
     overlayProps,
     previewProps,
     onionProps,
+    referenceProps,
+    selectionProps,
 }: EditorCanvasProps){
+    const showRef = !!referenceProps.url && referenceProps.visible;
 
     const offset = Math.floor((pixelSize - 1) / 2);
     const isPan = activeTool === 'pan';
@@ -90,6 +114,10 @@ export function EditorCanvas({
 
     // 끄는 중인 직선·도형 정보(픽셀 카운터·비율 가이드)
     const dragLabel = (() => {
+        // 선택 중·선택 있음: 선택 크기(픽셀 카운터)
+        if (!dragShape && pixelCounter && selectionProps.size && (activeTool === 'marquee' || activeTool === 'lasso' || activeTool === 'move')) {
+            return { text: `선택 ${selectionProps.size.w}×${selectionProps.size.h}`, clean: null as boolean | null };
+        }
         if (!dragShape) return null;
         const { start, end, tool } = dragShape;
         const w = Math.abs(end.x - start.x) + 1, h = Math.abs(end.y - start.y) + 1;
@@ -110,7 +138,9 @@ export function EditorCanvas({
         <main className="flex-1 flex items-center justify-center overflow-hidden relative"
             onMouseDown={(e) => { if (isPan) panProps.startPan(e); }}
             style={{
-            cursor: isPan ? (panProps.panning ? 'grabbing' : 'grab') : undefined,
+            cursor: isPan ? (panProps.panning ? 'grabbing' : 'grab')
+                : activeTool === 'move' ? 'move'
+                : (activeTool === 'marquee' || activeTool === 'lasso') ? 'crosshair' : undefined,
             backgroundColor: '#767676',
             backgroundImage: [
                 'linear-gradient(45deg,#848484 25%,transparent 25%)',
@@ -139,6 +169,11 @@ export function EditorCanvas({
                         backgroundImage: `linear-gradient(rgba(80,80,80,0.25) ${1/zoom}px, transparent 0), linear-gradient(90deg, rgba(80,80,80,0.25) ${1/zoom}px, transparent 0)`,
                         backgroundSize: `1px 1px`,
                     }} />
+                )}
+                {showRef && (
+                    <img src={referenceProps.url!} alt="" aria-hidden draggable={false}
+                        className="absolute inset-0 w-full h-full pointer-events-none select-none"
+                        style={{ objectFit: 'contain', opacity: referenceProps.opacity / 100, zIndex: referenceProps.front ? 15 : 0 }} />
                 )}
                 {/* 어니언 스킨: Stage 밖 DOM 캔버스(Stage를 그림으로 뽑을 때 섞이지 않게), Stage 아래에 깔림 */}
                 <OnionSkinCanvas prev={onionProps.prev} next={onionProps.next} width={canvasProps.width} height={canvasProps.height} />
@@ -204,6 +239,29 @@ export function EditorCanvas({
                 </Stage>
                 </div>
 
+                {/* 그리드 스냅 격자(8·16·32칸) */}
+                {selectionProps.gridSnap && (
+                    <div className="absolute inset-0 pointer-events-none z-20"
+                        style={{
+                            backgroundImage: `linear-gradient(rgba(37,99,235,0.55) ${1.5 / zoom}px, transparent 0), linear-gradient(90deg, rgba(37,99,235,0.55) ${1.5 / zoom}px, transparent 0)`,
+                            backgroundSize: `${selectionProps.gridSize}px ${selectionProps.gridSize}px`,
+                        }} />
+                )}
+                {/* 선택 테두리(점선이 흐르는 '개미 행렬') + 올가미 그리는 중 */}
+                {(selectionProps.outline || selectionProps.lasso) && (
+                    <svg className="absolute inset-0 pointer-events-none z-20" width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+                        {selectionProps.outline && (<>
+                            <path d={selectionProps.outline} fill="none" stroke="#ffffff" strokeWidth={1.5 / zoom} />
+                            <path d={selectionProps.outline} fill="none" stroke="#111827" strokeWidth={1.5 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`}>
+                                <animate attributeName="stroke-dashoffset" from="0" to={`${-8 / zoom}`} dur="0.6s" repeatCount="indefinite" />
+                            </path>
+                        </>)}
+                        {selectionProps.lasso && selectionProps.lasso.length > 1 && (
+                            <polyline points={selectionProps.lasso.map(p => `${p.x + 0.5},${p.y + 0.5}`).join(' ')}
+                                fill="rgba(37,99,235,0.12)" stroke="#2563eb" strokeWidth={1.5 / zoom} />
+                        )}
+                    </svg>
+                )}
                 {/* 화면 보조 선(대칭 축·비율 가이드) — 캔버스 좌표 SVG. 확대가 CSS scale이라 non-scaling-stroke가 안 먹음 → 굵기를 1/zoom으로 */}
                 {(symmetryX || symmetryY || (ratioGuide && dragShape?.tool === 'line')) && (
                     <svg className="absolute inset-0 pointer-events-none z-20" width={W} height={H}
@@ -235,8 +293,29 @@ export function EditorCanvas({
                 </div>
             )}
 
+            {/* 참조 이미지 조절(우상단 플로팅) */}
+            {showRef && (
+                <div className="absolute top-4 right-4 z-30 rounded-xl border shadow-lg px-3 py-2 flex items-center gap-2 text-xs"
+                    style={{ background: 'var(--color-surface-container)', borderColor: 'var(--color-outline)' }}
+                    onMouseDown={e => e.stopPropagation()}>
+                    <span className="font-bold">참조</span>
+                    <input type="range" min={5} max={100} value={referenceProps.opacity} aria-label="참조 이미지 투명도"
+                        onChange={e => referenceProps.setOpacity(Number(e.target.value))} className="w-20 accent-primary" />
+                    <button type="button" onClick={() => referenceProps.setFront(!referenceProps.front)}
+                        className="px-2 py-0.5 rounded border font-bold" style={{ borderColor: 'var(--color-outline)' }}>
+                        {referenceProps.front ? '그림 위' : '그림 아래'}
+                    </button>
+                    <button type="button" onClick={referenceProps.close} aria-label="참조 이미지 닫기"
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                </div>
+            )}
+
             {previewProps.open && (
                 <ReadabilityPreview
+                    key={previewProps.mode}
+                    initialMode={previewProps.mode}
                     frame={currentFrame}
                     width={W}
                     height={H}

@@ -8,17 +8,19 @@ interface UseCanvasTool {
     isDirty: React.RefObject<boolean>;
     setUnsaved: React.Dispatch<React.SetStateAction<boolean>>;
     selectPaletteColor: (color: string) => void;
+    selectionRef?: React.RefObject<{ mask: Uint8Array } | null>;   // 선택이 있으면 채우기도 그 안에서만(PR-D)
 }
 export function useCanvasTool({
   fgColor,
   isDirty,
   setUnsaved,
   selectPaletteColor,
+  selectionRef,
 }: UseCanvasTool){
     const [activeTool, setActiveTool]   = useState<EditorToolId>(DRAW_TOOLS[0].id); // 기본 도구는 연필(pencil)
     const [pixelSize, setPixelSize] = useState(1);
     const [brushSize, setBrushSize]     = useState(1);
-    const [pixelPerfect, setPixelPerfect] = useState(true);
+    const [pixelPerfect, setPixelPerfect] = useState(false);   // 기본 꺼짐(Aseprite와 같음, 팀원 확인 11-06)
 
     // ── 도구 옵션(PR-A) ── 채움 도형·투명 픽셀 잠금·체크무늬·대칭
     const [shapeFill, setShapeFill] = useState(false);
@@ -53,7 +55,7 @@ export function useCanvasTool({
         }
         // ─── [페인트 통 도구 (Fill)] ── 같은 색 이어진 칸(4방향), 옵션은 floodFill이 처리
         else if (activeTool === 'fill') {
-          if (floodFill(ctx, x, y, fgColor, { alphaLock, dither, symmetryX, symmetryY })) {
+          if (floodFill(ctx, x, y, fgColor, { alphaLock, dither, symmetryX, symmetryY, mask: selectionRef?.current?.mask ?? null })) {
             isDirty.current = true;
             setUnsaved(true);
           }
@@ -74,7 +76,7 @@ export function useCanvasTool({
           }
           return;
         }
-    }, [activeTool, fgColor, alphaLock, dither, symmetryX, symmetryY, brushOptions, isDirty, setUnsaved, selectPaletteColor]);
+    }, [activeTool, fgColor, alphaLock, dither, symmetryX, symmetryY, brushOptions, isDirty, setUnsaved, selectPaletteColor, selectionRef]);
 
     return {activeTool, pixelSize, brushSize, pixelPerfect, setActiveTool, setPixelSize, setBrushSize, setPixelPerfect, applyDirectTool,
       brushOptions,
