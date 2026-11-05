@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { EditorCanvasSize } from "./EditorCanvasSize";
 
 interface RightSideBarProps{
@@ -11,6 +11,7 @@ interface RightSideBarProps{
     setCustomH: React.Dispatch<React.SetStateAction<number>>;
     setIsScaleImage: React.Dispatch<React.SetStateAction<boolean>>;
     applyCanvasSize: (w: number, h: number) => void
+    openCanvasSizeRequest?: number;   // 편집 > 크기 조절 메뉴: 값이 바뀌면 크기 창을 엶(PR-B)
 }
 export function EditorRightSideBar({
     activeRightTab,
@@ -22,10 +23,20 @@ export function EditorRightSideBar({
     setCustomH,
     setIsScaleImage, 
     applyCanvasSize,
+    openCanvasSizeRequest = 0,
 }: RightSideBarProps){
     
     const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
     const [isCanvasSizeModal, setIsCanvasSizeModal] = useState<boolean>(false);
+    const sizeBtnRef = useRef<HTMLButtonElement>(null);
+
+    // 메뉴에서 연 경우: 버튼 위치 기준으로 열기(이미 열려 있으면 그대로)
+    useEffect(() => {
+        if (!openCanvasSizeRequest || !sizeBtnRef.current) return;
+        const rect = sizeBtnRef.current.getBoundingClientRect();
+        setModalPos({ top: rect.top, left: rect.right - 310 });
+        setIsCanvasSizeModal(true);
+    }, [openCanvasSizeRequest]);
     
     const handleOpenModal = (e: React.MouseEvent<HTMLButtonElement>) => {
         // 버튼의 화면상 크기와 위치 정보 가져오기
@@ -93,6 +104,7 @@ export function EditorRightSideBar({
 
             {/* 크기 설정 모달 버튼 */}
             <button
+                ref={sizeBtnRef}
                 onClick={(e) => {
                     handleOpenModal(e);
                 }}

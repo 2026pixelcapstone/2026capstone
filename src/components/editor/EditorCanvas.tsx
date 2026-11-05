@@ -2,6 +2,7 @@ import { EditorToolId, FrameData, Point } from "../../type/editor";
 import { KonvaEventObject } from "konva/lib/Node";
 import { LayerImageRenderer } from "./LayerImageRender";
 import { Layer, Rect, Stage } from "react-konva";
+import { OnionSkinCanvas } from "./OnionSkinCanvas";
 import Konva from "konva";
 import { resizedLayerCanvases } from "../../utils/resizedLayerCanvas";
 import React from "react";
@@ -26,6 +27,7 @@ interface EditorCanvasProps{
     panProps: PanProps;
     overlayProps: OverlayProps;
     previewProps: PreviewProps;
+    onionProps: OnionProps;
 }
 // 손 도구: 래퍼를 CSS로 옮김
 interface PanProps{
@@ -40,6 +42,11 @@ interface OverlayProps{
     ratioGuide: boolean;
     symmetryX: boolean;
     symmetryY: boolean;
+}
+// 어니언 스킨: 앞(빨강)·뒤(초록) 프레임을 물들인 그림
+interface OnionProps{
+    prev: HTMLCanvasElement | null;
+    next: HTMLCanvasElement | null;
 }
 interface PreviewProps{
     open: boolean;
@@ -73,6 +80,7 @@ export function EditorCanvas({
     panProps,
     overlayProps,
     previewProps,
+    onionProps,
 }: EditorCanvasProps){
 
     const offset = Math.floor((pixelSize - 1) / 2);
@@ -132,6 +140,9 @@ export function EditorCanvas({
                         backgroundSize: `1px 1px`,
                     }} />
                 )}
+                {/* 어니언 스킨: Stage 밖 DOM 캔버스(Stage를 그림으로 뽑을 때 섞이지 않게), Stage 아래에 깔림 */}
+                <OnionSkinCanvas prev={onionProps.prev} next={onionProps.next} width={canvasProps.width} height={canvasProps.height} />
+                <div style={{ position: 'relative', zIndex: 1 }}>
                 <Stage
                     ref={stageRef}
                     width={canvasProps.width}
@@ -191,6 +202,7 @@ export function EditorCanvas({
                     </Layer>
                     )}
                 </Stage>
+                </div>
 
                 {/* 화면 보조 선(대칭 축·비율 가이드) — 캔버스 좌표 SVG. 확대가 CSS scale이라 non-scaling-stroke가 안 먹음 → 굵기를 1/zoom으로 */}
                 {(symmetryX || symmetryY || (ratioGuide && dragShape?.tool === 'line')) && (
