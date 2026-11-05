@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PaletteSummary } from '../../api/paletteApi'
 import type { PopularUser } from '../../api/userApi'
-import { SHARED_CANVAS_PALETTE } from '../../constants/sharedCanvas'
+import type { CanvasSnapshot } from '../../api/canvasApi'
+import { decodeBoard, drawBoard } from '../../lib/canvasBoard'
 import { drawPracticeTopic } from '../../lib/practiceTopic'
 import { PaletteStrip } from '../palette/PaletteCard'
 import { RailCard, gradientOf } from './MainShared'
@@ -11,13 +12,23 @@ interface MainRightRailProps {
   palettes: PaletteSummary[]
   artists: PopularUser[]
   loading: boolean
+  /** 공동 캔버스 스냅샷(MainPage가 한 번 받아 내려 줌) — null = 받는 중이거나 실패 */
+  canvas: CanvasSnapshot | null
 }
 
-/** 공동 캔버스 미리보기용 작은 무늬(장식) — 실제 캔버스 데이터가 아님 */
-const CANVAS_PREVIEW = Array.from({ length: 8 * 16 }, (_, i) => SHARED_CANVAS_PALETTE[(i * 7 + Math.floor(i / 16) * 3) % SHARED_CANVAS_PALETTE.length])
+/** 공동 캔버스 실제 판 썸네일 — 칸 = 1픽셀로 그리고 CSS로 키움 */
+function CanvasThumb({ snap }: { snap: CanvasSnapshot }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const ctx = ref.current?.getContext('2d')
+    if (ctx) drawBoard(ctx, decodeBoard(snap.board, snap.size), snap.palette, snap.size)
+  }, [snap])
+  return <canvas ref={ref} width={snap.size} height={snap.size} className="block w-full aspect-square"
+    style={{ imageRendering: 'pixelated', background: '#ffffff' }} aria-hidden="true" />
+}
 
 /** 메인 오른쪽 '커뮤니티' 레일 — 연습 주제·인기 팔레트·공동 캔버스·인기 작가 (이번 주 챌린지는 가운데 히어로로 이동) */
-export default function MainRightRail({ palettes, artists, loading }: MainRightRailProps) {
+export default function MainRightRail({ palettes, artists, loading, canvas }: MainRightRailProps) {
   const [topic, setTopic] = useState<{ subject: string; constraint: string } | null>(null)
   const muted = { color: 'var(--color-on-surface-variant)' }
 
@@ -61,9 +72,9 @@ export default function MainRightRail({ palettes, artists, loading }: MainRightR
       {/* 공동 캔버스 */}
       <RailCard title="공동 픽셀 캔버스" icon="grid_on" to="/community/canvas" linkLabel="참여">
         <Link to="/community/canvas" className="block rounded overflow-hidden" aria-label="공동 픽셀 캔버스로 이동">
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(16, 1fr)' }}>
-            {CANVAS_PREVIEW.map((c, i) => <div key={i} className="aspect-square" style={{ background: c, opacity: 0.85 }} />)}
-          </div>
+          {canvas
+            ? <CanvasThumb snap={canvas} />
+            : <div className="w-full aspect-square animate-pulse" style={{ background: 'var(--color-surface-container-high)' }} />}
         </Link>
         <p className="text-xs mt-2" style={muted}>한 칸씩 찍어 함께 완성해요</p>
       </RailCard>

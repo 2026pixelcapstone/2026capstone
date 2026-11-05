@@ -6,6 +6,7 @@ import { artistServiceApi, type ArtistServiceSummary } from '../api/commissionAp
 import { paletteApi, type PaletteSummary } from '../api/paletteApi'
 import { userApi, type PopularUser, type UserProfileResponse } from '../api/userApi'
 import { editorApi, type ProjectSummary } from '../api/editorApi'
+import { canvasApi, type CanvasSnapshot } from '../api/canvasApi'
 import { useBlockStore } from '../store/blockStore'
 import { useAuthStore } from '../store/authStore'
 import { useActiveCommissions } from '../hooks/useActiveCommissions'
@@ -52,6 +53,7 @@ export default function MainPage() {
   const [palettes, setPalettes] = useState<PaletteSummary[]>([])
   const [artists, setArtists] = useState<PopularUser[]>([])
   const [loading, setLoading] = useState(true)
+  const [canvas, setCanvas] = useState<CanvasSnapshot | null>(null)   // 공동 캔버스 썸네일(레일이 두 번 그려져도 한 번만 받음)
 
   useEffect(() => {
     Promise.allSettled([
@@ -72,6 +74,8 @@ export default function MainPage() {
       if (pl.status === 'fulfilled') setPalettes(pl.value.data.data.content)
       if (ar.status === 'fulfilled') setArtists(ar.value.data.data)
     }).finally(() => setLoading(false))
+    // 공동 캔버스 썸네일은 홈 주요 섹션과 무관 — 따로 받아 홈 로딩을 늦추지 않음
+    canvasApi.getSnapshot().then(res => setCanvas(res.data.data)).catch(() => {})
   }, [])
 
   // ── 개인 데이터(로그인 사용자 기준) ──
@@ -284,7 +288,7 @@ export default function MainPage() {
           {/* 오른쪽 '커뮤니티' 레일(1024px 이상은 따라 내려옴, 그 아래는 피드 아래로) */}
           <aside aria-label="커뮤니티">
             <div className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1">
-              <MainRightRail palettes={visiblePalettes} artists={visibleArtists} loading={showSkeleton} />
+              <MainRightRail palettes={visiblePalettes} artists={visibleArtists} loading={showSkeleton} canvas={canvas} />
             </div>
           </aside>
         </div>

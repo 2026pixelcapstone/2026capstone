@@ -22,6 +22,13 @@ interface ViewActions{
     setZoomIdx: React.Dispatch<React.SetStateAction<number>>;
     showGridLines: boolean;
     setShowGridLines: React.Dispatch<React.SetStateAction<boolean>>;
+    // 화면 보조 켜기·끄기(PR-A) — 켜져 있으면 메뉴에 체크 표시
+    pixelCounter: boolean;
+    setPixelCounter: React.Dispatch<React.SetStateAction<boolean>>;
+    ratioGuide: boolean;
+    setRatioGuide: React.Dispatch<React.SetStateAction<boolean>>;
+    previewOpen: boolean;
+    setPreviewOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface LayerAction{
@@ -73,6 +80,12 @@ export default function MenuBar({
         return () => document.removeEventListener('mousedown', handleClickOutside)
       }, [openMenu])
     
+    // 켜기·끄기 메뉴 항목의 지금 상태(체크 표시)
+    const isToggleOn = (id: MenuActionId) =>
+        (id === MENU_ACTION.TOGGLE_PIXEL_COUNTER && viewActions.pixelCounter)
+        || (id === MENU_ACTION.TOGGLE_RATIO_GUIDE && viewActions.ratioGuide)
+        || (id === MENU_ACTION.TOGGLE_PREVIEW && viewActions.previewOpen);
+
     // 통합 액션 핸들러
     const handleAction = (actionId: MenuActionId) => {
 
@@ -164,8 +177,13 @@ export default function MenuBar({
             
             // pixel-guide
             case MENU_ACTION.TOGGLE_PIXEL_COUNTER:
+                viewActions.setPixelCounter(v => !v);
                 break;
             case MENU_ACTION.TOGGLE_RATIO_GUIDE:
+                viewActions.setRatioGuide(v => !v);
+                break;
+            case MENU_ACTION.TOGGLE_PREVIEW:
+                viewActions.setPreviewOpen(v => !v);
                 break;
             case MENU_ACTION.TOGGLE_GRID_SNAP:
                 break;
@@ -233,7 +251,7 @@ export default function MenuBar({
                                         style={{ color: 'var(--color-on-surface-variant)' }}>{item.icon}</span>
                                     )}
                                     <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{getLabel(itemlabel)}</span>
-                                    {AI_TOOL_OF[item.id] && AI_TOOL_OF[item.id] === pixelGuides.aiTool && (
+                                    {(AI_TOOL_OF[item.id] ? AI_TOOL_OF[item.id] === pixelGuides.aiTool : isToggleOn(item.id)) && (
                                     <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-primary)' }}>check</span>
                                     )}
                                     {item.shortcut && (
