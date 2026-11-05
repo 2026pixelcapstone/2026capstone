@@ -7,12 +7,13 @@ export interface DrawLineOptions{
     color: string;
     snapAngle?: boolean; // Shift 키 등으로 0도, 45도, 90도 각도 제한 여부
     centerBrush?: boolean; // 브러시 크기 확대 시 중심 기준 정렬 여부
+    plot?: (ctx: CanvasRenderingContext2D, pt: Point) => void; // 칸 하나 찍기(대칭·체크무늬·투명 잠금 등) — 없으면 기본 사각형
 }
 
 
 
 // ─── Shift 키 대응 (0도, 45도, 90도 스냅 계산) ───────
-function snapToAngles(start: Point, end: Point): Point {
+export function snapToAngles(start: Point, end: Point): Point {
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const absDx = Math.abs(dx);
@@ -52,9 +53,11 @@ export function useDrawLine(){
         const { 
             pixelSize = 1,
             color,
-            centerBrush = true
+            centerBrush = true,
+            plot,
         } = options;
         
+        if (plot) { plot(ctx, pos); return; }
         const offset = centerBrush ? Math.floor((pixelSize - 1) / 2) : 0;
         ctx.fillStyle = color;
         ctx.fillRect(pos.x - offset, pos.y - offset, pixelSize, pixelSize);
@@ -74,6 +77,7 @@ export function useDrawLine(){
             color,
             snapAngle = false,
             centerBrush = true,
+            plot,
         } = options;
 
         // 1. 이전 잔상 캔버스 원본으로 롤백
@@ -94,6 +98,10 @@ export function useDrawLine(){
         const offset = centerBrush ? Math.floor((pixelSize - 1) / 2) : 0;
 
         // 5. 픽셀 도포
+        if (plot) {
+            for (const pt of points) plot(ctx, pt);
+            return;
+        }
         ctx.fillStyle = color;
         for (const pt of points) {
             ctx.fillRect(pt.x - offset, pt.y - offset, pixelSize, pixelSize);

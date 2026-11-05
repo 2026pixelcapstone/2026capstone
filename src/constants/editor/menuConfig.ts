@@ -58,6 +58,7 @@ export const MENU_DEFS: MenuGroup[] = [
       { id: MENU_ACTION.TOGGLE_RATIO_GUIDE, label: { ko: '비율 가이드', en: 'Ratio Guide' }, icon: 'aspect_ratio' },
       { id: MENU_ACTION.TOGGLE_GRID_SNAP, label: { ko: '그리드 스냅', en: 'Grid Snap' }, icon: 'grid_goldenratio' },
       { id: MENU_ACTION.FIT_SCREEN, label: { ko: '화면에 맞추기', en: 'Fit Screen' }, icon: 'fit_screen' },
+      { id: MENU_ACTION.TOGGLE_PREVIEW, label: { ko: '미리보기 창(실루엣·명도)', en: 'Preview Window' }, icon: 'preview' },
       { separator: true },
       { id: MENU_ACTION.TOGGLE_GRID, label: { ko: '그리드 표시', en: 'Show Grid' }, icon: 'grid_on' },
     ],
