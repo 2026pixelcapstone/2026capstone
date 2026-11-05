@@ -175,7 +175,7 @@ export function useEditorIO({ state, activeFrameId, setActiveLayerId, runEdit, p
     );
 
     return {
-        fileInputs, openImageImport, openReference,
+        fileInputs, openImageImport, importImageFile, openReference,
         reference, referenceOpacity, setReferenceOpacity, referenceFront, setReferenceFront, referenceVisible, setReferenceVisible, closeReference,
         buildPpitFile, registerAsset,
     };

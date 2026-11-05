@@ -7,6 +7,7 @@ import { snapToAngles, useDrawLine } from "./canvasTool/useDrawLine";
 import { useDrawShape } from "./canvasTool/useDrawShape";
 import { getBresenhamPoints } from "../../utils/pixelAlgorithm";
 import { BrushOptions, brushCells, stampBrush, stampSpan } from "../../utils/pixelBrush";
+import { Selection, selectionPath2D, snapEnd, snapStart } from "../../utils/selection";
 
 interface UseCanvasDrawing{
     stageRef: React.RefObject<Konva.Stage | null>;
@@ -24,7 +25,20 @@ interface UseCanvasDrawing{
     commitLayerChanges: (frameId: string | null, layerId: string | null) => void;
     applyDirectTool: (ctx: CanvasRenderingContext2D, pos: Point | null) => void
     ensureLayerCanvas: (cachekey: string) => HTMLCanvasElement | null;
+    // 선택(PR-D): 선택 도구의 마우스는 useSelection이 처리, 선택이 있으면 그리기는 선택 안으로 제한
+    selectionRef: React.RefObject<Selection | null>;
+    selectionHandlersRef: React.RefObject<SelectionHandlers | null>;
+    gridSnap: boolean;
+    gridSize: number;
 }
+
+export interface SelectionHandlers {
+    down: (pos: Point) => void;
+    move: (pos: Point) => void;
+    up: () => void;
+}
+
+const SELECT_TOOL_IDS: EditorToolId[] = ['marquee', 'lasso', 'move'];
 
 /** 끄는 중인 직선·도형(픽셀 카운터·비율 가이드 표시용) */
 export interface DragShape {
@@ -54,8 +68,23 @@ export function useCanvasDrawing({
     commitLayerChanges,
     applyDirectTool,
     ensureLayerCanvas,
-
+    selectionRef,
+    selectionHandlersRef,
+    gridSnap,
+    gridSize,
 }: UseCanvasDrawing){
+    const selecting = useRef(false);
+    const clipped = useRef<CanvasRenderingContext2D | null>(null);
+    const shapeStart = useRef<Point | null>(null);
+    /** 그리드 스냅: 도형 시작은 격자선, 끝은 끄는 방향의 격자 칸 끝 */
+    const snapShapeEnd = (pos: Point) => {
+        const s = shapeStart.current;
+        if (!gridSnap || !s) return pos;
+        return {
+            x: pos.x >= s.x ? snapEnd(pos.x, gridSize) : snapStart(pos.x, gridSize),
+            y: pos.y >= s.y ? snapEnd(pos.y, gridSize) : snapStart(pos.y, gridSize),
+        };
+    };
     const lastPos = useRef<Point>(null);
     const drawingTarget = useRef<{ frameId: string; layerId: string; ctx: CanvasRenderingContext2D; } | null>(null);
     const isDrawing = useRef(false);
@@ -135,9 +164,16 @@ export function useCanvasDrawing({
       //-------- 마우스 동작 -----------
       const handleMouseDown = () => {
         if (activeTool === 'pan') return;   // 화면 이동은 EditorCanvas가 처리
-        const pos = getPixel();
+        let pos = getPixel();
 
         if(!pos || !activeFrameId || !activeLayerId) return;
+        if (SELECT_TOOL_IDS.includes(activeTool)) {
+            selecting.current = true;
+            selectionHandlersRef.current?.down(pos);
+            return;
+        }
+        if (gridSnap && isShapeTool(activeTool)) pos = { x: snapStart(pos.x, gridSize), y: snapStart(pos.y, gridSize) };
+        shapeStart.current = pos;
 
         const nativeCanvas = ensureLayerCanvas(getCacheKey(activeFrameId, activeLayerId));
         const ctx = nativeCanvas?.getContext('2d');
@@ -149,6 +185,13 @@ export function useCanvasDrawing({
         isDirty.current = false;
         lastPos.current = pos;
         trail.current = [];
+        // 선택이 있으면 이번 획은 선택 안에만(포토샵·Aseprite와 같음). 채우기는 마스크로 따로 제한(useCanvasTool)
+        const sel = selectionRef.current;
+        if (sel && activeTool !== 'fill' && activeTool !== 'eyedrop') {
+            ctx.save();
+            ctx.clip(selectionPath2D(sel));
+            clipped.current = ctx;
+        }
         if(activeTool === 'line'){
             startLine(ctx, state.width, state.height, pos,
               {
@@ -179,6 +222,7 @@ export function useCanvasDrawing({
         const pos = getPixel();
         if (!pos || !activeFrameId || !activeLayerId) return;
         setCursorPos(pos);
+        if (selecting.current) { selectionHandlersRef.current?.move(pos); return; }
 
         const target = drawingTarget.current;
         if (!isDrawing.current || !target) return;
@@ -197,7 +241,7 @@ export function useCanvasDrawing({
         }
 
         if (isShapeTool(activeTool)) {
-            const end = updateShape(target.ctx, pos, { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot, plotSpan });
+            const end = updateShape(target.ctx, snapShapeEnd(pos), { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot, plotSpan });
             if (end) setDragShape(d => d && { ...d, end });
             redrawLayer(target.layerId);
             return;
@@ -235,6 +279,11 @@ export function useCanvasDrawing({
     };
 
     const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
+        if (selecting.current) {
+            selecting.current = false;
+            selectionHandlersRef.current?.up();
+            return;
+        }
         isDrawing.current = false;
         lastPos.current = null;
         trail.current = [];
@@ -252,11 +301,13 @@ export function useCanvasDrawing({
                 });
                 redrawLayer(target.layerId);
             } else if (isShapeTool(activeTool)) {
-                updateShape(target.ctx, pos, { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot, plotSpan });
+                updateShape(target.ctx, snapShapeEnd(pos), { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot, plotSpan });
                 redrawLayer(target.layerId);
             }
           }
           const isCommitted = endLine() || endShape();
+          if (clipped.current) { clipped.current.restore(); clipped.current = null; }
+          shapeStart.current = null;
           drawingTarget.current = null;
           if(isCommitted){
             isDirty.current = true;

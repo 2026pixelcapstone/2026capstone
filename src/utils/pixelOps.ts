@@ -253,3 +253,36 @@ export function loadPixelData(pixelData: string, w: number, h: number): Promise<
         img.src = pixelData;
     });
 }
+
+// ── 팔레트로 다시 칠하기(PR-D) ─────────────────────────
+
+export const luminance = (hex: string) => {
+    const [r, g, b] = hexToRgb(hex);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/**
+ * 밝기 순서로 대응: 지금 쓰는 색(어두운→밝은)을 새 팔레트(어두운→밝은)에 같은 비율 위치로.
+ * 명암 단계(어두운 그림자·밝은 하이라이트)가 새 팔레트에서도 같은 순서로 남음(일러스트레이터 '다시 칠하기'의 밝기 기준 대응).
+ */
+export function rankMap(from: string[], to: string[]): Map<string, string> {
+    const m = new Map<string, string>();
+    if (!from.length || !to.length) return m;
+    const f = [...from].sort((a, b) => luminance(a) - luminance(b));
+    const t = [...to].sort((a, b) => luminance(a) - luminance(b));
+    f.forEach((c, i) => {
+        const j = f.length === 1 ? Math.floor((t.length - 1) / 2) : Math.round(i * (t.length - 1) / (f.length - 1));
+        m.set(c, t[j]);
+    });
+    return m;
+}
+
+/** 대응표대로 다시 칠함. 표에 없는 색(다른 레이어·프레임의 색)은 표에서 가장 비슷한 색의 대응을 따름 */
+export function recolorByMap(src: HTMLCanvasElement, map: Map<string, string>): HTMLCanvasElement {
+    const keys = [...map.keys()];
+    return mapPixels(src, (r, g, b) => {
+        const hex = rgbToHex(r, g, b);
+        const to = map.get(hex) ?? (keys.length ? map.get(nearestPaletteColor(hex, keys)) : undefined);
+        return to ? hexToRgb(to) : [r, g, b];
+    });
+}

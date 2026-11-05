@@ -40,6 +40,11 @@ import { AdjustTab, ImageAdjustModal } from '../components/editor/ImageAdjustMod
 import { ExportModal, ExportTab } from '../components/editor/ExportModal'
 import { useEditorIO } from '../hooks/editor/useEditorIO'
 import GalleryCreateModal from '../components/GalleryCreateModal'
+import { useSelection } from '../hooks/editor/useSelection'
+import { useFrameOps } from '../hooks/editor/useFrameOps'
+import { GamePreviewModal } from '../components/editor/GamePreviewModal'
+import type { SelectionHandlers } from '../hooks/editor/useCanvasDrawing'
+import type { Selection } from '../utils/selection'
 import { useAnimation } from '../hooks/editor/useAnimation'
 import { useEditorExport } from '../hooks/editor/useEditorExport'
 import { useEditorImport } from '../hooks/editor/useEditorImport'
@@ -176,6 +181,10 @@ export default function EditorPage() {
   const {paletteColors, setPaletteColors, selectPaletteColor, addColorsToPalette} = usePalette({
     setFgColor,
   })
+  // 선택(PR-D): 선택 영역은 ref로도 둬 그리기·채우기가 지금 값을 바로 읽음, 선택 도구 마우스는 useSelection이 처리
+  const selectionRef = useRef<Selection | null>(null);
+  const selectionHandlersRef = useRef<SelectionHandlers | null>(null);
+
   // ── useCanvasTool 훅 ──────────────
   const { 
     activeTool, pixelSize, brushSize, pixelPerfect, setActiveTool, setPixelSize, setBrushSize, setPixelPerfect, applyDirectTool,
@@ -185,7 +194,12 @@ export default function EditorPage() {
     isDirty,
     setUnsaved,
     selectPaletteColor,
+    selectionRef,
   });
+
+  // ── 보기 메뉴 화면 보조(PR-A·B·D) — 그리드 스냅을 그리기 훅이 쓰므로 그 앞에 ──────────────
+  const { pixelCounter, setPixelCounter, ratioGuide, setRatioGuide, previewOpen, setPreviewOpen, onionSkin, setOnionSkin,
+    gridSnap, setGridSnap, gridSize, setGridSize, previewMode, setPreviewMode } = useViewOverlays();
 
   // ── useCanvasDrawing 훅 ──────────────
   const {cursorPos, dragShape, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave} = useCanvasDrawing({
@@ -204,11 +218,14 @@ export default function EditorPage() {
     commitLayerChanges,
     applyDirectTool,
     ensureLayerCanvas,
+    selectionRef,
+    selectionHandlersRef,
+    gridSnap,
+    gridSize,
   });
 
   // ── 손 도구·단축키·화면 보조(PR-A) ──────────────
   const { pan, panning, startPan, resetPan } = useCanvasPan();
-  const { pixelCounter, setPixelCounter, ratioGuide, setRatioGuide, previewOpen, setPreviewOpen, onionSkin, setOnionSkin } = useViewOverlays();
   useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, handleSwapColors });
 
   // ── CanvasSize 훅 ──────────────
@@ -274,10 +291,29 @@ export default function EditorPage() {
   const [exportTab, setExportTab] = useState<ExportTab | null>(null);
   const [shareFile, setShareFile] = useState<{ file: File; challenge: boolean } | null>(null);
   const {
-    fileInputs: ioFileInputs, openImageImport, openReference,
+    fileInputs: ioFileInputs, openImageImport, importImageFile, openReference,
     reference, referenceOpacity, setReferenceOpacity, referenceFront, setReferenceFront, referenceVisible, setReferenceVisible, closeReference,
     buildPpitFile, registerAsset,
   } = useEditorIO({ state, activeFrameId, setActiveLayerId, runEdit, projectTitle, paletteColors, fps });
+  // ── 선택·프레임 복제·게임 미리보기(PR-D) ──────────────
+  const redrawLayer = useCallback((layerId: string) => {
+    stageRef.current?.findOne(`#${layerId}`)?.getLayer()?.batchDraw();
+  }, []);
+  const sel = useSelection({
+    state, activeFrameId, activeLayerId, activeTool, setActiveTool, selectionRef,
+    ensureLayerCanvas, commitLayerChanges, addLayer, redrawLayer, importImageFile, gridSnap, gridSize,
+  });
+  useEffect(() => { selectionHandlersRef.current = { down: sel.down, move: sel.move, up: sel.up }; }, [sel.down, sel.move, sel.up]);
+  const { duplicateFrame } = useFrameOps({ state, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId, setWithHistory, setUnsaved });
+  const [gamePreviewOpen, setGamePreviewOpen] = useState(false);
+  // 다시 칠하기 후보: 지금 팔레트 + AI가 추천한 색들(있을 때만)
+  const recolorPalettes = [
+    { name: '지금 팔레트', colors: paletteColors },
+    { name: 'AI 색 추천', colors: aiColors },
+    { name: '태그로 찾은 색', colors: aiTagColors },
+    { name: '컨셉 도우미', colors: conceptColors },
+  ].filter(pl => pl.colors.length >= 2);
+
   const shareGallery = useCallback((challenge: boolean) => {
     try { setShareFile({ file: buildPpitFile(), challenge }); }
     catch { toast.error('공유할 파일을 만들지 못했어요.'); }
@@ -739,6 +775,7 @@ export default function EditorPage() {
           onTab={setAdjustTab}
           onClose={() => setAdjustTab(null)}
           palette={paletteColors}
+          recolorPalettes={recolorPalettes}
           fgColor={fgColor}
           busy={imageBusy}
           loadPreviewSource={loadActiveLayerCanvas}
@@ -766,6 +803,8 @@ export default function EditorPage() {
         initialChallengeEntry={shareFile?.challenge}
         onCreated={() => toast.success('갤러리에 올렸어요. 전용 갤러리에서 볼 수 있어요.')}
       />
+
+      {gamePreviewOpen && <GamePreviewModal state={state} onClose={() => setGamePreviewOpen(false)} />}
 
       <EditorSaveProjectModal
         isOpen={isSaveModalOpen}
@@ -838,6 +877,11 @@ export default function EditorPage() {
                   undo,
                   redo,
                   openResize: () => setCanvasSizeRequest(n => n + 1),
+                  cut: sel.cut,
+                  copy: sel.copy,
+                  paste: () => { void sel.paste(); },
+                  selectAll: sel.selectAll,
+                  deselect: sel.deselect,
                 }}
                 ioActions={{
                   openExport: setExportTab,
@@ -868,6 +912,13 @@ export default function EditorPage() {
                   onionSkin,
                   setOnionSkin,
                   fitScreen,
+                  gridSnap,
+                  setGridSnap,
+                  openTilePreview: () => { setPreviewMode('tile'); setPreviewOpen(true); },
+                }}
+                frameActions={{
+                  duplicateFrame,
+                  openGamePreview: () => setGamePreviewOpen(true),
                 }}
                 layerActions={{
                   handleAddLayer,
@@ -983,6 +1034,11 @@ export default function EditorPage() {
               toolOptions={toolOptions}
               setToolOptions={setToolOptions}
               onResetPan={resetPan}
+              gridSnap={gridSnap}
+              setGridSnap={setGridSnap}
+              gridSize={gridSize}
+              setGridSize={setGridSize}
+              hasSelection={!!sel.selection}
             />
             {/* ── 캔버스 영역 ── */}
             <EditorCanvas
@@ -1017,7 +1073,8 @@ export default function EditorPage() {
                 symmetryX: toolOptions.symmetryX,
                 symmetryY: toolOptions.symmetryY,
               }}
-              previewProps={{ open: previewOpen, onClose: () => setPreviewOpen(false), peekLayerCanvas }}
+              previewProps={{ open: previewOpen, onClose: () => { setPreviewOpen(false); setPreviewMode('normal'); }, peekLayerCanvas, mode: previewMode }}
+              selectionProps={{ outline: sel.outline, lasso: sel.lassoPoints, size: sel.selectionSize, gridSnap, gridSize }}
               onionProps={onionSkins}
               referenceProps={{
                 url: reference?.url ?? null,

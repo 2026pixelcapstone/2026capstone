@@ -61,6 +61,7 @@ export const MENU_DEFS: MenuGroup[] = [
       { id: MENU_ACTION.SNAP_TO_PALETTE, label: { ko: '팔레트로 맞추기…', en: 'Snap to Palette…' }, icon: 'palette' },
       { id: MENU_ACTION.ADD_OUTLINE, label: { ko: '외곽선 추가…', en: 'Outline…' }, icon: 'border_outer' },
       { id: MENU_ACTION.REPLACE_COLOR, label: { ko: '색 바꾸기…', en: 'Replace Color…' }, icon: 'format_color_reset' },
+      { id: MENU_ACTION.RECOLOR, label: { ko: '팔레트로 다시 칠하기…', en: 'Recolor with Palette…' }, icon: 'auto_awesome' },
       { separator: true },
       { id: MENU_ACTION.TOGGLE_PALETTE_LOCK, label: { ko: '팔레트 잠금', en: 'Palette Lock' }, icon: 'lock' },
     ],
@@ -76,6 +77,7 @@ export const MENU_DEFS: MenuGroup[] = [
       { id: MENU_ACTION.FIT_SCREEN, label: { ko: '화면에 맞추기', en: 'Fit Screen' }, icon: 'fit_screen' },
       { id: MENU_ACTION.TOGGLE_ONION_SKIN, label: { ko: '어니언 스킨(앞뒤 프레임)', en: 'Onion Skin' }, icon: 'layers' },
       { id: MENU_ACTION.TOGGLE_REFERENCE, label: { ko: '참조 이미지 표시', en: 'Show Reference' }, icon: 'image_search' },
+      { id: MENU_ACTION.TILE_PREVIEW, label: { ko: '타일 미리보기(3×3)', en: 'Tile Preview' }, icon: 'grid_view' },
       { id: MENU_ACTION.TOGGLE_PREVIEW, label: { ko: '미리보기 창(실루엣·명도)', en: 'Preview Window' }, icon: 'preview' },
       { separator: true },
       { id: MENU_ACTION.TOGGLE_GRID, label: { ko: '그리드 표시', en: 'Show Grid' }, icon: 'grid_on' },
@@ -95,6 +97,17 @@ export const MENU_DEFS: MenuGroup[] = [
       { separator: true },
       { id: MENU_ACTION.MERGE_VISIBLE, label: { ko: '보이는 레이어 병합', en: 'Merge Visible' }, icon: 'merge' },
       { id: MENU_ACTION.FLATTEN, label: { ko: '이미지 병합(배경화)', en: 'Flatten' }, icon: 'layers_clear' },
+    ],
+  },
+
+  {
+    id: MENU_GROUP_ID.FRAME,
+    label: { ko: '프레임', en: 'Frame' },
+    items: [
+      { id: MENU_ACTION.DUPLICATE_FRAME, label: { ko: '프레임 복제', en: 'Duplicate Frame' }, icon: 'library_add' },
+      { id: MENU_ACTION.TOGGLE_ONION_SKIN, label: { ko: '어니언 스킨', en: 'Onion Skin' }, icon: 'layers' },
+      { separator: true },
+      { id: MENU_ACTION.GAME_PREVIEW, label: { ko: '게임 미리보기…', en: 'Game Preview…' }, icon: 'sports_esports' },
     ],
   },
 
