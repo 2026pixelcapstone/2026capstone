@@ -1,23 +1,27 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimationTag, FrameViewData } from "../../type/editor";
 import { MAX_DURATION, MIN_DURATION_30FPS } from "../../constants/editor/editor";
 
 interface FrameDetailProps{
+    position: { top: number, left: number }
     detailFrameId: string | null;
     frameViewData: FrameViewData;
     animationTags: AnimationTag[]; // 전체 태그 목록
     updateAnimDurations: (frameId: string | null, duration: number | null, skipHistory: boolean, forceCommit: boolean) => void;
     updateFrameTag: (frameId: string | null, tagId: string | null) => void; // 프레임에 태그 장착/해제
     createAnimationTag: (name: string, color: string) => void; // 새 태그 생성
+    onClose: () => void;
 }
 
 export function FrameDetailView({
+    position,
     detailFrameId,
     frameViewData,
     animationTags,
     updateAnimDurations,
     updateFrameTag,
     createAnimationTag,
+    onClose
 }: FrameDetailProps){
 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -27,7 +31,26 @@ export function FrameDetailView({
     const [newTagName, setNewTagName] = useState("");
     const [newTagColor, setNewTagColor] = useState("#2f81f7"); // 기본 색상
 
-    if(!detailFrameId) return;
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    // 외부 클릭 감지 이벤트 로직
+    useEffect(() => {
+        if (!detailFrameId) return; // 열려있을 때만 이벤트 등록
+
+        const handleClickOutside = (e: MouseEvent) => {
+            // 클릭한 대상(e.target)이 모달(modalRef.current)의 내부 요소가 아니라면 닫기
+            if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+            onClose();
+            }
+        };
+
+        // 마우스를 누르는 순간(mousedown) 감지
+        document.addEventListener('mousedown', handleClickOutside);
+        
+        // 클린업 함수: 컴포넌트가 언마운트되거나 닫힐 때 이벤트 제거
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [detailFrameId, onClose]);
+    if(!detailFrameId) return null;
 
     const handleCreateTag = () => {
         if (!newTagName.trim()) return;
@@ -38,15 +61,23 @@ export function FrameDetailView({
     
     return(
         <div 
+            ref = {modalRef}
             // fixed 속성으로 브라우저 뷰포트 기준 위치를 고정합니다.
-            className="flex w-64 bg-surface border border-outline rounded-xl p-4 shadow-xl z-10 flex flex-col gap-4 text-on-surface"
+            className="fixed w-64 bg-surface border border-outline rounded-xl p-4 shadow-xl z-10 flex flex-col gap-4 text-on-surface"
+            style={{
+                top: `${position.top}px`, 
+                left: `${position.left}px`
+            }}
             onClick={(e) => e.stopPropagation()}
         >
             {/* 1. 상단 헤더 영역 */}
             <div className="flex items-center justify-between pb-3 border-b" style={{borderColor: 'var(--color-outline)'}}>
                 <span className="text-base font-bold">프레임 설정</span>
-                <button className="p-1 rounded hover:bg-surface-container-highest transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">tune</span>
+                <button 
+                    onClick={onClose}
+                    className="p-1 rounded hover:bg-surface-container-highest transition-colors"
+                >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
             </div>
             <div className="flex flex-col gap-1.5">

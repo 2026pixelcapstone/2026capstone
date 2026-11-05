@@ -1,19 +1,48 @@
-import React from "react";
+import React, { useState } from "react";
+import { EditorCanvasSize } from "./EditorCanvasSize";
 
 interface RightSideBarProps{
     activeRightTab: 'main' | 'layers' | 'palette' | 'CanvasSize';
     setActiveRightTab: React.Dispatch<React.SetStateAction<'main' | 'layers' | 'palette' | 'CanvasSize'>>;
+    customW: number;
+    customH: number;
+    isScaleImage: boolean;
+    setCustomW: React.Dispatch<React.SetStateAction<number>>;
+    setCustomH: React.Dispatch<React.SetStateAction<number>>;
+    setIsScaleImage: React.Dispatch<React.SetStateAction<boolean>>;
+    applyCanvasSize: (w: number, h: number) => void
 }
 export function EditorRightSideBar({
     activeRightTab,
     setActiveRightTab,
+    customW, 
+    customH,
+    isScaleImage,
+    setCustomW,
+    setCustomH,
+    setIsScaleImage, 
+    applyCanvasSize,
 }: RightSideBarProps){
     
+    const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
+    const [isCanvasSizeModal, setIsCanvasSizeModal] = useState<boolean>(false);
+    
+    const handleOpenModal = (e: React.MouseEvent<HTMLButtonElement>) => {
+        // 버튼의 화면상 크기와 위치 정보 가져오기
+        const rect = e.currentTarget.getBoundingClientRect();
+
+        setModalPos({
+            top: rect.top, // 버튼의 상단과 맞춤
+            left: rect.right - 310, // 버튼의 오른쪽 끝 + 여백 10px 위치
+        });
+        setIsCanvasSizeModal(!isCanvasSizeModal);
+        console.log("rect.top: " + rect.top + 'rect.right: ' + rect.right);
+    };
+
     return(
-        <div className="w-12 flex flex-col flex-shrink-0 border-l items-center py-2 space-y-3"
+        <div className="w-15 flex flex-col flex-shrink-0 border-l items-center py-2 space-y-3"
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
             
-
             <button 
                 onClick={() => {
                     setActiveRightTab('main');
@@ -25,7 +54,8 @@ export function EditorRightSideBar({
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}   
             >
-                <span className="material-symbols-outlined text-[38px]">home</span>
+                <span className="material-symbols-outlined text-[40px]">home</span>
+
             </button>
             
             <button 
@@ -39,7 +69,8 @@ export function EditorRightSideBar({
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}
             >
-                <span className="material-symbols-outlined text-[38px]">layers</span>
+                <span className="material-symbols-outlined text-[40px]">layers</span>
+
             </button>
 
             <button 
@@ -53,7 +84,8 @@ export function EditorRightSideBar({
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}
             >
-                <span className="material-symbols-outlined text-[38px]">palette</span>
+                <span className="material-symbols-outlined text-[40px]">palette</span>
+
             </button>
             
             {/* 크기 설정 영역 위쪽 테두리 (구분선) */}
@@ -61,12 +93,12 @@ export function EditorRightSideBar({
 
             {/* 크기 설정 모달 버튼 */}
             <button
-                onClick={() => {
-                    setActiveRightTab('CanvasSize');
+                onClick={(e) => {
+                    handleOpenModal(e);
                 }}
                 title="크기 설정"
                 className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                    activeRightTab === 'CanvasSize'
+                    isCanvasSizeModal
                     ? 'bg-primary/20 text-primary'
                     : 'text-on-surface-variant hover:bg-surface-container'
                 }`}
@@ -75,6 +107,20 @@ export function EditorRightSideBar({
             </button>
 
             {/* 추후 도구 옵션 등 추가 탭 버튼이 들어갈 자리 */}
+        
+            {/* 캔버스 크기 섹션 */}
+            <EditorCanvasSize
+                position={modalPos}
+                isOpen = {isCanvasSizeModal}
+                customW = {customW}
+                customH = {customH}
+                isScaleImage = {isScaleImage}
+                onClose={() => setIsCanvasSizeModal(false)}
+                setCustomW = {setCustomW}
+                setCustomH = {setCustomH}
+                setIsScaleImage = {setIsScaleImage}
+                applyCanvasSize = {applyCanvasSize}
+            />
         </div>
     )
 }

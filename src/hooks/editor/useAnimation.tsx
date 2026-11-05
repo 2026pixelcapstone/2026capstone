@@ -15,10 +15,10 @@ function getDuration(frame: FrameData | undefined) {
 
 export function useAnimation({ 
     frames,
+ 
 }: UseAnimation) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [previewFrameIdx, setPreviewFrameIdx] = useState(0);
-    const [animDetailView, setAnimDetailView] = useState(false);
 
     // 임시 속도
     const [draft, setDraft] = useState<{ frames: FrameData[]; fps: number } | null>(null);
@@ -71,7 +71,7 @@ export function useAnimation({
     }, [isPlaying, frames.length, safePreviewFrameIdx, duration]);
 
     const createAnimationTag = useCallback(() => {
-
+        
     }, [])
-    return {animDetailView, isPlaying, previewFrameIdx: safePreviewFrameIdx, fps, defaultDuration, setAnimDetailView, setIsPlaying, setPreviewFrameIdx, setFps, createAnimationTag };
+    return { isPlaying, previewFrameIdx: safePreviewFrameIdx, fps, defaultDuration, setIsPlaying, setPreviewFrameIdx, setFps, createAnimationTag };
 }

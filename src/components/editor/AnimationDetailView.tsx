@@ -6,7 +6,7 @@ interface AnimationDetailViewProps {
     onClose: React.Dispatch<React.SetStateAction<boolean>>;
     frames: FrameData[];
     fps: number;
-    animationTags?: AnimationTag[];
+    animationTags?: AnimationTag[] | null;
 }
 
 export function AnimationDetailView({ 
@@ -59,7 +59,7 @@ export function AnimationDetailView({
     const currentFrame = frames[currentFrameIdx];
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4">
             <div className="flex flex-col w-full max-w-4xl h-full max-h-[80vh] bg-[#1e2329] border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
                 {/* 헤더 */}
                 <div className="flex items-center justify-between px-6 py-4 bg-[#161a1f] border-b border-gray-700">

@@ -1,40 +1,58 @@
 import { AnimationTag, FrameData} from "../../type/editor";
-import { Dispatch, DragEvent, SetStateAction} from "react";
+import { Dispatch, DragEvent, SetStateAction, useState} from "react";
+import { FrameDetailView } from "./FrameDetailView";
 
 interface FrameProps{
     showFramePanel: boolean;
     activeFrameId: string | null;
-    detailFrameId: string | null;
+    currentFrame: FrameData;
     frames: FrameData[];
     animationTags: AnimationTag[] | null;
     setShowFramePanel: Dispatch<SetStateAction<boolean>>;
     setActiveFrameId: Dispatch<SetStateAction<string | null>>;
-    setDetailFrameId: Dispatch<SetStateAction<string | null>>;
     handleSelectFrame: (frameId: string) => void;
     handleFrameDragStart: (e: DragEvent<HTMLDivElement>, frameIdx: number) => void;
     handleDragOver: (e: DragEvent<HTMLDivElement>) => void;
     handleFrameDrop: (e: DragEvent<HTMLDivElement>, frameIdx: number) => void;
     addFrame: () => void;
     deleteFrame: (frameId: string | null) => void;
+    updateAnimDurations: (frameId: string | null, duration: number | null, skipHistory?: boolean, forceCommit?: boolean) => void;
+    updateFrameTag: (frameId: string | null, tagId: string | null) => void;
+    createAnimationTag: (name: string, color: string) => void;
 }
 
 export function EditorFrameBar({
     showFramePanel,
     activeFrameId,
-    detailFrameId,
+    currentFrame,
     frames,
     animationTags,
     setShowFramePanel,
     setActiveFrameId,
-    setDetailFrameId,
     handleSelectFrame,
     handleFrameDragStart,
     handleDragOver,
     handleFrameDrop,
     addFrame,
     deleteFrame,
+    updateAnimDurations,
+    updateFrameTag,
+    createAnimationTag,
 }: FrameProps){
+
+    const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
+    const [detailFrameId, setDetailFrameId] = useState<string | null>(null);
     
+    const handleOpenModal = (e: React.MouseEvent<HTMLButtonElement>, frameId: string) => {
+        // 버튼의 화면상 크기와 위치 정보 가져오기
+        const rect = e.currentTarget.getBoundingClientRect();
+
+        setModalPos({
+            top: rect.top - 120, // 버튼의 상단과 맞춤
+            left: rect.right + 20, // 버튼의 오른쪽 끝 + 여백 10px 위치
+        });
+        setDetailFrameId(frameId);
+    };
     return(
         <div 
             className="flex flex-col flex-shrink-0 border-r min-h-0"
@@ -81,7 +99,7 @@ export function EditorFrameBar({
                             background: isActive ? 'var(--color-surface-container-low)' : 'transparent'
                             }}>
 
-                            {/* 💡 새로 추가된 태그 라벨 (좌측 상단, Hover 시 표출) */}
+                            {/* 태그 라벨 (좌측 상단, Hover 시 표출) */}
                             {currentTag && (
                                 <div 
                                     className="absolute top-1 left-1 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
@@ -101,13 +119,14 @@ export function EditorFrameBar({
 
                             <button onClick={(e) => {
                                 e.stopPropagation(); // 캔버스 클릭 처리 방지
+                                
                                 // 설정창 팝업 토글 로직
                                 if(detailFrameId === frame.id){
                                     setDetailFrameId(null);
                                 }
                                 else{
-                                    setActiveFrameId(frame.id)
-                                    setDetailFrameId(frame.id);
+                                    setActiveFrameId(frame.id);
+                                    handleOpenModal(e, frame.id);
                                 }
                             }}
                                 className='absolute bottom-1 right-1 z-10 w-5 h-5 bg-gray-600/80 hover:bg-gray-500 text-white rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
@@ -150,7 +169,7 @@ export function EditorFrameBar({
                                         src={lp.src}
                                         className="absolute inset-0 w-full h-full object-contain"
                                         style={{
-                                            // 💡 픽셀 아트 깨짐(뭉개짐) 방지 및 레이어별 실제 투명도 실시간 반영!
+                                            // 픽셀 아트 깨짐(뭉개짐) 방지 및 레이어별 실제 투명도 실시간 반영!
                                             imageRendering: 'pixelated', 
                                             opacity: lp.opacity / 100, 
                                         }}
@@ -176,6 +195,21 @@ export function EditorFrameBar({
                 </div>
             </div>
         )}
+        <FrameDetailView
+            key={currentFrame.id}
+            position={modalPos}
+            detailFrameId={detailFrameId}
+            animationTags={animationTags ?? []}
+            frameViewData = {{
+                id: currentFrame.id,
+                duration: currentFrame.duration ?? 100,
+                tagId: currentFrame.tagId ?? 'default',
+            }}
+            updateAnimDurations = {updateAnimDurations}
+            updateFrameTag={updateFrameTag}
+            createAnimationTag={createAnimationTag}
+            onClose={() => setDetailFrameId(null)}
+        />
     </div>
     )
 }

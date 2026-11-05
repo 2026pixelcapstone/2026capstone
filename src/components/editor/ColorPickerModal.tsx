@@ -83,7 +83,6 @@ export function ColorPickerModal({
           left: `${position.left}px`
         }}
         role="dialog"
-        aria-modal="true"
         aria-label="Advanced Color Picker"
       >
         {/* HexColorPicker 영역 (상단 마진 약간 추가하여 여백 확보) */}
