@@ -13,7 +13,6 @@ import { useHistory } from '../hooks/editor/useHistory'
 import { useLayers as useLayer } from '../hooks/editor/useLayer'
 import Konva from 'konva'
 import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
-import { ColorPickerModal } from '../components/editor/ColorPickerModal'
 import { aiApi } from '../api/aiApi'
 import type { RelatedPost } from '../api/aiApi'
 import { extractUsedColors } from '../utils/colorExtract'
@@ -163,12 +162,11 @@ export default function EditorPage() {
   });
 
   // ── useColor 훅 ──────────────
-  const { isHexModal, hexInput, fgColor, rgb, setIsHexModal, setHexInput, setFgColor, applyHex, handleRgbChange } = useColor();
+  const { activeColorTarget, fgColor, bgColor, rgb, setActiveColorTarget, setFgColor, setBgColor, handleRgbChange, handleSwapColors } = useColor();
   
   // ── usePalette 훅 ──────────────
   const {paletteColors, setPaletteColors, selectPaletteColor, addColorsToPalette} = usePalette({
     setFgColor,
-    setHexInput,
   })
   // ── useCanvasTool 훅 ──────────────
   const { 
@@ -833,12 +831,17 @@ export default function EditorPage() {
         {/* ── 좌측 툴바 ── */}
           <EditorToolBar
             activeTool = {activeTool}
+            activeColorTarget = {activeColorTarget}
             fgColor= {fgColor}
-            hexInput = {hexInput}
+            bgColor={bgColor}
+            rgb={rgb}
+            setFgColor={setFgColor}
+            setBgColor={setBgColor}
+            setActiveColorTarget={setActiveColorTarget}
             setActiveTool = {setActiveTool}
-            setIsHexModal = {setIsHexModal}
-            setHexInput = {setHexInput}
-            applyHex = {applyHex}
+            handleRgbChange={handleRgbChange}
+            handleSwapColors={handleSwapColors}
+
           />
 
          {/* ── 프레임 패널 ── */}
@@ -1030,15 +1033,7 @@ export default function EditorPage() {
           </aside>
         </div>
         
-        {/* ── HEX 색상 입력 모달 ── */}
-        <ColorPickerModal 
-          isOpen={isHexModal}
-          rgb={rgb}
-          color={fgColor}
-          handleRgbChange={handleRgbChange}
-          onClose={() => setIsHexModal(false)}
-          onChange={selectPaletteColor}
-        />
+
 
         {/* ── AI 가이드 전용 패널 (VS Code Secondary Side Bar 스타일) ── */}
         <div className="flex flex-col flex-shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden"
