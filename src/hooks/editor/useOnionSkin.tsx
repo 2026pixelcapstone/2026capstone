@@ -39,17 +39,21 @@ async function tintedFrame(frame: FrameData | undefined, w: number, h: number, t
 export function useOnionSkin({ enabled, frames, activeFrameId, width, height }: UseOnionSkin) {
     const [skins, setSkins] = useState<{ prev: HTMLCanvasElement | null; next: HTMLCanvasElement | null }>({ prev: null, next: null });
 
+    // 앞·뒤 프레임 객체를 의존성으로 — 상태는 불변 갱신이라 지금 프레임만 바뀌면 앞뒤 프레임은 같은 객체(획마다 다시 합성하지 않음, CodeRabbit #129)
+    const idx = frames.findIndex(f => f.id === activeFrameId);
+    const prevFrame = idx > 0 ? frames[idx - 1] : undefined;
+    const nextFrame = idx >= 0 && idx < frames.length - 1 ? frames[idx + 1] : undefined;
+
     useEffect(() => {
         if (!enabled) { setSkins({ prev: null, next: null }); return; }
         let cancelled = false;
-        const idx = frames.findIndex(f => f.id === activeFrameId);
         Promise.all([
-            tintedFrame(idx > 0 ? frames[idx - 1] : undefined, width, height, PREV_TINT),
-            tintedFrame(idx >= 0 && idx < frames.length - 1 ? frames[idx + 1] : undefined, width, height, NEXT_TINT),
+            tintedFrame(prevFrame, width, height, PREV_TINT),
+            tintedFrame(nextFrame, width, height, NEXT_TINT),
         ]).then(([prev, next]) => { if (!cancelled) setSkins({ prev, next }); })
           .catch(() => { if (!cancelled) setSkins({ prev: null, next: null }); });
         return () => { cancelled = true; };
-    }, [enabled, frames, activeFrameId, width, height]);
+    }, [enabled, prevFrame, nextFrame, width, height]);
 
     return skins;
 }

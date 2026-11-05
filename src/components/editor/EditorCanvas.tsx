@@ -1,7 +1,8 @@
 import { EditorToolId, FrameData, Point } from "../../type/editor";
 import { KonvaEventObject } from "konva/lib/Node";
 import { LayerImageRenderer } from "./LayerImageRender";
-import { Image as KonvaImage, Layer, Rect, Stage } from "react-konva";
+import { Layer, Rect, Stage } from "react-konva";
+import { OnionSkinCanvas } from "./OnionSkinCanvas";
 import Konva from "konva";
 import { resizedLayerCanvases } from "../../utils/resizedLayerCanvas";
 import React from "react";
@@ -157,6 +158,8 @@ export function EditorCanvas({
                         className="absolute inset-0 w-full h-full pointer-events-none select-none"
                         style={{ objectFit: 'contain', opacity: referenceProps.opacity / 100, zIndex: referenceProps.front ? 15 : 0 }} />
                 )}
+                {/* 어니언 스킨: Stage 밖 DOM 캔버스(Stage를 그림으로 뽑을 때 섞이지 않게), Stage 아래에 깔림 */}
+                <OnionSkinCanvas prev={onionProps.prev} next={onionProps.next} width={canvasProps.width} height={canvasProps.height} />
                 <div style={{ position: 'relative', zIndex: 1 }}>
                 <Stage
                     ref={stageRef}
@@ -169,12 +172,6 @@ export function EditorCanvas({
                     onMouseUp={(e) => {mouseEvnetProps.handleMouseUp(e)}}
                     onMouseLeave={(e) => {mouseEvnetProps.handleMouseLeave(e)}}
                 >
-                    {(onionProps.prev || onionProps.next) && (
-                        <Layer listening={false} opacity={0.35}>
-                            {onionProps.prev && <KonvaImage image={onionProps.prev} x={0} y={0} />}
-                            {onionProps.next && <KonvaImage image={onionProps.next} x={0} y={0} />}
-                        </Layer>
-                    )}
                     {...(currentFrame?.layers ?? [])
                     .sort((a, b) => a.layerOrder - b.layerOrder)
                     .map((layer) => (
