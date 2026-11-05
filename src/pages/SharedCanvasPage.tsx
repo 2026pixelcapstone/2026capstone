@@ -30,8 +30,13 @@ export default function SharedCanvasPage() {
 
   // 쿨다운 표시용 시계(쿨다운 중일 때만)
   useEffect(() => {
+    setNow(Date.now())
     if (cv.cooldownUntil <= Date.now()) return
-    const id = setInterval(() => setNow(Date.now()), 250)
+    const id = setInterval(() => {
+      const t = Date.now()
+      setNow(t)
+      if (t >= cv.cooldownUntil) clearInterval(id)   // 끝나면 멈춤(쓸데없는 다시 그리기 방지)
+    }, 250)
     return () => clearInterval(id)
   }, [cv.cooldownUntil])
   const remaining = Math.max(0, cv.cooldownUntil - now)
@@ -89,6 +94,14 @@ export default function SharedCanvasPage() {
               style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>다시 시도</button>
           </div>
         ) : (
+          <>
+          {cv.error && (
+            <div className="rounded-lg border px-4 py-2 mb-4 flex items-center justify-between text-sm" style={card} role="status">
+              <span>최신 판을 받지 못했어요. 보이는 판이 오래됐을 수 있어요.</span>
+              <button type="button" onClick={() => cv.reload()} className="px-3 py-1 rounded-lg text-xs font-bold"
+                style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>다시 받기</button>
+            </div>
+          )}
           <div className="flex flex-col lg:flex-row gap-6 items-start">
             {/* 캔버스 */}
             <div className="flex-1 min-w-0 w-full">
@@ -187,6 +200,7 @@ export default function SharedCanvasPage() {
               </div>
             </aside>
           </div>
+          </>
         )}
       </div>
     </div>

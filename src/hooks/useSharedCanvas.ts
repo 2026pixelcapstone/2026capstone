@@ -27,7 +27,9 @@ interface Meta {
 
 /**
  * 공동 캔버스 상태 + 실시간(C-3).
- * 로그인: 먼저 /topic/canvas 구독 → 그동안 온 이벤트는 버퍼 → 스냅샷 도착 후 버퍼 중 스냅샷보다 새 것만 반영
+ * 첫 스냅샷은 연결과 무관하게 바로 받음(WebSocket이 안 붙어도 판은 보임 — CodeRabbit #126).
+ * 로그인: /topic/canvas 구독 → 연결될 때마다 스냅샷을 다시 받고, 그동안 온 이벤트는 버퍼 → 스냅샷 도착 후 버퍼 중 스냅샷보다 새 것만 반영
+ *         (버퍼에 REFRESH·다른 시즌 이벤트가 있었으면 받은 스냅샷이 이미 낡았을 수 있어 한 번 더 받음)
  *         → 이후 칸마다 '그 칸의 마지막 version'보다 큰 이벤트만 반영(늦게 온·중복 이벤트 무시). 재연결·REFRESH·시즌 바뀜이면 스냅샷 다시.
  * 비로그인: 스냅샷만(실시간 없음 — STOMP CONNECT가 로그인 필요), 새로고침 버튼으로 다시 받음.
  * 판은 ref(Uint8Array)에 두고 <canvas>에 직접 그림 — 칸이 바뀔 때마다 React 다시 그리기를 하지 않음.
@@ -39,8 +41,9 @@ export function useSharedCanvas(loggedIn: boolean) {
   const buffer = useRef<CanvasEvent[] | null>([])   // null = 스냅샷 적용 끝(버퍼 안 씀)
   const metaRef = useRef<Meta | null>(null)
   const loadGen = useRef(0)
+  const loadRef = useRef<() => Promise<void>>(async () => {})
   const [meta, setMeta] = useState<Meta | null>(null)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState(false)          // 마지막 스냅샷 요청 실패(판이 있어도 '다시 받기' 안내)
   const [live, setLive] = useState(false)
   const [cooldownUntil, setCooldownUntil] = useState(0)   // Date.now() 기준 끝나는 시각
   const [placing, setPlacing] = useState(false)
@@ -80,12 +83,16 @@ export function useSharedCanvas(loggedIn: boolean) {
       setCooldownUntil(s.cooldownRemainingMs > 0 ? Date.now() + s.cooldownRemainingMs : 0)
       const pending = buffer.current ?? []
       buffer.current = null
-      pending.filter(e => e.seasonId === s.seasonId && e.type === 'PIXEL').forEach(applyPixel)
       redraw()
+      if (pending.some(e => e.type === 'REFRESH' || e.seasonId !== s.seasonId)) { void loadRef.current(); return }   // 낡은 스냅샷일 수 있음
+      pending.filter(e => e.type === 'PIXEL').forEach(applyPixel)
     } catch {
-      if (gen === loadGen.current) setError(true)
+      if (gen !== loadGen.current) return
+      buffer.current = null            // 버퍼를 풀어 이후 이벤트는 그대로 반영(판이 있으면 계속 보임)
+      setError(true)
     }
   }, [applyPixel, redraw])
+  useEffect(() => { loadRef.current = load }, [load])
 
   // 캔버스 요소가 (다시) 붙으면 그리기
   const attach = useCallback((el: HTMLCanvasElement | null) => {
@@ -93,10 +100,12 @@ export function useSharedCanvas(loggedIn: boolean) {
     if (el) redraw()
   }, [redraw])
 
+  // 첫 스냅샷 — 연결과 따로(로그인 여부와 무관)
+  useEffect(() => { void load() }, [load])
+
   useEffect(() => {
     if (!loggedIn) {
       setLive(false)
-      load()
       return
     }
     const token = getToken()

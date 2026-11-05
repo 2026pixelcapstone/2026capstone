@@ -64,8 +64,7 @@ export default function MainPage() {
       artistServiceApi.getOpenList({ page: 0, size: 4, sort: 'createdAt,desc' }),
       paletteApi.search({ sort: 'popular', size: 3 }),
       userApi.getPopular({ days: 7, size: 6 }),
-      canvasApi.getSnapshot(),
-    ]).then(([tr, rf, rd, as, sv, pl, ar, cv]) => {
+    ]).then(([tr, rf, rd, as, sv, pl, ar]) => {
       if (tr.status === 'fulfilled') setTrending(tr.value.data.data)
       setRecent(mergeRecent(
         rf.status === 'fulfilled' ? rf.value.data.data.content : [],
@@ -74,8 +73,9 @@ export default function MainPage() {
       if (sv.status === 'fulfilled') setServices(sv.value.data.data.content)
       if (pl.status === 'fulfilled') setPalettes(pl.value.data.data.content)
       if (ar.status === 'fulfilled') setArtists(ar.value.data.data)
-      if (cv.status === 'fulfilled') setCanvas(cv.value.data.data)
     }).finally(() => setLoading(false))
+    // 공동 캔버스 썸네일은 홈 주요 섹션과 무관 — 따로 받아 홈 로딩을 늦추지 않음
+    canvasApi.getSnapshot().then(res => setCanvas(res.data.data)).catch(() => {})
   }, [])
 
   // ── 개인 데이터(로그인 사용자 기준) ──
