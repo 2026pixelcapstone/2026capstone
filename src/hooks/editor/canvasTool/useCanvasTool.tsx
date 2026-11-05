@@ -18,7 +18,7 @@ export function useCanvasTool({
     const [activeTool, setActiveTool]   = useState<EditorToolId>(DRAW_TOOLS[0].id); // 기본 도구는 연필(pencil)
     const [pixelSize, setPixelSize] = useState(1);
     const [brushSize, setBrushSize]     = useState(1);
-    const [pixelPerfect, setPixelPerfect] = useState(true);
+    const [pixelPerfect, setPixelPerfect] = useState(false);   // 기본 꺼짐(Aseprite와 같음, 팀원 확인 11-06)
 
     // ── 도구 옵션(PR-A) ── 채움 도형·투명 픽셀 잠금·체크무늬·대칭
     const [shapeFill, setShapeFill] = useState(false);

@@ -201,5 +201,5 @@ export function useImageOps({ state, activeFrameId, activeLayerId, setActiveLaye
         }).then(ok => { if (ok) setActiveLayerId(newId); return ok; });
     }, [runAsync, activeFrameId, setActiveLayerId]);
 
-    return { busy, transformImage, applyLayerFilter, loadActiveLayerCanvas, duplicateLayer, moveLayer, mergeLayers };
+    return { busy, runEdit: runAsync, transformImage, applyLayerFilter, loadActiveLayerCanvas, duplicateLayer, moveLayer, mergeLayers };
 }

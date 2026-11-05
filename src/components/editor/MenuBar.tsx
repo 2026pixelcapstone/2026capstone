@@ -3,6 +3,18 @@ import { MENU_DEFS } from "../../constants/editor/menuConfig";
 import { AiTool, MENU_ACTION, MenuActionId } from "../../type/editor";
 import React, { useEffect, useRef, useState } from "react";
 
+// 파일 메뉴 들어오고 나가기(PR-C)
+interface IoActions{
+    openExport: (tab: 'image' | 'sheet') => void;
+    importImage: () => void;
+    openReference: () => void;
+    shareGallery: (challenge: boolean) => void;
+    registerAsset: () => void;
+    hasReference: boolean;
+    referenceVisible: boolean;
+    setReferenceVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
 interface FileActions{
     handleNewProject: () => void;
     setOpenProjectModalOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -71,6 +83,7 @@ interface MenuBarProps {
    viewActions: ViewActions;
    layerActions: LayerAction;
    imageActions: ImageActions;
+   ioActions: IoActions;
    pixelGuides: PixelGuide;
 }
 
@@ -80,6 +93,7 @@ export default function MenuBar({
     viewActions,
     layerActions,
     imageActions,
+    ioActions,
     pixelGuides,
 
 }: MenuBarProps){
@@ -104,7 +118,8 @@ export default function MenuBar({
         || (id === MENU_ACTION.TOGGLE_RATIO_GUIDE && viewActions.ratioGuide)
         || (id === MENU_ACTION.TOGGLE_PREVIEW && viewActions.previewOpen)
         || (id === MENU_ACTION.TOGGLE_ONION_SKIN && viewActions.onionSkin)
-        || (id === MENU_ACTION.TOGGLE_PALETTE_LOCK && imageActions.paletteLock);
+        || (id === MENU_ACTION.TOGGLE_PALETTE_LOCK && imageActions.paletteLock)
+        || (id === MENU_ACTION.TOGGLE_REFERENCE && ioActions.hasReference && ioActions.referenceVisible);
 
     // 통합 액션 핸들러
     const handleAction = (actionId: MenuActionId) => {
@@ -123,15 +138,35 @@ export default function MenuBar({
             case MENU_ACTION.OPEN_PPIT:
                 fileActions.handleOpenPpit();
                 break;
+            case MENU_ACTION.IMPORT_IMAGE:
+                ioActions.importImage();
+                break;
+            case MENU_ACTION.OPEN_REFERENCE:
+                ioActions.openReference();
+                break;
+            case MENU_ACTION.SHARE_GALLERY:
+                ioActions.shareGallery(false);
+                break;
+            case MENU_ACTION.JOIN_CHALLENGE:
+                ioActions.shareGallery(true);
+                break;
+            case MENU_ACTION.REGISTER_ASSET:
+                ioActions.registerAsset();
+                break;
+            case MENU_ACTION.TOGGLE_REFERENCE:
+                if (ioActions.hasReference) ioActions.setReferenceVisible(v => !v);
+                else ioActions.openReference();
+                break;
             case MENU_ACTION.SAVE:
                 fileActions.openSaveModal();
                 break;
             case MENU_ACTION.SAVE_AS:
                 break;
             case MENU_ACTION.EXPORT_IMAGE:
-                fileActions.handleExportImage();
+                ioActions.openExport('image');   // 배율·형식(PNG·GIF)을 고르는 창(기존 바로 저장 대신)
                 break;
             case MENU_ACTION.EXPORT_SPRITESHEET:
+                ioActions.openExport('sheet');
                 break;
             case MENU_ACTION.DOWNLOAD_PPIT:
                 fileActions.handleExportPpit();

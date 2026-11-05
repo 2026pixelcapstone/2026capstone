@@ -37,6 +37,9 @@ import { useLayerCacheSync } from '../hooks/editor/useLayerCacheSync'
 import { useOnionSkin } from '../hooks/editor/useOnionSkin'
 import { usePaletteLock } from '../hooks/editor/usePaletteLock'
 import { AdjustTab, ImageAdjustModal } from '../components/editor/ImageAdjustModal'
+import { ExportModal, ExportTab } from '../components/editor/ExportModal'
+import { useEditorIO } from '../hooks/editor/useEditorIO'
+import GalleryCreateModal from '../components/GalleryCreateModal'
 import { useAnimation } from '../hooks/editor/useAnimation'
 import { useEditorExport } from '../hooks/editor/useEditorExport'
 import { useEditorImport } from '../hooks/editor/useEditorImport'
@@ -224,7 +227,7 @@ export default function EditorPage() {
   const {zoom, setZoomIdx} = useCanvasView({ width: state.width, height: state.height });
 
   // ── 이미지·레이어 메뉴(PR-B) ──────────────
-  const { busy: imageBusy, transformImage, applyLayerFilter, loadActiveLayerCanvas, duplicateLayer, moveLayer, mergeLayers } = useImageOps({
+  const { busy: imageBusy, runEdit, transformImage, applyLayerFilter, loadActiveLayerCanvas, duplicateLayer, moveLayer, mergeLayers } = useImageOps({
     state, activeFrameId, activeLayerId, setActiveLayerId, setWithHistory, setUnsaved,
   });
   useLayerCacheSync({ frames: state.frames, activeFrameId, clearLayerCanvas });
@@ -267,6 +270,19 @@ export default function EditorPage() {
   const {loadPpitText} = useEditorImport({ replaceProject });
 
   // ── useEditorExport 훅 ──────────────
+  // ── 들어오고 나가기(PR-C): 내보내기 창·이미지 불러오기·참조 이미지·갤러리 공유·에셋 등록 ──
+  const [exportTab, setExportTab] = useState<ExportTab | null>(null);
+  const [shareFile, setShareFile] = useState<{ file: File; challenge: boolean } | null>(null);
+  const {
+    fileInputs: ioFileInputs, openImageImport, openReference,
+    reference, referenceOpacity, setReferenceOpacity, referenceFront, setReferenceFront, referenceVisible, setReferenceVisible, closeReference,
+    buildPpitFile, registerAsset,
+  } = useEditorIO({ state, activeFrameId, setActiveLayerId, runEdit, projectTitle, paletteColors, fps });
+  const shareGallery = useCallback((challenge: boolean) => {
+    try { setShareFile({ file: buildPpitFile(), challenge }); }
+    catch { toast.error('공유할 파일을 만들지 못했어요.'); }
+  }, [buildPpitFile]);
+
   const {handleExportImage, handleExportPpit } = useEditorExport({
     stageRef,
     state,
@@ -730,6 +746,27 @@ export default function EditorPage() {
         />
       )}
 
+      {ioFileInputs}
+      {exportTab && (
+        <ExportModal
+          tab={exportTab}
+          onTab={setExportTab}
+          onClose={() => setExportTab(null)}
+          state={state}
+          activeFrameIndex={Math.max(0, state.frames.findIndex(f => f.id === activeFrameId))}
+          projectTitle={projectTitle}
+        />
+      )}
+      {/* 에디터에서 바로 공유: 지금 그림의 .ppit를 넣어 전용 갤러리 등록 창을 엶. 등록 후 에디터에 남음 */}
+      <GalleryCreateModal
+        type="DEDICATED"
+        isOpen={!!shareFile}
+        onClose={() => setShareFile(null)}
+        initialPpitFile={shareFile?.file}
+        initialChallengeEntry={shareFile?.challenge}
+        onCreated={() => toast.success('갤러리에 올렸어요. 전용 갤러리에서 볼 수 있어요.')}
+      />
+
       <EditorSaveProjectModal
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
@@ -801,6 +838,16 @@ export default function EditorPage() {
                   undo,
                   redo,
                   openResize: () => setCanvasSizeRequest(n => n + 1),
+                }}
+                ioActions={{
+                  openExport: setExportTab,
+                  importImage: openImageImport,
+                  openReference,
+                  shareGallery,
+                  registerAsset: () => { void registerAsset(); },
+                  hasReference: !!reference,
+                  referenceVisible,
+                  setReferenceVisible,
                 }}
                 imageActions={{
                   transform: transformImage,
@@ -972,6 +1019,15 @@ export default function EditorPage() {
               }}
               previewProps={{ open: previewOpen, onClose: () => setPreviewOpen(false), peekLayerCanvas }}
               onionProps={onionSkins}
+              referenceProps={{
+                url: reference?.url ?? null,
+                visible: referenceVisible,
+                opacity: referenceOpacity,
+                front: referenceFront,
+                setOpacity: setReferenceOpacity,
+                setFront: setReferenceFront,
+                close: closeReference,
+              }}
             />
           </div>
 
