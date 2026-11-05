@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { FrameData } from "../../type/editor";
 import { MIN_DURATION_30FPS } from "../../constants/editor/editor";
 
@@ -18,6 +18,7 @@ export function useAnimation({
 }: UseAnimation) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [previewFrameIdx, setPreviewFrameIdx] = useState(0);
+    const [animDetailView, setAnimDetailView] = useState(false);
 
     // 임시 속도
     const [draft, setDraft] = useState<{ frames: FrameData[]; fps: number } | null>(null);
@@ -69,5 +70,8 @@ export function useAnimation({
         return () => clearTimeout(timeout);
     }, [isPlaying, frames.length, safePreviewFrameIdx, duration]);
 
-    return { isPlaying, previewFrameIdx: safePreviewFrameIdx, fps, defaultDuration, setIsPlaying, setPreviewFrameIdx, setFps };
+    const createAnimationTag = useCallback(() => {
+
+    }, [])
+    return {animDetailView, isPlaying, previewFrameIdx: safePreviewFrameIdx, fps, defaultDuration, setAnimDetailView, setIsPlaying, setPreviewFrameIdx, setFps, createAnimationTag };
 }

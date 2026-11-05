@@ -1,4 +1,4 @@
-import { FrameData, Point } from "../../type/editor";
+import { EditorToolId, FrameData, Point } from "../../type/editor";
 import { KonvaEventObject } from "konva/lib/Node";
 import { LayerImageRenderer } from "./LayerImageRender";
 import { Layer, Rect, Stage } from "react-konva";
@@ -8,10 +8,12 @@ import React from "react";
 import { ZOOM_LEVELS } from "../../constants/editor/editor";
 
 interface EditorCanvasProps{
+    activeTool: EditorToolId;
     activeFrameId: string | null;
     zoom: number;
     showGridLines: boolean;
     cursorPos: Point;
+    pixelSize: number;
     stageRef: React.RefObject<Konva.Stage | null>;
     currentFrame: FrameData;
     setZoomIdx: React.Dispatch<React.SetStateAction<number>>;
@@ -31,10 +33,12 @@ interface MouseEventProps{
     handleMouseLeave: (e: KonvaEventObject<MouseEvent>) => void;
 }
 export function EditorCanvas({
+    activeTool,
     activeFrameId,
     zoom,
     showGridLines,
     cursorPos,
+    pixelSize,
     stageRef,
     currentFrame,
     setZoomIdx,
@@ -42,6 +46,8 @@ export function EditorCanvas({
     canvasProps,
     mouseEvnetProps,
 }: EditorCanvasProps){
+
+    const offset = Math.floor((pixelSize - 1) / 2);
 
     {/* 바깥 배경: 캔버스보다 약간 진한 중간 회색 (체커보드) */}
     return(
@@ -110,14 +116,28 @@ export function EditorCanvas({
                     ))}
                     {cursorPos.x >= 0 && cursorPos.y >= 0 && (
                     <Layer>
-                        <Rect
-                        x={cursorPos.x}
-                        y={cursorPos.y}
-                        width={1}
-                        height={1}
-                        fill="rgba(128, 128, 128, 0.6)" // 기준 색상을 흰색으로 설정
-                        listening={false}
-                        />
+                        {(activeTool === 'pencil' || activeTool === 'eraser' || activeTool === 'line') &&(
+                            <Rect
+                                x={cursorPos.x - offset} // 계산된 offset만큼 이동
+                                y={cursorPos.y - offset} // 계산된 offset만큼 이동
+                                width={pixelSize}
+                                height={pixelSize}
+                                fill="rgba(128, 128, 128, 0.6)" // 기준 색상을 흰색으로 설정
+                                listening={false}
+                            />
+                        )}
+                        {(activeTool === 'fill' || activeTool ==='eyedrop') && (
+                            <Rect
+                                x={cursorPos.x} // 계산된 offset만큼 이동
+                                y={cursorPos.y} // 계산된 offset만큼 이동
+                                width={1}
+                                height={1}
+                                fill="rgba(128, 128, 128, 0.6)" // 기준 색상을 흰색으로 설정
+                                listening={false}
+                            />
+                        )}
+                        
+
                     </Layer>
                     )}
                 </Stage>

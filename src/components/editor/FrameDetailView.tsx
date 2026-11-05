@@ -1,23 +1,41 @@
 import { useState } from "react";
-import { FrameViewData } from "../../type/editor";
+import { AnimationTag, FrameViewData } from "../../type/editor";
 import { MAX_DURATION, MIN_DURATION_30FPS } from "../../constants/editor/editor";
 
 interface FrameDetailProps{
     detailFrameId: string | null;
     frameViewData: FrameViewData;
+    animationTags: AnimationTag[]; // 전체 태그 목록
     updateAnimDurations: (frameId: string | null, duration: number | null, skipHistory: boolean, forceCommit: boolean) => void;
+    updateFrameTag: (frameId: string | null, tagId: string | null) => void; // 프레임에 태그 장착/해제
+    createAnimationTag: (name: string, color: string) => void; // 새 태그 생성
 }
 
 export function FrameDetailView({
     detailFrameId,
     frameViewData,
+    animationTags,
     updateAnimDurations,
+    updateFrameTag,
+    createAnimationTag,
 }: FrameDetailProps){
 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     
+    // 새 태그 생성 UI 상태
+    const [isCreatingTag, setIsCreatingTag] = useState(false);
+    const [newTagName, setNewTagName] = useState("");
+    const [newTagColor, setNewTagColor] = useState("#2f81f7"); // 기본 색상
+
     if(!detailFrameId) return;
 
+    const handleCreateTag = () => {
+        if (!newTagName.trim()) return;
+        createAnimationTag(newTagName.trim(), newTagColor);
+        setNewTagName("");
+        setIsCreatingTag(false);
+    };
+    
     return(
         <div 
             // fixed 속성으로 브라우저 뷰포트 기준 위치를 고정합니다.
@@ -74,12 +92,90 @@ export function FrameDetailView({
                             // 입력창에서 빠져나올 때 값을 검사하고 교정함
                             let value = Math.round(Number(e.target.value));
                             value = Math.max(MIN_DURATION_30FPS, Math.min(MAX_DURATION, value)); // 최소값과 최대값 제한
-                            
                             e.target.value = String(value); // 입력창에 교정된 값 반영
                             updateAnimDurations(frameViewData.id, value, false, true);
                         }}
                     />
                 </div>
+            </div>
+            {/* 2. 태그 설정 영역 추가 */}
+            <div className="flex flex-col gap-3 pt-3 border-t" style={{borderColor: 'var(--color-outline)'}}>
+                <span className="text-[13px] font-bold">태그 (Tag)</span>
+                
+                {/* 장착 가능한 태그 목록 (배지 형태) */}
+                <div className="flex flex-wrap gap-1.5">
+                    <button
+                        onClick={() => updateFrameTag(frameViewData.id, frameViewData.tagId)}
+                        className={`px-2 py-1 text-[11px] rounded border transition-colors ${
+                            !frameViewData.tagId 
+                            ? 'bg-surface-container-highest border-outline text-on-surface' 
+                            : 'border-outline text-on-surface-variant hover:bg-surface-container'
+                        }`}
+                    >
+                        None
+                    </button>
+                    {animationTags.map(tag => {
+                        const isSelected = frameViewData.tagId === tag.id;
+                        return (
+                            <button
+                                key={tag.id}
+                                onClick={() => updateFrameTag(frameViewData.id, tag.id)}
+                                className="px-2 py-1 text-[11px] rounded border transition-all font-medium"
+                                style={{
+                                    backgroundColor: isSelected ? tag.color : 'transparent',
+                                    borderColor: tag.color,
+                                    color: isSelected ? '#fff' : tag.color,
+                                    opacity: isSelected ? 1 : 0.7
+                                }}
+                            >
+                                {tag.name}
+                            </button>
+                        )
+                    })}
+                </div>
+
+                {/* 태그 생성 폼 / 토글 버튼 */}
+                {!isCreatingTag ? (
+                    <button
+                        onClick={() => setIsCreatingTag(true)}
+                        className="text-[11px] flex items-center gap-1 w-fit mt-1 text-on-surface-variant hover:text-primary transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-[14px]">add</span> 
+                        새 태그 만들기
+                    </button>
+                ) : (
+                    <div className="flex flex-col gap-2 mt-1 p-2.5 rounded bg-surface-container-low border border-outline">
+                        <input
+                            type="text"
+                            placeholder="태그 이름 (예: Walk)"
+                            value={newTagName}
+                            onChange={e => setNewTagName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleCreateTag()}
+                            className="w-full bg-surface px-2 py-1 text-[12px] rounded border border-outline focus:outline-none focus:border-primary"
+                        />
+                        <div className="flex items-center gap-2">
+                            {/* 색상 선택기 */}
+                            <input
+                                type="color"
+                                value={newTagColor}
+                                onChange={e => setNewTagColor(e.target.value)}
+                                className="w-7 h-7 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+                            />
+                            <button
+                                onClick={handleCreateTag}
+                                className="flex-1 bg-primary hover:opacity-90 text-on-primary text-[11px] py-1.5 rounded transition-opacity font-bold"
+                            >
+                                추가
+                            </button>
+                            <button
+                                onClick={() => setIsCreatingTag(false)}
+                                className="flex-1 bg-surface-container-highest hover:opacity-90 text-on-surface text-[11px] py-1.5 rounded transition-opacity"
+                            >
+                                취소
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

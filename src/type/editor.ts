@@ -9,10 +9,10 @@ export interface LoadedEditorProject{
 }
 
 // ── 상세 화면 타입 ──────────────────────────────────────────────
-
 export interface FrameViewData{
   id: string | null;
   duration: number | null;
+  tagId: string | null;
 }
 
 export interface LayerViewData{
@@ -23,7 +23,7 @@ export interface LayerViewData{
 }
 
 //  ── Canvas Object Type ──────────────────────────────────────────────
-interface AnimationTag {
+export interface AnimationTag {
     id: string;
     name: string;        // 예: "Walk", "Attack"
     color: string;       // 태그의 시각적 구분 색상 (예: #ff0000)
@@ -40,6 +40,7 @@ export interface CanvasState{
 
 export interface FrameData{
   id: string;
+  tagId?: string;
   frameOrder?: number;
   duration?: number;
   layers: LayerData[]

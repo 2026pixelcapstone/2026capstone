@@ -1,11 +1,12 @@
 import { FrameData } from "../../type/editor";
-import { useRef } from "react";
+import React, { useRef } from "react";
 
 interface AnimPreviewProps{
     previewFrameIdx: number;
     isPlaying: boolean;
     fps: number;
     setFps: (fps: number) => void;
+    setAnimDetailView: React.Dispatch<React.SetStateAction<boolean>>;
     frames: FrameData[];
     setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
     updateAllAnimDurations: (duration: number) => void
@@ -16,6 +17,7 @@ export function AnimationPreview({
     isPlaying,
     fps,
     setFps,
+    setAnimDetailView,
     frames,
     setIsPlaying,
     updateAllAnimDurations,
@@ -85,6 +87,7 @@ export function AnimationPreview({
                         {/* 전체 화면 버튼 (왼쪽) */}
                         <button
                             type="button"
+                            onClick={() => setAnimDetailView(true)}
                             aria-label="애니메이션 화면 전체 보기"
                             title="전체 보기"
                             className="w-9 h-9 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-white transition-colors"

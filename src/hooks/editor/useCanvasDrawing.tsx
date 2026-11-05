@@ -1,9 +1,10 @@
-import { CanvasState, Point } from "../../type/editor";
+import { CanvasState, EditorToolId, Point } from "../../type/editor";
 import { getCacheKey } from "../../utils/editorUtils";
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import React, { SetStateAction, useCallback, useRef, useState } from "react";
 import { useDrawLine } from "./canvasTool/useDrawLine";
+import { getBresenhamPoints } from "../../utils/pixelAlgorithm";
 
 interface UseCanvasDrawing{
     stageRef: React.RefObject<Konva.Stage | null>;
@@ -11,7 +12,7 @@ interface UseCanvasDrawing{
     state: CanvasState;
     activeFrameId: string | null;
     activeLayerId: string | null;
-    activeTool: string | null;
+    activeTool: EditorToolId;
     fgColor: string;
     pixelSize: number;
     setUnsaved: React.Dispatch<SetStateAction<boolean>>;
@@ -35,6 +36,7 @@ export function useCanvasDrawing({
     ensureLayerCanvas,
     
 }: UseCanvasDrawing){
+    const lastPos = useRef<Point>(null);
     const drawingTarget = useRef<{ frameId: string; layerId: string; ctx: CanvasRenderingContext2D; } | null>(null);
     const isDrawing = useRef(false);
     const [cursorPos, setCursorPos] = useState<Point>({
@@ -78,6 +80,7 @@ export function useCanvasDrawing({
         
         isDrawing.current = true;
         isDirty.current = false;
+        lastPos.current = pos;
         if(activeTool === 'line'){
             startLine(ctx, state.width, state.height, pos,
               {
@@ -112,7 +115,28 @@ export function useCanvasDrawing({
         }
         
         if(activeTool === 'pencil' || activeTool === 'eraser'){
-          applyDirectTool(target.ctx, pos);
+          // 이전 점과 현재 점 사이를 잇는 커스텀 로직 호출 (브레슨햄 알고리즘 등)
+          if (lastPos.current) {
+              // 1. 이전 위치와 현재 위치 사이의 픽셀 좌표들을 계산
+              const points = getBresenhamPoints(
+                  lastPos.current.x, 
+                  lastPos.current.y, 
+                  pos.x, 
+                  pos.y
+              );
+
+              // 2. 계산된 모든 픽셀 좌표에 대해 도구를 적용 (점 찍기)
+              points.forEach(point => {
+                  applyDirectTool(target.ctx, point);
+              });
+          } else {
+              // 혹시 lastPos가 없다면 현재 점만 찍음
+              applyDirectTool(target.ctx, pos);
+          }
+          
+          // 현재 점을 다음 move 이벤트를 위한 이전 점으로 저장
+          lastPos.current = pos; 
+          isDirty.current = true;
           stageRef.current?.findOne(`#${target.layerId}`)?.getLayer()?.batchDraw();
           return;
         }
@@ -120,6 +144,7 @@ export function useCanvasDrawing({
     
     const handleMouseUp = (e: KonvaEventObject<MouseEvent>) => {
         isDrawing.current = false;
+        lastPos.current = null;
         const target = drawingTarget.current;
         if(target){
           const pos = e ? getPixel() : null;

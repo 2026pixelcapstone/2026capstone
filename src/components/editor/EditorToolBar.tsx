@@ -1,28 +1,40 @@
 import { getLabel } from "../../utils/editorUtils";
 import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS } from "../../constants/editor/editor";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useRef, useState } from "react";
 import { EditorToolId } from "../../type/editor";
+import { ColorPickerModal } from "./ColorPickerModal";
 
 interface EditorToolProps{
     activeTool: EditorToolId;
+    activeColorTarget: 'fg' | 'bg';
     fgColor: string;
-    hexInput: string;
+    bgColor: string;
+    rgb:{ r: number; g: number; b: number; }
+    setActiveColorTarget: Dispatch<SetStateAction<'fg' | 'bg'>>;
     setActiveTool: Dispatch<SetStateAction<EditorToolId>>;
-
-    setIsHexModal: Dispatch<SetStateAction<boolean>>;
-    setHexInput: Dispatch<SetStateAction<string>>;
-    applyHex: () => void;
+    setFgColor: Dispatch<SetStateAction<string>>;
+    setBgColor: Dispatch<SetStateAction<string>>;
+    handleRgbChange: (channel: "r" | "g" | "b", value: number) => void;
+    handleSwapColors: () => void;
 }
 
 export function EditorToolBar({
     activeTool,
+    activeColorTarget,
     fgColor,
-    hexInput,
+    bgColor,
+    rgb,
+    setActiveColorTarget,
     setActiveTool,
-    setIsHexModal,
-    setHexInput,
-    applyHex,
+    setFgColor,
+    setBgColor,
+    handleRgbChange,
+    handleSwapColors,
 }: EditorToolProps){
+
+    const [isHexModal, setIsHexModal] = useState(false);
+    const colorBtnRef = useRef<HTMLButtonElement>(null);
+    const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
 
     // 툴 버튼 공통 스타일
     const toolBtn = (id: string) => ({
@@ -30,6 +42,27 @@ export function EditorToolBar({
         color: activeTool === id ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
     })
 
+    const handleOpenModal = () => {
+        if (colorBtnRef.current) {
+            // 버튼의 화면상 크기와 위치 정보 가져오기
+            const rect = colorBtnRef.current.getBoundingClientRect();
+            setModalPos({
+                top: rect.top, // 버튼의 상단과 맞춤
+                left: rect.right + 10, // 버튼의 오른쪽 끝 + 여백 10px 위치
+            });
+            setIsHexModal(true);
+        }
+    };
+
+    const handleColorPickerChange = (newColor: string) => {
+        // 1. 타겟에 맞는 캔버스/배경 색상 업데이트
+        if (activeColorTarget === 'fg') {
+            setFgColor(newColor);
+        } else {
+            setBgColor(newColor);
+        }
+        
+    };
     {/* ── 좌측 툴바 ── */}
     return (
         <aside className="flex flex-col py-3 gap-1 flex-shrink-0 border-r"
@@ -94,30 +127,53 @@ export function EditorToolBar({
                 {/* FG / BG 색상 */}
                 <div className="flex flex-col items-center gap-4 mb-4 px-1">
                     <div className="relative">
+                        {/* 새로 추가된 연결고리(스왑) 버튼 (우측 상단 배치) */}
+                        <button 
+                            type="button"
+                            className="absolute top-13 right-7 w-6 h-6 flex items-center justify-center rounded-md bg-surface border shadow-sm cursor-pointer hover:bg-surface-container-high transition-colors z-20"
+                            style={{ borderColor: 'var(--color-outline)' }}
+                            title="Swap Colors (X)"
+                            onClick={handleSwapColors}
+                        >
+                            {/* Material Symbols 아이콘 사용*/}
+                            <span className="material-symbols-outlined text-[14px]" style={{ color: 'var(--color-on-surface-variant)' }}>
+                                swap_horiz
+                            </span>
+                        </button>
                         <button type = "button" 
+                            ref={colorBtnRef}
                             className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
                             style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
                             title="Foreground"
-                            onClick={() => setIsHexModal(true)} 
+                            onClick={() => {
+                                setActiveColorTarget('fg');
+                                handleOpenModal();
+                            }} 
                         />
-                        <div 
-                            className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm"
-                            style={{ background: 'var(--color-surface)', 
-                            borderColor: 'var(--color-outline)' }} 
-                            title="Background" 
+                        {/* 서브 색상 (Background) */}
+                        <button 
+                            type="button"
+                            className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                            style={{ background: bgColor, borderColor: 'var(--color-outline)' }} 
+                            title="Background (Click to swap)" 
+                            onClick={() =>{
+                                setActiveColorTarget('bg');
+                                handleOpenModal();
+                            }}
                         />
-                    </div>
-                    <div className="w-full">
-                        <div className="text-xs mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>HEX</div>
-                        <input type="text" value={hexInput}
-                        onChange={e => setHexInput(e.target.value)}
-                        onBlur={applyHex}
-                        onKeyDown={e => e.key === 'Enter' && applyHex()}
-                        className="w-full text-sm font-bold rounded-lg px-2 py-1.5 outline-none"
-                        style={{ background: 'var(--color-surface-container-low)', border: 'none', color: 'var(--color-on-surface)' }} />
                     </div>
                 </div>
             </div>
+
+            <ColorPickerModal
+                isOpen = {isHexModal}
+                position = {modalPos}
+                color = {activeColorTarget === 'fg' ? fgColor : bgColor}
+                rgb={rgb}
+                handleRgbChange = {handleRgbChange}
+                onClose = {() => setIsHexModal(false)}
+                onChange = {handleColorPickerChange}
+            />
         </aside>
     )
 }

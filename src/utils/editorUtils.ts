@@ -26,3 +26,4 @@ export function getLabel(label: string | LocalizedText, lang: Lang = CURRENT_LAN
   if (typeof label === 'string') return label;
   return label[lang] || label.ko;
 }
+
