@@ -32,6 +32,11 @@ import { useCanvasSize } from '../hooks/editor/useCanvasSize'
 import { useCanvasPan } from '../hooks/editor/useCanvasPan'
 import { useEditorShortcuts } from '../hooks/editor/useEditorShortcuts'
 import { useViewOverlays } from '../hooks/editor/useViewOverlays'
+import { useImageOps } from '../hooks/editor/useImageOps'
+import { useLayerCacheSync } from '../hooks/editor/useLayerCacheSync'
+import { useOnionSkin } from '../hooks/editor/useOnionSkin'
+import { usePaletteLock } from '../hooks/editor/usePaletteLock'
+import { AdjustTab, ImageAdjustModal } from '../components/editor/ImageAdjustModal'
 import { useAnimation } from '../hooks/editor/useAnimation'
 import { useEditorExport } from '../hooks/editor/useEditorExport'
 import { useEditorImport } from '../hooks/editor/useEditorImport'
@@ -147,7 +152,7 @@ export default function EditorPage() {
   });
 
   // ── useLayerCanvas 훅 ──────────────
-  const { ensureLayerCanvas, peekLayerCanvas, clearAllLayerCanvas } = useLayerCanvas({
+  const { ensureLayerCanvas, peekLayerCanvas, clearLayerCanvas, clearAllLayerCanvas } = useLayerCanvas({
     frames: state.frames,
     width: state.width,
     height: state.height,
@@ -200,7 +205,7 @@ export default function EditorPage() {
 
   // ── 손 도구·단축키·화면 보조(PR-A) ──────────────
   const { pan, panning, startPan, resetPan } = useCanvasPan();
-  const { pixelCounter, setPixelCounter, ratioGuide, setRatioGuide, previewOpen, setPreviewOpen } = useViewOverlays();
+  const { pixelCounter, setPixelCounter, ratioGuide, setRatioGuide, previewOpen, setPreviewOpen, onionSkin, setOnionSkin } = useViewOverlays();
   useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, handleSwapColors });
 
   // ── CanvasSize 훅 ──────────────
@@ -217,6 +222,26 @@ export default function EditorPage() {
 
   // ── View 훅 ──────────────
   const {zoom, setZoomIdx} = useCanvasView({ width: state.width, height: state.height });
+
+  // ── 이미지·레이어 메뉴(PR-B) ──────────────
+  const { busy: imageBusy, transformImage, applyLayerFilter, loadActiveLayerCanvas, duplicateLayer, moveLayer, mergeLayers } = useImageOps({
+    state, activeFrameId, activeLayerId, setActiveLayerId, setWithHistory, setUnsaved,
+  });
+  useLayerCacheSync({ frames: state.frames, activeFrameId, clearLayerCanvas });
+  const onionSkins = useOnionSkin({ enabled: onionSkin, frames: state.frames, activeFrameId, width: state.width, height: state.height });
+  const { paletteLock, setPaletteLock } = usePaletteLock({ fgColor, setFgColor, paletteColors });
+  const [adjustTab, setAdjustTab] = useState<AdjustTab | null>(null);
+  const [canvasSizeRequest, setCanvasSizeRequest] = useState(0);
+  // 화면 맞추기: 캔버스 영역에 여백을 두고 들어가는 가장 큰 배율 + 화면 이동 초기화
+  const fitScreen = useCallback(() => {
+    const area = stageRef.current?.container().closest('main');
+    if (!area) return;
+    const { width: aw, height: ah } = area.getBoundingClientRect();
+    let idx = 0;
+    ZOOM_LEVELS.forEach((z, i) => { if (state.width * z <= aw - 48 && state.height * z <= ah - 96) idx = i; });
+    setZoomIdx(idx);
+    resetPan();
+  }, [state.width, state.height, setZoomIdx, resetPan]);
 
   // ── useEditorProject 훅 ──────────────
   const { 
@@ -692,6 +717,19 @@ export default function EditorPage() {
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
     <div className="fixed inset-0 top-0 flex flex-col" style={{ background: 'var(--color-background)', color: 'var(--color-on-surface)', zIndex: 60 }}>
+      {adjustTab && (
+        <ImageAdjustModal
+          tab={adjustTab}
+          onTab={setAdjustTab}
+          onClose={() => setAdjustTab(null)}
+          palette={paletteColors}
+          fgColor={fgColor}
+          busy={imageBusy}
+          loadPreviewSource={loadActiveLayerCanvas}
+          onApply={applyLayerFilter}
+        />
+      )}
+
       <EditorSaveProjectModal
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
@@ -762,6 +800,13 @@ export default function EditorPage() {
                 editActions={{
                   undo,
                   redo,
+                  openResize: () => setCanvasSizeRequest(n => n + 1),
+                }}
+                imageActions={{
+                  transform: transformImage,
+                  openAdjust: setAdjustTab,
+                  paletteLock,
+                  setPaletteLock,
                 }}
                 viewActions={{
                   setZoomIdx,
@@ -773,10 +818,16 @@ export default function EditorPage() {
                   setRatioGuide,
                   previewOpen,
                   setPreviewOpen,
+                  onionSkin,
+                  setOnionSkin,
+                  fitScreen,
                 }}
                 layerActions={{
                   handleAddLayer,
-                  handleDeleteLayer
+                  handleDeleteLayer,
+                  duplicateLayer,
+                  moveLayer,
+                  mergeLayers,
                 }}
                 pixelGuides={{
                   aiTool,
@@ -920,6 +971,7 @@ export default function EditorPage() {
                 symmetryY: toolOptions.symmetryY,
               }}
               previewProps={{ open: previewOpen, onClose: () => setPreviewOpen(false), peekLayerCanvas }}
+              onionProps={onionSkins}
             />
           </div>
 
@@ -935,6 +987,7 @@ export default function EditorPage() {
               setCustomH = {setCustomH}
               setIsScaleImage = {setIsScaleImage}
               applyCanvasSize = {applyCanvasSize}
+              openCanvasSizeRequest = {canvasSizeRequest}
               />
 
           {/* ── 우측 패널 ──────── */}
