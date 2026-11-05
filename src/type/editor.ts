@@ -9,7 +9,6 @@ export interface LoadedEditorProject{
 }
 
 // ── 상세 화면 타입 ──────────────────────────────────────────────
-
 export interface FrameViewData{
   id: string | null;
   duration: number | null;

@@ -888,7 +888,8 @@ export default function EditorPage() {
               setPixelPerfect={setPixelPerfect}
             />
             {/* ── 캔버스 영역 ── */}
-            <EditorCanvas 
+            <EditorCanvas
+              activeTool= {activeTool} 
               activeFrameId = {activeFrameId}
               zoom = {zoom}
               showGridLines = {showGridLines}

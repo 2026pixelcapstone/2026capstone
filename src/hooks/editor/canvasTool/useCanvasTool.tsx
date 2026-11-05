@@ -29,15 +29,17 @@ export function useCanvasTool({
     
         // ─── [연필 도구] ──────────────────────────────────────────
         if (activeTool === 'pencil') {
+          const offset = Math.floor((pixelSize - 1) / 2);
           ctx.fillStyle = fgColor;
-          ctx.fillRect(x, y, pixelSize, pixelSize);
+          ctx.fillRect(x - offset, y - offset, pixelSize, pixelSize);
           ctx.globalAlpha = 1;
           isDirty.current = true; // 픽셀이 변경되었음을 표시
           setUnsaved(true);
         }
         // ─── [지우개 도구] ────────────────────────────────────────
         else if (activeTool === 'eraser') {
-          ctx.clearRect(x, y, pixelSize, pixelSize)
+          const offset = Math.floor((pixelSize - 1) / 2);
+          ctx.clearRect(x - offset, y - offset, pixelSize, pixelSize)
           isDirty.current = true; // 픽셀이 변경되었음을 표시
           setUnsaved(true);
         }
