@@ -6,7 +6,7 @@ import React, { SetStateAction, useCallback, useRef, useState } from "react";
 import { snapToAngles, useDrawLine } from "./canvasTool/useDrawLine";
 import { useDrawShape } from "./canvasTool/useDrawShape";
 import { getBresenhamPoints } from "../../utils/pixelAlgorithm";
-import { BrushOptions, brushCells, stampBrush } from "../../utils/pixelBrush";
+import { BrushOptions, brushCells, stampBrush, stampSpan } from "../../utils/pixelBrush";
 
 interface UseCanvasDrawing{
     stageRef: React.RefObject<Konva.Stage | null>;
@@ -71,6 +71,9 @@ export function useCanvasDrawing({
     // 직선·도형이 칸 하나를 찍는 방법 — 연필과 같은 붓(크기·대칭·체크무늬·투명 잠금)
     const plot = useCallback((ctx: CanvasRenderingContext2D, pt: Point) => {
         stampBrush(ctx, pt.x, pt.y, brushOptions(false));
+    }, [brushOptions]);
+    const plotSpan = useCallback((ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number) => {
+        stampSpan(ctx, x0, x1, y, brushOptions(false));
     }, [brushOptions]);
 
     // 픽셀 퍼펙트는 1칸 연필·체크무늬 없음일 때만(굵은 붓·체크무늬에선 L자 꺾임 개념이 없음)
@@ -194,7 +197,7 @@ export function useCanvasDrawing({
         }
 
         if (isShapeTool(activeTool)) {
-            const end = updateShape(target.ctx, pos, { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot });
+            const end = updateShape(target.ctx, pos, { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot, plotSpan });
             if (end) setDragShape(d => d && { ...d, end });
             redrawLayer(target.layerId);
             return;
@@ -249,7 +252,7 @@ export function useCanvasDrawing({
                 });
                 redrawLayer(target.layerId);
             } else if (isShapeTool(activeTool)) {
-                updateShape(target.ctx, pos, { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot });
+                updateShape(target.ctx, pos, { kind: activeTool, filled: shapeFill, square: e.evt.shiftKey, plot, plotSpan });
                 redrawLayer(target.layerId);
             }
           }

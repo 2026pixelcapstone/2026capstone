@@ -63,8 +63,8 @@ export function LeftToolBarOptionBar({
         >
             {SIZE_TOOLS.includes(activeTool) && (
                 <div className="flex items-center gap-2">
-                    <label className={label}>픽셀 크기</label>
-                    <input className="w-24 accent-primary"
+                    <label className={label} htmlFor="pixel-size-range">픽셀 크기</label>
+                    <input id="pixel-size-range" className="w-24 accent-primary"
                         type="range"
                         min={MIN_PIXEL_SIZE}
                         max={MAX_PIXEL_SIZE}

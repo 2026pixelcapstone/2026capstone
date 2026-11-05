@@ -9,6 +9,7 @@ export interface DrawShapeOptions {
     filled: boolean;
     square: boolean;   // Shift: 정사각형·정원
     plot: (ctx: CanvasRenderingContext2D, pt: Point) => void;
+    plotSpan: (ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number) => void;   // 채움: 줄 단위로 한 번에
 }
 
 /**
@@ -32,7 +33,18 @@ export function useDrawShape() {
         ctx.putImageData(snapshot.current, 0, 0);
         const end = o.square ? constrainSquare(start, pos) : pos;
         const pts = o.kind === 'rect' ? rectPoints(start, end, o.filled) : ellipsePoints(start, end, o.filled);
-        for (const p of pts) o.plot(ctx, p);
+        if (o.filled) {
+            // 채움 도형은 줄마다 한 구간 → 칸마다 찍지 않고 줄마다 한 번(큰 캔버스에서 끌 때 느려지지 않게)
+            const rows = new Map<number, { min: number; max: number }>();
+            for (const p of pts) {
+                const r = rows.get(p.y);
+                if (!r) rows.set(p.y, { min: p.x, max: p.x });
+                else { r.min = Math.min(r.min, p.x); r.max = Math.max(r.max, p.x); }
+            }
+            rows.forEach((r, y) => o.plotSpan(ctx, r.min, r.max, y));
+        } else {
+            for (const p of pts) o.plot(ctx, p);
+        }
         return end;
     }, []);
 

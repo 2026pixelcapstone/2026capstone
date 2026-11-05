@@ -28,16 +28,21 @@ function mirroredOrigins(x0: number, y0: number, size: number, w: number, h: num
 }
 
 function paintRect(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, o: BrushOptions) {
+    paintBox(ctx, x, y, size, size, o);
+}
+
+/** w×h 상자 칠하기(투명 잠금·체크무늬 반영) */
+function paintBox(ctx: CanvasRenderingContext2D, x: number, y: number, bw: number, bh: number, o: BrushOptions) {
     const erase = o.color === null;
     const lock = !!o.alphaLock && !erase;
     if (lock) ctx.globalCompositeOperation = 'source-atop';   // 기존 칸의 불투명도 안에서만 칠해짐
     if (!erase) ctx.fillStyle = o.color as string;
     if (!o.dither) {
-        if (erase) ctx.clearRect(x, y, size, size);
-        else ctx.fillRect(x, y, size, size);
+        if (erase) ctx.clearRect(x, y, bw, bh);
+        else ctx.fillRect(x, y, bw, bh);
     } else {
-        for (let py = y; py < y + size; py++) {
-            for (let px = x; px < x + size; px++) {
+        for (let py = y; py < y + bh; py++) {
+            for (let px = x; px < x + bw; px++) {
                 if (((px + py) & 1) !== 0) continue;
                 if (erase) ctx.clearRect(px, py, 1, 1);
                 else ctx.fillRect(px, py, 1, 1);
@@ -54,6 +59,30 @@ export function stampBrush(ctx: CanvasRenderingContext2D, cx: number, cy: number
     const { width, height } = ctx.canvas;
     for (const p of mirroredOrigins(cx - offset, cy - offset, size, width, height, o)) {
         paintRect(ctx, p.x, p.y, size, o);
+    }
+}
+
+/**
+ * 가로 구간 [x0, x1] × y를 붓으로 한 번에 칠함 = 그 구간의 칸마다 붓을 찍은 것과 같은 결과(붓 사각형들의 합집합이 한 사각형).
+ * 채움 도형 미리보기를 줄마다 한 번으로(512×512 채움도 줄 512번) — CodeRabbit #128.
+ */
+export function stampSpan(ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number, o: BrushOptions) {
+    const size = Math.max(1, o.size | 0);
+    const offset = Math.floor((size - 1) / 2);
+    const { width, height } = ctx.canvas;
+    const left = Math.min(x0, x1) - offset;
+    const w = Math.abs(x1 - x0) + size;
+    const top = y - offset;
+    const list: Point[] = [{ x: left, y: top }];
+    if (o.symmetryX) list.push({ x: width - left - w, y: top });
+    if (o.symmetryY) list.push({ x: left, y: height - top - size });
+    if (o.symmetryX && o.symmetryY) list.push({ x: width - left - w, y: height - top - size });
+    const seen = new Set<string>();
+    for (const p of list) {
+        const k = `${p.x},${p.y}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        paintBox(ctx, p.x, p.y, w, size, o);
     }
 }
 
