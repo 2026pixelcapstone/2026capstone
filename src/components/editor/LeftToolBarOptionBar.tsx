@@ -1,6 +1,7 @@
 import React from "react";
 import { EditorToolId } from "../../type/editor";
 import { MAX_PIXEL_SIZE, MIN_PIXEL_SIZE } from "../../hooks/editor/useEditorShortcuts";
+import { DRAW_TOOLS, SELECT_TOOLS, SHAPE_TOOLS, VIEW_TOOLS } from "../../constants/editor/editor";
 
 interface ToolOptions {
     shapeFill: boolean;
@@ -68,10 +69,17 @@ export function LeftToolBarOptionBar({
     hasSelection,
 }: LeftToolOptionBarProps){
     const o = toolOptions, s = setToolOptions;
+    const toolName = [...DRAW_TOOLS, ...SELECT_TOOLS, ...SHAPE_TOOLS, ...VIEW_TOOLS].find(t => t.id === activeTool)?.label;
     return(
         <div className="flex items-center h-10 px-4 border-b gap-5 text-sm overflow-x-auto whitespace-nowrap"
             style={{borderColor: 'var(--color-outline)', background: 'var(--color-surface-container-low)'}}
         >
+            {/* 지금 도구 이름(PR-F) — 왼쪽 도구 모음은 아이콘뿐이라 */}
+            {toolName && (
+                <span className="flex items-center gap-1.5 font-bold text-xs flex-shrink-0" style={{ color: 'var(--color-primary)' }}>
+                    {toolName}
+                </span>
+            )}
             {SIZE_TOOLS.includes(activeTool) && (
                 <div className="flex items-center gap-2">
                     <label className={label} htmlFor="pixel-size-range">픽셀 크기</label>

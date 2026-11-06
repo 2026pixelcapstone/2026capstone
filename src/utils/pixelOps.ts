@@ -1,3 +1,4 @@
+import { blendOp } from './blendMode';
 /**
  * 레이어 그림 변환 공용 계산(PR-B) — 반전·회전·색 조정·팔레트로 맞추기·외곽선·색 바꾸기·합치기.
  * 입력·출력은 캔버스(레이어 크기 그대로, 회전만 가로세로가 바뀜). 상태 반영·되돌리기는 useImageOps가 함.
@@ -216,18 +217,20 @@ export function addOutline(src: HTMLCanvasElement, o: OutlineOptions): HTMLCanva
 // ── 합치기 ───────────────────────────────────────────
 
 /**
- * 레이어 여러 장을 아래→위 순서로 합침. 화면(EditorCanvas)이 레이어 투명도만 반영하고 혼합 모드는 안 쓰므로 똑같이 맞춤
+ * 레이어 여러 장을 아래→위 순서로 합침. 화면(EditorCanvas)과 같게 투명도 + 혼합 모드(PR-F)를 반영
  * (보이는 것과 합친 결과가 같아야 함).
  */
-export function composite(layers: { canvas: HTMLCanvasElement | null; opacity: number }[], w: number, h: number): HTMLCanvasElement {
+export function composite(layers: { canvas: HTMLCanvasElement | HTMLImageElement | null; opacity: number; blendMode?: string }[], w: number, h: number): HTMLCanvasElement {
     const out = makeCanvas(w, h);
     const ctx = ctx2d(out);
     for (const l of layers) {
         if (!l.canvas || l.opacity <= 0) continue;
         ctx.globalAlpha = l.opacity / 100;
+        ctx.globalCompositeOperation = blendOp(l.blendMode);
         ctx.drawImage(l.canvas, 0, 0);
     }
     ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     return out;
 }
 

@@ -46,5 +46,29 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
         setUnsaved(true);
     }, [state.frames, activeFrameId, activeLayerId, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
 
-    return { duplicateFrame };
+    /** 프레임 순서 뒤집기(PR-F) — 애니메이션 태그 범위도 거울처럼 뒤집음(0..n-1 → n-1..0). 되돌리기 한 번 */
+    const reverseFrames = useCallback(() => {
+        if (state.frames.length < 2) return false;
+        setWithHistory(prev => {
+            const n = prev.frames.length;
+            if (n < 2) return prev;
+            return {
+                ...prev,
+                frames: [...prev.frames].reverse().map((f, i) => ({ ...f, frameOrder: i })),
+                animationTags: (prev.animationTags ?? []).map(t => ({ ...t, fromIndex: n - 1 - t.toIndex, toIndex: n - 1 - t.fromIndex })),
+            };
+        });
+        setUnsaved(true);
+        return true;
+    }, [state.frames.length, setWithHistory, setUnsaved]);
+
+    /** 이전·다음 프레임 id(끝에서는 반대쪽으로 돌아감) */
+    const neighborFrameId = useCallback((dir: 1 | -1) => {
+        const n = state.frames.length;
+        if (n < 2) return null;
+        const idx = Math.max(0, state.frames.findIndex(f => f.id === activeFrameId));
+        return state.frames[(idx + dir + n) % n].id;
+    }, [state.frames, activeFrameId]);
+
+    return { duplicateFrame, reverseFrames, neighborFrameId };
 }

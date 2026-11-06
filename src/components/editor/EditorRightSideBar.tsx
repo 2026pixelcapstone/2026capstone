@@ -12,6 +12,8 @@ interface RightSideBarProps{
     setIsScaleImage: React.Dispatch<React.SetStateAction<boolean>>;
     applyCanvasSize: (w: number, h: number) => void
     openCanvasSizeRequest?: number;   // 편집 > 크기 조절 메뉴: 값이 바뀌면 크기 창을 엶(PR-B)
+    anchor?: { x: number; y: number };   // 크기 바꿀 때 기준점(PR-F)
+    setAnchor?: (a: { x: number; y: number }) => void;
 }
 export function EditorRightSideBar({
     activeRightTab,
@@ -24,6 +26,8 @@ export function EditorRightSideBar({
     setIsScaleImage, 
     applyCanvasSize,
     openCanvasSizeRequest = 0,
+    anchor,
+    setAnchor,
 }: RightSideBarProps){
     
     const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
@@ -47,7 +51,6 @@ export function EditorRightSideBar({
             left: rect.right - 310, // 버튼의 오른쪽 끝 + 여백 10px 위치
         });
         setIsCanvasSizeModal(!isCanvasSizeModal);
-        console.log("rect.top: " + rect.top + 'rect.right: ' + rect.right);
     };
 
     return(
@@ -132,6 +135,8 @@ export function EditorRightSideBar({
                 setCustomH = {setCustomH}
                 setIsScaleImage = {setIsScaleImage}
                 applyCanvasSize = {applyCanvasSize}
+                anchor={anchor}
+                setAnchor={setAnchor}
             />
         </div>
     )

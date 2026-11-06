@@ -1,5 +1,5 @@
 import { FrameData } from "../../type/editor";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 
 interface EditorLayerProps{
     detailLayer: string | null;
@@ -12,6 +12,9 @@ interface EditorLayerProps{
     toggleVisibility: (targetFrameId: string | null, layerId: string | null) => void;
     handleAddLayer: () => void;
     handleDeleteLayer: () => void;
+    /** PR-F: 잠금 켜고 끄기·이름 바꾸기(없으면 버튼·더블클릭 없음) */
+    toggleLock?: (layerId: string) => void;
+    renameLayer?: (layerId: string, name: string) => void;
 }
 
 export function EditorLayerBar({
@@ -25,7 +28,18 @@ export function EditorLayerBar({
     toggleVisibility,
     handleAddLayer,
     handleDeleteLayer,
+    toggleLock,
+    renameLayer,
 }:EditorLayerProps){
+  // 이름 바꾸는 중인 레이어(더블클릭)
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
+  const finishRename = () => {
+    if (renaming && renameLayer) {
+      const name = renaming.value.trim();
+      if (name) renameLayer(renaming.id, name.slice(0, 50));
+    }
+    setRenaming(null);
+  };
   // 1. 컴포넌트 내부 상단에 배열을 변수로 분리 (as const 적용)
   const layerButtons = [
       ['add', '레이어 추가', handleAddLayer],
@@ -75,7 +89,7 @@ export function EditorLayerBar({
   return(
     <div className="p-4 border-b" style={{ borderColor: 'var(--color-outline)' }}>
         <div className="flex items-center justify-between mb-3">
-          <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>{currentFrame.layers.length} Layer{currentFrame.layers.length === 1 ? '' : 's'}</div>
+          <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-on-surface-variant)' }}>레이어 {currentFrame.layers.length}개</div>
           <div className="flex gap-1">
             {layerButtons.map(([icon,tip, handler]) => (
               <button key={icon} title={tip}
@@ -99,7 +113,8 @@ export function EditorLayerBar({
         <div 
           className="space-y-0.5 overflow-y-auto pr-1"
           style={{
-            height: '135px',
+            minHeight: '135px',
+            maxHeight: '300px',
             scrollbarWidth: 'thin',
             scrollbarColor: 'var(--color-surface-container) transparent'
           }}    
@@ -144,15 +159,55 @@ export function EditorLayerBar({
                   </span>
                 </button>
 
-                {/* 레이어 썸네일 박스 */}
-                <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none"
+                {/* 잠금 토글(PR-F) — 잠긴 레이어는 그리기·지우기·채우기·이동이 막힘 */}
+                {toggleLock && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); toggleLock(layer.id); }}
+                    aria-label={layer.isLocked ? `${layer.name} 잠금 풀기` : `${layer.name} 잠그기`}
+                    title={layer.isLocked ? '잠금 풀기' : '잠그기'}
+                    className={`flex items-center justify-center p-0.5 rounded hover:bg-surface-container-highest transition-opacity ${layer.isLocked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+                    style={{ color: layer.isLocked ? 'var(--color-warning)' : 'var(--color-outline-strong)' }}
+                  >
+                    <span className="material-symbols-outlined text-sm">{layer.isLocked ? 'lock' : 'lock_open'}</span>
+                  </button>
+                )}
+
+                {/* 레이어 썸네일 박스 — 지금 그림(PR-F) */}
+                <div className="w-8 h-8 rounded border flex-shrink-0 checkerboard pointer-events-none overflow-hidden flex items-center justify-center"
                   style={{
                     borderColor: activeLayerId === layer.id ? 'var(--color-primary)' : 'var(--color-outline)',
                   }} 
-                />
+                >
+                  {layer.pixelData && (
+                    <img src={layer.pixelData} alt="" className="max-w-full max-h-full" style={{ imageRendering: 'pixelated', opacity: layer.isVisible ? 1 : 0.4 }} draggable={false} />
+                  )}
+                </div>
 
-                {/* 레이어 이름 */}
-                <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
+                {/* 레이어 이름 — 더블클릭으로 바꾸기(PR-F) */}
+                {renaming?.id === layer.id ? (
+                  <input
+                    autoFocus
+                    value={renaming.value}
+                    maxLength={50}
+                    aria-label="레이어 이름"
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => setRenaming({ id: layer.id, value: e.target.value })}
+                    onBlur={finishRename}
+                    onKeyDown={e => {
+                      e.stopPropagation();
+                      if (e.key === 'Enter') finishRename();
+                      if (e.key === 'Escape') setRenaming(null);
+                    }}
+                    className="text-sm flex-1 min-w-0 rounded px-1 outline-none"
+                    style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-primary)', color: 'var(--color-on-surface)' }}
+                  />
+                ) : (
+                  <span className="text-sm truncate flex-1"
+                    title={renameLayer ? '더블클릭으로 이름 바꾸기' : undefined}
+                    onDoubleClick={(e) => { if (!renameLayer) return; e.stopPropagation(); setRenaming({ id: layer.id, value: layer.name }); }}
+                  >{layer.name}</span>
+                )}
                 
                 {/* 레이어 설정 버튼 */}
                 <button

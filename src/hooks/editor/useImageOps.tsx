@@ -160,10 +160,33 @@ export function useImageOps({ state, activeFrameId, activeLayerId, setActiveLaye
      * 보이는 레이어 병합: 보이는 레이어를 화면과 같은 순서·투명도로 합쳐, 가장 아래 보이는 레이어 자리에 하나로. 숨긴 레이어는 그대로.
      * 이미지 병합: 보이는 것만 합친 레이어 하나만 남김(숨긴 레이어는 버림 — 포토샵·Aseprite와 같음).
      */
-    const mergeLayers = useCallback((mode: 'visible' | 'flatten') => {
-        const label = mode === 'visible' ? '보이는 레이어 병합' : '이미지 병합';
+    const mergeLayers = useCallback((mode: 'visible' | 'flatten' | 'down') => {
+        const label = mode === 'visible' ? '보이는 레이어 병합' : mode === 'down' ? '아래 레이어와 병합' : '이미지 병합';
         const f0 = currentFrame();
         if (!f0) return Promise.resolve(false);
+        // 아래 레이어와 병합(PR-F): 지금 레이어 + 바로 아래 레이어 → 아래 레이어 자리에 하나로(보이기 여부와 상관없이 둘만)
+        if (mode === 'down') {
+            const sorted0 = [...f0.layers].sort((a, b) => a.layerOrder - b.layerOrder);
+            const idx0 = sorted0.findIndex(l => l.id === activeLayerId);
+            if (idx0 <= 0) { toast.info('아래에 합칠 레이어가 없어요.'); return Promise.resolve(false); }
+            const topId = sorted0[idx0].id, belowId = sorted0[idx0 - 1].id;
+            const newIdDown = `layer-${crypto.randomUUID().slice(0, 8)}`;
+            return runAsync(label, async (snap) => {
+                const f = snap.frames.find(x => x.id === f0.id);
+                if (!f) return null;
+                const sorted = [...f.layers].sort((a, b) => a.layerOrder - b.layerOrder);
+                const below = sorted.find(l => l.id === belowId), top = sorted.find(l => l.id === topId);
+                if (!below || !top) return null;
+                const [cb, ct] = await Promise.all([loadPixelData(below.pixelData, snap.width, snap.height), loadPixelData(top.pixelData, snap.width, snap.height)]);
+                const merged = composite([
+                    { canvas: cb, opacity: below.opacity, blendMode: 'NORMAL' },
+                    { canvas: ct, opacity: top.opacity, blendMode: top.blendMode },
+                ], snap.width, snap.height);
+                const mergedLayer: LayerData = { ...below, id: newIdDown, isVisible: true, isLocked: false, opacity: 100, blendMode: below.blendMode, pixelData: canvasToPixelData(merged) };
+                const layers = sorted.filter(l => l.id !== topId).map(l => (l.id === belowId ? mergedLayer : l)).map((l, i) => ({ ...l, layerOrder: i }));
+                return { ...snap, frames: snap.frames.map(fr => (fr.id === f.id ? { ...fr, layers } : fr)) };
+            }).then(ok => { if (ok) setActiveLayerId(newIdDown); return ok; });
+        }
         const visible0 = f0.layers.filter(l => l.isVisible);
         if (mode === 'visible' && visible0.length < 2) {
             toast.info('보이는 레이어가 2개 이상일 때 합칠 수 있어요.');
@@ -180,10 +203,10 @@ export function useImageOps({ state, activeFrameId, activeLayerId, setActiveLaye
             const sorted = [...f.layers].sort((a, b) => a.layerOrder - b.layerOrder);
             const vis = sorted.filter(l => l.isVisible);
             const canvases = await Promise.all(vis.map(l => loadPixelData(l.pixelData, snap.width, snap.height)));
-            const merged = composite(vis.map((l, i) => ({ canvas: canvases[i], opacity: l.opacity })), snap.width, snap.height);
+            const merged = composite(vis.map((l, i) => ({ canvas: canvases[i], opacity: l.opacity, blendMode: i === 0 ? 'NORMAL' : l.blendMode })), snap.width, snap.height);
             const base = vis[0] ?? sorted[0];
             const mergedLayer: LayerData = {
-                ...base, id: newId, name: mode === 'flatten' ? 'Background' : '병합됨',
+                ...base, id: newId, name: mode === 'flatten' ? '배경' : '병합됨',
                 isVisible: true, isLocked: false, opacity: 100, blendMode: 'NORMAL', pixelData: canvasToPixelData(merged),
             };
             let layers: LayerData[];
@@ -199,7 +222,7 @@ export function useImageOps({ state, activeFrameId, activeLayerId, setActiveLaye
             layers = layers.map((l, i) => ({ ...l, layerOrder: i }));
             return { ...snap, frames: snap.frames.map(fr => (fr.id === f.id ? { ...fr, layers } : fr)) };
         }).then(ok => { if (ok) setActiveLayerId(newId); return ok; });
-    }, [runAsync, activeFrameId, setActiveLayerId]);
+    }, [runAsync, activeFrameId, activeLayerId, setActiveLayerId]);
 
     return { busy, runEdit: runAsync, transformImage, applyLayerFilter, loadActiveLayerCanvas, duplicateLayer, moveLayer, mergeLayers };
 }

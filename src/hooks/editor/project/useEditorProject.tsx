@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasState, SaveModelData } from "../../../type/editor";
 import { useEditorLoad } from "./useEditorLoad";
 import { useEditorSave } from "./useEditorSave";
-import { createInitialCanvasData } from "../../../constants/editor/editor";
+import { createInitialCanvasData, DEFAULT_PROJECT_TITLE } from "../../../constants/editor/editor";
 import { toast } from "../../../store/toastStore";
 import { useSearchParams } from "react-router-dom";
 import Konva from "konva";
@@ -63,7 +63,7 @@ export function useEditorProject({
         currentProjectIdRef.current = next;
         setProjectIdState(next);
     }, []);
-    const [projectTitle, setProjectTitle] = useState('Untitled Project');
+    const [projectTitle, setProjectTitle] = useState(DEFAULT_PROJECT_TITLE);
     const [isPublic, setIsPublic] = useState<boolean>(false);
     //const [editingTitle, setEditingTitle] = useState(false);
     
@@ -149,7 +149,7 @@ export function useEditorProject({
         clearAllLayerCanvas();
 
         setProjectId(null);  // 불러온 .ppit은 새 작업(저장된 프로젝트 아님)
-        setProjectTitle(title || 'Untitled Project');
+        setProjectTitle(title || DEFAULT_PROJECT_TITLE);
         setIsPublic(false);
         setUnsaved(true);
     
@@ -189,7 +189,7 @@ export function useEditorProject({
     
         // 기타 메타데이터 및 URL 초기화
         setProjectId(null);
-        setProjectTitle('Untitled Project');
+        setProjectTitle(DEFAULT_PROJECT_TITLE);
         setIsPublic(false);
         setUnsaved(false);
         // URL에 남은 projectId 쿼리 파라미터 제거
@@ -272,7 +272,7 @@ export function useEditorProject({
         loadControllerRef.current?.abort();  // 진행 중이던 불러오기가 다른 탭에 들어오지 않게
         loadControllerRef.current = null;
         setProjectId(meta.projectId);
-        setProjectTitle(meta.title || 'Untitled Project');
+        setProjectTitle(meta.title || DEFAULT_PROJECT_TITLE);
         setIsPublic(meta.isPublic);
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
