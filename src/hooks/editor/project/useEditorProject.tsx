@@ -22,6 +22,16 @@ interface UseEditorProjectProps {
     resetLayerCounters: () => void;
     peekLayerCanvas: (cachekey: string) => HTMLCanvasElement | null;
     clearAllLayerCanvas: () => void;
+    /** 프로젝트 팔레트 — 저장할 때 같이 보내고, 불러올 때 되살림(없으면 팔레트는 건드리지 않음) */
+    paletteColors?: string[];
+    setPaletteColors?: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
+/** 탭 전환 등으로 되살릴 프로젝트 정보 */
+export interface ProjectMeta {
+    projectId: number | null;
+    title: string;
+    isPublic: boolean;
 }
 
 export function useEditorProject({
@@ -38,6 +48,8 @@ export function useEditorProject({
     resetLayerCounters,
     peekLayerCanvas,
     clearAllLayerCanvas,
+    paletteColors,
+    setPaletteColors,
 }: UseEditorProjectProps) {
     // 프로젝트 세대(버전)를 추적하는 ref
     const projectGenerationRef = useRef<number>(0);
@@ -88,7 +100,10 @@ export function useEditorProject({
             setProjectTitle(proj.title)
             setCustomW(proj.width)
             setCustomH(proj.height)
-            setIsPublic(proj.isPublic === true)
+
+            setIsPublic(proj.isPublic)
+            if (proj.palette && setPaletteColors) setPaletteColors(proj.palette)
+
             // 1. 프레임 데이터 결정 (불러온 프레임이 있으면 사용하고, 없으면 기본 프레임 생성 또는 기존 프레임 유지)
             const framesToReset = proj.frames.length > 0 
             ? proj.frames 
@@ -115,7 +130,7 @@ export function useEditorProject({
             if (loadControllerRef.current === controller) loadControllerRef.current = null;
         }
     }, [isLoggedIn, rawProjectId, loadProject, reset, setProjectId, setProjectTitle,
-        setCustomW, setCustomH, setActiveFrameId, setActiveLayerId])
+        setCustomW, setCustomH, setActiveFrameId, setActiveLayerId, setPaletteColors])
 
 
     // ── 프로젝트 교체 ──────────────
@@ -222,6 +237,7 @@ export function useEditorProject({
                 state,
                 nextTitle,
                 isNextPublic,
+                paletteColors,
             );
 
             if(!result){ return; }      
@@ -248,7 +264,36 @@ export function useEditorProject({
             console.error("저장 중 에러 발생", error);
             toast.error('저장에 실패했습니다.');
         }
-    }, [isLoggedIn, isPublic, saving, saveProject, projectId, state, projectTitle, setSearchParams])
+
+    }, [isLoggedIn, saving, saveProject, projectId, state, projectTitle, setSearchParams, paletteColors])
+
+    // ── 프로젝트 정보 되살리기(탭 전환) ──────────────
+    // 그림·되돌리기 기록은 부르는 쪽(useEditorTabs)이 되살리고, 여기서는 id·제목·공개 여부와 주소만 맞춤.
+    // id ref를 주소보다 먼저 바꿔서 주소 변경 effect가 같은 프로젝트를 다시 불러오지 않게 함.
+    const restoreProject = useCallback((meta: ProjectMeta) => {
+        projectGenerationRef.current += 1;   // 진행 중이던 저장 결과가 다른 탭 정보를 덮지 않게
+        loadControllerRef.current?.abort();  // 진행 중이던 불러오기가 다른 탭에 들어오지 않게
+        loadControllerRef.current = null;
+        setProjectId(meta.projectId);
+        setProjectTitle(meta.title || 'Untitled Project');
+        setIsPublic(meta.isPublic);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (meta.projectId) next.set('projectId', String(meta.projectId));
+            else next.delete('projectId');
+            return next;
+        }, { replace: true });
+    }, [setProjectId, setSearchParams]);
+
+    // 저장된 프로젝트를 지금 탭에 불러오기(확인 없이) — 새 탭에서 열 때 사용
+    const loadProjectHere = useCallback((pid: number) => {
+        projectGenerationRef.current += 1;
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('projectId', String(pid));
+            return next;
+        }, { replace: true });
+    }, [setSearchParams]);
 
     const openSaveModal = useCallback((isSaveAs: boolean = false) => {
         if (!isLoggedIn) {
@@ -284,5 +329,7 @@ export function useEditorProject({
         openProject,
         openSaveModal,
         replaceProject,
+        restoreProject,
+        loadProjectHere,
     };
 }

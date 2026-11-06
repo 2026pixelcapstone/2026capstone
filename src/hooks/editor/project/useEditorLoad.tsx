@@ -62,8 +62,8 @@ export function useEditorLoad(){
                 width: proj.width,
                 height: proj.height,
                 frames: restoredFrames,
-                // 구버전/비정상 응답에 isPublic이 없으면 비공개로 간주합니다.
-                isPublic: proj.isPublic === true,
+                isPublic: proj.isPublic,
+                palette: Array.isArray(proj.palette) && proj.palette.length > 0 ? proj.palette : null,
             }
         }catch (error) {
             if (signal.aborted) return null;

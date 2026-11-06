@@ -6,6 +6,7 @@ export interface LoadedEditorProject{
   height: number;
   frames: FrameData[];
   isPublic: boolean;
+  palette: string[] | null;
 }
 
 // ── 상세 화면 타입 ──────────────────────────────────────────────
@@ -98,7 +99,8 @@ export const MENU_ACTION = {
   // Menu -> File
   NEW_PROJECT: 'NEW_PROJECT',
   OPEN_PROJECT: 'OPEN_PROJECT',
-  IMPORT_PROJECT: 'IMPORT_PROJECT',
+  CLOSE_TAB: 'CLOSE_TAB',               // 탭 닫기(PR-E)
+  SEND_TO_TAB: 'SEND_TO_TAB',           // 다른 탭으로 보내기(PR-E)
   OPEN_PPIT: 'OPEN_PPIT',
   IMPORT_IMAGE: 'IMPORT_IMAGE',         // 이미지 불러오기(새 레이어)
   OPEN_REFERENCE: 'OPEN_REFERENCE',     // 참조 이미지 열기
