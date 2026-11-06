@@ -124,7 +124,9 @@ export const useEditorSave = ({
                 });
                 pid = res.data.data.projectId;
                 nextTitle = res.data.data.title;
-                isNextPublic = res.data.data.isPublic; 
+                // 응답 필드가 누락된 서버 버전에서도 요청한 공개 설정을 보존합니다.
+                isNextPublic = res.data.data.isPublic ?? isNextPublic;
+                console.log(res.data.data.isPublic);
             } else {
                 const res = await editorApi.updateProject(pid, {
                     title: nextTitle,
@@ -134,7 +136,8 @@ export const useEditorSave = ({
                     thumbnailUrl: uploadedThumbUrl,
                 });
                 nextTitle = res.data.data.title;
-                isNextPublic = res.data.data.isPublic;
+                isNextPublic = res.data.data.isPublic ?? isNextPublic;
+                console.log(res.data.data.isPublic);
             }
 
             // 5. 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브

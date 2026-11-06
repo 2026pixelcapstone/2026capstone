@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FrameData,  AnimationTag} from '../../type/editor';
+import { MIN_DURATION_30FPS } from '../../constants/editor/editor';
 
 interface AnimationDetailViewProps {
     isOpen: boolean;
@@ -22,27 +23,37 @@ export function AnimationDetailView({
 
     // 선택된 태그가 있을 경우 해당 구간만 반복하도록 계산
     const playbackRange = useMemo(() => {
-        if (!frames || frames.length === 0) return { start: 0, end: 0 };
-        if (activeTagId && animationTags) {
-            const tag = animationTags.find(t => t.id === activeTagId);
-            if (tag) return { start: tag.fromIndex, end: tag.toIndex };
+        if (!frames || frames.length === 0) return { indices: [] as number[] };
+        if (activeTagId) {
+            const taggedIndices = frames
+                .map((frame, index) => frame.tagId === activeTagId ? index : -1)
+                .filter(index => index >= 0);
+            if (taggedIndices.length > 0) {
+                return { indices: taggedIndices };
+            }
         }
-        return { start: 0, end: frames.length - 1 };
-    }, [frames, activeTagId, animationTags]);
+        return { indices: frames.map((_, index) => index) };
+    }, [frames, activeTagId]);
 
     useEffect(() => {
-        if (!isOpen || !isModalPlaying || !frames || frames.length === 0) return;
+        if (!isOpen || !isModalPlaying || !frames || frames.length === 0 || playbackRange.indices.length === 0) return;
 
-        // 글로벌 FPS를 우선 사용하되, 개별 프레임의 duration이 설정되어 있으면 그것을 사용
-        const defaultDelay = 1000 / fps;
+        if (!playbackRange.indices.includes(currentFrameIdx)) {
+            setCurrentFrameIdx(playbackRange.indices[0] ?? 0);
+            return;
+        }
+
+        // 프레임별 duration을 우선 사용하고, 값이 없거나 잘못된 경우 FPS를 기본값으로 사용
+        const defaultDelay = Number.isFinite(fps) && fps > 0 ? 1000 / fps : 100;
         const currentFrame = frames[currentFrameIdx];
-        const delay = currentFrame?.duration || defaultDelay;
+        const requestedDelay = currentFrame?.duration ?? defaultDelay;
+        const delay = Number.isFinite(requestedDelay) && requestedDelay > 0
+            ? Math.max(MIN_DURATION_30FPS, requestedDelay)
+            : Math.max(MIN_DURATION_30FPS, defaultDelay);
 
         const timerId = setTimeout(() => {
-            let nextIndex = currentFrameIdx + 1;
-            if (nextIndex > playbackRange.end || nextIndex < playbackRange.start) {
-                nextIndex = playbackRange.start;
-            }
+            const currentPosition = playbackRange.indices.indexOf(currentFrameIdx);
+            const nextIndex = playbackRange.indices[(currentPosition + 1) % playbackRange.indices.length] ?? 0;
             setCurrentFrameIdx(nextIndex);
         }, delay);
 
@@ -139,7 +150,8 @@ export function AnimationDetailView({
                                     key={tag.id}
                                     onClick={() => {
                                         setActiveTagId(tag.id);
-                                        setCurrentFrameIdx(tag.fromIndex);
+                                    const firstTaggedIndex = frames.findIndex(frame => frame.tagId === tag.id);
+                                    setCurrentFrameIdx(firstTaggedIndex >= 0 ? firstTaggedIndex : 0);
                                     }}
                                     className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border transition-colors ${
                                         activeTagId === tag.id 
