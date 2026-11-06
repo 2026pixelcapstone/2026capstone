@@ -3,7 +3,7 @@ import { BlendMode, CanvasState, LayerData } from "../../type/editor";
 // ── 캔버스 기본 값 ──────────────────────────────────────────────
 export const createDefaultLayer = (): LayerData => ({
   id: `layer-${crypto.randomUUID().slice(0, 8)}`, // 레이어의 고유 ID
-  name: 'Background', // 첫 레이어 이름
+  name: '배경', // 첫 레이어 이름(PR-F: Background → 한국어)
   layerOrder: 0,
   blendMode: 'NORMAL',
   isLocked: false,
@@ -20,31 +20,34 @@ export const createInitialCanvasData = (): CanvasState => ({
   height: 32,
 });
 
+/** 새 작업 기본 제목(PR-F: 'Untitled Project' → 한국어) */
+export const DEFAULT_PROJECT_TITLE = '제목 없음';
+
 // ── 도구 구성 ──────────────────────────────────────────────
 export const DRAW_TOOLS = [
-  { id: 'pencil',    icon: 'edit',               label: 'Pencil (P)' },
-  { id: 'eraser',    icon: 'ink_eraser',          label: 'Eraser (E)' },
-  { id: 'fill',      icon: 'format_color_fill',   label: 'Fill (G)' },
-  { id: 'eyedrop',   icon: 'colorize',            label: 'Eyedropper (I)' },
+  { id: 'pencil',    icon: 'edit',               label: '연필 (P)' },
+  { id: 'eraser',    icon: 'ink_eraser',          label: '지우개 (E)' },
+  { id: 'fill',      icon: 'format_color_fill',   label: '채우기 (G)' },
+  { id: 'eyedrop',   icon: 'colorize',            label: '스포이드 (I, Alt)' },
 ] as const;
 
 export const SELECT_TOOLS = [
-  { id: 'marquee',   icon: 'select_all',          label: 'Marquee (M)' },
-  { id: 'lasso',     icon: 'gesture',             label: 'Lasso (Q)' },
-  { id: 'move',      icon: 'open_with',           label: 'Move (V)' },
+  { id: 'marquee',   icon: 'select_all',          label: '사각 선택 (M)' },
+  { id: 'lasso',     icon: 'gesture',             label: '올가미 (Q)' },
+  { id: 'move',      icon: 'open_with',           label: '이동 (V)' },
 ] as const;
 export const SHAPE_TOOLS = [
-  { id: 'line',      icon: 'horizontal_rule',     label: 'Line (L)' },
-  { id: 'rect',      icon: 'rectangle',           label: 'Rectangle (R)' },
-  { id: 'ellipse',   icon: 'circle',              label: 'Ellipse (O)' },
+  { id: 'line',      icon: 'horizontal_rule',     label: '직선 (L)' },
+  { id: 'rect',      icon: 'rectangle',           label: '사각형 (R)' },
+  { id: 'ellipse',   icon: 'circle',              label: '원 (O)' },
 ] as const;
 
 export const VIEW_TOOLS = [
-  { id: 'pan',       icon: 'pan_tool',            label: 'Pan (H, Space)' },
+  { id: 'pan',       icon: 'pan_tool',            label: '손 (H, Space)' },
 ] as const;
 
 export const COLOR_TOOLS = [
-  {id: 'color', icon: 'color', label: 'Color' },
+  {id: 'color', icon: 'color', label: '색' },
 ] as const;
 
 

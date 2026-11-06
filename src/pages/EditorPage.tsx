@@ -64,6 +64,9 @@ import { useEditorTabs } from '../hooks/editor/project/useEditorTabs'
 import { useEditorAutosave } from '../hooks/editor/project/useEditorAutosave'
 import { EditorTabBar } from '../components/editor/EditorTabBar'
 import { SendToTabModal } from '../components/editor/SendToTabModal'
+import { ShortcutsModal } from '../components/editor/ShortcutsModal'
+import { useEditOps } from '../hooks/editor/useEditOps'
+import { MENU_ACTION, type MenuActionId } from '../type/editor'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -128,7 +131,7 @@ export default function EditorPage() {
 
   // ── hook ──────────────────────────
   // ── useHistory 훅 ──────────────
-  const {state, setWithHistory, setWithoutHistory, undo, redo, reset, getSnapshot, restore} = useHistory(initialCanvasData);
+  const {state, setWithHistory, setWithoutHistory, undo, redo, reset, getSnapshot, restore, canUndo, canRedo} = useHistory(initialCanvasData);
 
   // ── useAnimation 훅 ──────────────
   const {activeAnimId, isPlaying, fps, defaultDuration, setActiveAnimId, setIsPlaying, setFps, 
@@ -230,13 +233,27 @@ export default function EditorPage() {
     gridSize,
   });
 
+  // 잠긴 레이어에는 그리기·지우기·채우기·이동을 막음(PR-F) — 손·스포이드·선택 도구는 그대로
+  const LOCK_BLOCKED_TOOLS = ['pencil', 'eraser', 'fill', 'line', 'rect', 'ellipse', 'move'];
+  const lockToastAt = useRef(0);
+  const guardedMouseDown = useCallback(() => {
+    if (currentLayer?.isLocked && LOCK_BLOCKED_TOOLS.includes(activeTool)) {
+      const now = Date.now();
+      if (now - lockToastAt.current > 1500) { lockToastAt.current = now; toast.info('잠긴 레이어예요. 레이어 목록의 자물쇠를 눌러 풀어 주세요.'); }
+      return;
+    }
+    handleMouseDown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLayer?.isLocked, activeTool, handleMouseDown]);
+
   // ── 손 도구·단축키·화면 보조(PR-A) ──────────────
   const { pan, panning, startPan, resetPan } = useCanvasPan();
   useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, handleSwapColors });
 
   // ── CanvasSize 훅 ──────────────
   const {
-    customW, customH, isScaleImage, setCustomW, setCustomH, setIsScaleImage, applyCanvasSize
+    customW, customH, isScaleImage, setCustomW, setCustomH, setIsScaleImage, applyCanvasSize,
+    anchor: canvasAnchor, setAnchor: setCanvasAnchor,
   } = useCanvasSize({
       peekLayerCanvas,
       width: state.width,
@@ -312,7 +329,7 @@ export default function EditorPage() {
     ensureLayerCanvas, commitLayerChanges, addLayer, redrawLayer, importImageFile, gridSnap, gridSize,
   });
   useEffect(() => { selectionHandlersRef.current = { down: sel.down, move: sel.move, up: sel.up }; }, [sel.down, sel.move, sel.up]);
-  const { duplicateFrame } = useFrameOps({ state, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId, setWithHistory, setUnsaved });
+  const { duplicateFrame, reverseFrames, neighborFrameId } = useFrameOps({ state, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId, setWithHistory, setUnsaved });
   const [gamePreviewOpen, setGamePreviewOpen] = useState(false);
 
   // ── 여러 프로젝트 탭(PR-E) ──────────────
@@ -466,7 +483,12 @@ export default function EditorPage() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isMod = e.ctrlKey || e.metaKey;
-      const key = e.key.toLowerCase();
+      if (e.altKey) return;   // Ctrl+Alt 조합은 탭·크기 단축키(PR-F)
+      // 글자 대신 자판 위치(e.code)로 — 한글 자판에서도 동작(PR-F, PR-A 도구 단축키와 같은 방식)
+      const key = e.code === 'KeyS' ? 's' : e.code === 'KeyZ' ? 'z' : e.code === 'KeyY' ? 'y' : '';
+      const t = e.target as HTMLElement | null;
+      // 입력칸에서 Ctrl+Z는 글자 되돌리기로 두고 캔버스 기록은 건드리지 않음
+      if ((key === 'z' || key === 'y') && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (isMod && key === 's') {
         e.preventDefault();
 
@@ -778,6 +800,14 @@ export default function EditorPage() {
   const handleDeleteLayer = () => {
     deleteLayer(activeFrameId, activeLayerId)
   }
+  // 레이어 잠금·이름(PR-F) — 지금 프레임의 레이어 기준
+  const toggleLayerLock = (layerId: string) => {
+    const l = currentFrame.layers.find(x => x.id === layerId);
+    if (l) updateLayer(activeFrameId, layerId, { isLocked: !l.isLocked }, false);
+  }
+  const renameLayer = (layerId: string, name: string) => {
+    updateLayer(activeFrameId, layerId, { name }, false);
+  }
   // AI 명암 제안 결과를 요청한 프레임에 새 레이어로(프레임이 지워졌으면 false)
   const handleAddShadeLayer = useCallback((frameId: string, pixelData: string) => {
     if (!state.frames.some((f) => f.id === frameId)) return false;
@@ -826,6 +856,97 @@ export default function EditorPage() {
     }
     setActiveLayerId(layerIdToSelect);
   }, [activeFrameId, activeLayerId, setWithHistory, setActiveLayerId, stageRef])
+
+  // ── 메뉴 보강(PR-F): 편집·보기·레이어·프레임·도움말 새 항목, 못 쓰는 항목 흐리게, 단축키 ──────────────
+  const editOps = useEditOps({
+    state, activeFrameId, activeLayerId, selectionRef, deselect: sel.deselect, applyCanvasSize,
+    peekLayerCanvas, ensureLayerCanvas, redrawLayer, commitLayerChanges,
+  });
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const zoomBy = (d: 1 | -1) => setZoomIdx(i => Math.max(0, Math.min(ZOOM_LEVELS.length - 1, i + d)));
+  const sortedLayers = [...currentFrame.layers].sort((a, b) => a.layerOrder - b.layerOrder);
+  const layerPos = sortedLayers.findIndex(l => l.id === currentLayer?.id);
+  const stepFrame = (dir: 1 | -1) => { const id = neighborFrameId(dir); if (id) handleSelectFrame(id); };
+  const menuExtra: Partial<Record<MenuActionId, () => void>> = {
+    [MENU_ACTION.INVERT_SELECTION]: sel.invert,
+    [MENU_ACTION.CROP_TO_SELECTION]: editOps.cropToSelection,
+    [MENU_ACTION.TRIM_CANVAS]: () => { void editOps.trimCanvas(); },
+    [MENU_ACTION.CLEAR_LAYER]: editOps.clearLayer,
+    [MENU_ACTION.ZOOM_IN]: () => zoomBy(1),
+    [MENU_ACTION.ZOOM_OUT]: () => zoomBy(-1),
+    [MENU_ACTION.ZOOM_ACTUAL]: () => { setZoomIdx(0); resetPan(); },
+    [MENU_ACTION.MERGE_DOWN]: () => { void mergeLayers('down'); },
+    [MENU_ACTION.TOGGLE_LAYER_VISIBLE]: () => { if (currentLayer) toggleVisibility(activeFrameId, currentLayer.id); },
+    [MENU_ACTION.TOGGLE_LAYER_LOCK]: () => { if (currentLayer) toggleLayerLock(currentLayer.id); },
+    [MENU_ACTION.ADD_FRAME]: addFrame,
+    [MENU_ACTION.DELETE_FRAME]: () => deleteFrame(activeFrameId),
+    [MENU_ACTION.PREV_FRAME]: () => stepFrame(-1),
+    [MENU_ACTION.NEXT_FRAME]: () => stepFrame(1),
+    [MENU_ACTION.TOGGLE_PLAY]: () => setIsPlaying(p => !p),
+    [MENU_ACTION.REVERSE_FRAMES]: () => { reverseFrames(); },
+    [MENU_ACTION.SHORTCUTS]: () => setShortcutsOpen(true),
+  };
+  const oneFrame = state.frames.length < 2;
+  const menuDisabled = new Set<MenuActionId>([
+    ...(!canUndo ? [MENU_ACTION.UNDO] : []),
+    ...(!canRedo ? [MENU_ACTION.REDO] : []),
+    ...(!sel.selection ? [MENU_ACTION.CROP_TO_SELECTION] : []),
+    ...(currentFrame.layers.length < 2 ? [MENU_ACTION.DELETE_LAYER, MENU_ACTION.FLATTEN] : []),
+    ...(currentFrame.layers.filter(l => l.isVisible).length < 2 ? [MENU_ACTION.MERGE_VISIBLE] : []),
+    ...(layerPos <= 0 ? [MENU_ACTION.MERGE_DOWN, MENU_ACTION.MOVE_DOWN] : []),
+    ...(layerPos < 0 || layerPos >= sortedLayers.length - 1 ? [MENU_ACTION.MOVE_UP] : []),
+    ...(oneFrame ? [MENU_ACTION.DELETE_FRAME, MENU_ACTION.PREV_FRAME, MENU_ACTION.NEXT_FRAME, MENU_ACTION.TOGGLE_PLAY, MENU_ACTION.REVERSE_FRAMES] : []),
+    ...(tabs.tabs.length < 2 ? [MENU_ACTION.SEND_TO_TAB] : []),
+  ]);
+  const menuChecked = new Set<MenuActionId>([
+    ...(currentLayer?.isLocked ? [MENU_ACTION.TOGGLE_LAYER_LOCK] : []),
+    ...(isPlaying ? [MENU_ACTION.TOGGLE_PLAY] : []),
+  ]);
+  // 단축키(PR-F) — 입력칸·창이 열려 있을 땐 무시. 메뉴 표에 적힌 키와 같음
+  const menuExtraRef = useRef(menuExtra);
+  menuExtraRef.current = menuExtra;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (document.querySelector('[role=dialog]')) return;
+      const run = (id: MenuActionId) => { e.preventDefault(); menuExtraRef.current[id]?.(); };
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.altKey && !e.shiftKey && e.code === 'KeyC') { e.preventDefault(); setCanvasSizeRequest(n => n + 1); return; }
+      if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyE') { run(MENU_ACTION.MERGE_DOWN); return; }
+      if (mod || e.altKey) return;
+      if (e.shiftKey && e.code === 'Enter') { run(MENU_ACTION.TOGGLE_PLAY); return; }
+      if (e.shiftKey && e.code === 'Slash') { run(MENU_ACTION.SHORTCUTS); return; }
+      if (e.shiftKey) return;
+      if (e.code === 'Equal' || e.code === 'NumpadAdd') run(MENU_ACTION.ZOOM_IN);
+      else if (e.code === 'Minus' || e.code === 'NumpadSubtract') run(MENU_ACTION.ZOOM_OUT);
+      else if (e.code === 'Digit1') run(MENU_ACTION.ZOOM_ACTUAL);
+      else if (e.code === 'Digit0') { e.preventDefault(); fitScreen(); }
+      else if (e.code === 'Comma') run(MENU_ACTION.PREV_FRAME);
+      else if (e.code === 'Period') run(MENU_ACTION.NEXT_FRAME);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fitScreen]);
+
+  // 파일을 캔버스로 끌어다 놓기(PR-F): .ppit은 새 탭으로 열기, 이미지는 새 레이어
+  const [fileDragOver, setFileDragOver] = useState(false);
+  const onCanvasDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!fileDragOver) setFileDragOver(true);
+  };
+  const onCanvasDrop = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    setFileDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (/\.(ppit|json)$/i.test(file.name)) void handleImportPpit(file);
+    else if (file.type.startsWith('image/')) importImageFile(file);
+    else toast.info('.ppit 파일이나 이미지(PNG·JPG·GIF·WebP)를 놓아 주세요.');
+  };
 
   return (
     // 에디터는 뷰포트 전체 사용 (MainLayout의 pt-14 무시)
@@ -883,6 +1004,8 @@ export default function EditorPage() {
         onSelect={handleOpenProject}
         onDeleted={tabs.forgetProject}
       />
+
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
 
       {sendTabOpen && (
         <SendToTabModal
@@ -1005,6 +1128,9 @@ export default function EditorPage() {
                   aiTool,
                   setAiTool,
                 }}
+                extraActions={menuExtra}
+                disabledIds={menuDisabled}
+                checkedIds={menuChecked}
               />
         </div>
         
@@ -1012,9 +1138,9 @@ export default function EditorPage() {
         <div className='flex-1 flex items-center gap-4 px-6 border-l ml-2 h-6'
           style={{borderColor: 'var(--color-surface-container-highest)'}}
         >
-          <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>Canvas: {state.width} × {state.height}</span>
+          <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>캔버스 {state.width} × {state.height}</span>
           <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
-          <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>Active: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
+          <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>레이어: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
         </div>
         
         {/* 우: 파일명 + 저장 */}
@@ -1052,7 +1178,7 @@ export default function EditorPage() {
                 className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-surface-container-low disabled:opacity-50"
                 style={{ color: saving ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
-                  {saving ? 'Saving…' : 'Save'}
+                  {saving ? '저장 중…' : '저장'}
             </button>
           </div>
         </div>
@@ -1098,7 +1224,18 @@ export default function EditorPage() {
           />
           
           {/* ── 중앙 영역 ─────────────────────────────── */}
-          <div className="flex flex-col flex-1 min-w-0">
+          <div className="flex flex-col flex-1 min-w-0 relative"
+            onDragOver={onCanvasDragOver}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFileDragOver(false); }}
+            onDrop={onCanvasDrop}>
+            {fileDragOver && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none"
+                style={{ background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', border: '2px dashed var(--color-primary)' }}>
+                <span className="px-4 py-2 rounded-lg text-sm font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}>
+                  놓으면 열기 — .ppit은 새 탭, 이미지는 새 레이어
+                </span>
+              </div>
+            )}
             {/* ── 왼쪽 툴바 옵션 ── */}
             {/* ── 프로젝트 탭(PR-E) ── */}
             <EditorTabBar
@@ -1156,7 +1293,7 @@ export default function EditorPage() {
               }}
 
               mouseEvnetProps={{
-                handleMouseDown,
+                handleMouseDown: guardedMouseDown,
                 handleMouseMove,
                 handleMouseUp,
                 handleMouseLeave,
@@ -1197,6 +1334,8 @@ export default function EditorPage() {
               setIsScaleImage = {setIsScaleImage}
               applyCanvasSize = {applyCanvasSize}
               openCanvasSizeRequest = {canvasSizeRequest}
+              anchor={canvasAnchor}
+              setAnchor={setCanvasAnchor}
               />
 
           {/* ── 우측 패널 ──────── */}
@@ -1251,15 +1390,39 @@ export default function EditorPage() {
                   toggleVisibility = {toggleVisibility}
                   handleAddLayer= {handleAddLayer}
                   handleDeleteLayer= {handleDeleteLayer}
+                  toggleLock={toggleLayerLock}
+                  renameLayer={renameLayer}
                 />
               </>
             )}
             {activeRightTab === 'layers' && (
               <>
-                {/* 레이어 탭 */}
-                <LayerTap
-                
-                />
+                {/* 레이어 탭 — 전엔 머리글만 있고 비어 있었음(PR-F) */}
+                <LayerTap />
+                {detailLayer !== null && currentLayer ? (
+                  <LayerDetailView
+                    key = {currentLayer.id}
+                    activeFrameId = {activeFrameId}
+                    layerViewData = {{ id: currentLayer.id, name: currentLayer.name, opacity: currentLayer.opacity, blendMode: currentLayer.blendMode }}
+                    setDetailLayer={setDetailLayer}
+                    updateLayer = {updateLayer}
+                  />
+                ) : (
+                  <EditorLayerBar
+                    detailLayer={detailLayer}
+                    activeFrameId = {activeFrameId}
+                    activeLayerId = {activeLayerId}
+                    currentFrame = {currentFrame}
+                    setDetailLayer = {setDetailLayer}
+                    selectLayer = {selectLayer}
+                    reorderLayers= {reorderLayers}
+                    toggleVisibility = {toggleVisibility}
+                    handleAddLayer= {handleAddLayer}
+                    handleDeleteLayer= {handleDeleteLayer}
+                    toggleLock={toggleLayerLock}
+                    renameLayer={renameLayer}
+                  />
+                )}
               </>
             )}
 
@@ -1273,6 +1436,8 @@ export default function EditorPage() {
                   setPaletteSaveOpen = {setPaletteSaveOpen}
                   addColorsToPalette = {addColorsToPalette}
                   selectPaletteColor = {selectPaletteColor}
+                  setPaletteColors = {setPaletteColors}
+                  fileName = {projectTitle}
                 />
               </>
             )}
@@ -1280,9 +1445,17 @@ export default function EditorPage() {
             
             {activeRightTab === 'palette' &&(
               <>
-                {/* 팔레트 탭 */}
-                <PaletteTap
-                
+                {/* 팔레트 탭 — 전엔 머리글만 있고 비어 있었음(PR-F) */}
+                <PaletteTap />
+                <EditorPalette
+                  paletteColors={paletteColors}
+                  fgColor = {fgColor}
+                  setPaletteBrowserOpen = {setPaletteBrowserOpen}
+                  setPaletteSaveOpen = {setPaletteSaveOpen}
+                  addColorsToPalette = {addColorsToPalette}
+                  selectPaletteColor = {selectPaletteColor}
+                  setPaletteColors = {setPaletteColors}
+                  fileName = {projectTitle}
                 />
               </>
             )}

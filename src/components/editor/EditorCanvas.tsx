@@ -5,7 +5,8 @@ import { Layer, Rect, Stage } from "react-konva";
 import { OnionSkinCanvas } from "./OnionSkinCanvas";
 import Konva from "konva";
 import { resizedLayerCanvases } from "../../utils/resizedLayerCanvas";
-import React from "react";
+import React, { useEffect } from "react";
+import { blendCss } from "../../utils/blendMode";
 import { ZOOM_LEVELS } from "../../constants/editor/editor";
 import { DragShape } from "../../hooks/editor/useCanvasDrawing";
 import { lineRatio, RATIO_GUIDE_DIRS } from "../../utils/pixelBrush";
@@ -106,6 +107,20 @@ export function EditorCanvas({
     selectionProps,
 }: EditorCanvasProps){
     const showRef = !!referenceProps.url && referenceProps.visible;
+
+    // 레이어 혼합 모드를 화면에 반영(PR-F): Konva 레이어마다 따로 있는 <canvas>에 CSS mix-blend-mode,
+    // 겹침 영역(konvajs-content)은 isolation으로 묶어 페이지 배경과는 섞이지 않게(합성 결과 = 내보내기·병합과 같음)
+    useEffect(() => {
+        const stage = stageRef.current;
+        if (!stage) return;
+        stage.content.style.isolation = 'isolate';
+        for (const l of currentFrame?.layers ?? []) {
+            const node = stage.findOne<Konva.Layer>(`#${l.id}`);
+            const el = node?.getCanvas()._canvas;
+            const css = blendCss(l.blendMode);
+            if (el && el.style.mixBlendMode !== css) el.style.mixBlendMode = css;
+        }
+    });
 
     const offset = Math.floor((pixelSize - 1) / 2);
     const isPan = activeTool === 'pan';

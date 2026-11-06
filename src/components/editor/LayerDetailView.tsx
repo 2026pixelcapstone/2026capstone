@@ -1,6 +1,6 @@
 import { BlendMode, LayerData, LayerViewData } from "../../type/editor";
 import { BLEND_MODES } from "../../constants/editor/editor";
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 
 interface LayerDetailProps{
     activeFrameId: string | null;
@@ -17,6 +17,13 @@ export function LayerDetailView({
 }: LayerDetailProps){
 
     const startOpacity = useRef<number | null>(null);
+    // 이름 바꾸기(PR-F) — 이전엔 툴팁만 있고 못 바꿨음
+    const [nameDraft, setNameDraft] = useState<string | null>(null);
+    const commitName = () => {
+        const name = nameDraft?.trim();
+        if (name && name !== layerViewData.name) updateLayer(activeFrameId, layerViewData.id, { name: name.slice(0, 50) }, false);
+        setNameDraft(null);
+    };
     const commitOpacity = (finalOpacity: number) => {
         const start = startOpacity.current;
        startOpacity.current = null;
@@ -41,12 +48,32 @@ export function LayerDetailView({
                     <span className="material-symbols-outlined text-sm">arrow_back</span>
                 </button>
 
-                <div 
-                    className="flex-1 font-bold text-sm truncate px-1 cursor-text hover:bg-surface-container rounded transition-colors" 
-                    title="이름 변경"
+                {nameDraft !== null ? (
+                    <input
+                        autoFocus
+                        value={nameDraft}
+                        maxLength={50}
+                        aria-label="레이어 이름"
+                        onChange={e => setNameDraft(e.target.value)}
+                        onBlur={commitName}
+                        onKeyDown={e => {
+                            e.stopPropagation();
+                            if (e.key === 'Enter') commitName();
+                            if (e.key === 'Escape') setNameDraft(null);
+                        }}
+                        className="flex-1 min-w-0 font-bold text-sm rounded px-1 outline-none"
+                        style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-primary)', color: 'var(--color-on-surface)' }}
+                    />
+                ) : (
+                <button
+                    type="button"
+                    onClick={() => setNameDraft(layerViewData.name)}
+                    className="flex-1 text-left font-bold text-sm truncate px-1 cursor-text hover:bg-surface-container rounded transition-colors" 
+                    title="클릭해서 이름 바꾸기"
                 >
                     {layerViewData.name}
-                </div>
+                </button>
+                )}
             </div>
 
             {/* 중앙 세부 영역 설정(내부 스크롤) */}

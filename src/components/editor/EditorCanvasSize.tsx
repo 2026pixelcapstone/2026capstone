@@ -12,8 +12,17 @@ interface EditorCanvasSizeProps{
     setCustomH: React.Dispatch<React.SetStateAction<number>>;
     setIsScaleImage: React.Dispatch<React.SetStateAction<boolean>>;
     applyCanvasSize: (w: number, h: number) => void;
-   
+    /** 기존 그림을 둘 기준점(PR-F) — 없으면 기준점 칸을 숨김 */
+    anchor?: { x: number; y: number };
+    setAnchor?: (a: { x: number; y: number }) => void;
 }
+
+const ANCHORS = [0, 0.5, 1].flatMap(y => [0, 0.5, 1].map(x => ({ x, y })));
+const ANCHOR_ICON: Record<string, string> = {
+    '0,0': 'north_west', '0.5,0': 'north', '1,0': 'north_east',
+    '0,0.5': 'west', '0.5,0.5': 'filter_center_focus', '1,0.5': 'east',
+    '0,1': 'south_west', '0.5,1': 'south', '1,1': 'south_east',
+};
 export function EditorCanvasSize({
     position,
     isOpen,
@@ -25,6 +34,8 @@ export function EditorCanvasSize({
     setCustomH,
     setIsScaleImage,
     applyCanvasSize,
+    anchor,
+    setAnchor,
 }:EditorCanvasSizeProps){
 
     const modalRef = useRef<HTMLDivElement>(null);   // 모달 창 자체를 가리킬 ref 생성
@@ -139,9 +150,34 @@ export function EditorCanvasSize({
                     onClose();
                 }}
                 className="flex-1 py-1 rounded text-xs font-bold transition-all hover:opacity-90"
-                style={{ background: 'var(--color-primary)', color: '#fff' }}>Apply</button>
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>적용</button>
             </div>
             
+            {/* 기준점(PR-F): 크기를 바꿀 때 기존 그림을 어느 쪽에 붙일지 */}
+            {anchor && setAnchor && !isScaleImage && (
+                <div className="flex items-center gap-3 pt-1">
+                    <span className="text-[13px] font-semibold" style={{ color: 'var(--color-on-surface-variant)' }}>기준점</span>
+                    <div className="grid grid-cols-3 gap-0.5" role="radiogroup" aria-label="크기 바꿀 때 그림 기준점">
+                        {ANCHORS.map(a => {
+                            const on = anchor.x === a.x && anchor.y === a.y;
+                            return (
+                                <button key={`${a.x},${a.y}`} type="button" role="radio" aria-checked={on}
+                                    aria-label={`기준점 ${a.x === 0 ? '왼쪽' : a.x === 1 ? '오른쪽' : '가운데'} ${a.y === 0 ? '위' : a.y === 1 ? '아래' : '가운데'}`}
+                                    onClick={() => setAnchor(a)}
+                                    className="w-6 h-6 flex items-center justify-center rounded"
+                                    style={{
+                                        background: on ? 'var(--color-primary)' : 'var(--color-surface-container-low)',
+                                        color: on ? 'var(--color-background)' : 'var(--color-on-surface-variant)',
+                                        border: '1px solid var(--color-outline)',
+                                    }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{ANCHOR_ICON[`${a.x},${a.y}`]}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/*3. 이미지 비율 보정 체크 박스*/}
             <div className="flex items-center gap-2 pt-1 pb-0.5 select-none cursor-pointer">
                 <input

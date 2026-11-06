@@ -129,7 +129,7 @@ export function EditorToolBar({
                             type="button"
                             className="absolute top-13 right-7 w-6 h-6 flex items-center justify-center rounded-md bg-surface border shadow-sm cursor-pointer hover:bg-surface-container-high transition-colors z-20"
                             style={{ borderColor: 'var(--color-outline)' }}
-                            title="Swap Colors (X)"
+                            title="전경·배경색 바꾸기 (X)"
                             onClick={handleSwapColors}
                         >
                             {/* Material Symbols 아이콘 사용*/}
@@ -140,7 +140,7 @@ export function EditorToolBar({
                         <button type = "button" 
                             className="w-12 h-12 rounded-lg border-2 cursor-pointer shadow-sm"
                             style={{ background: fgColor, borderColor: 'var(--color-outline)' }} 
-                            title="Foreground"
+                            title="전경색"
                             onClick={(e) => {
                                 setActiveColorTarget('fg');
                                 handleOpenModal(e);
@@ -151,7 +151,7 @@ export function EditorToolBar({
                             type="button"
                             className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg border-2 shadow-sm cursor-pointer hover:scale-105 transition-transform"
                             style={{ background: bgColor, borderColor: 'var(--color-outline)' }} 
-                            title="Background (Click to swap)" 
+                            title="배경색 (누르면 바꾸기)" 
                             onClick={(e) =>{
                                 setActiveColorTarget('bg');
                                 handleOpenModal(e);

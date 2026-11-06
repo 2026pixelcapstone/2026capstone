@@ -4,7 +4,7 @@ import { getCacheKey } from "../../utils/editorUtils";
 import { canvasToPixelData, makeCanvas } from "../../utils/pixelOps";
 import { toast } from "../../store/toastStore";
 import {
-    clearSelection, extractSelection, fullSelection, polygonSelection, rectSelection, Selection, selectionOutline,
+    clearSelection, extractSelection, fullSelection, invertSelection, polygonSelection, rectSelection, Selection, selectionOutline,
     shiftSelection, snapEnd, snapStart,
 } from "../../utils/selection";
 
@@ -141,6 +141,11 @@ export function useSelection(p: UseSelection) {
     // ── 편집 ──
     const selectAll = useCallback(() => setSelection(fullSelection(state.width, state.height)), [state.width, state.height, setSelection]);
     const deselect = useCallback(() => setSelection(null), [setSelection]);
+    const invert = useCallback(() => {
+        const next = invertSelection(selectionRef.current, state.width, state.height);
+        if (!next) { toast.info('반전할 칸이 없어요(전부 선택된 상태).'); return; }
+        setSelection(next);
+    }, [selectionRef, state.width, state.height, setSelection]);
 
     const copy = useCallback((silent = false) => {
         const ctx = layerCtx();
@@ -158,11 +163,14 @@ export function useSelection(p: UseSelection) {
         const sel = selectionRef.current;
         if (!ctx || !activeFrameId || !activeLayerId) return;
         if (!sel) { toast.info('먼저 영역을 선택해 주세요.'); return; }
+        // 잠긴 레이어는 지우기·잘라내기 막음(PR-F)
+        const layer = state.frames.find(f => f.id === activeFrameId)?.layers.find(l => l.id === activeLayerId);
+        if (layer?.isLocked) { toast.info('잠긴 레이어예요. 자물쇠를 풀고 다시 해 주세요.'); return; }
         clearSelection(ctx, sel);
         p.redrawLayer(activeLayerId);
         p.commitLayerChanges(activeFrameId, activeLayerId);
         if (label) toast.info(label);
-    }, [layerCtx, selectionRef, activeFrameId, activeLayerId, p]);
+    }, [layerCtx, selectionRef, activeFrameId, activeLayerId, p, state.frames]);
 
     const cut = useCallback(() => {
         if (!selectionRef.current) { toast.info('먼저 영역을 선택해 주세요.'); return; }
@@ -200,7 +208,9 @@ export function useSelection(p: UseSelection) {
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (isTyping(e.target) || document.querySelector('[role=dialog]')) return;
+            if (e.altKey) return;   // Ctrl+Alt+C(크기 조절) 등 다른 단축키와 겹치지 않게(PR-F)
             const mod = e.ctrlKey || e.metaKey;
+            if (mod && e.shiftKey && e.code === 'KeyI') { e.preventDefault(); invert(); return; }   // 선택 반전
             if (mod && !e.shiftKey && e.code === 'KeyA') { e.preventDefault(); selectAll(); return; }
             if (mod && e.code === 'KeyD') { e.preventDefault(); deselect(); return; }   // 브라우저 즐겨찾기 막기
             if (mod && e.code === 'KeyC') { if (copy()) e.preventDefault(); return; }
@@ -240,7 +250,7 @@ export function useSelection(p: UseSelection) {
 
     return {
         selection, outline, lassoPoints, selectionSize, isSelecting: !!draft || !!moving.current,
-        down, move, up, selectAll, deselect, copy: () => copy(), cut, paste, deleteSelected: () => removeSelected('지웠어요.'),
+        down, move, up, selectAll, deselect, invert, copy: () => copy(), cut, paste, deleteSelected: () => removeSelected('지웠어요.'),
     };
 }
 

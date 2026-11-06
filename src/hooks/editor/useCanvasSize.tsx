@@ -25,6 +25,8 @@ export function useCanvasSize({
     const [customW, setCustomW] = useState(32);
     const [customH, setCustomH] = useState(32);
     const [isScaleImage, setIsScaleImage] = useState(false);
+    // 크기 바꿀 때 기존 그림을 둘 기준점(0=왼쪽/위, 0.5=가운데, 1=오른쪽/아래) — PR-F
+    const [anchor, setAnchor] = useState<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
     const latestCanvas = useRef({ width, height, frame });
     const resizeRequestId = useRef(0);
     const [pendingResize, setPendingResize] = useState<FrameData[] | null>(null);
@@ -51,7 +53,8 @@ export function useCanvasSize({
     }, [width, height])
 
 
-    const resizeLayer = useCallback(async (nextWidth: number, nextHeight: number, frameId: string, layerId: string, pixelData: string) => {
+    /** offset을 주면 그 위치에 그대로 옮겨 그림(자르기·여백 자르기용, 비율 보정 무시) */
+    const resizeLayer = useCallback(async (nextWidth: number, nextHeight: number, frameId: string, layerId: string, pixelData: string, offset?: { x: number; y: number }) => {
 
         let sourceCanvas: HTMLCanvasElement | HTMLImageElement | null = peekLayerCanvas(getCacheKey(frameId, layerId));
         
@@ -78,11 +81,13 @@ export function useCanvasSize({
         }
         tempCtx.imageSmoothingEnabled = false;
 
-        if(isScaleImage){
+        if (offset) {
+            tempCtx.drawImage(sourceCanvas, offset.x, offset.y);
+        } else if(isScaleImage){
             tempCtx.drawImage(sourceCanvas, 0, 0, nextWidth, nextHeight);
         }else{
-            const offsetX = Math.floor((nextWidth - sourceCanvas.width) / 2);
-            const offsetY = Math.floor((nextHeight - sourceCanvas.height) / 2);
+            const offsetX = Math.floor((nextWidth - sourceCanvas.width) * anchor.x);
+            const offsetY = Math.floor((nextHeight - sourceCanvas.height) * anchor.y);
             tempCtx.drawImage(sourceCanvas, offsetX, offsetY);
         }
            
@@ -93,12 +98,12 @@ export function useCanvasSize({
 
 
         return { pixelData: nextPixelData, canvas: tempCanvas };
-    },[peekLayerCanvas, isScaleImage])
+    },[peekLayerCanvas, isScaleImage, anchor])
 
     // -------- 캔버스 크기 변경 -----------
-    const applyCanvasSize = useCallback(async (w: number, h: number) => {
+    const applyCanvasSize = useCallback(async (w: number, h: number, offset?: { x: number; y: number }) => {
         const requestId = ++resizeRequestId.current;
-        if(width === w && height === h) return;
+        if(width === w && height === h && (!offset || (offset.x === 0 && offset.y === 0))) return;
 
         try{
             if (!Number.isInteger(w) || !Number.isInteger(h) ||
@@ -111,7 +116,7 @@ export function useCanvasSize({
                     layers: await Promise.all(
 
                         frame.layers.map(async layer => {
-                            const result = await resizeLayer(w, h, frame.id, layer.id, layer.pixelData);
+                            const result = await resizeLayer(w, h, frame.id, layer.id, layer.pixelData, offset);
                             const resizedLayer = { ...layer, pixelData: result.pixelData };
                             if (result.canvas) resizedLayerCanvases.set(resizedLayer, result.canvas);
                             return resizedLayer;
@@ -142,5 +147,5 @@ export function useCanvasSize({
         
     }, [width, height, frame, resizeLayer, setWithHistory, setUnsaved]);
 
-    return{customW, customH, isScaleImage, setCustomW, setCustomH, setIsScaleImage, applyCanvasSize}
+    return{customW, customH, isScaleImage, setCustomW, setCustomH, setIsScaleImage, applyCanvasSize, anchor, setAnchor}
 }

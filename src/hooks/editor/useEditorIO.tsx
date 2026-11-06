@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_TITLE } from '../../constants/editor/editor';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasState, LayerData } from "../../type/editor";
 import { MAX_CANVAS_SIZE } from "../../constants/editor/editor";
@@ -150,7 +151,7 @@ export function useEditorIO({ state, activeFrameId, setActiveLayerId, runEdit, p
             }
             const zip = await makeZip(files);
             const id = await putAssetDraft({
-                title: projectTitle && projectTitle !== 'Untitled Project' ? projectTitle : '',
+                title: projectTitle && projectTitle !== 'Untitled Project' && projectTitle !== DEFAULT_PROJECT_TITLE ? projectTitle : '',
                 preview,
                 bundle: new File([zip], `${name}.zip`, { type: 'application/zip' }),
                 createdAt: Date.now(),

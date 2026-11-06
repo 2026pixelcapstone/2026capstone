@@ -1,3 +1,4 @@
+import { blendOp, compositeVisibleFrame } from '../../utils/blendMode';
 import { Stage } from "konva/lib/Stage"
 import { toast } from "../../store/toastStore"
 import { getCacheKey } from "../../utils/editorUtils"
@@ -62,7 +63,10 @@ export function useEditorExport({
             //const oldScale = stage.scale();
             //const oldPos = stage.position();
             
-            const currentFullImage = stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
+            // 혼합 모드까지 화면과 같게 합성(PR-F), 캐시가 없으면 예전처럼 stage 그대로
+            const f0 = state.frames[0];
+            const blended = f0 ? compositeVisibleFrame(f0.layers, f0.id, state.width, state.height, peekLayerCanvas, getCacheKey) : null;
+            const currentFullImage = blended ? blended.toDataURL('image/png') : stage.toDataURL({pixelRatio: 1}); // 원본 크기 1:1 유지
             
             const link = document.createElement('a');
             link.download = `${safeTitle}.png`;
@@ -138,6 +142,7 @@ export function useEditorExport({
                 const cachedCanvas = peekLayerCanvas(cacheKey);
     
                 fCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+                fCtx.globalCompositeOperation = blendOp(layer.blendMode); // 혼합 모드(PR-F)
     
                 if(cachedCanvas){
                   // 1순위: 메모리 캔버스 캐시 사용
@@ -151,6 +156,7 @@ export function useEditorExport({
                   }
                 }
                 fCtx.globalAlpha = 1.0; // 투명도 원상복구
+                fCtx.globalCompositeOperation = 'source-over';
               }
               // 겹치기가 끝난 최종 프레임 캔버스에서 화소 데이터 추출
               const imageData = fCtx.getImageData(0, 0, width, height)
