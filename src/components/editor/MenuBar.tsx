@@ -102,6 +102,10 @@ interface MenuBarProps {
    ioActions: IoActions;
    frameActions: FrameActions;
    pixelGuides: PixelGuide;
+   /** PR-F: 새 메뉴 항목 동작(여기 있으면 아래 switch보다 먼저) · 지금 못 쓰는 항목(흐리게) · 켜짐 표시 */
+   extraActions?: Partial<Record<MenuActionId, () => void>>;
+   disabledIds?: ReadonlySet<MenuActionId>;
+   checkedIds?: ReadonlySet<MenuActionId>;
 }
 
 export default function MenuBar({
@@ -113,7 +117,9 @@ export default function MenuBar({
     ioActions,
     frameActions,
     pixelGuides,
-
+    extraActions,
+    disabledIds,
+    checkedIds,
 }: MenuBarProps){
     const [openMenu, setOpenMenu] = useState<string | null>(null);
 
@@ -138,12 +144,15 @@ export default function MenuBar({
         || (id === MENU_ACTION.TOGGLE_ONION_SKIN && viewActions.onionSkin)
         || (id === MENU_ACTION.TOGGLE_PALETTE_LOCK && imageActions.paletteLock)
         || (id === MENU_ACTION.TOGGLE_REFERENCE && ioActions.hasReference && ioActions.referenceVisible)
-        || (id === MENU_ACTION.TOGGLE_GRID_SNAP && viewActions.gridSnap);
+        || (id === MENU_ACTION.TOGGLE_GRID_SNAP && viewActions.gridSnap)
+        || !!checkedIds?.has(id);
 
     // 통합 액션 핸들러
     const handleAction = (actionId: MenuActionId) => {
 
         setOpenMenu(null) // 메뉴 닫기
+        const extra = extraActions?.[actionId];
+        if (extra) { extra(); return; }
         switch(actionId) {
             // File
             case MENU_ACTION.NEW_PROJECT:
@@ -380,7 +389,7 @@ export default function MenuBar({
                                 <button 
                                     key={item.id}
                                     onClick={() => handleAction(item.id)}
-                                    disabled={item.disabled}
+                                    disabled={item.disabled || !!disabledIds?.has(item.id)}
                                     className="w-full flex items-center gap-2.5 px-4 py-1.5 text-sm text-left transition-colors hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-default">
                                     {item.icon && (
                                     <span className="material-symbols-outlined text-sm w-4 flex-shrink-0"

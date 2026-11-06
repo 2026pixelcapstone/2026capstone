@@ -77,3 +77,28 @@ export function parseHexList(text: string): string[] {
   }
   return out
 }
+
+/**
+ * 팔레트 파일 읽기(에디터 팔레트 가져오기, PR-F) — .gpl(GIMP)·.pal(JASC-PAL)은 'R G B' 줄, 그 밖(.hex·.txt)은 hex 목록.
+ * 소문자 '#rrggbb', 순서 유지 중복 제거, 최대 256개.
+ */
+export function parsePaletteFile(text: string): string[] {
+  const head = text.trimStart()
+  if (head.startsWith('GIMP Palette') || head.startsWith('JASC-PAL')) {
+    const seen = new Set<string>()
+    const out: string[] = []
+    const lines = text.split(/\r?\n/)
+    // JASC-PAL은 앞 세 줄(머리·버전·개수)을 건너뜀
+    const body = head.startsWith('JASC-PAL') ? lines.slice(3) : lines
+    for (const line of body) {
+      const m = line.trim().match(/^(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})(\s|$)/)
+      if (!m) continue
+      const [r, g, b] = [m[1], m[2], m[3]].map(Number)
+      if (r > 255 || g > 255 || b > 255) continue
+      const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
+      if (!seen.has(hex)) { seen.add(hex); out.push(hex) }
+    }
+    return out.slice(0, 256)
+  }
+  return parseHexList(text).slice(0, 256)
+}

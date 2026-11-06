@@ -91,6 +91,7 @@ export const MENU_GROUP_ID = {
   LAYER: 'layer',
   FRAME: 'frame',
   DRAWING_GUIDE: 'guide',
+  HELP: 'help',
 } as const;
 
 export type MenuGroupId = typeof MENU_GROUP_ID[keyof typeof MENU_GROUP_ID];
@@ -123,6 +124,15 @@ export const MENU_ACTION = {
   RESIZE: 'RESIZE',
   SELECT_ALL: 'SELECT_ALL',
   DESELECT: 'DESELECT',
+  INVERT_SELECTION: 'INVERT_SELECTION', // 선택 반전(PR-F)
+  CROP_TO_SELECTION: 'CROP_TO_SELECTION', // 선택 영역으로 캔버스 자르기
+  TRIM_CANVAS: 'TRIM_CANVAS',           // 빈 여백 자르기
+  CLEAR_LAYER: 'CLEAR_LAYER',           // 레이어 내용 지우기
+  SEL_FLIP_H: 'SEL_FLIP_H',             // 선택 영역 뒤집기·회전(PR-G)
+  SEL_FLIP_V: 'SEL_FLIP_V',
+  SEL_ROT_CW: 'SEL_ROT_CW',
+  SEL_ROT_CCW: 'SEL_ROT_CCW',
+  TOGGLE_WRAP: 'TOGGLE_WRAP',           // 타일 모드 그리기(PR-G)
 
   // Menu -> Image
   FLIP_HORIZONTAL: 'FLIP_HORIZONTAL',
@@ -140,6 +150,9 @@ export const MENU_ACTION = {
 
   // Menu -> View
   FIT_SCREEN: 'FIT_SCREEN',
+  ZOOM_IN: 'ZOOM_IN',                   // 확대·축소·실제 크기(PR-F)
+  ZOOM_OUT: 'ZOOM_OUT',
+  ZOOM_ACTUAL: 'ZOOM_ACTUAL',
   TOGGLE_GRID: 'TOGGLE_GRID',
   TOGGLE_ONION_SKIN: 'TOGGLE_ONION_SKIN',
   TOGGLE_REFERENCE: 'TOGGLE_REFERENCE',
@@ -147,6 +160,12 @@ export const MENU_ACTION = {
   RECOLOR: 'RECOLOR',                   // 팔레트로 다시 칠하기
   DUPLICATE_FRAME: 'DUPLICATE_FRAME',   // 프레임 복제
   GAME_PREVIEW: 'GAME_PREVIEW',         // 게임 미리보기
+  ADD_FRAME: 'ADD_FRAME',               // 프레임 메뉴 보강(PR-F)
+  DELETE_FRAME: 'DELETE_FRAME',
+  PREV_FRAME: 'PREV_FRAME',
+  NEXT_FRAME: 'NEXT_FRAME',
+  TOGGLE_PLAY: 'TOGGLE_PLAY',
+  REVERSE_FRAMES: 'REVERSE_FRAMES',
 
   // Menu -> Layer
   ADD_LAYER: 'ADD_LAYER',
@@ -156,6 +175,11 @@ export const MENU_ACTION = {
   MOVE_DOWN: 'MOVE_DOWN',
   MERGE_VISIBLE: 'MERGE_VISIBLE',
   FLATTEN: 'FLATTEN',
+  MERGE_DOWN: 'MERGE_DOWN',             // 아래 레이어와 병합(PR-F)
+  TOGGLE_LAYER_VISIBLE: 'TOGGLE_LAYER_VISIBLE',
+  TOGGLE_LAYER_LOCK: 'TOGGLE_LAYER_LOCK',
+  // Menu -> Help
+  SHORTCUTS: 'SHORTCUTS',               // 단축키 목록(PR-F)
   
 // Menu -> Pixel-Guide (기존 AI_GUIDE 대체 및 확장)
   TOGGLE_PIXEL_COUNTER: 'TOGGLE_PIXEL_COUNTER', // 실시간 픽셀 수치/길이 표시 토글
@@ -197,8 +221,8 @@ export interface MenuGroup {
 // ── ToolType ──────────────────────────────────────────────
 
 // 도구 아이디 타입 정의
-export type DrawToolId = 'pencil' | 'eraser' | 'fill' | 'eyedrop';
-export type SelectToolId = 'marquee' | 'lasso' | 'move';
+export type DrawToolId = 'pencil' | 'eraser' | 'fill' | 'eyedrop' | 'shade';
+export type SelectToolId = 'marquee' | 'lasso' | 'wand' | 'move';
 export type ShapeToolId = 'line' | 'rect' | 'ellipse';
 export type ViewToolId = 'pan';
 export type ColorToolId = 'color';

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CanvasState, FrameData, LayerData } from '../../../type/editor';
 import type { HistoryState } from '../useHistory';
 import type { ProjectMeta } from './useEditorProject';
-import { createInitialCanvasData, MAX_HISTORY_SIZE, PALETTE_COLORS } from '../../../constants/editor/editor';
+import { createInitialCanvasData, DEFAULT_PROJECT_TITLE, MAX_HISTORY_SIZE, PALETTE_COLORS } from '../../../constants/editor/editor';
 import { toast } from '../../../store/toastStore';
 
 export const MAX_TABS = 8;
@@ -68,7 +68,7 @@ function blankTab(): EditorTab {
     return {
         key: newKey(),
         history: { past: [], present: canvas, future: [] },
-        meta: { projectId: null, title: 'Untitled Project', isPublic: false },
+        meta: { projectId: null, title: DEFAULT_PROJECT_TITLE, isPublic: false },
         unsaved: false,
         palette: [...PALETTE_COLORS],
         activeFrameId: canvas.frames[0].id,

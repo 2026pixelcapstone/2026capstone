@@ -24,6 +24,8 @@ const TOOL_KEYS: Record<string, EditorToolId> = {
     KeyM: 'marquee',
     KeyQ: 'lasso',
     KeyV: 'move',
+    KeyW: 'wand',    // 마술봉(PR-G)
+    KeyU: 'shade',   // 명암 펜(PR-G)
 };
 
 export const MIN_PIXEL_SIZE = 1;

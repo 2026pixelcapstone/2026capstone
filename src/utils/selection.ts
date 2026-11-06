@@ -30,6 +30,18 @@ export function rectSelection(a: Point, b: Point, w: number, h: number): Selecti
     return withBounds(w, h, mask);
 }
 
+/** 칸 표시(1 = 선택)로 선택 만들기 — 마술봉·선택 회전(PR-G). 빈 표시면 null */
+export function maskSelection(w: number, h: number, mask: Uint8Array): Selection | null {
+    return withBounds(w, h, mask);
+}
+
+/** 선택 반전(PR-F) — 선택 안 된 칸만 선택(선택이 없으면 전체). 다 선택돼 있으면 null */
+export function invertSelection(sel: Selection | null, w: number, h: number): Selection | null {
+    const mask = new Uint8Array(w * h);
+    for (let i = 0; i < mask.length; i++) mask[i] = sel && sel.w === w && sel.h === h ? (sel.mask[i] ? 0 : 1) : 1;
+    return withBounds(w, h, mask);
+}
+
 export const fullSelection = (w: number, h: number) => rectSelection({ x: 0, y: 0 }, { x: w - 1, y: h - 1 }, w, h);
 
 /** 올가미: 그린 선이 감싼 칸(칸 가운데가 안쪽, 짝홀 규칙) + 선이 지나간 칸 */

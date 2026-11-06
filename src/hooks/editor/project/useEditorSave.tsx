@@ -1,4 +1,5 @@
 import { getCacheKey } from "../../../utils/editorUtils";
+import { compositeVisibleFrame } from "../../../utils/blendMode";
 import { CanvasSaveRequest, editorApi, FrameSaveRequest, LayerSaveRequest } from "../../../api/editorApi";
 import { CanvasState, LayerData} from "../../../type/editor";
 import { useCallback, useRef, useState } from "react";
@@ -46,11 +47,16 @@ export const useEditorSave = ({
             uploadFormData.set("folder", "gallery/dedicated"); // folder : pixel-art -> R2가 folder 감지
 
             // 1. 스테이지 썸네일 추출 (WebP 최적화)
-            const thumDataURL = canvas.toDataURL({
-                mimeType: 'image/webp',
-                quality: 0.7,
-                pixelRatio: 1
-            });
+            // 썸네일: 첫 프레임을 혼합 모드까지 반영해 합성(PR-F), 안 되면 예전처럼 화면(stage) 그대로
+            const f0 = state.frames[0];
+            const blended = f0 ? compositeVisibleFrame(f0.layers, f0.id, state.width, state.height, peekLayerCanvas, getCacheKey) : null;
+            const thumDataURL = blended
+                ? blended.toDataURL('image/webp', 0.7)
+                : canvas.toDataURL({
+                    mimeType: 'image/webp',
+                    quality: 0.7,
+                    pixelRatio: 1
+                });
             // 첫 await 전에 모든 캐시 이미지를 캡처합니다.
             const snapshots = state.frames.flatMap(frame => frame.layers.map(layer => {
                 const key = getCacheKey(frame.id, layer.id);

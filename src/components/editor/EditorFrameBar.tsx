@@ -212,6 +212,7 @@ export function EditorFrameBar({
                 id: detailFrame?.id ?? null,
                 duration: detailFrame?.duration ?? 100,
                 tagId: detailFrame?.tagId ?? null,
+
             }}
             updateAnimDurations = {updateAnimDurations}
             updateFrameTag={updateFrameTag}
