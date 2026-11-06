@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CanvasState, EditorToolId, Point } from "../../type/editor";
 import { getCacheKey } from "../../utils/editorUtils";
 import { canvasToPixelData, makeCanvas } from "../../utils/pixelOps";
+import { colorRegion } from "../../utils/pixelBrush";
 import { toast } from "../../store/toastStore";
 import {
-    clearSelection, extractSelection, fullSelection, invertSelection, polygonSelection, rectSelection, Selection, selectionOutline,
+    clearSelection, extractSelection, fullSelection, invertSelection, maskSelection, polygonSelection, rectSelection, Selection, selectionOutline,
     shiftSelection, snapEnd, snapStart,
 } from "../../utils/selection";
 
@@ -22,6 +23,8 @@ interface UseSelection {
     importImageFile: (file: File) => void;
     gridSnap: boolean;
     gridSize: number;
+    /** 마술봉 영역 옵션(PR-G) — 채우기와 같이 씀 */
+    wandOptions?: { contiguous: boolean; tolerance: number };
 }
 
 /** 붙여넣기용 보관(에디터 안 복사) */
@@ -74,6 +77,16 @@ export function useSelection(p: UseSelection) {
     const down = useCallback((pos: Point) => {
         if (activeTool === 'marquee') { setDraft({ kind: 'rect', a: pos, b: pos }); return; }
         if (activeTool === 'lasso') { setDraft({ kind: 'lasso', pts: [pos] }); return; }
+        // 마술봉(PR-G): 누른 칸과 같은 색(허용 오차 안) 영역을 선택 — 이어진 칸만 / 같은 색 전부
+        if (activeTool === 'wand') {
+            const ctx = layerCtx();
+            if (!ctx) return;
+            const img = ctx.getImageData(0, 0, state.width, state.height);
+            const mask = colorRegion(new Uint32Array(img.data.buffer), state.width, state.height, pos.x, pos.y,
+                { contiguous: p.wandOptions?.contiguous ?? true, tolerance: p.wandOptions?.tolerance ?? 0 });
+            setSelection(maskSelection(state.width, state.height, mask));
+            return;
+        }
         if (activeTool === 'move') {
             const ctx = layerCtx();
             if (!ctx || !activeFrameId || !activeLayerId) return;
@@ -86,7 +99,7 @@ export function useSelection(p: UseSelection) {
             moving.current = { ctx, base, float: canvas, fx: x, fy: y, start: pos, sel, layerId: activeLayerId, frameId: activeFrameId, dx: 0, dy: 0 };
             setMoveOffset({ dx: 0, dy: 0 });
         }
-    }, [activeTool, layerCtx, activeFrameId, activeLayerId, selectionRef, state.width, state.height]);
+    }, [activeTool, layerCtx, activeFrameId, activeLayerId, selectionRef, state.width, state.height, setSelection, p.wandOptions]);
 
     const move = useCallback((pos: Point) => {
         if (draft?.kind === 'rect') { setDraft({ ...draft, b: pos }); return; }
@@ -141,6 +154,43 @@ export function useSelection(p: UseSelection) {
     // ── 편집 ──
     const selectAll = useCallback(() => setSelection(fullSelection(state.width, state.height)), [state.width, state.height, setSelection]);
     const deselect = useCallback(() => setSelection(null), [setSelection]);
+    /** 선택 영역 좌우·상하 뒤집기, 90° 회전(PR-G) — 경계 상자 가운데 기준, 선택 모양도 같이 돌림. 되돌리기 한 번 */
+    const transformSelected = useCallback((op: 'flipH' | 'flipV' | 'rot90cw' | 'rot90ccw') => {
+        const ctx = layerCtx();
+        const sel = selectionRef.current;
+        if (!ctx || !activeFrameId || !activeLayerId) return;
+        if (!sel) { toast.info('먼저 영역을 선택해 주세요.'); return; }
+        const layer = state.frames.find(f => f.id === activeFrameId)?.layers.find(l => l.id === activeLayerId);
+        if (layer?.isLocked) { toast.info('잠긴 레이어예요. 자물쇠를 풀고 다시 해 주세요.'); return; }
+        const W = state.width, H = state.height;
+        const { canvas: fl, x, y } = extractSelection(ctx, sel);
+        const bw = fl.width, bh = fl.height;
+        const rot = op === 'rot90cw' || op === 'rot90ccw';
+        const nw = rot ? bh : bw, nh = rot ? bw : bh;
+        const nx = x + Math.floor((bw - nw) / 2), ny = y + Math.floor((bh - nh) / 2);
+        const out = makeCanvas(nw, nh);
+        const o = out.getContext('2d')!;
+        o.imageSmoothingEnabled = false;
+        if (op === 'flipH') { o.translate(nw, 0); o.scale(-1, 1); }
+        else if (op === 'flipV') { o.translate(0, nh); o.scale(1, -1); }
+        else if (op === 'rot90cw') { o.translate(nw, 0); o.rotate(Math.PI / 2); }
+        else { o.translate(0, nh); o.rotate(-Math.PI / 2); }
+        o.drawImage(fl, 0, 0);
+        clearSelection(ctx, sel);
+        ctx.drawImage(out, nx, ny);
+        // 선택 모양도 같은 규칙으로 옮김(캔버스 밖으로 나간 칸은 버림)
+        const mask = new Uint8Array(W * H);
+        for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
+            if (!sel.mask[(y + j) * W + (x + i)]) continue;
+            const [ii, jj] = op === 'flipH' ? [bw - 1 - i, j] : op === 'flipV' ? [i, bh - 1 - j] : op === 'rot90cw' ? [bh - 1 - j, i] : [j, bw - 1 - i];
+            const X = nx + ii, Y = ny + jj;
+            if (X >= 0 && Y >= 0 && X < W && Y < H) mask[Y * W + X] = 1;
+        }
+        setSelection(maskSelection(W, H, mask));
+        p.redrawLayer(activeLayerId);
+        p.commitLayerChanges(activeFrameId, activeLayerId);
+    }, [layerCtx, selectionRef, activeFrameId, activeLayerId, state.frames, state.width, state.height, setSelection, p]);
+
     const invert = useCallback(() => {
         const next = invertSelection(selectionRef.current, state.width, state.height);
         if (!next) { toast.info('반전할 칸이 없어요(전부 선택된 상태).'); return; }
@@ -250,7 +300,7 @@ export function useSelection(p: UseSelection) {
 
     return {
         selection, outline, lassoPoints, selectionSize, isSelecting: !!draft || !!moving.current,
-        down, move, up, selectAll, deselect, invert, copy: () => copy(), cut, paste, deleteSelected: () => removeSelected('지웠어요.'),
+        down, move, up, selectAll, deselect, invert, transformSelected, copy: () => copy(), cut, paste, deleteSelected: () => removeSelected('지웠어요.'),
     };
 }
 

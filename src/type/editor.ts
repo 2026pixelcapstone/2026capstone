@@ -128,6 +128,11 @@ export const MENU_ACTION = {
   CROP_TO_SELECTION: 'CROP_TO_SELECTION', // 선택 영역으로 캔버스 자르기
   TRIM_CANVAS: 'TRIM_CANVAS',           // 빈 여백 자르기
   CLEAR_LAYER: 'CLEAR_LAYER',           // 레이어 내용 지우기
+  SEL_FLIP_H: 'SEL_FLIP_H',             // 선택 영역 뒤집기·회전(PR-G)
+  SEL_FLIP_V: 'SEL_FLIP_V',
+  SEL_ROT_CW: 'SEL_ROT_CW',
+  SEL_ROT_CCW: 'SEL_ROT_CCW',
+  TOGGLE_WRAP: 'TOGGLE_WRAP',           // 타일 모드 그리기(PR-G)
 
   // Menu -> Image
   FLIP_HORIZONTAL: 'FLIP_HORIZONTAL',
@@ -216,8 +221,8 @@ export interface MenuGroup {
 // ── ToolType ──────────────────────────────────────────────
 
 // 도구 아이디 타입 정의
-export type DrawToolId = 'pencil' | 'eraser' | 'fill' | 'eyedrop';
-export type SelectToolId = 'marquee' | 'lasso' | 'move';
+export type DrawToolId = 'pencil' | 'eraser' | 'fill' | 'eyedrop' | 'shade';
+export type SelectToolId = 'marquee' | 'lasso' | 'wand' | 'move';
 export type ShapeToolId = 'line' | 'rect' | 'ellipse';
 export type ViewToolId = 'pan';
 export type ColorToolId = 'color';

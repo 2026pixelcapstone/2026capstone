@@ -12,6 +12,7 @@ export interface BrushOptions {
     dither?: boolean;          // 체크무늬: (x+y)가 짝수인 칸만
     symmetryX?: boolean;       // 좌우 대칭(세로 가운데 축)
     symmetryY?: boolean;       // 상하 대칭(가로 가운데 축)
+    wrap?: boolean;            // 타일 모드(PR-G): 가장자리를 넘으면 반대편에 이어 칠함
 }
 
 /** 대칭 옵션에 따라 같은 붓 사각형의 왼쪽 위 좌표들(원래 + 거울) */
@@ -31,8 +32,18 @@ function paintRect(ctx: CanvasRenderingContext2D, x: number, y: number, size: nu
     paintBox(ctx, x, y, size, size, o);
 }
 
-/** w×h 상자 칠하기(투명 잠금·체크무늬 반영) */
+/** w×h 상자 칠하기(투명 잠금·체크무늬 반영). 타일 모드면 넘친 부분을 반대편에도(PR-G) */
 function paintBox(ctx: CanvasRenderingContext2D, x: number, y: number, bw: number, bh: number, o: BrushOptions) {
+    if (!o.wrap) { paintBoxOnce(ctx, x, y, bw, bh, o); return; }
+    const { width: W, height: H } = ctx.canvas;
+    for (const dy of [-H, 0, H]) for (const dx of [-W, 0, W]) {
+        // 캔버스와 겹치는 사본만(겹치지 않으면 어차피 안 그려지지만 체크무늬 반복을 줄임)
+        if (x + dx + bw <= 0 || x + dx >= W || y + dy + bh <= 0 || y + dy >= H) continue;
+        paintBoxOnce(ctx, x + dx, y + dy, bw, bh, o);
+    }
+}
+
+function paintBoxOnce(ctx: CanvasRenderingContext2D, x: number, y: number, bw: number, bh: number, o: BrushOptions) {
     const erase = o.color === null;
     const lock = !!o.alphaLock && !erase;
     if (lock) ctx.globalCompositeOperation = 'source-atop';   // 기존 칸의 불투명도 안에서만 칠해짐
@@ -186,7 +197,52 @@ function hexToAbgr(hex: string): number {
  * 투명 픽셀 잠금: 시작 칸이 투명이면 안 칠함. 체크무늬: 이어진 칸 중 (x+y) 짝수 칸만 칠함(나머지는 원래 색).
  * @returns 바뀐 칸이 있었는지
  */
-export function floodFill(ctx: CanvasRenderingContext2D, sx: number, sy: number, color: string, o: Omit<BrushOptions, 'size' | 'color'> & { mask?: Uint8Array | null }): boolean {
+/** 두 색(ABGR 32비트)이 허용 오차 안인지 — 채널별 차이가 tol 이하(0이면 완전히 같은 색만) */
+function near(a: number, b: number, tol: number): boolean {
+    if (a === b) return true;
+    if (tol <= 0) return false;
+    for (let s = 0; s < 32; s += 8) if (Math.abs(((a >>> s) & 255) - ((b >>> s) & 255)) > tol) return false;
+    return true;
+}
+
+export interface RegionOptions {
+    contiguous?: boolean;     // true(기본) = 이어진 칸만, false = 같은 색 전부
+    tolerance?: number;       // 0~255, 채널별 허용 차이
+    mask?: Uint8Array | null; // 이 안에서만
+}
+
+/**
+ * (sx, sy) 칸과 같은(허용 오차 안) 색 영역 — 마술봉 선택과 채우기가 같이 씀(PR-G). 1 = 포함
+ */
+export function colorRegion(data32: Uint32Array, width: number, height: number, sx: number, sy: number, o: RegionOptions = {}): Uint8Array {
+    const out = new Uint8Array(width * height);
+    const start = sy * width + sx;
+    if (o.mask && !o.mask[start]) return out;
+    const target = data32[start];
+    const tol = Math.max(0, Math.min(255, o.tolerance ?? 0));
+    if (o.contiguous === false) {
+        for (let i = 0; i < out.length; i++) if ((!o.mask || o.mask[i]) && near(data32[i], target, tol)) out[i] = 1;
+        return out;
+    }
+    const queue = new Int32Array(width * height);
+    let head = 0, tail = 0;
+    queue[tail++] = start;
+    out[start] = 1;
+    while (head < tail) {
+        const idx = queue[head++];
+        const cx = idx % width;
+        const push = (n: number) => {
+            if (!out[n] && (!o.mask || o.mask[n]) && near(data32[n], target, tol)) { out[n] = 1; queue[tail++] = n; }
+        };
+        if (cx > 0) push(idx - 1);
+        if (cx < width - 1) push(idx + 1);
+        if (idx >= width) push(idx - width);
+        if (idx + width < out.length) push(idx + width);
+    }
+    return out;
+}
+
+export function floodFill(ctx: CanvasRenderingContext2D, sx: number, sy: number, color: string, o: Omit<BrushOptions, 'size' | 'color'> & { mask?: Uint8Array | null; contiguous?: boolean; tolerance?: number }): boolean {
     const { width, height } = ctx.canvas;
     const img = ctx.getImageData(0, 0, width, height);
     const data32 = new Uint32Array(img.data.buffer);
@@ -197,32 +253,24 @@ export function floodFill(ctx: CanvasRenderingContext2D, sx: number, sy: number,
     if (o.symmetryX && o.symmetryY) seeds.push({ x: width - 1 - sx, y: height - 1 - sy });
 
     let changed = false;
-    const visited = new Uint8Array(width * height);
-    const queue = new Int32Array(width * height);
+    const done = new Uint8Array(width * height);
     for (const s of seeds) {
         const start = s.y * width + s.x;
-        if (visited[start]) continue;
+        if (done[start]) continue;
         if (o.mask && !o.mask[start]) continue;   // 선택 밖에서 시작하면 안 칠함(PR-D)
         const target = data32[start];
         if (o.alphaLock && (target >>> 24) === 0) continue;
-        if (target === fill && !o.dither) continue;
-        let head = 0, tail = 0;
-        queue[tail++] = start;
-        visited[start] = 1;
-        while (head < tail) {
-            const idx = queue[head++];
-            const cx = idx % width;
-            const cy = (idx - cx) / width;
+        if (target === fill && !o.dither && o.contiguous !== false) continue;
+        // 이어진 칸만 / 같은 색 전부 + 허용 오차(PR-G) — 마술봉과 같은 영역 계산
+        const region = colorRegion(data32, width, height, s.x, s.y, { contiguous: o.contiguous, tolerance: o.tolerance, mask: o.mask });
+        for (let idx = 0; idx < region.length; idx++) {
+            if (!region[idx] || done[idx]) continue;
+            done[idx] = 1;
+            if (o.alphaLock && (data32[idx] >>> 24) === 0) continue;
+            const cx = idx % width, cy = (idx - cx) / width;
             if (!o.dither || ((cx + cy) & 1) === 0) {
                 if (data32[idx] !== fill) { data32[idx] = fill; changed = true; }
             }
-            const push = (n: number) => {
-                if (!visited[n] && data32[n] === target && (!o.mask || o.mask[n])) { visited[n] = 1; queue[tail++] = n; }
-            };
-            if (cx > 0) push(idx - 1);
-            if (cx < width - 1) push(idx + 1);
-            if (cy > 0) push(idx - width);
-            if (cy < height - 1) push(idx + width);
         }
     }
     if (changed) ctx.putImageData(img, 0, 0);

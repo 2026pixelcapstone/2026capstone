@@ -128,6 +128,7 @@ export default function EditorPage() {
   const [openProjectModalOpen, setOpenProjectModalOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false) 
   const [unsaved, setUnsaved] = useState(false);
+  const [recentColors, setRecentColors] = useState<string[]>([]);   // 최근 쓴 색(PR-G)
 
   // ── hook ──────────────────────────
   // ── useHistory 훅 ──────────────
@@ -197,13 +198,14 @@ export default function EditorPage() {
   // ── useCanvasTool 훅 ──────────────
   const { 
     activeTool, pixelSize, brushSize, pixelPerfect, setActiveTool, setPixelSize, setBrushSize, setPixelPerfect, applyDirectTool,
-    brushOptions, toolOptions, setToolOptions,
+    brushOptions, toolOptions, setToolOptions, startStroke,
   } = useCanvasTool({
     fgColor,
     isDirty,
     setUnsaved,
     selectPaletteColor,
     selectionRef,
+    paletteColors,
   });
 
   // ── 보기 메뉴 화면 보조(PR-A·B·D) — 그리드 스냅을 그리기 훅이 쓰므로 그 앞에 ──────────────
@@ -231,10 +233,17 @@ export default function EditorPage() {
     selectionHandlersRef,
     gridSnap,
     gridSize,
+    onStrokeStart: () => {
+      startStroke();
+      // 최근 쓴 색(PR-G): 칠하는 도구로 그은 색을 앞에, 8개까지
+      if (['pencil', 'fill', 'line', 'rect', 'ellipse'].includes(activeTool)) {
+        setRecentColors(prev => [fgColor, ...prev.filter(c => c.toLowerCase() !== fgColor.toLowerCase())].slice(0, 8));
+      }
+    },
   });
 
   // 잠긴 레이어에는 그리기·지우기·채우기·이동을 막음(PR-F) — 손·스포이드·선택 도구는 그대로
-  const LOCK_BLOCKED_TOOLS = ['pencil', 'eraser', 'fill', 'line', 'rect', 'ellipse', 'move'];
+  const LOCK_BLOCKED_TOOLS = ['pencil', 'eraser', 'fill', 'line', 'rect', 'ellipse', 'move', 'shade'];
   const lockToastAt = useRef(0);
   const guardedMouseDown = useCallback(() => {
     if (currentLayer?.isLocked && LOCK_BLOCKED_TOOLS.includes(activeTool)) {
@@ -327,6 +336,7 @@ export default function EditorPage() {
   const sel = useSelection({
     state, activeFrameId, activeLayerId, activeTool, setActiveTool, selectionRef,
     ensureLayerCanvas, commitLayerChanges, addLayer, redrawLayer, importImageFile, gridSnap, gridSize,
+    wandOptions: { contiguous: toolOptions.contiguous, tolerance: toolOptions.tolerance },
   });
   useEffect(() => { selectionHandlersRef.current = { down: sel.down, move: sel.move, up: sel.up }; }, [sel.down, sel.move, sel.up]);
   const { duplicateFrame, reverseFrames, neighborFrameId } = useFrameOps({ state, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId, setWithHistory, setUnsaved });
@@ -869,6 +879,11 @@ export default function EditorPage() {
   const stepFrame = (dir: 1 | -1) => { const id = neighborFrameId(dir); if (id) handleSelectFrame(id); };
   const menuExtra: Partial<Record<MenuActionId, () => void>> = {
     [MENU_ACTION.INVERT_SELECTION]: sel.invert,
+    [MENU_ACTION.SEL_FLIP_H]: () => sel.transformSelected('flipH'),
+    [MENU_ACTION.SEL_FLIP_V]: () => sel.transformSelected('flipV'),
+    [MENU_ACTION.SEL_ROT_CW]: () => sel.transformSelected('rot90cw'),
+    [MENU_ACTION.SEL_ROT_CCW]: () => sel.transformSelected('rot90ccw'),
+    [MENU_ACTION.TOGGLE_WRAP]: () => setToolOptions.setWrap(v => !v),
     [MENU_ACTION.CROP_TO_SELECTION]: editOps.cropToSelection,
     [MENU_ACTION.TRIM_CANVAS]: () => { void editOps.trimCanvas(); },
     [MENU_ACTION.CLEAR_LAYER]: editOps.clearLayer,
@@ -890,7 +905,7 @@ export default function EditorPage() {
   const menuDisabled = new Set<MenuActionId>([
     ...(!canUndo ? [MENU_ACTION.UNDO] : []),
     ...(!canRedo ? [MENU_ACTION.REDO] : []),
-    ...(!sel.selection ? [MENU_ACTION.CROP_TO_SELECTION] : []),
+    ...(!sel.selection ? [MENU_ACTION.CROP_TO_SELECTION, MENU_ACTION.SEL_FLIP_H, MENU_ACTION.SEL_FLIP_V, MENU_ACTION.SEL_ROT_CW, MENU_ACTION.SEL_ROT_CCW] : []),
     ...(currentFrame.layers.length < 2 ? [MENU_ACTION.DELETE_LAYER, MENU_ACTION.FLATTEN] : []),
     ...(currentFrame.layers.filter(l => l.isVisible).length < 2 ? [MENU_ACTION.MERGE_VISIBLE] : []),
     ...(layerPos <= 0 ? [MENU_ACTION.MERGE_DOWN, MENU_ACTION.MOVE_DOWN] : []),
@@ -901,6 +916,7 @@ export default function EditorPage() {
   const menuChecked = new Set<MenuActionId>([
     ...(currentLayer?.isLocked ? [MENU_ACTION.TOGGLE_LAYER_LOCK] : []),
     ...(isPlaying ? [MENU_ACTION.TOGGLE_PLAY] : []),
+    ...(toolOptions.wrap ? [MENU_ACTION.TOGGLE_WRAP] : []),
   ]);
   // 단축키(PR-F) — 입력칸·창이 열려 있을 땐 무시. 메뉴 표에 적힌 키와 같음
   const menuExtraRef = useRef(menuExtra);
@@ -1438,6 +1454,7 @@ export default function EditorPage() {
                   selectPaletteColor = {selectPaletteColor}
                   setPaletteColors = {setPaletteColors}
                   fileName = {projectTitle}
+                  recentColors = {recentColors}
                 />
               </>
             )}
@@ -1456,6 +1473,7 @@ export default function EditorPage() {
                   selectPaletteColor = {selectPaletteColor}
                   setPaletteColors = {setPaletteColors}
                   fileName = {projectTitle}
+                  recentColors = {recentColors}
                 />
               </>
             )}

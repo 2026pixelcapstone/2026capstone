@@ -30,6 +30,11 @@ export function rectSelection(a: Point, b: Point, w: number, h: number): Selecti
     return withBounds(w, h, mask);
 }
 
+/** 칸 표시(1 = 선택)로 선택 만들기 — 마술봉·선택 회전(PR-G). 빈 표시면 null */
+export function maskSelection(w: number, h: number, mask: Uint8Array): Selection | null {
+    return withBounds(w, h, mask);
+}
+
 /** 선택 반전(PR-F) — 선택 안 된 칸만 선택(선택이 없으면 전체). 다 선택돼 있으면 null */
 export function invertSelection(sel: Selection | null, w: number, h: number): Selection | null {
     const mask = new Uint8Array(w * h);

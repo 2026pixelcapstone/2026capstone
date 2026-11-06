@@ -29,11 +29,13 @@ export const DRAW_TOOLS = [
   { id: 'eraser',    icon: 'ink_eraser',          label: '지우개 (E)' },
   { id: 'fill',      icon: 'format_color_fill',   label: '채우기 (G)' },
   { id: 'eyedrop',   icon: 'colorize',            label: '스포이드 (I, Alt)' },
+  { id: 'shade',     icon: 'contrast',            label: '명암 펜 (U)' },
 ] as const;
 
 export const SELECT_TOOLS = [
   { id: 'marquee',   icon: 'select_all',          label: '사각 선택 (M)' },
   { id: 'lasso',     icon: 'gesture',             label: '올가미 (Q)' },
+  { id: 'wand',      icon: 'auto_fix_high',       label: '마술봉 (W)' },
   { id: 'move',      icon: 'open_with',           label: '이동 (V)' },
 ] as const;
 export const SHAPE_TOOLS = [

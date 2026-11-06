@@ -30,6 +30,8 @@ interface UseCanvasDrawing{
     selectionHandlersRef: React.RefObject<SelectionHandlers | null>;
     gridSnap: boolean;
     gridSize: number;
+    /** 그리기 한 획이 시작될 때(PR-G: 명암 펜 칸 기록 비우기·최근 쓴 색) */
+    onStrokeStart?: () => void;
 }
 
 export interface SelectionHandlers {
@@ -38,7 +40,7 @@ export interface SelectionHandlers {
     up: () => void;
 }
 
-const SELECT_TOOL_IDS: EditorToolId[] = ['marquee', 'lasso', 'move'];
+const SELECT_TOOL_IDS: EditorToolId[] = ['marquee', 'lasso', 'wand', 'move'];
 
 /** 끄는 중인 직선·도형(픽셀 카운터·비율 가이드 표시용) */
 export interface DragShape {
@@ -72,6 +74,7 @@ export function useCanvasDrawing({
     selectionHandlersRef,
     gridSnap,
     gridSize,
+    onStrokeStart,
 }: UseCanvasDrawing){
     const selecting = useRef(false);
     const clipped = useRef<CanvasRenderingContext2D | null>(null);
@@ -183,6 +186,7 @@ export function useCanvasDrawing({
 
         isDrawing.current = true;
         isDirty.current = false;
+        onStrokeStart?.();
         lastPos.current = pos;
         trail.current = [];
         // 선택이 있으면 이번 획은 선택 안에만(포토샵·Aseprite와 같음). 채우기는 마스크로 따로 제한(useCanvasTool)
@@ -247,7 +251,7 @@ export function useCanvasDrawing({
             return;
         }
 
-        if(activeTool === 'pencil' || activeTool === 'eraser'){
+        if(activeTool === 'pencil' || activeTool === 'eraser' || activeTool === 'shade'){
           const pp = pixelPerfectOn(activeTool);
           // 이전 점과 현재 점 사이를 잇는 커스텀 로직 호출 (브레슨햄 알고리즘 등)
           if (lastPos.current) {
