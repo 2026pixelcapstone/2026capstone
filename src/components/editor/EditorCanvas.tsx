@@ -227,7 +227,7 @@ export function EditorCanvas({
                     ))}
                     {cursorPos.x >= 0 && cursorPos.y >= 0 && (
                     <Layer>
-                        {(activeTool === 'pencil' || activeTool === 'eraser' || activeTool === 'line' || activeTool === 'rect' || activeTool === 'ellipse') &&(
+                        {(activeTool === 'pencil' || activeTool === 'eraser' || activeTool === 'shade' || activeTool === 'line' || activeTool === 'rect' || activeTool === 'ellipse') &&(
                             <Rect
                                 x={cursorPos.x - offset} // 계산된 offset만큼 이동
                                 y={cursorPos.y - offset} // 계산된 offset만큼 이동
@@ -237,7 +237,7 @@ export function EditorCanvas({
                                 listening={false}
                             />
                         )}
-                        {(activeTool === 'fill' || activeTool ==='eyedrop') && (
+                        {(activeTool === 'fill' || activeTool ==='eyedrop' || activeTool === 'wand') && (
                             <Rect
                                 x={cursorPos.x} // 계산된 offset만큼 이동
                                 y={cursorPos.y} // 계산된 offset만큼 이동

@@ -13,6 +13,8 @@ interface EditorPalette{
     setPaletteColors?: React.Dispatch<React.SetStateAction<string[]>>;
     /** 파일 이름에 쓸 이름(프로젝트 제목) */
     fileName?: string;
+    /** 최근 쓴 색(PR-G) — 팔레트 위 한 줄 */
+    recentColors?: string[];
 }
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -26,6 +28,7 @@ export function EditorPalette({
     selectPaletteColor,
     setPaletteColors,
     fileName = 'palette',
+    recentColors = [],
 }: EditorPalette){
     const fileRef = useRef<HTMLInputElement>(null);
     const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -97,6 +100,16 @@ export function EditorPalette({
                         )}
                     </div>
                 </div>
+                {recentColors.length > 0 && (
+                  <div className="flex items-center gap-1 px-1 mb-2" aria-label="최근 쓴 색">
+                    <span className="text-[11px] mr-1 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>최근</span>
+                    {recentColors.map(c => (
+                      <button key={c} type="button" onClick={() => selectPaletteColor(c)} aria-label={`최근 색 ${c}`} title={c}
+                        className="w-5 h-5 rounded-sm border hover:scale-110 transition-transform"
+                        style={{ background: c, borderColor: same(fgColor, c) ? 'var(--color-on-surface)' : 'var(--color-outline)' }} />
+                    ))}
+                  </div>
+                )}
                 <div className="grid grid-cols-7 gap-1.5 px-1">
                 {paletteColors.map((c, i) => (
                     <button
