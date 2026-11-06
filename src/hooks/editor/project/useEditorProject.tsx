@@ -100,8 +100,10 @@ export function useEditorProject({
             setProjectTitle(proj.title)
             setCustomW(proj.width)
             setCustomH(proj.height)
+
             setIsPublic(proj.isPublic)
             if (proj.palette && setPaletteColors) setPaletteColors(proj.palette)
+
             // 1. 프레임 데이터 결정 (불러온 프레임이 있으면 사용하고, 없으면 기본 프레임 생성 또는 기존 프레임 유지)
             const framesToReset = proj.frames.length > 0 
             ? proj.frames 
@@ -219,7 +221,7 @@ export function useEditorProject({
         const generationAtSaveStart = projectGenerationRef.current;
 
         const nextTitle = saveModelData?.title.trim() || projectTitle.trim();
-        const isNextPublic = saveModelData?.isPublic || isPublic;
+        const isNextPublic = saveModelData?.isPublic ?? isPublic ?? false;
 
         if (!nextTitle) {
             toast.error('프로젝트 이름을 입력해주세요');
@@ -252,7 +254,7 @@ export function useEditorProject({
                 return next;
             }, { replace: true });
             setProjectTitle(result.title);
-            setIsPublic(result.isPublic);
+            setIsPublic(result.isPublic === true);
             setUnsaved(false);
 
             setIsSaveModalOpen(false);
@@ -262,7 +264,8 @@ export function useEditorProject({
             console.error("저장 중 에러 발생", error);
             toast.error('저장에 실패했습니다.');
         }
-    }, [isLoggedIn, saving, saveProject, projectId, state, projectTitle, setSearchParams, paletteColors])
+
+    }, [isLoggedIn, isPublic, saving, saveProject, projectId, state, projectTitle, setSearchParams, paletteColors])
 
     // ── 프로젝트 정보 되살리기(탭 전환) ──────────────
     // 그림·되돌리기 기록은 부르는 쪽(useEditorTabs)이 되살리고, 여기서는 id·제목·공개 여부와 주소만 맞춤.
@@ -309,7 +312,7 @@ export function useEditorProject({
             handleSave(null, false);
         }
 
-    }, [isLoggedIn, projectId, handleSave]);
+    }, [isLoggedIn, projectId, handleSave, setIsSaveAsMode, setIsSaveAsMode]);
 
     return { 
         projectId, 
@@ -318,6 +321,7 @@ export function useEditorProject({
         isPublic,
         isSaveModalOpen, 
         isSaveAsMode,
+        setIsPublic,
         setProjectTitle,
         setIsSaveModalOpen, 
         handleNewProject, 

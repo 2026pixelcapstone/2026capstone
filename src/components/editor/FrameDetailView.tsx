@@ -10,6 +10,7 @@ interface FrameDetailProps{
     updateAnimDurations: (frameId: string | null, duration: number | null, skipHistory: boolean, forceCommit: boolean) => void;
     updateFrameTag: (frameId: string | null, tagId: string | null) => void; // 프레임에 태그 장착/해제
     createAnimationTag: (name: string, color: string) => void; // 새 태그 생성
+    deleteAnimationTag: (animTagId: string | null) => void;
     onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export function FrameDetailView({
     updateAnimDurations,
     updateFrameTag,
     createAnimationTag,
+    deleteAnimationTag,
     onClose
 }: FrameDetailProps){
 
@@ -136,7 +138,7 @@ export function FrameDetailView({
                 {/* 장착 가능한 태그 목록 (배지 형태) */}
                 <div className="flex flex-wrap gap-1.5">
                     <button
-                        onClick={() => updateFrameTag(frameViewData.id, frameViewData.tagId)}
+                        onClick={() => updateFrameTag(frameViewData.id, null)}
                         className={`px-2 py-1 text-[11px] rounded border transition-colors ${
                             !frameViewData.tagId 
                             ? 'bg-surface-container-highest border-outline text-on-surface' 
@@ -163,6 +165,20 @@ export function FrameDetailView({
                             </button>
                         )
                     })}
+                    {/*  태그 삭제 버튼 ('None'이 아닐 때만 표시) */}
+                    {frameViewData.tagId && (
+                        <button
+                            type="button"
+                            onClick={() => deleteAnimationTag(frameViewData.tagId)}
+                            className="flex items-center justify-center w-7 h-7 rounded transition-colors"
+                            style={{ color: 'var(--color-error)' }} // 빨간색 계열 테마 변수 (또는 '#ef4444' 사용)
+                            title="현재 태그 완전히 삭제"
+                        >
+                            <span className="material-symbols-outlined text-[18px] hover:scale-110 transition-transform">
+                                delete
+                            </span>
+                        </button>
+                    )}
                 </div>
 
                 {/* 태그 생성 폼 / 토글 버튼 */}

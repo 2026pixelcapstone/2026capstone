@@ -232,8 +232,6 @@ export function EditorCanvas({
                                 listening={false}
                             />
                         )}
-                        
-
                     </Layer>
                     )}
                 </Stage>
