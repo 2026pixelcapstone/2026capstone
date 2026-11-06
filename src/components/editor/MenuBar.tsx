@@ -16,7 +16,9 @@ interface IoActions{
 }
 
 interface FileActions{
-    handleNewProject: () => void;
+    handleNewProject: () => void;   // 새 탭(PR-E)
+    closeTab: () => void;
+    openSendToTab: () => void;
     setOpenProjectModalOpen: React.Dispatch<React.SetStateAction<boolean>>
     handleOpenPpit: () => void;
     openSaveModal: (isSaveAs: boolean) => void;
@@ -150,7 +152,11 @@ export default function MenuBar({
             case MENU_ACTION.OPEN_PROJECT:
                 fileActions.setOpenProjectModalOpen(true);
                 break;
-            case MENU_ACTION.IMPORT_PROJECT:
+            case MENU_ACTION.CLOSE_TAB:
+                fileActions.closeTab();
+                break;
+            case MENU_ACTION.SEND_TO_TAB:
+                fileActions.openSendToTab();
                 break;
             case MENU_ACTION.OPEN_PPIT:
                 fileActions.handleOpenPpit();

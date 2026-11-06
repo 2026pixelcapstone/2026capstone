@@ -1,9 +1,9 @@
-import { useCallback, useReducer } from "react";
+import { useCallback, useReducer, useRef } from "react";
 import {MAX_HISTORY_SIZE} from '../../constants/editor/editor'
 import { CanvasState } from "../../type/editor";
 
-// 1. 상태 타입 정의
-interface HistoryState{
+// 1. 상태 타입 정의 (탭 전환 때 통째로 꺼내 두었다 되살리므로 export)
+export interface HistoryState{
     past: CanvasState[];
     present: CanvasState;
     future: CanvasState[];
@@ -15,7 +15,8 @@ type HistoryAction =
     | {type: "SET_WITHOUT_HISTORY"; newPresent: CanvasState | ((prev: CanvasState) => CanvasState)}
     | {type: "UNDO"}
     | {type: "REDO"}
-    | {type: "RESET"; newPresent: CanvasState};
+    | {type: "RESET"; newPresent: CanvasState}
+    | {type: "RESTORE"; history: HistoryState};
 
 // 3. 순수 리듀서 함수 (Side-effect 없음, 예측 가능성 높음)
 function historyReducer(state: HistoryState, action: HistoryAction): HistoryState {
@@ -82,6 +83,10 @@ function historyReducer(state: HistoryState, action: HistoryAction): HistoryStat
                 future: [],
             };
         }
+        // 탭 전환: 꺼내 두었던 과거·현재·미래를 그대로 되살림
+        case "RESTORE": {
+            return action.history;
+        }
     }
 }
 
@@ -109,6 +114,14 @@ export function useHistory(initialState: CanvasState){
         dispatch({type: "REDO"});
     }, [])
 
+    // 탭 전환용: 지금 기록 전체 꺼내기 / 되살리기
+    const historyRef = useRef(history);
+    historyRef.current = history;
+    const getSnapshot = useCallback((): HistoryState => historyRef.current, []);
+    const restore = useCallback((saved: HistoryState) => {
+        dispatch({type: "RESTORE", history: saved});
+    }, []);
+
     // 매개변수로 받은 newPresent로 리셋함
     const reset = useCallback((newPresent: CanvasState) => {
         dispatch({type: "RESET", newPresent});
@@ -121,6 +134,8 @@ export function useHistory(initialState: CanvasState){
         undo,
         redo,
         reset,
+        getSnapshot,
+        restore,
         canUndo: history.past.length > 0,
         canRedo: history.future.length > 0,
         historyLength: history.past.length,

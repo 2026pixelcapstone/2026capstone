@@ -30,7 +30,7 @@ export const useEditorSave = ({
     const savingRef = useRef(false);
 
     // ── 프로젝트 서버 저장 로직 ──────────────────────────────────────────
-    const saveProject = useCallback(async (projectId: number | null, state: CanvasState, nextTitle: string, isNextPublic: boolean) 
+    const saveProject = useCallback(async (projectId: number | null, state: CanvasState, nextTitle: string, isNextPublic: boolean, palette?: string[]) 
     : Promise<SaveProjectResult | null> => {
         if (savingRef.current) return null;
 
@@ -157,7 +157,9 @@ export const useEditorSave = ({
                 throw new Error('저장할 프레임 데이터가 없습니다.');
             }
             const canvasSaveRequest : CanvasSaveRequest = {
-                frameSaveRequests: frameToSave
+                frameSaveRequests: frameToSave,
+                // 서버 형식(#RRGGBB·#RRGGBBAA)에 맞는 색만, 최대 256개 — 하나라도 어긋나면 저장 전체가 400이 되므로 미리 거름
+                ...(palette ? { palette: palette.filter(c => /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(c)).slice(0, 256) } : {}),
             }
             
             await editorApi.saveCanvasData(pid, canvasSaveRequest);
