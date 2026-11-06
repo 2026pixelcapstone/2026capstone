@@ -6,14 +6,34 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   onSelect: (projectId: number) => void
+  /** 서버에서 지운 뒤 — 열린 탭 정리용 */
+  onDeleted?: (projectId: number) => void
 }
 
-export default function EditorOpenProjectModal({ isOpen, onClose, onSelect }: Props) {
+export default function EditorOpenProjectModal({ isOpen, onClose, onSelect, onDeleted }: Props) {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const lastFocusedRef = useRef<HTMLElement | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+
+  const handleDelete = async (p: ProjectSummary) => {
+    if (deletingId !== null) return
+    if (!window.confirm(`'${p.title}' 프로젝트를 삭제할까요? 되돌릴 수 없습니다.
+(지금 열려 있는 탭의 그림은 남고, 저장 안 한 새 작업이 됩니다)`)) return
+    setDeletingId(p.projectId)
+    try {
+      await editorApi.deleteProject(p.projectId)
+      setProjects(prev => prev.filter(x => x.projectId !== p.projectId))
+      onDeleted?.(p.projectId)
+      toast.success('프로젝트를 삭제했습니다.')
+    } catch {
+      toast.error('프로젝트를 삭제하지 못했습니다.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   // 목록 로드 — 닫힌(또는 재오픈) 요청의 후속 상태 반영 방지(cancelled 플래그)
   useEffect(() => {
@@ -79,8 +99,9 @@ export default function EditorOpenProjectModal({ isOpen, onClose, onSelect }: Pr
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {projects.map(p => (
-                <button key={p.projectId} type="button" onClick={() => onSelect(p.projectId)}
-                  className="text-left rounded-xl overflow-hidden transition-colors hover:bg-surface-container-low"
+                <div key={p.projectId} className="relative group">
+                <button type="button" onClick={() => onSelect(p.projectId)}
+                  className="w-full text-left rounded-xl overflow-hidden transition-colors hover:bg-surface-container-low"
                   style={{ border: '1px solid var(--color-outline)' }}>
                   <div className="aspect-square flex items-center justify-center overflow-hidden" style={{ background: 'var(--color-background)' }}>
                     {p.thumbnailUrl ? (
@@ -95,6 +116,13 @@ export default function EditorOpenProjectModal({ isOpen, onClose, onSelect }: Pr
                     <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{p.width}×{p.height}</p>
                   </div>
                 </button>
+                <button type="button" onClick={() => { void handleDelete(p) }} disabled={deletingId !== null}
+                  aria-label={`${p.title} 삭제`} title="프로젝트 삭제"
+                  className="absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-40"
+                  style={{ background: 'color-mix(in srgb, var(--color-background) 85%, transparent)', color: 'var(--color-error)' }}>
+                  <span className="material-symbols-outlined text-base">{deletingId === p.projectId ? 'hourglass_empty' : 'delete'}</span>
+                </button>
+                </div>
               ))}
             </div>
           )}

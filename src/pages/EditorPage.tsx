@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {createInitialCanvasData, ZOOM_LEVELS} from '../constants/editor/editor'
 
@@ -60,6 +60,10 @@ import { LayerDetailView } from '../components/editor/LayerDetailView'
 import { PaletteTap } from '../components/editor/PaletteTap'
 import { LayerTap } from '../components/editor/LayerTap'
 import { LeftToolBarOptionBar } from '../components/editor/LeftToolBarOptionBar'
+import { useEditorTabs } from '../hooks/editor/project/useEditorTabs'
+import { useEditorAutosave } from '../hooks/editor/project/useEditorAutosave'
+import { EditorTabBar } from '../components/editor/EditorTabBar'
+import { SendToTabModal } from '../components/editor/SendToTabModal'
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -80,7 +84,7 @@ export default function EditorPage() {
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams()
-  const { isLoggedIn } = useAuthStore()
+  const { isLoggedIn, user } = useAuthStore()
 
   // ── CanvasData 관련 ──────────────
   const [activeFrameId, setActiveFrameId] = useState<string | null>(
@@ -124,7 +128,7 @@ export default function EditorPage() {
 
   // ── hook ──────────────────────────
   // ── useHistory 훅 ──────────────
-  const {state, setWithHistory, setWithoutHistory, undo, redo, reset} = useHistory(initialCanvasData);
+  const {state, setWithHistory, setWithoutHistory, undo, redo, reset, getSnapshot, restore} = useHistory(initialCanvasData);
 
   // ── useAnimation 훅 ──────────────
   const {isPlaying, previewFrameIdx, fps, defaultDuration, setIsPlaying, setFps, createAnimationTag } = useAnimation({
@@ -265,8 +269,8 @@ export default function EditorPage() {
 
   // ── useEditorProject 훅 ──────────────
   const { 
-    projectTitle,saving,isPublic,isSaveModalOpen, isSaveAsMode, setProjectTitle,
-    setIsSaveModalOpen, handleNewProject, handleSave, openProject, openSaveModal, replaceProject,
+    projectId, projectTitle,saving,isPublic,isSaveModalOpen, isSaveAsMode, setProjectTitle,
+    setIsSaveModalOpen, handleSave, openSaveModal, replaceProject, restoreProject, loadProjectHere,
   } = useEditorProject({
     isLoggedIn,
     stageRef,
@@ -281,6 +285,8 @@ export default function EditorPage() {
     resetLayerCounters,
     peekLayerCanvas,
     clearAllLayerCanvas,
+    paletteColors,
+    setPaletteColors,
   });
 
   // ── useEditorImport 훅 ──────────────
@@ -306,6 +312,51 @@ export default function EditorPage() {
   useEffect(() => { selectionHandlersRef.current = { down: sel.down, move: sel.move, up: sel.up }; }, [sel.down, sel.move, sel.up]);
   const { duplicateFrame } = useFrameOps({ state, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId, setWithHistory, setUnsaved });
   const [gamePreviewOpen, setGamePreviewOpen] = useState(false);
+
+  // ── 여러 프로젝트 탭(PR-E) ──────────────
+  const tabs = useEditorTabs({
+    getHistory: getSnapshot,
+    meta: { projectId, title: projectTitle, isPublic },
+    unsaved,
+    palette: paletteColors,
+    activeFrameId,
+    activeLayerId,
+    busy: saving || imageBusy,
+  }, {
+    restoreHistory: restore,
+    restoreProject,
+    loadProjectHere,
+    setUnsaved,
+    setPaletteColors,
+    setActiveFrameId,
+    setActiveLayerId,
+    setCustomW,
+    setCustomH,
+    clearAllLayerCanvas,
+    onSwitched: () => { sel.deselect(); setDetailLayer(null); resetPan(); },
+  });
+  const [sendTabOpen, setSendTabOpen] = useState(false);
+  const openSendToTab = useCallback(() => {
+    if (tabs.tabs.length < 2) { toast.info('보낼 다른 탭이 없어요. 먼저 새 탭(Ctrl+Alt+N)이나 다른 프로젝트를 열어 주세요.'); return; }
+    setSendTabOpen(true);
+  }, [tabs.tabs.length]);
+  // 자동 저장: 그림·저장 여부·탭 목록·팔레트·제목이 바뀌면
+  const autosaveKey = useMemo(() => ({}), [state, unsaved, tabs.tabs, paletteColors, projectTitle]);
+  const recovery = useEditorAutosave({ userId: user?.userId ?? null, changeKey: autosaveKey, snapshotAll: tabs.snapshotAll, appendTabs: tabs.appendTabs });
+  // 탭 단축키: Ctrl+Alt+N 새 탭 · Ctrl+Alt+W 닫기 · Ctrl+Alt+←/→ 이동 (Ctrl+N·W·Tab은 브라우저가 가져가서 못 씀)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || !e.altKey || e.shiftKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.code === 'KeyN') { e.preventDefault(); tabs.newTab(); }
+      else if (e.code === 'KeyW') { e.preventDefault(); tabs.closeTab(tabs.activeKey); }
+      else if (e.code === 'ArrowRight') { e.preventDefault(); tabs.cycleTab(1); }
+      else if (e.code === 'ArrowLeft') { e.preventDefault(); tabs.cycleTab(-1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [tabs]);
   // 다시 칠하기 후보: 지금 팔레트 + AI가 추천한 색들(있을 때만)
   const recolorPalettes = [
     { name: '지금 팔레트', colors: paletteColors },
@@ -331,9 +382,9 @@ export default function EditorPage() {
   // ── Navigation / Page Control ───────────────────────────────────
   const handleBackToMain = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault();
-    if (unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 계속할까요?')) return;
+    if (tabs.anyUnsaved && !window.confirm('저장하지 않은 탭이 있습니다. 나가면 사라질 수 있어요(다음에 에디터를 열 때 복구를 물어봐요). 계속할까요?')) return;
     navigate('/');
-  }, [unsaved, navigate])
+  }, [tabs.anyUnsaved, navigate])
 
   // ── 현재 프레임 및 레이어 인덱스 동기화 ────────────────
   useEffect(() => {
@@ -439,22 +490,22 @@ export default function EditorPage() {
   }, [openSaveModal, undo, redo])
 
   const handleImportPpit = useCallback(async (file: File) => {
-    // 미저장 변경 확인 (New Project와 동일)
-    if (unsaved && !window.confirm('저장하지 않은 변경사항이 있습니다. 불러오면 현재 작업이 사라집니다. 계속할까요?')) return
+    // 지금 탭이 빈 탭이 아니면 새 탭에 엶(지금 작업은 그대로 남음)
+    if (!tabs.prepareFreshTab()) return
     try {
       loadPpitText(await file.text(), file.name.replace(/\.(ppit|json)$/i, ''))
       toast.success('.ppit을 불러왔습니다.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '.ppit을 불러오지 못했습니다.')
     }
-  }, [loadPpitText, unsaved])
+  }, [loadPpitText, tabs])
 
   // 저장된 프로젝트 열기 (모달에서 선택) → URL projectId로 로드 effect 트리거
   const handleOpenProject = useCallback((pid: number) => {
-    if(openProject(pid)){
+    if(tabs.openProjectInTab(pid)){
       setOpenProjectModalOpen(false);
     }
-  }, [openProject, setOpenProjectModalOpen])
+  }, [tabs, setOpenProjectModalOpen])
 
   // ── 커뮤니티 팔레트에서 진입: ?palette=<id> → 에디터 팔레트를 그 팔레트로 교체 ──
   useEffect(() => {
@@ -510,6 +561,7 @@ export default function EditorPage() {
         if (!res.ok) throw new Error('fetch failed')
         const text = await res.text()
         if (cancelled) return
+        if (!tabs.prepareFreshTab()) return
         loadPpitText(text, searchParams.get('remixOf') ? '리믹스 작업' : '불러온 작업')
         toast.success('작품을 에디터로 불러왔습니다.')
       } catch {
@@ -827,7 +879,17 @@ export default function EditorPage() {
         isOpen={openProjectModalOpen}
         onClose={() => setOpenProjectModalOpen(false)}
         onSelect={handleOpenProject}
+        onDeleted={tabs.forgetProject}
       />
+
+      {sendTabOpen && (
+        <SendToTabModal
+          tabs={tabs.tabs.filter(t => !t.active)}
+          layerName={currentLayer?.name ?? ''}
+          onSend={(key, what) => { void tabs.sendToTab(key, what); }}
+          onClose={() => setSendTabOpen(false)}
+        />
+      )}
 
       {paletteBrowserOpen && (
         <PaletteBrowserModal onClose={() => setPaletteBrowserOpen(false)} onApply={applyPaletteFromBrowser} />
@@ -873,7 +935,9 @@ export default function EditorPage() {
           />
               <MenuBar
                 fileActions={{
-                  handleNewProject,
+                  handleNewProject: () => { tabs.newTab(); },
+                  closeTab: () => tabs.closeTab(tabs.activeKey),
+                  openSendToTab,
                   setOpenProjectModalOpen,
                   handleOpenPpit,
                   openSaveModal,
@@ -1031,6 +1095,25 @@ export default function EditorPage() {
           {/* ── 중앙 영역 ─────────────────────────────── */}
           <div className="flex flex-col flex-1 min-w-0">
             {/* ── 왼쪽 툴바 옵션 ── */}
+            {/* ── 프로젝트 탭(PR-E) ── */}
+            <EditorTabBar
+              tabs={tabs.tabs}
+              onSwitch={tabs.switchTab}
+              onClose={tabs.closeTab}
+              onNew={() => { tabs.newTab(); }}
+              onMove={tabs.moveTab}
+            />
+            {recovery.pendingCount > 0 && (
+              <div role="status" className="flex items-center gap-3 px-4 py-2 text-sm border-b flex-shrink-0"
+                style={{ background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)', borderColor: 'var(--color-outline)', color: 'var(--color-on-surface)' }}>
+                <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-warning)' }}>restore</span>
+                <span className="flex-1">지난번 에디터에 저장하지 않은 작업 {recovery.pendingCount}개가 남아 있어요.</span>
+                <button type="button" onClick={recovery.restorePending}
+                  className="px-3 py-1 rounded-lg text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-background)' }}>탭으로 복구</button>
+                <button type="button" onClick={() => { if (window.confirm('남은 작업을 지울까요? 되돌릴 수 없습니다.')) recovery.discardPending(); }}
+                  className="px-3 py-1 rounded-lg text-xs hover:bg-surface-container" style={{ color: 'var(--color-on-surface-variant)' }}>지우기</button>
+              </div>
+            )}
             <LeftToolBarOptionBar
               activeTool={activeTool}
               pixelSize={pixelSize}

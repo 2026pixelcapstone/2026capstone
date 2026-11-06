@@ -44,6 +44,8 @@ export interface ProjectResponse extends ProjectSummary {
   fileUrl: string | null
   aiAnalyzed: boolean
   canvasResponse: CanvasResponse
+  /** 프로젝트 팔레트(저장한 적 없으면 null) */
+  palette?: string[] | null
 }
 
 export interface ProjectCreateRequest {
@@ -65,6 +67,8 @@ export interface ProjectUpdateRequest {
 
 export interface CanvasSaveRequest {
   frameSaveRequests: FrameSaveRequest[]
+  /** 프로젝트 팔레트(#RRGGBB·#RRGGBBAA, 최대 256) — 안 보내면 서버가 기존 값 유지 */
+  palette?: string[]
 }
 
 export interface FrameSaveRequest {
