@@ -146,6 +146,8 @@ export const MENU_DEFS: MenuGroup[] = [
       { id: MENU_ACTION.AI_PALETTE, label: { ko: '색 팔레트 추천', en: 'Palette Suggestion' }, icon: 'palette' },
       { id: MENU_ACTION.AI_TAG_COLOR, label: { ko: '태그로 색 찾기', en: 'Colors by Tags' }, icon: 'sell' },
       { id: MENU_ACTION.AI_CONCEPT, label: { ko: '컨셉 도우미', en: 'Concept Helper' }, icon: 'lightbulb' },
+      { id: MENU_ACTION.AI_INBETWEEN, label: { ko: '중간 동작 제안', en: 'In-between Suggestion' }, icon: 'animation' },
+      { id: MENU_ACTION.AI_ANIM_CHECK, label: { ko: '애니메이션 일관성 검사', en: 'Animation Consistency Check' }, icon: 'rule' },
     ],
   },
 

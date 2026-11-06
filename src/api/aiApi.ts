@@ -20,6 +20,16 @@ export interface ConceptResult {
 }
 
 /** 명암 제안 재질 — base는 그 재질 칸의 원래 색, ramp는 단계(-2~2)별 색(#rrggbb). */
+/** 중간 동작 제안 결과 — 사이 프레임 t = 0.1 … 0.9(PNG base64, 캔버스 크기) + 작업물 해석(A의 부위 덩어리 색칠 PNG·관절) */
+export interface InbetweenResult {
+  frames: { t: number; image: string }[]
+  parts: string
+  joints: { x: number; y: number }[]
+  partCount: number
+  model: string
+  elapsedMs: number
+}
+
 export interface ShadeMaterial {
   base: string
   pixels: number
@@ -71,4 +81,11 @@ export const aiApi = {
    */
   suggestShade: (body: { imageBase64: string; angle: number }) =>
     api.post<{ success: boolean; data: ShadeSuggestResult }>('/api/ai/shade-suggest', body, { timeout: AI_TIMEOUT_MS }),
+
+  /**
+   * 중간 동작 제안(자체 모델 — 작업물 이해 + 규칙) — 키프레임 두 장(같은 캔버스, 128×128 이하) → 사이 프레임 9장.
+   * 같은 사람은 5초에 한 번(429).
+   */
+  suggestInbetween: (body: { imageA: string; imageC: string }) =>
+    api.post<{ success: boolean; data: InbetweenResult }>('/api/ai/inbetween', body, { timeout: AI_TIMEOUT_MS }),
 }
