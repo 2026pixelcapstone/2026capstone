@@ -187,7 +187,7 @@ export function useFrame({
 
 
     const updateFrameTag = useCallback((frameId: string | null, tagId: string | null) => {
-        if(!frameId || !tagId) return;
+        if(!frameId) return;
         
         setWithHistory((prev) => {
             // 상태 업데이트

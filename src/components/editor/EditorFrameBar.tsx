@@ -1,11 +1,10 @@
 import { AnimationTag, FrameData} from "../../type/editor";
-import { Dispatch, DragEvent, SetStateAction, useState} from "react";
+import { Dispatch, DragEvent, SetStateAction, useRef, useState} from "react";
 import { FrameDetailView } from "./FrameDetailView";
 
 interface FrameProps{
     showFramePanel: boolean;
     activeFrameId: string | null;
-    currentFrame: FrameData;
     frames: FrameData[];
     animationTags: AnimationTag[] | null;
     setShowFramePanel: Dispatch<SetStateAction<boolean>>;
@@ -19,12 +18,12 @@ interface FrameProps{
     updateAnimDurations: (frameId: string | null, duration: number | null, skipHistory?: boolean, forceCommit?: boolean) => void;
     updateFrameTag: (frameId: string | null, tagId: string | null) => void;
     createAnimationTag: (name: string, color: string) => void;
+    deleteAnimationTag: (animTagId: string | null) => void;
 }
 
 export function EditorFrameBar({
     showFramePanel,
     activeFrameId,
-    currentFrame,
     frames,
     animationTags,
     setShowFramePanel,
@@ -38,18 +37,25 @@ export function EditorFrameBar({
     updateAnimDurations,
     updateFrameTag,
     createAnimationTag,
+    deleteAnimationTag,
 }: FrameProps){
 
     const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
     const [detailFrameId, setDetailFrameId] = useState<string | null>(null);
+    const frameListRef = useRef<HTMLDivElement>(null);
     
     const handleOpenModal = (e: React.MouseEvent<HTMLButtonElement>, frameId: string) => {
         // 버튼의 화면상 크기와 위치 정보 가져오기
         const rect = e.currentTarget.getBoundingClientRect();
+        const frameList = frameListRef.current;
+        const scrollbarWidth = frameList
+            ? Math.max(0, frameList.offsetWidth - frameList.clientWidth)
+            : 0;
 
         setModalPos({
             top: rect.top - 120, // 버튼의 상단과 맞춤
-            left: rect.right + 20, // 버튼의 오른쪽 끝 + 여백 10px 위치
+            // 목록 스크롤바가 콘텐츠 폭을 차지하면 그 폭만큼 팝업을 오른쪽으로 보정
+            left: rect.right + 20 + scrollbarWidth,
         });
         setDetailFrameId(frameId);
     };
@@ -79,7 +85,7 @@ export function EditorFrameBar({
                 </div>
 
                 {/* 프레임 목록 */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                <div ref={frameListRef} className="flex-1 overflow-y-auto p-2 space-y-1.5">
                     {frames.map((frame, index) => {
                         const isActive = frame.id === activeFrameId;
 
@@ -196,18 +202,19 @@ export function EditorFrameBar({
             </div>
         )}
         <FrameDetailView
-            key={currentFrame.id}
+            key={detailFrameId ?? 'closed'}
             position={modalPos}
             detailFrameId={detailFrameId}
             animationTags={animationTags ?? []}
             frameViewData = {{
-                id: currentFrame.id,
-                duration: currentFrame.duration ?? 100,
-                tagId: currentFrame.tagId ?? 'default',
+                id: frames.find(frame => frame.id === detailFrameId)?.id ?? null,
+                duration: frames.find(frame => frame.id === detailFrameId)?.duration ?? 100,
+                tagId: frames.find(frame => frame.id === detailFrameId)?.tagId ?? null,
             }}
             updateAnimDurations = {updateAnimDurations}
             updateFrameTag={updateFrameTag}
             createAnimationTag={createAnimationTag}
+            deleteAnimationTag={deleteAnimationTag}
             onClose={() => setDetailFrameId(null)}
         />
     </div>

@@ -47,7 +47,6 @@ export function EditorRightSideBar({
             left: rect.right - 310, // 버튼의 오른쪽 끝 + 여백 10px 위치
         });
         setIsCanvasSizeModal(!isCanvasSizeModal);
-        console.log("rect.top: " + rect.top + 'rect.right: ' + rect.right);
     };
 
     return(

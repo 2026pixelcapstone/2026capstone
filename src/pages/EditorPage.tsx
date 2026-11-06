@@ -127,9 +127,11 @@ export default function EditorPage() {
   const {state, setWithHistory, setWithoutHistory, undo, redo, reset} = useHistory(initialCanvasData);
 
   // ── useAnimation 훅 ──────────────
-  const {isPlaying, previewFrameIdx, fps, defaultDuration, setIsPlaying, setFps, createAnimationTag } = useAnimation({
-
+  const {activeAnimId, isPlaying, fps, defaultDuration, setActiveAnimId, setIsPlaying, setFps, 
+    createAnimationTag, deleteAnimationTag 
+  } = useAnimation({
     frames: state.frames,
+    setWithHistory,
   });
 
   // ── useFrame 훅 ──────────────
@@ -265,7 +267,7 @@ export default function EditorPage() {
 
   // ── useEditorProject 훅 ──────────────
   const { 
-    projectTitle,saving,isPublic,isSaveModalOpen, isSaveAsMode, setProjectTitle,
+    projectTitle, saving, isPublic, isSaveModalOpen, isSaveAsMode, setIsPublic, setProjectTitle,
     setIsSaveModalOpen, handleNewProject, handleSave, openProject, openSaveModal, replaceProject,
   } = useEditorProject({
     isLoggedIn,
@@ -952,10 +954,9 @@ export default function EditorPage() {
         </div>
         
         {/* 우: 파일명 + 저장 */}
-        <div className="ml-auto flex items-center gap-2 pr-3 border-l"
-          style={{borderColor: 'var(--color-surface-container-highest)'}}
-        >
-          <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex items-center h-full pr-2">
+
+          <div className="flex items-center gap-1.5 px-3">
             <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>description</span>
             {editingTitle ? (
               <input
@@ -974,18 +975,54 @@ export default function EditorPage() {
                 title="클릭하여 제목 수정"
                 onClick={() => setEditingTitle(true)}
               >{projectTitle}</span>
+
             )}
             {unsaved && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="미저장 변경사항" />}
           </div>
-          <div className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-container-highest)' }} />
-          <button
-            onClick={() => openSaveModal(false)}
-            disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-surface-container-low disabled:opacity-50"
-            style={{ color: saving ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
-            <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+
+          {/* 2. 공개 설정 구역 (가운데 배치되어 border-x로 양옆 세로선 생성) */}
+          <div className="flex items-center gap-3 px-3 h-6 border-x" style={{ borderColor: 'var(--color-surface-container-highest)' }}>
+              <label 
+                  className="flex items-center gap-1 text-xs font-medium cursor-pointer select-none transition-colors hover:text-white"
+                  style={{ color: !isPublic ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}
+              >
+                  <input
+                      type="radio"
+                      name="visibility"
+                      checked={!isPublic}
+                      onChange={() => setIsPublic(false)}
+                      className="cursor-pointer m-0"
+                      style={{ accentColor: 'var(--color-primary)' }}
+                  />
+                  🔒 비공개
+              </label>
+              <label 
+                  className="flex items-center gap-1 text-xs font-medium cursor-pointer select-none transition-colors hover:text-white"
+                  style={{ color: isPublic ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}
+              >
+                  <input
+                      type="radio"
+                      name="visibility"
+                      checked={isPublic}
+                      onChange={() => setIsPublic(true)}
+                      className="cursor-pointer m-0"
+                      style={{ accentColor: 'var(--color-primary)' }}
+                  />
+                  🌐 공개
+              </label>
+          </div>
+          
+          {/* 3. 저장 버튼 구역 */}
+          <div className="pl-3">
+            <button
+                onClick={() => openSaveModal(false)}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-surface-container-low disabled:opacity-50"
+                style={{ color: saving ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
+                <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
+                  {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1012,7 +1049,6 @@ export default function EditorPage() {
           <EditorFrameBar
             showFramePanel = {showFramePanel}
             activeFrameId = {activeFrameId}
-            currentFrame={currentFrame}
             frames = {state.frames}
             animationTags={state.animationTags ?? null}
             setShowFramePanel = {setShowFramePanel}
@@ -1026,6 +1062,7 @@ export default function EditorPage() {
             updateAnimDurations = {updateAnimDurations}
             updateFrameTag={updateFrameTag}
             createAnimationTag={createAnimationTag}
+            deleteAnimationTag={deleteAnimationTag}
           />
           
           {/* ── 중앙 영역 ─────────────────────────────── */}
@@ -1120,8 +1157,9 @@ export default function EditorPage() {
                 {/* 애니메이션 프리뷰 섹션 */}
                 <AnimationPreview 
                   fps={fps}
+                  activeAnimId={activeAnimId}
                   setFps={setFps}
-                  previewFrameIdx = {previewFrameIdx}
+                  setActiveAnimId={setActiveAnimId}
                   isPlaying = {isPlaying}
                   frames = {state.frames}
                   animationTags={state.animationTags ?? null}

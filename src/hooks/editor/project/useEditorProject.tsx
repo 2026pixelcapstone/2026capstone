@@ -88,7 +88,7 @@ export function useEditorProject({
             setProjectTitle(proj.title)
             setCustomW(proj.width)
             setCustomH(proj.height)
-            setIsPublic(proj.isPublic)
+            setIsPublic(proj.isPublic === true)
             // 1. 프레임 데이터 결정 (불러온 프레임이 있으면 사용하고, 없으면 기본 프레임 생성 또는 기존 프레임 유지)
             const framesToReset = proj.frames.length > 0 
             ? proj.frames 
@@ -206,7 +206,7 @@ export function useEditorProject({
         const generationAtSaveStart = projectGenerationRef.current;
 
         const nextTitle = saveModelData?.title.trim() || projectTitle.trim();
-        const isNextPublic = saveModelData?.isPublic || isPublic;
+        const isNextPublic = saveModelData?.isPublic ?? isPublic ?? false;
 
         if (!nextTitle) {
             toast.error('프로젝트 이름을 입력해주세요');
@@ -238,7 +238,7 @@ export function useEditorProject({
                 return next;
             }, { replace: true });
             setProjectTitle(result.title);
-            setIsPublic(result.isPublic);
+            setIsPublic(result.isPublic === true);
             setUnsaved(false);
 
             setIsSaveModalOpen(false);
@@ -248,7 +248,7 @@ export function useEditorProject({
             console.error("저장 중 에러 발생", error);
             toast.error('저장에 실패했습니다.');
         }
-    }, [isLoggedIn, saving, saveProject, projectId, state, projectTitle, setSearchParams])
+    }, [isLoggedIn, isPublic, saving, saveProject, projectId, state, projectTitle, setSearchParams])
 
     const openSaveModal = useCallback((isSaveAs: boolean = false) => {
         if (!isLoggedIn) {
@@ -267,7 +267,7 @@ export function useEditorProject({
             handleSave(null, false);
         }
 
-    }, [isLoggedIn, projectId, handleSave]);
+    }, [isLoggedIn, projectId, handleSave, setIsSaveAsMode, setIsSaveAsMode]);
 
     return { 
         projectId, 
@@ -276,6 +276,7 @@ export function useEditorProject({
         isPublic,
         isSaveModalOpen, 
         isSaveAsMode,
+        setIsPublic,
         setProjectTitle,
         setIsSaveModalOpen, 
         handleNewProject, 
