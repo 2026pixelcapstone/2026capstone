@@ -32,20 +32,26 @@ export function AnimationPreview({
        
     // 애니메이션 실행 effect
     useEffect(() => {
-        if (!isPlaying) {
-            setPreviewFrameIdx(0);
-            return;
-        }
-        // 1. 현재 선택된 태그에 해당하는 프레임들의 '원래 인덱스'만 모아 배열로 만듭니다.
-        // (선택된 태그가 없다면 전체 프레임 인덱스가 담깁니다)
         const validIndices = frames
             .map((frame, idx) => ({ tagId: frame.tagId, originalIndex: idx }))
             .filter(f => activeAnimId == null || f.tagId === activeAnimId)
             .map(f => f.originalIndex);
+        const firstValidIndex = validIndices[0] ?? 0;
+
+        if (!isPlaying) {
+            setPreviewFrameIdx(prevIdx => prevIdx === firstValidIndex ? prevIdx : firstValidIndex);
+            return;
+        }
 
         // 조건에 맞는 프레임이 아예 없거나, 1장뿐이라면 굳이 타이머를 돌리지 않고 종료합니다.
         if (validIndices.length === 0) return;
         if (validIndices.length === 1 && activeAnimId == null) return;
+
+        // 태그 변경 또는 프레임 재정렬 후 현재 인덱스가 필터 범위 밖이면 즉시 첫 프레임으로 이동
+        if (!validIndices.includes(previewFrameIdx)) {
+            setPreviewFrameIdx(firstValidIndex);
+            return;
+        }
 
         // 현재 프레임의 duration 가져오기
         const currentFrame = frames[previewFrameIdx];

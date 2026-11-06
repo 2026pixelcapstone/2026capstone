@@ -44,6 +44,8 @@ export function EditorFrameBar({
     const [detailFrameId, setDetailFrameId] = useState<string | null>(null);
     const frameListRef = useRef<HTMLDivElement>(null);
     
+    const detailFrame = frames.find(frame => frame.id === detailFrameId);
+
     const handleOpenModal = (e: React.MouseEvent<HTMLButtonElement>, frameId: string) => {
         // 버튼의 화면상 크기와 위치 정보 가져오기
         const rect = e.currentTarget.getBoundingClientRect();
@@ -207,9 +209,9 @@ export function EditorFrameBar({
             detailFrameId={detailFrameId}
             animationTags={animationTags ?? []}
             frameViewData = {{
-                id: frames.find(frame => frame.id === detailFrameId)?.id ?? null,
-                duration: frames.find(frame => frame.id === detailFrameId)?.duration ?? 100,
-                tagId: frames.find(frame => frame.id === detailFrameId)?.tagId ?? null,
+                id: detailFrame?.id ?? null,
+                duration: detailFrame?.duration ?? 100,
+                tagId: detailFrame?.tagId ?? null,
             }}
             updateAnimDurations = {updateAnimDurations}
             updateFrameTag={updateFrameTag}
