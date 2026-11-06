@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FrameData,  AnimationTag} from '../../type/editor';
+import { MIN_DURATION_30FPS } from '../../constants/editor/editor';
 
 interface AnimationDetailViewProps {
     isOpen: boolean;
@@ -42,10 +43,13 @@ export function AnimationDetailView({
             return;
         }
 
-        // 글로벌 FPS를 우선 사용하되, 개별 프레임의 duration이 설정되어 있으면 그것을 사용
-        const defaultDelay = 1000 / fps;
+        // 프레임별 duration을 우선 사용하고, 값이 없거나 잘못된 경우 FPS를 기본값으로 사용
+        const defaultDelay = Number.isFinite(fps) && fps > 0 ? 1000 / fps : 100;
         const currentFrame = frames[currentFrameIdx];
-        const delay = currentFrame?.duration || defaultDelay;
+        const requestedDelay = currentFrame?.duration ?? defaultDelay;
+        const delay = Number.isFinite(requestedDelay) && requestedDelay > 0
+            ? Math.max(MIN_DURATION_30FPS, requestedDelay)
+            : Math.max(MIN_DURATION_30FPS, defaultDelay);
 
         const timerId = setTimeout(() => {
             const currentPosition = playbackRange.indices.indexOf(currentFrameIdx);

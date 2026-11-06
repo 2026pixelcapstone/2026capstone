@@ -265,7 +265,7 @@ export function useEditorProject({
             toast.error('저장에 실패했습니다.');
         }
 
-    }, [isLoggedIn, saving, saveProject, projectId, state, projectTitle, setSearchParams, paletteColors])
+    }, [isLoggedIn, isPublic, saving, saveProject, projectId, state, projectTitle, setSearchParams, paletteColors])
 
     // ── 프로젝트 정보 되살리기(탭 전환) ──────────────
     // 그림·되돌리기 기록은 부르는 쪽(useEditorTabs)이 되살리고, 여기서는 id·제목·공개 여부와 주소만 맞춤.

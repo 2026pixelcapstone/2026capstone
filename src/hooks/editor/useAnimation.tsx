@@ -63,7 +63,7 @@ export function useAnimation({
             // 데이터 무결성 보장: 이 태그를 사용 중이던 프레임들의 태그 속성도 함께 지워줍니다.
             frames: prev.frames.map(frame => 
                 frame.tagId === tagIdToDelete 
-                    ? { ...frame, tagId: undefined } 
+                    ? { ...frame, tagId: null } 
                     : frame
             )
         }));
