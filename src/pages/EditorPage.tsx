@@ -1010,7 +1010,6 @@ export default function EditorPage() {
         onClose={() => setIsSaveModalOpen(false)}
         onSave={handleSave}
         initialTitle={projectTitle}
-        initialIsPublic={isPublic}
         saving={saving}
       />
 
@@ -1194,7 +1193,7 @@ export default function EditorPage() {
                 className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold rounded-lg transition-all hover:bg-surface-container-low disabled:opacity-50"
                 style={{ color: saving ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined text-base">{saving ? 'hourglass_empty' : 'save'}</span>
-                  {saving ? '저장 중…' : '저장'}
+                  {saving ? '저장 중...' : '저장'}
             </button>
           </div>
         </div>
