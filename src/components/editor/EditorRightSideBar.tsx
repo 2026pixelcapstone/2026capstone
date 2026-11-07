@@ -56,72 +56,75 @@ export function EditorRightSideBar({
     return(
         <div className="w-15 flex flex-col flex-shrink-0 border-l items-center py-2 space-y-3"
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+            {/* 오른쪽 바의 내용물을 나타내는 버튼 */}
+            <div className="w-full flex flex-col items-center py-2 space-y-3 pb-4"
+                style={{background: 'var(--color-surface)'}}>
+                {/* 홈 버튼 */}
+                <button
+                    onClick={() => {
+                        setActiveRightTab('main');
+                    }}
+                    title="홈"
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                        activeRightTab === 'main'
+                        ? 'bg-primary/20 text-primary'
+                        : 'text-on-surface-variant hover:bg-surface-container'
+                    }`}   
+                >
+                    <span className="material-symbols-outlined text-[40px]">home</span>
+
+                </button>
+                {/* 레이어 버튼 */}
+                <button 
+                    onClick={() => {
+                        setActiveRightTab('layers');
+                    }} 
+                    title="레이어"
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                        activeRightTab === 'layers' 
+                        ? 'bg-primary/20 text-primary' 
+                        : 'text-on-surface-variant hover:bg-surface-container'
+                    }`}
+                >
+                    <span className="material-symbols-outlined text-[40px]">layers</span>
+
+                </button>
+
+                {/* 팔레트 버튼 */}
+                <button 
+                    onClick={() => {
+                        setActiveRightTab('palette');
+                    }} 
+                    title="팔레트"
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                        activeRightTab === 'palette' 
+                        ? 'bg-primary/20 text-primary' 
+                        : 'text-on-surface-variant hover:bg-surface-container'
+                    }`}
+                >
+                    <span className="material-symbols-outlined text-[40px]">palette</span>
+                </button>
+            </div>
+
             
-            <button 
-                onClick={() => {
-                    setActiveRightTab('main');
-                }}
-                title="홈"
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                    activeRightTab === 'main'
-                    ? 'bg-primary/20 text-primary'
-                    : 'text-on-surface-variant hover:bg-surface-container'
-                }`}   
-            >
-                <span className="material-symbols-outlined text-[40px]">home</span>
-
-            </button>
-            
-            <button 
-                onClick={() => {
-                    setActiveRightTab('layers');
-                }} 
-                title="레이어"
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                    activeRightTab === 'layers' 
-                    ? 'bg-primary/20 text-primary' 
-                    : 'text-on-surface-variant hover:bg-surface-container'
-                }`}
-            >
-                <span className="material-symbols-outlined text-[40px]">layers</span>
-
-            </button>
-
-            <button 
-                onClick={() => {
-                    setActiveRightTab('palette');
-                }} 
-                title="팔레트"
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                    activeRightTab === 'palette' 
-                    ? 'bg-primary/20 text-primary' 
-                    : 'text-on-surface-variant hover:bg-surface-container'
-                }`}
-            >
-                <span className="material-symbols-outlined text-[40px]">palette</span>
-
-            </button>
-            
-            {/* 크기 설정 영역 위쪽 테두리 (구분선) */}
-            <div className="w-full border-t my-1" style={{ borderColor: 'var(--color-outline)' }} />
-
-            {/* 크기 설정 모달 버튼 */}
-            <button
-                ref={sizeBtnRef}
-                onClick={(e) => {
-                    handleOpenModal(e);
-                }}
-                title="크기 설정"
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                    isCanvasSizeModal
-                    ? 'bg-primary/20 text-primary'
-                    : 'text-on-surface-variant hover:bg-surface-container'
-                }`}
-            >
-                <span className="material-symbols-outlined text-[38px]">aspect_ratio</span>
-            </button>
-
-            {/* 추후 도구 옵션 등 추가 탭 버튼이 들어갈 자리 */}
+            {/* 모달을 띄우는 버튼 */}
+            <div className="w-full flex flex-col items-center py-2 space-y-3 mt-2">
+                {/* 크기 설정 모달 버튼 */}
+                <button
+                    ref={sizeBtnRef}
+                    onClick={(e) => {
+                        handleOpenModal(e);
+                    }}
+                    title="크기 설정"
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                        isCanvasSizeModal
+                        ? 'bg-primary/20 text-primary'
+                        : 'text-on-surface-variant hover:bg-surface-container'
+                    }`}
+                >
+                    <span className="material-symbols-outlined text-[38px]">aspect_ratio</span>
+                </button>
+            </div>
         
             {/* 캔버스 크기 섹션 */}
             <EditorCanvasSize

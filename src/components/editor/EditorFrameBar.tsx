@@ -55,7 +55,7 @@ export function EditorFrameBar({
             : 0;
 
         setModalPos({
-            top: rect.top - 120, // 버튼의 상단과 맞춤
+            top: rect.top - 110, // 버튼의 상단과 맞춤
             // 목록 스크롤바가 콘텐츠 폭을 차지하면 그 폭만큼 팝업을 오른쪽으로 보정
             left: rect.right + 20 + scrollbarWidth,
         });
@@ -82,8 +82,7 @@ export function EditorFrameBar({
                 <div className="flex flex-col flex-1 overflow-hidden">
                 <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
                     style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} > 
-                    <span>Anim</span>
-                    <span className='text-[10px]'>{frames.length} frame{frames.length > 1 ? 's' : ''}</span>  
+                    <span className='text-[12px]'>프레임{frames.length}개</span>  
                 </div>
 
                 {/* 프레임 목록 */}

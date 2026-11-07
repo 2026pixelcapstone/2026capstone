@@ -79,7 +79,7 @@ export function ColorPickerModal({
         ref={modalRef}
         className="fixed z-50 bg-surface p-5 rounded-xl border border-outline shadow-2xl flex flex-col gap-4 w-64"
         style={{
-          top: `${position.top}px`, 
+          top: `${position.top - 80}px`, 
           left: `${position.left}px`
         }}
         role="dialog"

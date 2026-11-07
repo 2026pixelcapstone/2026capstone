@@ -8,7 +8,6 @@ export interface SaveProjectModeProps{
     onClose: () => void; // 모달을 닫는 함수
     onSave:(projectData: SaveModelData, isSaveAsMode: boolean) => void; // 최종 저장을 처리할 함수
     initialTitle?:string;
-    initialIsPublic?: boolean;
     saving?: boolean; // 저장 중 상태를 나타내는 플래그
 }
 
@@ -18,12 +17,10 @@ export default function EditorSaveProjectModal({
     onClose,
     onSave,
     initialTitle = '',
-    initialIsPublic = false,
     saving = false,
 }: SaveProjectModeProps){
     // 모달 내부 상태 관리
     const [title, setTitle] = useState<string>(initialTitle);
-    const [isPublic, setIsPublic] = useState<boolean>(initialIsPublic);
     const [isSaveHovered, setIsSaveHovered] = useState(false);
     const [isCancelHovered, setIsCancelHovered] = useState(false);
     const [isSavePressed, setIsSavePressed] = useState(false);
@@ -34,11 +31,10 @@ export default function EditorSaveProjectModal({
             return;
         }
         setTitle(initialTitle);
-        setIsPublic(initialIsPublic);
         setIsSaveHovered(false);
         setIsCancelHovered(false);
         setIsSavePressed(false);
-    }, [isOpen, initialTitle, initialIsPublic]);
+    }, [isOpen, initialTitle]);
     // 모달이 닫혀있으면 렌더링하지 않음
     if (!isOpen) return null;
 
@@ -48,8 +44,7 @@ export default function EditorSaveProjectModal({
         alert('프로젝트 이름을 입력해주세요.');
         return;
         }
-
-        onSave({ title, isPublic }, isSaveAsMode);
+        onSave({ title, isPublic: false}, isSaveAsMode);
     };
     return (
         <div style={styles.overlay} onClick={onClose}>
@@ -68,31 +63,11 @@ export default function EditorSaveProjectModal({
                         style={styles.input}
                     />
 
-                    {/* 공개 설정 */}
-                    <div style={styles.formGroup}>
-                        <label style={styles.label}>공개 설정</label>
-                        <div style={styles.radioGroup}>
-                        <label style={styles.radioLabel}>
-                            <input
-                            type="radio"
-                            name="visibility"
-                            checked={!isPublic}
-                            onChange={() => setIsPublic(false)}
-                            />
-                            🔒 비공개
-                        </label>
-                        <label style={styles.radioLabel}>
-                            <input
-                            type="radio"
-                            name="visibility"
-                            checked={isPublic}
-                            onChange={() => setIsPublic(true)}
-                            />
-                            🌐 공개
-                        </label>
-                        </div>
+                    {/* 안내 문구 영역 */}
+                    <div style={styles.noticeText}>
+                        🔒 저장된 프로젝트는 갤러리에 공유하기 전까지 나만 볼 수 있습니다.
                     </div>
-
+     
                     {/* 버튼 */}
                     <div style={styles.buttonGroup}>
                         <button 
@@ -164,8 +139,15 @@ const styles: { [key: string]: React.CSSProperties } = {
   formGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
   label: { fontSize: '14px', fontWeight: '600', color: '#f3f4f6' },
   input: { padding: '10px', fontSize: '14px', borderRadius: '4px', border: '1px solid #ccc', outline: 'none' },
-  radioGroup: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' },
-  radioLabel: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' },
+  noticeText: {
+        fontSize: '13px',       // 입력칸보다 작은 글씨로 부가 설명임을 강조
+        color: '#8b949e',       // 눈에 띄지 않는 은은한 회색 (다크 테마 기준)
+        marginTop: '8px',       // 입력칸과의 간격
+        display: 'flex',
+        alignItems: 'center',   // 이모지와 텍스트의 수직 정렬
+        gap: '4px',             // 이모지와 텍스트 사이의 여백
+        lineHeight: '1.4',
+    },
   buttonGroup: { display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' },
   cancelButton: { padding: '10px 16px', border: 'none', backgroundColor: '#007bff', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'},
   saveButton: { padding: '10px 16px', border: 'none', backgroundColor: '#007bff', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' },
