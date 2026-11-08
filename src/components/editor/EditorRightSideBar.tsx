@@ -54,77 +54,89 @@ export function EditorRightSideBar({
     };
 
     return(
-        <div className="w-15 flex flex-col flex-shrink-0 border-l items-center py-2 space-y-3"
-            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-outline)' }}>
+        <div className="w-15 h-full flex flex-col flex-shrink-0 border-l items-center pt-3 pb-4 space-y-4"
+            style={{ background: 'var(--color-background)', borderColor: 'var(--color-outline)' }}>
             {/* 오른쪽 바의 내용물을 나타내는 버튼 */}
-            <div className="w-full flex flex-col items-center py-2 space-y-3 pb-4"
-                style={{background: 'var(--color-surface)'}}>
+            <div className="w-11 flex flex-col items-center py-3 space-y-3 rounded-2xl shadow-sm"
+                style={{background: 'var(--color-surface)', border: `1px solid var(--color-outline-variant)`}}>
+
                 {/* 홈 버튼 */}
                 <button
                     onClick={() => {
                         setActiveRightTab('main');
                     }}
-                    title="홈"
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                    aria-label="홈"
+                    className={`tooltip-wrapper tooltip-left w-9 h-9 rounded-lg transition-colors ${
                         activeRightTab === 'main'
                         ? 'bg-primary/20 text-primary'
                         : 'text-on-surface-variant hover:bg-surface-container'
                     }`}   
                 >
-                    <span className="material-symbols-outlined text-[40px]">home</span>
-
+                    <span className="material-symbols-outlined text-[38px]">home</span>
+                    {/* 커스텀 툴팁 */}
+                    <div className="tooltip-content">
+                        홈
+                    </div>
                 </button>
                 {/* 레이어 버튼 */}
                 <button 
                     onClick={() => {
                         setActiveRightTab('layers');
-                    }} 
-                    title="레이어"
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                    }}
+                    aria-label="레이어"
+                    className={`tooltip-wrapper tooltip-left w-9 h-9 rounded-lg transition-colors ${
                         activeRightTab === 'layers' 
                         ? 'bg-primary/20 text-primary' 
                         : 'text-on-surface-variant hover:bg-surface-container'
                     }`}
                 >
-                    <span className="material-symbols-outlined text-[40px]">layers</span>
-
+                    <span className="material-symbols-outlined text-[38px]">layers</span>
+                    {/* 커스텀 툴팁 */}
+                    <div className="tooltip-content">
+                        레이어
+                    </div>
                 </button>
 
                 {/* 팔레트 버튼 */}
                 <button 
                     onClick={() => {
                         setActiveRightTab('palette');
-                    }} 
-                    title="팔레트"
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                    }}
+                    aria-label="팔레트"
+                    className={`tooltip-wrapper tooltip-left w-9 h-9 rounded-lg transition-colors ${
                         activeRightTab === 'palette' 
                         ? 'bg-primary/20 text-primary' 
                         : 'text-on-surface-variant hover:bg-surface-container'
                     }`}
                 >
-                    <span className="material-symbols-outlined text-[40px]">palette</span>
+                    <span className="material-symbols-outlined text-[38px]">palette</span>
+                    {/* 커스텀 툴팁 */}
+                    <div className="tooltip-content">
+                        팔레트
+                    </div>
                 </button>
             </div>
 
             
-            {/* 모달을 띄우는 버튼 */}
-            <div className="w-full flex flex-col items-center py-2 space-y-3 mt-2">
-                {/* 크기 설정 모달 버튼 */}
-                <button
-                    ref={sizeBtnRef}
-                    onClick={(e) => {
-                        handleOpenModal(e);
-                    }}
-                    title="크기 설정"
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                        isCanvasSizeModal
-                        ? 'bg-primary/20 text-primary'
-                        : 'text-on-surface-variant hover:bg-surface-container'
-                    }`}
-                >
-                    <span className="material-symbols-outlined text-[38px]">aspect_ratio</span>
-                </button>
-            </div>
+                   
+            {/* 크기 설정 모달 버튼 */}
+            <button
+                ref={sizeBtnRef}
+                aria-label="크기 설정"
+                onClick={(e) => {
+                    handleOpenModal(e);
+                }}
+                className={`tooltip-wrapper tooltip-left w-9 h-9 rounded-lg transition-colors ${
+                    isCanvasSizeModal
+                    ? 'bg-primary bg-primary/20 text-primary shadow-[0_0_10px_rgba(47,129,247,0.2)]'
+                    : 'border-outline-strong text-on-surface-variant bg-surface-container hover:border-on-surface hover:text-on-surface'
+                }`}
+            >
+                <span className="material-symbols-outlined text-[38px]">crop</span>
+                {/* 커스텀 툴팁 */}
+                <div className="tooltip-content">크기 설정</div>
+            </button>
+    
         
             {/* 캔버스 크기 섹션 */}
             <EditorCanvasSize

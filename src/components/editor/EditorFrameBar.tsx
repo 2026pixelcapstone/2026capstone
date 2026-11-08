@@ -82,7 +82,7 @@ export function EditorFrameBar({
                 <div className="flex flex-col flex-1 overflow-hidden">
                 <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
                     style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} > 
-                    <span className='text-[12px]'>프레임{frames.length}개</span>  
+                    <span className='text-[12px]'>프레임 {frames.length}개</span>  
                 </div>
 
                 {/* 프레임 목록 */}

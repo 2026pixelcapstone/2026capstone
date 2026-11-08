@@ -69,3 +69,48 @@ body {
 /* 가로 스크롤 숨김 */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 공통 툴팁 래퍼 */
+.tooltip-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 공통 툴팁 디자인 */
+.tooltip-wrapper .tooltip-content {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.375rem 0.75rem;
+  background-color: var(--color-surface-container-high);
+  border: 1px solid var(--color-outline-strong);
+  color: var(--color-on-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-lg);
+  white-space: nowrap;
+  z-index: 50;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+}
+
+.tooltip-wrapper:hover .tooltip-content {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 왼쪽 방향 툴팁 (오른쪽 사이드바용) */
+.tooltip-wrapper.tooltip-left .tooltip-content {
+  right: 100%;
+  margin-right: 0.75rem;
+}
+
+/* 오른쪽 방향 툴팁 (왼쪽 도구 모음용) */
+.tooltip-wrapper.tooltip-right .tooltip-content {
+  left: 100%;
+  margin-left: 0.75rem;
+}

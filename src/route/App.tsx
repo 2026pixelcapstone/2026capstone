@@ -86,7 +86,6 @@ export default function App() {
         <Route path="/community/palettes/:id" element={<PaletteDetailPage />} />
         <Route path="/community/challenge" element={<ChallengePage />} />
         <Route path="/community/canvas" element={<SharedCanvasPage />} />
-        <Route path="/editor" element={<EditorPage />} />
         {/* 404 — MainLayout 내부 */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
@@ -98,6 +97,7 @@ export default function App() {
           <Route path="/notifications" element={<NotificationPage />} />
           <Route path="/assets/create" element={<AssetCreatePage />} />
           <Route path="/assets/:id/edit" element={<AssetUpdatePage />} />
+          <Route path="/editor" element={<EditorPage />} />
         </Route>
       </Route>
 

@@ -65,7 +65,7 @@ export default function EditorSaveProjectModal({
 
                     {/* 안내 문구 영역 */}
                     <div style={styles.noticeText}>
-                        🔒 저장된 프로젝트는 갤러리에 공유하기 전까지 나만 볼 수 있습니다.
+                        🔒 저장된 프로젝트는 갤러리에 공유하기 전까지 나만 볼 수 있어요.
                     </div>
      
                     {/* 버튼 */}
