@@ -45,7 +45,7 @@ export function EditorToolBar({
         // 버튼의 화면상 크기와 위치 정보 가져오기
         const rect = e.currentTarget.getBoundingClientRect();
         setModalPos({
-            top: rect.top, // 버튼의 상단과 맞춤
+            top: rect.top - 100, // 버튼의 상단과 맞춤
             left: rect.right + 10, // 버튼의 오른쪽 끝 + 여백 10px 위치
         });
         setIsHexModal(true)

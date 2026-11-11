@@ -129,7 +129,7 @@ export function ColorPickerModal({
             value={localHex}
             onChange={handleHexInputChange}
             maxLength={7}
-            className="flex-1 text-sm font-bold text-center rounded-md px-2 py-1.5 outline-none transition-colors focus:ring-1 focus:ring-blue-500"
+            className="flex-1 min-w-0 text-sm font-bold text-center rounded-md px-2 py-1.5 outline-none transition-colors focus:ring-1 focus:ring-blue-500"
             style={{ 
               backgroundColor: '#2a343d', 
               color: '#f8fafc',
@@ -137,15 +137,6 @@ export function ColorPickerModal({
             }}
           />
         </div>
-
-        <button 
-          type="button"
-          onClick={onClose}
-          className="w-full py-2 text-xs font-bold text-on-primary bg-primary hover:bg-primary-pressed rounded-lg transition-all shadow-md"
-          style={{ backgroundColor: '#0ea5e9' }} // 이미지와 유사한 파란색
-        >
-          Select Color
-        </button>
       </div>
     );
 };
