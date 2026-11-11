@@ -23,7 +23,6 @@ export default function EditorSaveProjectModal({
 }: SaveProjectModeProps){
     // 모달 내부 상태 관리
     const [title, setTitle] = useState<string>(initialTitle);
-    const [isPublic, setIsPublic] = useState<boolean>(initialIsPublic);
     const [isSaveHovered, setIsSaveHovered] = useState(false);
     const [isCancelHovered, setIsCancelHovered] = useState(false);
     const [isSavePressed, setIsSavePressed] = useState(false);
@@ -34,7 +33,6 @@ export default function EditorSaveProjectModal({
             return;
         }
         setTitle(initialTitle);
-        setIsPublic(initialIsPublic);
         setIsSaveHovered(false);
         setIsCancelHovered(false);
         setIsSavePressed(false);
@@ -49,7 +47,7 @@ export default function EditorSaveProjectModal({
         return;
         }
 
-        onSave({ title, isPublic }, isSaveAsMode);
+        onSave({ title, isPublic: false }, isSaveAsMode);
     };
     return (
         <div style={styles.overlay} onClick={onClose}>
