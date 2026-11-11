@@ -81,7 +81,7 @@ export function EditorFrameBar({
                 <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
                     style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} > 
                     <span>Anim</span>
-                    <span className='text-[10px]'>{frames.length} frame{frames.length > 1 ? 's' : ''}</span>  
+                    <span className='text-[10px]'>프레임 {frames.length}개</span>  
                 </div>
 
                 {/* 프레임 목록 */}

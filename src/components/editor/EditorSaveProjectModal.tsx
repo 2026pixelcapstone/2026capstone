@@ -68,29 +68,9 @@ export default function EditorSaveProjectModal({
                         style={styles.input}
                     />
 
-                    {/* 공개 설정 */}
-                    <div style={styles.formGroup}>
-                        <label style={styles.label}>공개 설정</label>
-                        <div style={styles.radioGroup}>
-                        <label style={styles.radioLabel}>
-                            <input
-                            type="radio"
-                            name="visibility"
-                            checked={!isPublic}
-                            onChange={() => setIsPublic(false)}
-                            />
-                            🔒 비공개
-                        </label>
-                        <label style={styles.radioLabel}>
-                            <input
-                            type="radio"
-                            name="visibility"
-                            checked={isPublic}
-                            onChange={() => setIsPublic(true)}
-                            />
-                            🌐 공개
-                        </label>
-                        </div>
+                    {/* 안내 문구 영역 */}
+                    <div style={styles.noticeText}>
+                        🔒 저장된 프로젝트는 갤러리에 공유하기 전까지 나만 볼 수 있어요.
                     </div>
 
                     {/* 버튼 */}
@@ -169,4 +149,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   buttonGroup: { display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' },
   cancelButton: { padding: '10px 16px', border: 'none', backgroundColor: '#007bff', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'},
   saveButton: { padding: '10px 16px', border: 'none', backgroundColor: '#007bff', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' },
+  noticeText: {
+    fontSize: '13px',       // 입력칸보다 작은 글씨로 부가 설명임을 강조
+    color: '#8b949e',       // 눈에 띄지 않는 은은한 회색 (다크 테마 기준)
+    marginTop: '8px',       // 입력칸과의 간격
+    display: 'flex',
+    alignItems: 'center',   // 이모지와 텍스트의 수직 정렬
+    gap: '4px',             // 이모지와 텍스트 사이의 여백
+    lineHeight: '1.4',
+  },
 };
