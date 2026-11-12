@@ -29,6 +29,12 @@ export function AnimationPreview({
     const pendingFps = useRef<number | null>(null);
     const [animDetailView, setAnimDetailView] = useState(false);
     const [previewFrameIdx, setPreviewFrameIdx] = useState(0);
+    const [isOpen, setIsOpen] = useState(false);
+
+    // 현재 선택된 태그 이름 찾기
+    const currentTagName = activeAnimId 
+        ? animationTags?.find(tag => tag.id === activeAnimId)?.name || "전체 재생"
+        : "전체 재생";
        
     // 애니메이션 실행 effect
     useEffect(() => {
@@ -82,47 +88,80 @@ export function AnimationPreview({
     return(
         <div className="p-4 border-b shrink-0" style={{ borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-start w-full px-1 mb-3 gap-2">
-                <span className="text-[15px] font-bold tracking-tight" style={{color: 'var(--color-on-surface-variant)'}}> 
+                <span className="text-[15px] font-bold tracking-tight shrink-0 whitespace-nowrap" style={{color: 'var(--color-on-surface-variant)'}}> 
                     애니메이션
                 </span>
                 
-                {/* 💡 '태그:' 글자와 드롭다운을 묶어주는 래퍼(div) 추가 */}
-                <div className="flex items-center gap-2">
+                {/* '태그:' 글자와 드롭다운을 묶어주는 래퍼(div) 추가 */}
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     <span className="w-px h-3.5 bg-white/20" style={{ background: 'var(--color-surface-container-highest)' }} />
-                    <span className="text-[14px] font-medium" style={{color: 'var(--color-on-surface-variant)'}}>
+                    <span className="text-[14px] font-medium shrink-0 whitespace-nowrap" style={{color: 'var(--color-on-surface-variant)'}}>
                         태그:
                     </span>
-                    <select
-                        value={activeAnimId ?? ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            // '전체 재생'은 태그 필터를 해제합니다.
-                            setActiveAnimId(val === "" ? null : val);}}
 
-                        className="text-[12px] font-medium px-1.5 py-0.5 rounded cursor-pointer outline-none transition-colors"
-                        style={{ 
-                            background: 'var(--color-surface-container-high)', 
-                            border: '1px solid var(--color-outline-variant)',
-                            color: 'var(--color-on-surface)'
-                        }}
-                        title="재생할 애니메이션 태그 선택"
-                    >
-                        <option value="">전체 재생</option>
-                        {/* 태그가 비어있을 때만 나타나는 안내 문구 (disabled 속성으로 클릭 방지) */}
-                        {(!animationTags || animationTags.length === 0) && (
-                            <option value="none" disabled>
-                                태그 없음
-                            </option>
+                    {/* 커스텀 드롭다운 컨테이너 */}
+                    <div className="relative flex-1">
+                        {/* 1. 드롭다운 트리거 버튼 */}
+                        <button
+                            onClick={() => setIsOpen(!isOpen)}
+                            className="w-full max-w-[90px] flex items-center justify-between px-1.5 py-0.5 rounded cursor-pointer outline-none transition-colors"
+                            style={{ 
+                                background: 'var(--color-surface-container-high)', 
+                                border: '1px solid var(--color-outline-variant)',
+                                color: 'var(--color-on-surface)'
+                            }}
+                            // 💡 잘린 텍스트를 마우스 호버로 확인할 수 있게 툴팁 제공
+                            title={currentTagName} 
+                        >
+                            {/* 💡 핵심: flex-1과 min-w-0을 추가하고 truncate를 적용하여 말줄임(...) 완벽 지원 */}
+                            <span className="flex-1 min-w-0 text-left text-[12px] font-medium truncate">
+                                {currentTagName}
+                            </span>
+                            
+                            <span className="material-symbols-outlined text-[16px] shrink-0 ml-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
+                                arrow_drop_down
+                            </span>
+                        </button>
+
+                        {/* 2. 펼쳐지는 목록 (옵션) */}
+                        {isOpen && (
+                            <div 
+                                className="absolute left-0 top-[calc(100%+4px)] z-50 min-w-[90px] rounded shadow-lg border py-1 overflow-hidden"
+                                style={{
+                                    background: 'var(--color-surface-container-high)',
+                                    borderColor: 'var(--color-outline-variant)',
+                                }}
+                            >
+                                <div 
+                                    onClick={() => { setActiveAnimId(null); setIsOpen(false); }}
+                                    className="px-2 py-1 text-[12px] cursor-pointer hover:bg-white/10 transition-colors whitespace-nowrap"
+                                    style={{ color: 'var(--color-on-surface)' }}
+                                >
+                                    전체 재생
+                                </div>
+
+                                {(!animationTags || animationTags.length === 0) && (
+                                    <div className="px-2 py-1 text-[12px] text-gray-500 cursor-default whitespace-nowrap">
+                                        태그 없음
+                                    </div>
+                                )}
+
+                                {animationTags?.map(tag => (
+                                    <div 
+                                        key={tag.id}
+                                        onClick={() => { setActiveAnimId(tag.id); setIsOpen(false); }}
+                                        // 💡 드롭다운 내부 목록도 텍스트가 너무 길면 UI가 화면을 뚫고 나가지 않도록 max-w 지정 후 truncate 적용
+                                        className="px-2 py-1 text-[12px] cursor-pointer hover:bg-white/10 transition-colors truncate max-w-[120px]"
+                                        style={{ color: 'var(--color-on-surface)' }}
+                                        title={tag.name}
+                                    >
+                                        {tag.name}
+                                    </div>
+                                ))}
+                            </div>
                         )}
-
-                        {animationTags?.map(tag => (
-                            <option key={tag.id} value={tag.id}>
-                                {tag.name}
-                            </option>
-                        ))}
-                    </select>
+                    </div>
                 </div>
-                
             </div>
             {/* 애니메이션 프리뷰 */}
             <div className="w-full mx-auto bg-[#1e2329] rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden">
