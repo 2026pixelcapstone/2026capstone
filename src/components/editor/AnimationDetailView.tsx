@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { FrameData,  AnimationTag} from '../../type/editor';
 import { MIN_DURATION_30FPS } from '../../constants/editor/editor';
 
@@ -17,7 +18,7 @@ export function AnimationDetailView({
     fps, 
     animationTags 
 }: AnimationDetailViewProps) {
-    const [isModalPlaying, setIsModalPlaying] = useState(false);
+    const [isModalPlaying, setIsModalPlaying] = useState(true);
     const [currentFrameIdx, setCurrentFrameIdx] = useState(0);
     const [activeTagId, setActiveTagId] = useState<string | null>(null);
 
@@ -69,7 +70,7 @@ export function AnimationDetailView({
 
     const currentFrame = frames[currentFrameIdx];
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4">
             <div className="flex flex-col w-full max-w-4xl h-full max-h-[80vh] bg-[#1e2329] border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
                 {/* 헤더 */}
@@ -174,6 +175,7 @@ export function AnimationDetailView({
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
