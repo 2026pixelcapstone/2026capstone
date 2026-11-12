@@ -191,12 +191,14 @@ export const MENU_ACTION = {
   AI_PALETTE: 'AI_PALETTE',           // 색 팔레트 추천
   AI_TAG_COLOR: 'AI_TAG_COLOR',       // 태그로 색 찾기
   AI_CONCEPT: 'AI_CONCEPT',           // 컨셉 도우미
+  AI_INBETWEEN: 'AI_INBETWEEN',       // 중간 동작 제안(작업물 이해 모델 + 규칙)
+  AI_ANIM_CHECK: 'AI_ANIM_CHECK',     // 애니메이션 일관성 검사(색 규칙)
 } as const;
 
 export type MenuActionId = typeof MENU_ACTION[keyof typeof MENU_ACTION];
 
 /** AI 패널에 지금 보이는 기능(null = 패널 닫힘) */
-export type AiTool = 'shade' | 'palette' | 'tagColor' | 'concept';
+export type AiTool = 'shade' | 'palette' | 'tagColor' | 'concept' | 'inbetween' | 'animCheck';
 
 export interface BaseMenuItem {
   id: MenuActionId; // 실행할 Command ID
