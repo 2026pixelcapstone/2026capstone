@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { FrameData,  AnimationTag} from '../../type/editor';
 import { MIN_DURATION_30FPS } from '../../constants/editor/editor';
 
@@ -69,7 +70,7 @@ export function AnimationDetailView({
 
     const currentFrame = frames[currentFrameIdx];
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4">
             <div className="flex flex-col w-full max-w-4xl h-full max-h-[80vh] bg-[#1e2329] border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
                 {/* 헤더 */}
@@ -121,7 +122,7 @@ export function AnimationDetailView({
                             {isModalPlaying ? '일시정지' : '재생'}
                         </button>
                         <span className="text-gray-400 text-sm tabular-nums">
-                            Frame: {currentFrameIdx} / {frames.length > 0 ? frames.length - 1 : 0}
+                            프레임: {currentFrameIdx + 1} / {frames.length > 0 ? frames.length : 0}
                         </span>
                         <span className="text-gray-400 text-sm tabular-nums ml-2">
                             {fps} FPS
@@ -129,45 +130,52 @@ export function AnimationDetailView({
                     </div>
 
                     {/* 태그 필터 (태그가 존재하는 경우에만 표시) */}
-                    {animationTags && animationTags.length > 0 && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-gray-500 text-xs mr-1">Tags:</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-gray-400 text-[13px] mr-1">태그 (tag):</span>
+                        <button
+                            onClick={() => {
+                                setActiveTagId(null);
+                                setCurrentFrameIdx(0);
+                            }}
+                            className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                                activeTagId === null 
+                                ? 'bg-gray-700 border-gray-400 text-white' 
+                                : 'bg-[#1a1c23] border-gray-700 text-gray-400 hover:bg-gray-800'
+                            }`}
+                        >
+                            전체 재생
+                        </button>
+                        {(!animationTags || animationTags.length === 0) && (
                             <button
+                                disabled
+                                className="px-3 py-1 text-xs rounded-full border bg-[#1a1c23]/50 border-gray-800 text-gray-600 cursor-default"
+                            >
+                                태그 없음
+                            </button>
+                        )}
+                        {animationTags?.map(tag => (
+                            <button
+                                key={tag.id}
                                 onClick={() => {
-                                    setActiveTagId(null);
-                                    setCurrentFrameIdx(0);
+                                    setActiveTagId(tag.id);
+                                const firstTaggedIndex = frames.findIndex(frame => frame.tagId === tag.id);
+                                setCurrentFrameIdx(firstTaggedIndex >= 0 ? firstTaggedIndex : 0);
                                 }}
-                                className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                                    activeTagId === null 
-                                    ? 'bg-gray-700 border-gray-400 text-white' 
+                                className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border transition-colors ${
+                                    activeTagId === tag.id 
+                                    ? 'bg-gray-700 text-white' 
                                     : 'bg-[#1a1c23] border-gray-700 text-gray-400 hover:bg-gray-800'
                                 }`}
+                                style={activeTagId === tag.id ? { borderColor: tag.color } : {}}
                             >
-                                All
+                                <span style={{ color: tag.color }}>●</span>
+                                {tag.name}
                             </button>
-                            {animationTags.map(tag => (
-                                <button
-                                    key={tag.id}
-                                    onClick={() => {
-                                        setActiveTagId(tag.id);
-                                    const firstTaggedIndex = frames.findIndex(frame => frame.tagId === tag.id);
-                                    setCurrentFrameIdx(firstTaggedIndex >= 0 ? firstTaggedIndex : 0);
-                                    }}
-                                    className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border transition-colors ${
-                                        activeTagId === tag.id 
-                                        ? 'bg-gray-700 text-white' 
-                                        : 'bg-[#1a1c23] border-gray-700 text-gray-400 hover:bg-gray-800'
-                                    }`}
-                                    style={activeTagId === tag.id ? { borderColor: tag.color } : {}}
-                                >
-                                    <span style={{ color: tag.color }}>●</span>
-                                    {tag.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

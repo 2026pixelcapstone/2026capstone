@@ -1,5 +1,5 @@
 import { AnimationTag, FrameData } from "../../type/editor";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { AnimationDetailView } from "./AnimationDetailView";
 import { MIN_DURATION_30FPS } from "../../constants/editor/editor";
 
@@ -29,6 +29,32 @@ export function AnimationPreview({
     const pendingFps = useRef<number | null>(null);
     const [animDetailView, setAnimDetailView] = useState(false);
     const [previewFrameIdx, setPreviewFrameIdx] = useState(0);
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const dropdownId = useId();
+
+    const selectAnimation = (id: string | null) => {
+        setActiveAnimId(id);
+        setIsOpen(false);
+        triggerRef.current?.focus();
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const closeOnOutsidePointer = (event: PointerEvent) => {
+            if (event.target instanceof Node && !dropdownRef.current?.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('pointerdown', closeOnOutsidePointer);
+        return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+    }, [isOpen]);
+
+    // 현재 선택된 태그 이름 찾기
+    const currentTagName = activeAnimId 
+        ? animationTags?.find(tag => tag.id === activeAnimId)?.name || "전체 재생"
+        : "전체 재생";
        
     // 애니메이션 실행 effect
     useEffect(() => {
@@ -82,47 +108,110 @@ export function AnimationPreview({
     return(
         <div className="p-4 border-b shrink-0" style={{ borderColor: 'var(--color-outline)' }}>
             <div className="flex items-center justify-start w-full px-1 mb-3 gap-2">
-                <span className="text-[15px] font-bold tracking-tight" style={{color: 'var(--color-on-surface-variant)'}}> 
+                <span className="text-[15px] font-bold tracking-tight shrink-0 whitespace-nowrap" style={{color: 'var(--color-on-surface-variant)'}}> 
                     애니메이션
                 </span>
                 
-                {/* 💡 '태그:' 글자와 드롭다운을 묶어주는 래퍼(div) 추가 */}
-                <div className="flex items-center gap-2">
+                {/* '태그:' 글자와 드롭다운을 묶어주는 래퍼(div) 추가 */}
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     <span className="w-px h-3.5 bg-white/20" style={{ background: 'var(--color-surface-container-highest)' }} />
-                    <span className="text-[14px] font-medium" style={{color: 'var(--color-on-surface-variant)'}}>
+                    <span className="text-[14px] font-medium shrink-0 whitespace-nowrap" style={{color: 'var(--color-on-surface-variant)'}}>
                         태그:
                     </span>
-                    <select
-                        value={activeAnimId ?? ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            // '전체 재생'은 태그 필터를 해제합니다.
-                            setActiveAnimId(val === "" ? null : val);}}
 
-                        className="text-[12px] font-medium px-1.5 py-0.5 rounded cursor-pointer outline-none transition-colors"
-                        style={{ 
-                            background: 'var(--color-surface-container-high)', 
-                            border: '1px solid var(--color-outline-variant)',
-                            color: 'var(--color-on-surface)'
+                    {/* 커스텀 드롭다운 컨테이너 */}
+                    <div
+                        ref={dropdownRef}
+                        className="relative flex-1"
+                        onBlur={event => {
+                            if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
                         }}
-                        title="재생할 애니메이션 태그 선택"
+                        onKeyDown={event => {
+                            // 에디터 전역 단축키가 Space의 기본 버튼 선택을 막지 않도록 합니다.
+                            event.stopPropagation();
+                            if (event.key === 'Escape' && isOpen) {
+                                event.preventDefault();
+                                setIsOpen(false);
+                                triggerRef.current?.focus();
+                            }
+                        }}
+                        onKeyUp={event => event.stopPropagation()}
                     >
-                        <option value="">전체 재생</option>
-                        {/* 태그가 비어있을 때만 나타나는 안내 문구 (disabled 속성으로 클릭 방지) */}
-                        {(!animationTags || animationTags.length === 0) && (
-                            <option value="none" disabled>
-                                태그 없음
-                            </option>
-                        )}
+                        {/* 1. 드롭다운 트리거 버튼 */}
+                        <button
+                            ref={triggerRef}
+                            type="button"
+                            aria-label={`애니메이션 태그: ${currentTagName}`}
+                            aria-expanded={isOpen}
+                            aria-controls={isOpen ? dropdownId : undefined}
+                            onClick={() => setIsOpen(open => !open)}
+                            className="w-full max-w-[90px] flex items-center justify-between px-1.5 py-0.5 rounded cursor-pointer focus-visible:outline-2 focus-visible:outline-primary transition-colors"
+                            style={{ 
+                                background: 'var(--color-surface-container-high)', 
+                                border: '1px solid var(--color-outline-variant)',
+                                color: 'var(--color-on-surface)'
+                            }}
+                            // 💡 잘린 텍스트를 마우스 호버로 확인할 수 있게 툴팁 제공
+                            title={currentTagName} 
+                        >
+                            {/* 💡 핵심: flex-1과 min-w-0을 추가하고 truncate를 적용하여 말줄임(...) 완벽 지원 */}
+                            <span className="flex-1 min-w-0 text-left text-[12px] font-medium truncate">
+                                {currentTagName}
+                            </span>
+                            
+                            <span aria-hidden="true" className="material-symbols-outlined text-[16px] shrink-0 ml-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
+                                arrow_drop_down
+                            </span>
+                        </button>
 
-                        {animationTags?.map(tag => (
-                            <option key={tag.id} value={tag.id}>
-                                {tag.name}
-                            </option>
-                        ))}
-                    </select>
+                        {/* 2. 펼쳐지는 목록 (옵션) */}
+                        {isOpen && (
+                            <div 
+                                id={dropdownId}
+                                role="group"
+                                aria-label="애니메이션 태그 선택"
+                                // Safari에서 옵션 클릭 전 blur로 목록이 닫히지 않도록 포커스를 유지합니다.
+                                onMouseDown={event => event.preventDefault()}
+                                className="absolute left-0 top-[calc(100%+4px)] z-50 min-w-[90px] rounded shadow-lg border py-1 overflow-hidden"
+                                style={{
+                                    background: 'var(--color-surface-container-high)',
+                                    borderColor: 'var(--color-outline-variant)',
+                                }}
+                            >
+                                <button
+                                    type="button"
+                                    aria-pressed={activeAnimId === null}
+                                    onClick={() => selectAnimation(null)}
+                                    className="block w-full text-left px-2 py-1 text-[12px] cursor-pointer hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary transition-colors whitespace-nowrap"
+                                    style={{ color: 'var(--color-on-surface)' }}
+                                >
+                                    전체 재생
+                                </button>
+
+                                {(!animationTags || animationTags.length === 0) && (
+                                    <div className="px-2 py-1 text-[12px] text-gray-500 cursor-default whitespace-nowrap">
+                                        태그 없음
+                                    </div>
+                                )}
+
+                                {animationTags?.map(tag => (
+                                    <button
+                                        type="button"
+                                        key={tag.id}
+                                        aria-pressed={activeAnimId === tag.id}
+                                        onClick={() => selectAnimation(tag.id)}
+                                        // 💡 드롭다운 내부 목록도 텍스트가 너무 길면 UI가 화면을 뚫고 나가지 않도록 max-w 지정 후 truncate 적용
+                                        className="block w-full text-left px-2 py-1 text-[12px] cursor-pointer hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary transition-colors truncate max-w-[120px]"
+                                        style={{ color: 'var(--color-on-surface)' }}
+                                        title={tag.name}
+                                    >
+                                        {tag.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
-                
             </div>
             {/* 애니메이션 프리뷰 */}
             <div className="w-full mx-auto bg-[#1e2329] rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden">
