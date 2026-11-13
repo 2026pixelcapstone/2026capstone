@@ -170,6 +170,8 @@ export function AnimationPreview({
                                 id={dropdownId}
                                 role="group"
                                 aria-label="애니메이션 태그 선택"
+                                // Safari에서 옵션 클릭 전 blur로 목록이 닫히지 않도록 포커스를 유지합니다.
+                                onMouseDown={event => event.preventDefault()}
                                 className="absolute left-0 top-[calc(100%+4px)] z-50 min-w-[90px] rounded shadow-lg border py-1 overflow-hidden"
                                 style={{
                                     background: 'var(--color-surface-container-high)',
