@@ -35,11 +35,31 @@ function loadImg(b64: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * 성능 업그레이드 중 일시 중지(true) — 안내만 보이고 요청은 보내지 않음. 다시 열 때 false로.
+ * (프론트만 막음 — 백엔드 /api/ai/inbetween은 그대로)
+ */
+const INBETWEEN_PAUSED = true
+
+export default function InbetweenPanel(props: Props) {
+  if (INBETWEEN_PAUSED) {
+    return (
+      <div className="p-3 rounded-lg bg-surface-container-low border border-outline space-y-1" role="status">
+        <p className="text-xs font-bold text-on-surface">중간 동작 제안 — 성능 업그레이드 중</p>
+        <p className="text-[11px] text-on-surface-variant leading-relaxed">
+          더 자연스러운 중간 동작을 위해 AI를 개선하고 있어 잠시 쉬고 있습니다. 곧 더 나은 버전으로 돌아올게요.
+        </p>
+      </div>
+    )
+  }
+  return <InbetweenPanelActive {...props} />
+}
+
+/**
  * 에디터 AI 패널 — 중간 동작 제안(자체 모델: 작업물 이해 → 규칙으로 사이 프레임).
  * 1) 앞·뒤 키프레임을 골라 요청 → 2) '작업물 해석'(부위 덩어리·관절)을 겹쳐 확인 → 3) 타이밍 슬라이더로 고른 프레임을 넣음.
  * 칸마다 두 프레임을 섞지 않고 부위를 통째로 옮겨 원본 색만 씀. 넣은 뒤 작가가 고쳐 쓰는 '제안'.
  */
-export default function InbetweenPanel({ state, activeFrameId, onInsert }: Props) {
+function InbetweenPanelActive({ state, activeFrameId, onInsert }: Props) {
   const idx = Math.max(0, state.frames.findIndex((f) => f.id === activeFrameId))
   const [aIdx, setAIdx] = useState(idx)
   const [cIdx, setCIdx] = useState(Math.min(state.frames.length - 1, idx + 1))
