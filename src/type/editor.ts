@@ -104,6 +104,7 @@ export const MENU_ACTION = {
   SEND_TO_TAB: 'SEND_TO_TAB',           // 다른 탭으로 보내기(PR-E)
   OPEN_PPIT: 'OPEN_PPIT',
   IMPORT_IMAGE: 'IMPORT_IMAGE',         // 이미지 불러오기(새 레이어)
+  IMPORT_SPRITESHEET: 'IMPORT_SPRITESHEET',
   OPEN_REFERENCE: 'OPEN_REFERENCE',     // 참조 이미지 열기
   SHARE_GALLERY: 'SHARE_GALLERY',       // 갤러리에 공유
   JOIN_CHALLENGE: 'JOIN_CHALLENGE',     // 이번 주 챌린지에 참가

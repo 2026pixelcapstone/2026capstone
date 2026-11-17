@@ -1,3 +1,5 @@
+import { appendSpritesheet } from '../utils/appendSpritesheet'
+import { ImportSpritesheet } from '../components/editor/ImportSpritesheet'
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {createInitialCanvasData, ZOOM_LEVELS} from '../constants/editor/editor'
@@ -328,6 +330,7 @@ export default function EditorPage() {
 
   // ── useEditorExport 훅 ──────────────
   // ── 들어오고 나가기(PR-C): 내보내기 창·이미지 불러오기·참조 이미지·갤러리 공유·에셋 등록 ──
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
   const [exportTab, setExportTab] = useState<ExportTab | null>(null);
   const [shareFile, setShareFile] = useState<{ file: File; challenge: boolean } | null>(null);
   const {
@@ -987,6 +990,24 @@ export default function EditorPage() {
         />
       )}
 
+      {importSheetOpen && (
+        <ImportSpritesheet
+          initialWidth={state.width}
+          initialHeight={state.height}
+          initialFps={fps}
+          onClose={() => setImportSheetOpen(false)}
+          onImport={async canvasData => {
+            const ok = await runEdit('스프라이트 시트 가져오기', snap => appendSpritesheet(snap, canvasData));
+            if (ok) {
+              setIsPlaying(false);
+              setActiveAnimId(null);
+              setActiveFrameId(canvasData.frames[0]?.id ?? null);
+              setActiveLayerId(canvasData.frames[0]?.layers[0]?.id ?? null);
+            }
+            return ok;
+          }}
+        />
+      )}
       {ioFileInputs}
       {exportTab && (
         <ExportModal
@@ -1105,6 +1126,7 @@ export default function EditorPage() {
                 ioActions={{
                   openExport: setExportTab,
                   importImage: openImageImport,
+                  importSpritesheet: () => setImportSheetOpen(true),
                   openReference,
                   shareGallery,
                   registerAsset: () => { void registerAsset(); },
