@@ -102,6 +102,41 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
         return k;
     }, [state.frames, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
 
+    /**
+     * 거의 같은 두 프레임 합치기(AI 타이밍 점검) — keep 길이 += drop 길이, drop 삭제. 되돌리기 한 번.
+     * drop 뒤의 애니메이션 태그는 한 칸씩 당기고, drop을 포함한 태그는 끝만 당김(패널이 두 프레임의 태그 소속이 같을 때만 부름).
+     */
+    const mergeFrames = useCallback((keepId: string, dropId: string) => {
+        if (keepId === dropId || state.frames.length < 2) return false;
+        if (!state.frames.some(f => f.id === keepId) || !state.frames.some(f => f.id === dropId)) return false;
+        setWithHistory(prev => {
+            const keep = prev.frames.find(f => f.id === keepId);
+            const at = prev.frames.findIndex(f => f.id === dropId);
+            if (!keep || at < 0) return prev;
+            const drop = prev.frames[at];
+            const add = (d?: number) => (d && d > 0 ? d : 100);
+            const frames = prev.frames
+                .filter(f => f.id !== dropId)
+                .map(f => (f.id === keepId ? { ...f, duration: add(keep.duration) + add(drop.duration) } : f))
+                .map((f, i) => ({ ...f, frameOrder: i }));
+            return {
+                ...prev,
+                frames,
+                animationTags: (prev.animationTags ?? []).map(t =>
+                    t.fromIndex > at ? { ...t, fromIndex: t.fromIndex - 1, toIndex: t.toIndex - 1 }
+                        : t.toIndex >= at ? { ...t, toIndex: Math.max(t.fromIndex, t.toIndex - 1) }
+                            : t),
+            };
+        });
+        if (activeFrameId === dropId) {
+            const keep = state.frames.find(f => f.id === keepId);
+            setActiveFrameId(keepId);
+            setActiveLayerId(keep?.layers[0]?.id ?? null);
+        }
+        setUnsaved(true);
+        return true;
+    }, [state.frames, activeFrameId, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
+
     /** 이전·다음 프레임 id(끝에서는 반대쪽으로 돌아감) */
     const neighborFrameId = useCallback((dir: 1 | -1) => {
         const n = state.frames.length;
@@ -110,5 +145,5 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
         return state.frames[(idx + dir + n) % n].id;
     }, [state.frames, activeFrameId]);
 
-    return { duplicateFrame, reverseFrames, neighborFrameId, insertFramesAfter };
+    return { duplicateFrame, reverseFrames, neighborFrameId, insertFramesAfter, mergeFrames };
 }

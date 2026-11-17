@@ -55,6 +55,7 @@ import { AnimationPreview } from '../components/editor/AnimationPreview'
 import { EditorLayerBar } from '../components/editor/EditorLayerBar'
 import ShadeSuggestPanel from '../components/editor/ShadeSuggestPanel'
 import AnimCheckPanel from '../components/editor/AnimCheckPanel'
+import AnimTimingPanel from '../components/editor/AnimTimingPanel'
 import InbetweenPanel from '../components/editor/InbetweenPanel'
 import { EditorRightSideBar } from '../components/editor/EditorRightSideBar'
 import { EditorPalette } from '../components/editor/EditorPalette'
@@ -80,6 +81,7 @@ const AI_TOOL_TITLE: Record<AiTool, string> = {
   concept: '컨셉 도우미',
   inbetween: '중간 동작 제안',
   animCheck: '애니메이션 일관성 검사',
+  animTiming: '타이밍 점검',
 };
 
 // ── 컴포넌트 ──────────────────────────────────────────
@@ -343,7 +345,7 @@ export default function EditorPage() {
     wandOptions: { contiguous: toolOptions.contiguous, tolerance: toolOptions.tolerance },
   });
   useEffect(() => { selectionHandlersRef.current = { down: sel.down, move: sel.move, up: sel.up }; }, [sel.down, sel.move, sel.up]);
-  const { duplicateFrame, reverseFrames, neighborFrameId, insertFramesAfter } = useFrameOps({ state, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId, setWithHistory, setUnsaved });
+  const { duplicateFrame, reverseFrames, neighborFrameId, insertFramesAfter, mergeFrames } = useFrameOps({ state, activeFrameId, activeLayerId, setActiveFrameId, setActiveLayerId, setWithHistory, setUnsaved });
   const [gamePreviewOpen, setGamePreviewOpen] = useState(false);
 
   // ── 여러 프로젝트 탭(PR-E) ──────────────
@@ -1530,6 +1532,11 @@ export default function EditorPage() {
             {/* 🎞️ 애니메이션 일관성 검사 — 색 규칙(학습 없음), 프레임마다 나머지와 비교 */}
             <div hidden={aiTool !== 'animCheck'}>
               <AnimCheckPanel state={state} activeFrameId={activeFrameId} onSelectFrame={handleSelectFrame} />
+            </div>
+
+            {/* ⏱️ 타이밍 점검 — 규칙(학습 없음): 큰 점프·거의 같은 프레임, 추천 FPS는 내지 않음(근거 ml/reports/15a) */}
+            <div hidden={aiTool !== 'animTiming'}>
+              <AnimTimingPanel state={state} activeFrameId={activeFrameId} onSelectFrame={handleSelectFrame} onMerge={mergeFrames} />
             </div>
 
             {/* 🎨 색 팔레트 추천 — 현재 작업물+자연어 기반 */}

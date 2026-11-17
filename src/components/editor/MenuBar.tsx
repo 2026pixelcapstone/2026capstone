@@ -93,6 +93,7 @@ const AI_TOOL_OF: Partial<Record<MenuActionId, AiTool>> = {
     [MENU_ACTION.AI_CONCEPT]: 'concept',
     [MENU_ACTION.AI_INBETWEEN]: 'inbetween',
     [MENU_ACTION.AI_ANIM_CHECK]: 'animCheck',
+    [MENU_ACTION.AI_ANIM_TIMING]: 'animTiming',
 };
 
 interface MenuBarProps {
@@ -340,7 +341,8 @@ export default function MenuBar({
             case MENU_ACTION.AI_TAG_COLOR:
             case MENU_ACTION.AI_CONCEPT:
             case MENU_ACTION.AI_INBETWEEN:
-            case MENU_ACTION.AI_ANIM_CHECK: {
+            case MENU_ACTION.AI_ANIM_CHECK:
+            case MENU_ACTION.AI_ANIM_TIMING: {
                 const tool = AI_TOOL_OF[actionId] ?? null;
                 pixelGuides.setAiTool((prev) => (prev === tool ? null : tool));
                 break;
