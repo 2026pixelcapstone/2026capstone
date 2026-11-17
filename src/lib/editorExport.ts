@@ -5,7 +5,7 @@ import { composite, loadPixelData, makeCanvas } from "../utils/pixelOps";
 /**
  * 에디터 내보내기 공용(PR-C) — 프레임 합성·배율·스프라이트시트(+Aseprite 호환 JSON)·GIF·zip.
  * 그림 원본은 상태의 pixelData(캐시 아님) → 화면에 안 보이는 프레임도 정확.
- * 합성은 화면과 같이 레이어 투명도만 반영(useImageOps 병합과 같은 규칙).
+ * 합성은 화면과 같이 레이어 투명도·혼합 모드 반영(useImageOps 병합·utils/blendMode와 같은 규칙 — 11-17 PR #142 리뷰: 전엔 혼합 모드가 빠져 내보내기가 화면과 달랐음).
  */
 
 export const EXPORT_SCALES = [1, 2, 4, 8] as const;
@@ -17,7 +17,7 @@ export async function renderFrames(state: CanvasState): Promise<HTMLCanvasElemen
     for (const f of state.frames) {
         const layers = [...f.layers].filter(l => l.isVisible).sort((a, b) => a.layerOrder - b.layerOrder);
         const canvases = await Promise.all(layers.map(l => loadPixelData(l.pixelData, state.width, state.height)));
-        out.push(composite(layers.map((l, i) => ({ canvas: canvases[i], opacity: l.opacity })), state.width, state.height));
+        out.push(composite(layers.map((l, i) => ({ canvas: canvases[i], opacity: l.opacity, blendMode: l.blendMode })), state.width, state.height));
     }
     return out;
 }
