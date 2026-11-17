@@ -50,6 +50,7 @@ function isButton(target: EventTarget | null) {
 
 /**
  * 에디터 도구 단축키(PR-A). Ctrl 조합(저장·되돌리기)은 EditorPage 기존 처리 그대로.
+ * - Esc: 현재 요소의 포커스 해제 (개별 컴포넌트의 취소 처리가 우선)
  * - P E G I L R O H: 도구 바꾸기 / [ ]: 붓 크기 / X: 전경·배경색 바꾸기
  * - 스페이스를 누르는 동안 손 도구, Alt를 누르는 동안 스포이드(떼면 원래 도구로) — 포토샵·Aseprite와 같은 방식
  */
@@ -66,6 +67,14 @@ export function useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, ha
         };
 
         const onKeyDown = (e: KeyboardEvent) => {
+            // 입력창에서도 포커스를 풀 수 있도록 isTyping 검사보다 먼저 처리합니다.
+            // 조합 입력 취소 및 개별 컴포넌트가 처리한 Escape는 건드리지 않습니다.
+            if (e.key === 'Escape') {
+                if (e.isComposing || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+                const focused = document.activeElement;
+                if (focused instanceof HTMLElement && focused !== document.body) focused.blur();
+                return;
+            }
             if (isTyping(e.target)) return;
             if (e.ctrlKey || e.metaKey) return;
 
