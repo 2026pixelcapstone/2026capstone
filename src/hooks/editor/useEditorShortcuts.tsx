@@ -43,6 +43,11 @@ function isTyping(target: EventTarget | null) {
     return tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 }
 
+/** 버튼 내부 아이콘에 포커스가 있더라도 Space의 기본 버튼 활성화를 보존합니다. */
+function isButton(target: EventTarget | null) {
+    return target instanceof Element && target.closest('button, input[type="button"], input[type="submit"], input[type="reset"]') !== null;
+}
+
 /**
  * 에디터 도구 단축키(PR-A). Ctrl 조합(저장·되돌리기)은 EditorPage 기존 처리 그대로.
  * - P E G I L R O H: 도구 바꾸기 / [ ]: 붓 크기 / X: 전경·배경색 바꾸기
@@ -65,7 +70,8 @@ export function useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, ha
             if (e.ctrlKey || e.metaKey) return;
 
             if (e.code === 'Space') {
-                e.preventDefault();   // 페이지 스크롤·포커스된 버튼 누르기 방지
+                if (isButton(e.target)) return;
+                e.preventDefault();   // 캔버스에서 Space 이동 중 페이지 스크롤 방지
                 if (!e.repeat && !temp.current && toolRef.current !== 'pan') {
                     temp.current = { key: 'space', prev: toolRef.current };
                     setActiveTool('pan');
@@ -106,7 +112,8 @@ export function useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, ha
 
         const onKeyUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') {
-                if (!isTyping(e.target)) e.preventDefault();   // 스페이스 뗄 때 버튼이 눌리지 않게
+                if (!isTyping(e.target) && !isButton(e.target)) e.preventDefault();
+                // Space 이동 중 포커스가 버튼으로 옮겨져도 임시 도구는 복구합니다.
                 if (temp.current?.key === 'space') restore();
             } else if (e.key === 'Alt') {
                 e.preventDefault();   // 윈도우에서 Alt만 눌렀다 떼면 브라우저 메뉴로 포커스가 감
