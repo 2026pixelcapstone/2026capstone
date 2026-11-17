@@ -1442,6 +1442,7 @@ export default function EditorPage() {
                   }}
                   onDeleteLayer={deleteLayer}
                   onToggleVisibility={toggleVisibility}
+                  onRenameLayer={(frameId, layerId, name) => updateLayer(frameId, layerId, { name }, false)}
                 />
 
               </>
