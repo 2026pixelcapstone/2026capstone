@@ -16,6 +16,10 @@ interface Result {
   steps: Step[]
   frameIds: string[]
   durations: number[]
+  /** 점검한 순간의 상태(프레임 배열은 바뀔 때마다 새 배열 — 그림·순서·길이가 바뀌면 결과를 무효로, 리뷰 #142) */
+  frames: CanvasState['frames']
+  w: number
+  h: number
 }
 
 /**
@@ -28,6 +32,16 @@ export default function AnimTimingPanel({ state, activeFrameId, onSelectFrame, o
   const [loading, setLoading] = useState(false)
   const [res, setRes] = useState<Result | null>(null)
   const reqRef = useRef(0)
+  const latest = useRef(state)
+  latest.current = state
+  const stale = !!res && (res.frames !== state.frames || res.w !== state.width || res.h !== state.height)
+
+  const changeRange = (v: string) => {
+    reqRef.current++                                     // 진행 중 점검도 버림
+    setLoading(false)
+    setRange(v)
+    setRes(null)
+  }
 
   const run = async () => {
     const tag = tags.find((t) => t.id === range)
@@ -46,7 +60,13 @@ export default function AnimTimingPanel({ state, activeFrameId, onSelectFrame, o
       const durations = frames.map((f) => (f.duration && f.duration > 0 ? f.duration : 100))
       const steps = checkTiming(images, durations)
       if (id !== reqRef.current) return
-      setRes({ steps, frameIds: frames.map((f) => f.id), durations })
+      const now = latest.current
+      if (now.frames !== state.frames || now.width !== state.width || now.height !== state.height) {
+        toast.error('점검하는 동안 그림이 바뀌었습니다. 다시 점검해 주세요.')
+        setRes(null)
+        return
+      }
+      setRes({ steps, frameIds: frames.map((f) => f.id), durations, frames: state.frames, w: state.width, h: state.height })
     } catch {
       if (id === reqRef.current) toast.error('점검하지 못했습니다.')
     } finally {
@@ -63,6 +83,10 @@ export default function AnimTimingPanel({ state, activeFrameId, onSelectFrame, o
   }
 
   const merge = (keep: string, drop: string) => {
+    if (stale) {
+      toast.error('점검한 뒤 그림이 바뀌었습니다. 다시 점검해 주세요.')
+      return
+    }
     if (!sameTags(keep, drop)) {
       toast.error('두 프레임이 서로 다른 애니메이션 태그에 걸쳐 있어 합칠 수 없습니다.')
       return
@@ -84,7 +108,7 @@ export default function AnimTimingPanel({ state, activeFrameId, onSelectFrame, o
         재생 속도는 작가가 정하는 부분이라 추천 FPS는 내지 않습니다(작가 GIF 분석에서 움직임과 속도 사이 규칙이 뚜렷하지 않았음).
       </p>
       {tags.length > 0 && (
-        <select value={range} onChange={(e) => { setRange(e.target.value); setRes(null) }}
+        <select value={range} onChange={(e) => changeRange(e.target.value)}
           className="w-full text-xs p-1.5 rounded border bg-surface border-outline text-on-surface" aria-label="점검할 범위">
           <option value="all">전체 프레임</option>
           {tags.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.fromIndex + 1}~{t.toIndex + 1})</option>)}
@@ -95,7 +119,11 @@ export default function AnimTimingPanel({ state, activeFrameId, onSelectFrame, o
         {loading ? '점검 중…' : '타이밍 점검'}
       </button>
 
-      {res && (
+      {res && stale && (
+        <p className="text-[11px] text-on-surface-variant" role="status">점검한 뒤 그림·프레임이 바뀌었습니다. 다시 점검해 주세요.</p>
+      )}
+
+      {res && !stale && (
         <div className="space-y-2" role="status">
           <p className="text-xs font-bold text-on-surface">
             {res.frameIds.length}프레임 · 평균 {avgFps} FPS — 큰 점프 {jumps.length} · 거의 같은 프레임 {sames.length}

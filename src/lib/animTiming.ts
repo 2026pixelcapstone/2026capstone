@@ -44,7 +44,7 @@ function changedRatio(a: ImageData, b: ImageData): number {
     const oa = da[i + 3] > 0, ob = db[i + 3] > 0
     if (!oa && !ob) continue
     u++
-    if (oa !== ob || da[i] !== db[i] || da[i + 1] !== db[i + 1] || da[i + 2] !== db[i + 2]) d++
+    if (da[i] !== db[i] || da[i + 1] !== db[i + 1] || da[i + 2] !== db[i + 2] || da[i + 3] !== db[i + 3]) d++   // 투명도 차이도 바뀐 것(리뷰 #142)
   }
   return u ? d / u : 0
 }
@@ -61,7 +61,7 @@ export function checkTiming(images: ImageData[], durations: number[]): Step[] {
   const n = images.length
   if (n < MIN_FRAMES) return []
   const cs = images.map(centroid)
-  const pairs = n === 2 ? [[0, 1]] : Array.from({ length: n }, (_, i) => [i, (i + 1) % n])
+  const pairs = Array.from({ length: n }, (_, i) => [i, (i + 1) % n])   // 두 장이어도 1→0(반복 이음)까지 — 프레임 길이가 다르면 속도가 다름
   const raw = pairs.map(([i, j]) => {
     const a = cs[i], b = cs[j]
     const move = a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0
