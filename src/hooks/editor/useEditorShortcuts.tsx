@@ -43,8 +43,14 @@ function isTyping(target: EventTarget | null) {
     return tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 }
 
+/** 버튼 내부 아이콘에 포커스가 있더라도 Space의 기본 버튼 활성화를 보존합니다. */
+function isButton(target: EventTarget | null) {
+    return target instanceof Element && target.closest('button, input[type="button"], input[type="submit"], input[type="reset"]') !== null;
+}
+
 /**
  * 에디터 도구 단축키(PR-A). Ctrl 조합(저장·되돌리기)은 EditorPage 기존 처리 그대로.
+ * - Esc: 현재 요소의 포커스 해제 (개별 컴포넌트의 취소 처리가 우선)
  * - P E G I L R O H: 도구 바꾸기 / [ ]: 붓 크기 / X: 전경·배경색 바꾸기
  * - 스페이스를 누르는 동안 손 도구, Alt를 누르는 동안 스포이드(떼면 원래 도구로) — 포토샵·Aseprite와 같은 방식
  */
@@ -61,11 +67,20 @@ export function useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, ha
         };
 
         const onKeyDown = (e: KeyboardEvent) => {
+            // 입력창에서도 포커스를 풀 수 있도록 isTyping 검사보다 먼저 처리합니다.
+            // 조합 입력 취소 및 개별 컴포넌트가 처리한 Escape는 건드리지 않습니다.
+            if (e.key === 'Escape') {
+                if (e.isComposing || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+                const focused = document.activeElement;
+                if (focused instanceof HTMLElement && focused !== document.body) focused.blur();
+                return;
+            }
             if (isTyping(e.target)) return;
             if (e.ctrlKey || e.metaKey) return;
 
             if (e.code === 'Space') {
-                e.preventDefault();   // 페이지 스크롤·포커스된 버튼 누르기 방지
+                if (isButton(e.target)) return;
+                e.preventDefault();   // 캔버스에서 Space 이동 중 페이지 스크롤 방지
                 if (!e.repeat && !temp.current && toolRef.current !== 'pan') {
                     temp.current = { key: 'space', prev: toolRef.current };
                     setActiveTool('pan');
@@ -106,7 +121,8 @@ export function useEditorShortcuts({ activeTool, setActiveTool, setPixelSize, ha
 
         const onKeyUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') {
-                if (!isTyping(e.target)) e.preventDefault();   // 스페이스 뗄 때 버튼이 눌리지 않게
+                if (!isTyping(e.target) && !isButton(e.target)) e.preventDefault();
+                // Space 이동 중 포커스가 버튼으로 옮겨져도 임시 도구는 복구합니다.
                 if (temp.current?.key === 'space') restore();
             } else if (e.key === 'Alt') {
                 e.preventDefault();   // 윈도우에서 Alt만 눌렀다 떼면 브라우저 메뉴로 포커스가 감

@@ -1420,31 +1420,33 @@ export default function EditorPage() {
             {activeRightTab === 'layers' && (
               <>
                 {/* 레이어 탭 — 전엔 머리글만 있고 비어 있었음(PR-F) */}
-                <LayerTap />
-                {detailLayer !== null && currentLayer ? (
-                  <LayerDetailView
-                    key = {currentLayer.id}
-                    activeFrameId = {activeFrameId}
-                    layerViewData = {{ id: currentLayer.id, name: currentLayer.name, opacity: currentLayer.opacity, blendMode: currentLayer.blendMode }}
-                    setDetailLayer={setDetailLayer}
-                    updateLayer = {updateLayer}
-                  />
-                ) : (
-                  <EditorLayerBar
-                    detailLayer={detailLayer}
-                    activeFrameId = {activeFrameId}
-                    activeLayerId = {activeLayerId}
-                    currentFrame = {currentFrame}
-                    setDetailLayer = {setDetailLayer}
-                    selectLayer = {selectLayer}
-                    reorderLayers= {reorderLayers}
-                    toggleVisibility = {toggleVisibility}
-                    handleAddLayer= {handleAddLayer}
-                    handleDeleteLayer= {handleDeleteLayer}
-                    toggleLock={toggleLayerLock}
-                    renameLayer={renameLayer}
-                  />
-                )}
+                <LayerTap
+                  state={state}
+                  activeFrameId={activeFrameId}
+                  activeLayerId={activeLayerId}
+                  setWithHistory={setWithHistory}
+                  setUnsaved={setUnsaved}
+                  peekLayerCanvas={peekLayerCanvas}
+                  onSelectFrame={(id) => { setDetailLayer(null); handleSelectFrame(id); }}
+                  onSelectLayer={(frameId, layerId) => {
+                    setDetailLayer(null);
+                    if (frameId === activeFrameId) {
+                      selectLayer(layerId);
+                    } else {
+                      handleSelectFrame(frameId);
+                      setActiveFrameId(frameId);
+                      setActiveLayerId(layerId);
+                    }
+                  }}
+                  onAddLayer={(frameId) => {
+                    addLayer(frameId);
+                    if (frameId !== activeFrameId) setActiveLayerId(activeLayerId);
+                  }}
+                  onDeleteLayer={deleteLayer}
+                  onToggleVisibility={toggleVisibility}
+                  onRenameLayer={(frameId, layerId, name) => updateLayer(frameId, layerId, { name }, false)}
+                />
+
               </>
             )}
 

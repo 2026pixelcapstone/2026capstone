@@ -17,6 +17,7 @@ export const isCanvasBlank = (canvas: HTMLCanvasElement): boolean => {
   return true; // 완전 빈 캔버스임!
 };
 
+// canvas를 URL 데이터로 변환
 export const getLayerImageData = (canvas: HTMLCanvasElement): string => {
   return isCanvasBlank(canvas) ? '' : canvas.toDataURL('image/png');
 };
