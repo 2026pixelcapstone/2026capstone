@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FrameData } from "../../type/editor";
 import { getCacheKey } from "../../utils/editorUtils";
+import { blendOp } from "../../utils/blendMode";
 
 type PreviewMode = 'normal' | 'silhouette' | 'value' | 'tile';
 
@@ -47,9 +48,11 @@ export function ReadabilityPreview({ frame, width, height, peekLayerCanvas, onCl
                 const src = peekLayerCanvas(getCacheKey(frame.id, layer.id));
                 if (!src) continue;
                 ctx.globalAlpha = layer.opacity / 100;
+                ctx.globalCompositeOperation = blendOp(layer.blendMode);   // 혼합 모드도 화면·내보내기와 같게(PR #143 리뷰)
                 ctx.drawImage(src, 0, 0);
             }
             ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';   // 타일 복사·실루엣은 기본 합성으로
             if (mode === 'tile') {
                 // 한 장을 그린 뒤 그 칸을 8번 더 복사(타일처럼 이어 붙임)
                 for (let ty = 0; ty < 3; ty++) for (let tx = 0; tx < 3; tx++) {
