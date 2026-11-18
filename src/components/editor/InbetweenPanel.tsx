@@ -38,7 +38,7 @@ function loadImg(b64: string): Promise<HTMLImageElement> {
  * 성능 업그레이드 중 일시 중지(true) — 안내만 보이고 요청은 보내지 않음. 다시 열 때 false로.
  * (프론트만 막음 — 백엔드 /api/ai/inbetween은 그대로)
  */
-const INBETWEEN_PAUSED = true
+const INBETWEEN_PAUSED = false
 
 export default function InbetweenPanel(props: Props) {
   if (INBETWEEN_PAUSED) {
