@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from "react";
 interface IoActions{
     openExport: (tab: 'image' | 'sheet') => void;
     importImage: () => void;
+    importSpritesheet: () => void;
     openReference: () => void;
     shareGallery: (challenge: boolean) => void;
     registerAsset: () => void;
@@ -175,6 +176,9 @@ export default function MenuBar({
                 break;
             case MENU_ACTION.IMPORT_IMAGE:
                 ioActions.importImage();
+                break;
+            case MENU_ACTION.IMPORT_SPRITESHEET:
+                ioActions.importSpritesheet();
                 break;
             case MENU_ACTION.OPEN_REFERENCE:
                 ioActions.openReference();

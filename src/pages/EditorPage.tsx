@@ -1,3 +1,5 @@
+import { appendSpritesheet } from '../utils/appendSpritesheet'
+import { ImportSpritesheet } from '../components/editor/ImportSpritesheet'
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {createInitialCanvasData, ZOOM_LEVELS} from '../constants/editor/editor'
@@ -328,6 +330,7 @@ export default function EditorPage() {
 
   // ── useEditorExport 훅 ──────────────
   // ── 들어오고 나가기(PR-C): 내보내기 창·이미지 불러오기·참조 이미지·갤러리 공유·에셋 등록 ──
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
   const [exportTab, setExportTab] = useState<ExportTab | null>(null);
   const [shareFile, setShareFile] = useState<{ file: File; challenge: boolean } | null>(null);
   const {
@@ -380,6 +383,8 @@ export default function EditorPage() {
   const recovery = useEditorAutosave({ userId: user?.userId ?? null, changeKey: autosaveKey, snapshotAll: tabs.snapshotAll, appendTabs: tabs.appendTabs });
   // 탭 단축키: Ctrl+Alt+N 새 탭 · Ctrl+Alt+W 닫기 · Ctrl+Alt+←/→ 이동 (Ctrl+N·W·Tab은 브라우저가 가져가서 못 씀)
   useEffect(() => {
+    if (importSheetOpen) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || !e.altKey || e.shiftKey) return;
       const el = e.target as HTMLElement | null;
@@ -391,7 +396,7 @@ export default function EditorPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tabs]);
+  }, [importSheetOpen, tabs]);
   // 다시 칠하기 후보: 지금 팔레트 + AI가 추천한 색들(있을 때만)
   const recolorPalettes = [
     { name: '지금 팔레트', colors: paletteColors },
@@ -987,6 +992,24 @@ export default function EditorPage() {
         />
       )}
 
+      {importSheetOpen && (
+        <ImportSpritesheet
+          initialWidth={state.width}
+          initialHeight={state.height}
+          initialFps={fps}
+          onClose={() => setImportSheetOpen(false)}
+          onImport={async canvasData => {
+            const ok = await runEdit('스프라이트 시트 가져오기', snap => appendSpritesheet(snap, canvasData));
+            if (ok) {
+              setIsPlaying(false);
+              setActiveAnimId(null);
+              setActiveFrameId(canvasData.frames[0]?.id ?? null);
+              setActiveLayerId(canvasData.frames[0]?.layers[0]?.id ?? null);
+            }
+            return ok;
+          }}
+        />
+      )}
       {ioFileInputs}
       {exportTab && (
         <ExportModal
@@ -1105,6 +1128,7 @@ export default function EditorPage() {
                 ioActions={{
                   openExport: setExportTab,
                   importImage: openImageImport,
+                  importSpritesheet: () => setImportSheetOpen(true),
                   openReference,
                   shareGallery,
                   registerAsset: () => { void registerAsset(); },
