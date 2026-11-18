@@ -41,6 +41,7 @@ export function ImportSpritesheet({ initialWidth, initialHeight, initialFps, onC
     useFocusTrap(true, dialogRef, close);
     useEffect(() => () => { requestRef.current += 1; }, []);
 
+    
     const validSize = Number.isInteger(width) && Number.isInteger(height)
         && width >= 1 && height >= 1 && width <= MAX_CANVAS_SIZE && height <= MAX_CANVAS_SIZE;
     const bounds = useMemo(() => {

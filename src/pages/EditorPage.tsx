@@ -383,6 +383,8 @@ export default function EditorPage() {
   const recovery = useEditorAutosave({ userId: user?.userId ?? null, changeKey: autosaveKey, snapshotAll: tabs.snapshotAll, appendTabs: tabs.appendTabs });
   // 탭 단축키: Ctrl+Alt+N 새 탭 · Ctrl+Alt+W 닫기 · Ctrl+Alt+←/→ 이동 (Ctrl+N·W·Tab은 브라우저가 가져가서 못 씀)
   useEffect(() => {
+    if (importSheetOpen) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || !e.altKey || e.shiftKey) return;
       const el = e.target as HTMLElement | null;
@@ -394,7 +396,7 @@ export default function EditorPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tabs]);
+  }, [importSheetOpen, tabs]);
   // 다시 칠하기 후보: 지금 팔레트 + AI가 추천한 색들(있을 때만)
   const recolorPalettes = [
     { name: '지금 팔레트', colors: paletteColors },
