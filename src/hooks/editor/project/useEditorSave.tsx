@@ -1,3 +1,4 @@
+import { assertResources } from '../../../utils/editorResources';
 import { getCacheKey } from "../../../utils/editorUtils";
 import { compositeVisibleFrame } from "../../../utils/blendMode";
 import { CanvasSaveRequest, editorApi, FrameSaveRequest, LayerSaveRequest } from "../../../api/editorApi";
@@ -42,6 +43,7 @@ export const useEditorSave = ({
         setSaving(true); // 가드 검사가 완전히 끝난 이 시점에 확실하게 한 번만 락을 겁니다.
         
         try {
+            assertResources(state);
             const uploadFormData = new FormData();
             const uploadedLayerKeys: string[] = []; // : 의미 -> 타입 지정, = [] 의미 -> 빈 배열로 시작한다는 의미
             uploadFormData.set("folder", "gallery/dedicated"); // folder : pixel-art -> R2가 folder 감지

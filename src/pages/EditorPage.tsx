@@ -1,4 +1,5 @@
 import { appendSpritesheet } from '../utils/appendSpritesheet'
+import { EditorResourceGauge } from '../components/editor/EditorResourceGauge';
 import { ImportSpritesheet } from '../components/editor/ImportSpritesheet'
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -152,6 +153,7 @@ export default function EditorPage() {
 
   // ── useFrame 훅 ──────────────
   const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag } = useFrame({
+    state,
 
     frames: state.frames,
     defaultDuration,
@@ -169,6 +171,7 @@ export default function EditorPage() {
 
   // ── useLayer 훅 ──────────────
   const {detailLayer, setDetailLayer, addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters} = useLayer({
+    state,
     frames: state.frames,
     setWithHistory, 
     setWithoutHistory,
@@ -994,6 +997,7 @@ export default function EditorPage() {
 
       {importSheetOpen && (
         <ImportSpritesheet
+          current={state}
           initialWidth={state.width}
           initialHeight={state.height}
           initialFps={fps}
@@ -1181,12 +1185,14 @@ export default function EditorPage() {
         </div>
         
         {/* 상태바 */}
-        <div className='flex-1 flex items-center gap-4 px-6 border-l ml-2 h-6'
+        <div className='min-w-0 flex-1 flex items-center gap-3 px-4 border-l ml-2 h-6 overflow-x-auto whitespace-nowrap'
           style={{borderColor: 'var(--color-surface-container-highest)'}}
         >
           <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>캔버스 {state.width} × {state.height}</span>
           <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
           <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>레이어: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
+          <span className="w-px h-4 shrink-0" style={{ background: 'var(--color-surface-container-highest)' }} />
+          <EditorResourceGauge state={state} activeFrameId={activeFrameId} />
         </div>
         
         {/* 우: 파일명 + 저장 */}
@@ -1229,6 +1235,7 @@ export default function EditorPage() {
           </div>
         </div>
       </header>
+
 
       {/* ── EDITOR BODY ──────────────────────────────── */}
       <div className="flex flex-1 min-h-0">
