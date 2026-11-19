@@ -1,3 +1,4 @@
+import { resourceError } from '../../utils/editorResources';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasState, FrameData, LayerData } from "../../type/editor";
 import { toast } from "../../store/toastStore";
@@ -41,6 +42,8 @@ export function useImageOps({ state, activeFrameId, activeLayerId, setActiveLaye
         try {
             const next = await compute(snap);
             if (!next) return false;
+            const error = resourceError(next, snap);
+            if (error) { toast.error(error); return false; }
             if (stateRef.current.frames !== snap.frames) {
                 toast.error(`${label} 중에 그림이 바뀌어 적용하지 않았어요. 다시 시도해 주세요.`);
                 return false;
@@ -50,7 +53,7 @@ export function useImageOps({ state, activeFrameId, activeLayerId, setActiveLaye
             return true;
         } catch (e) {
             console.error(e);
-            toast.error(`${label}에 실패했어요.`);
+            toast.error(e instanceof Error ? e.message : `${label}에 실패했어요.`);
             return false;
         } finally {
             busyRef.current = false;
@@ -122,6 +125,10 @@ export function useImageOps({ state, activeFrameId, activeLayerId, setActiveLaye
         const f = currentFrame();
         const idx = f?.layers.findIndex(l => l.id === activeLayerId) ?? -1;
         if (!f || idx < 0) return;
+        const snap = stateRef.current;
+        const error = resourceError({ ...snap, frames: snap.frames.map(fr => fr.id === f.id
+            ? { ...fr, layers: [...fr.layers, fr.layers[idx]] } : fr) }, snap);
+        if (error) { toast.error(error); return; }
         const src = f.layers[idx];
         const copy: LayerData = { ...src, id: `layer-${crypto.randomUUID().slice(0, 8)}`, name: `${src.name} 복사`, isLocked: false };
         setWithHistory(prev => ({

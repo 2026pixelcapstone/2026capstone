@@ -1,7 +1,10 @@
+import { resourceError } from '../../utils/editorResources';
+import { toast } from '../../store/toastStore';
 import { CanvasState, FrameData, LayerData } from "../../type/editor";
 import { useCallback, useRef, useState } from "react";
 
 interface UseLayersProps{
+    state: CanvasState;
     frames: FrameData[];
     setWithHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
     setWithoutHistory: React.Dispatch<React.SetStateAction<CanvasState>>;
@@ -11,6 +14,7 @@ interface UseLayersProps{
 }
 
 export const useLayers = ({
+    state,
     frames,
     setWithHistory,
     setWithoutHistory,
@@ -30,6 +34,11 @@ export const useLayers = ({
         if(!targetFrameId){
             return;
         }
+        const target = frames.find(f => f.id === targetFrameId);
+        if (!target) return;
+        const error = resourceError({ ...state, frames: frames.map(f => f === target
+            ? { ...f, layers: [...f.layers, f.layers[0]] } : f) }, state);
+        if (error) { toast.error(error); return; }
         const newLayerId = `layer-${crypto.randomUUID().slice(0, 8)}`;
         
         if(!layerCountersRef.current[targetFrameId]){
@@ -60,7 +69,7 @@ export const useLayers = ({
         })
         setActiveLayer(newLayerId); // 생성 직후 방금 만든 레이어를 활성화
         setUnsaved(true);
-    }, [setWithHistory, setActiveLayer]);
+    }, [state, frames, setWithHistory, setActiveLayer, setUnsaved]);
 
     // ── 레이어 삭제 ───────────────────────────────────
     const deleteLayer = useCallback((targetFrameId: string | null, layerIdToDelete: string | null) => {

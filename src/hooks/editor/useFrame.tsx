@@ -1,9 +1,12 @@
+import { resourceError } from '../../utils/editorResources';
+import { toast } from '../../store/toastStore';
 // src/components/useAnimation.tsx
 import { useCallback, useState } from 'react';
 import { createDefaultLayer} from '../../constants/editor/editor';
 import {CanvasState, FrameData} from '../../type/editor'
 
 interface UseAnimationProps{
+    state: CanvasState;
     frames: FrameData[];
     defaultDuration: number;
     activeFrameId: string | null;
@@ -15,6 +18,7 @@ interface UseAnimationProps{
 }
 
 export function useFrame({
+    state,
     frames,
     activeFrameId,
     defaultDuration,
@@ -37,6 +41,8 @@ export function useFrame({
             layers: [createDefaultLayer()],
         };
         const nextFrames = [...frames, newFrame];
+        const error = resourceError({ ...state, frames: nextFrames }, state);
+        if (error) { toast.error(error); return; }
 
         const nextIdx = nextFrames.length - 1;
         const targetFrame = nextFrames[nextIdx];
@@ -55,7 +61,7 @@ export function useFrame({
         }));
 
         setUnsaved(true);
-    }, [frames, defaultDuration, setActiveFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
+    }, [state, frames, defaultDuration, setActiveFrameId, setWithHistory, setActiveLayerId, setUnsaved]);
     
     /**
      * 특정 인덱스의 프레임을 삭제합니다.

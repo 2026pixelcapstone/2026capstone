@@ -1,3 +1,4 @@
+import { assertResources } from '../../utils/editorResources';
 import { toast } from "../../store/toastStore";
 import { MAX_CANVAS_SIZE } from "../../constants/editor/editor";
 import { CanvasState, FrameData } from "../../type/editor";
@@ -110,6 +111,7 @@ export function useCanvasSize({
                 w < 1 || h < 1 || w > MAX_CANVAS_SIZE || h > MAX_CANVAS_SIZE) {
                 throw new Error(`캔버스 크기는 1~${MAX_CANVAS_SIZE} 사이의 정수여야 합니다.`);
             }
+            assertResources({ width: w, height: h, frames: frame }, { width, height, frames: frame });
             const resizeFrame = await Promise.all(
                 frame.map(async frame => ({
                     ...frame,
