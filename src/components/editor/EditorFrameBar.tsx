@@ -43,7 +43,7 @@ export function EditorFrameBar({
     const [modalPos, setModalPos] = useState({ top: 0, left: 0 });
     const [detailFrameId, setDetailFrameId] = useState<string | null>(null);
     const frameListRef = useRef<HTMLDivElement>(null);
-    
+
     const handleOpenModal = (e: React.MouseEvent<HTMLButtonElement>, frameId: string) => {
         // 버튼의 화면상 크기와 위치 정보 가져오기
         const rect = e.currentTarget.getBoundingClientRect();
@@ -60,28 +60,40 @@ export function EditorFrameBar({
         setDetailFrameId(frameId);
     };
     return(
-        <div 
+        <div
             className="flex flex-col flex-shrink-0 border-r min-h-0"
-            style={{ 
-                width: showFramePanel ? 160 : 36, 
-                background: 'var(--color-surface)', 
-                borderColor: 'var(--color-outline)', 
-                transition: 'width 0.2s' 
+            style={{
+                width: showFramePanel ? 160 : 36,
+                background: 'var(--color-surface)',
+                borderColor: 'var(--color-outline)',
+                transition: 'width 200ms cubic-bezier(0.22, 1, 0.36, 1)'
             }}>
             {/* 토글 버튼 */}
-            <button onClick={() => setShowFramePanel(v => !v)}
+            <button onClick={() => {
+                setDetailFrameId(null);
+                setShowFramePanel(v => !v);
+            }}
+                aria-expanded={showFramePanel}
                 className="w-9 h-9 flex items-center justify-center flex-shrink-0 transition-colors hover:bg-surface-container"
                 style={{ color: showFramePanel ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}
                 title="Animation">
                 <span className="material-symbols-outlined text-xl">animation</span>
             </button>
 
-            {showFramePanel && (
-                <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden"
+                inert={!showFramePanel}
+                aria-hidden={!showFramePanel}
+                style={{
+                    opacity: showFramePanel ? 1 : 0,
+                    visibility: showFramePanel ? 'visible' : 'hidden',
+                    transition: showFramePanel
+                        ? 'opacity 140ms ease-out 60ms, visibility 0s'
+                        : 'opacity 100ms ease-out, visibility 0s 200ms',
+                }}>
+                <div className="flex flex-col flex-1 min-h-0 flex-shrink-0" style={{ width: 159 }}>
                 <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
-                    style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} > 
-                    <span>애니메이션</span>
-                    <span className='text-[10px]'>프레임 {frames.length}개</span>  
+                    style={{ color: 'var(--color-on-surface-variant)', borderColor: 'var(--color-outline)' }} >
+                    <span className='text-xs'>프레임 {frames.length}개</span>
                 </div>
 
                 {/* 프레임 목록 */}
@@ -107,7 +119,7 @@ export function EditorFrameBar({
 
                             {/* 태그 라벨 (좌측 상단, Hover 시 표출) */}
                             {currentTag && (
-                                <div 
+                                <div
                                     className="absolute top-1 left-1 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
                                     style={{ backgroundColor: currentTag.color }}
                                 >
@@ -125,7 +137,7 @@ export function EditorFrameBar({
 
                             <button onClick={(e) => {
                                 e.stopPropagation(); // 캔버스 클릭 처리 방지
-                                
+
                                 // 설정창 팝업 토글 로직
                                 if(detailFrameId === frame.id){
                                     setDetailFrameId(null);
@@ -161,7 +173,7 @@ export function EditorFrameBar({
                                 // 만약 모든 레이어에 아무런 그림이 없다면 Empty 표시
                                 const hasAnyImage = layerPreviews.some((lp) => lp.src);
                                 if(!hasAnyImage){
-                                    return <span className="text-[10px] text-gray-500 z-10">Empty</span>; 
+                                    return <span className="text-[10px] text-gray-500 z-10">Empty</span>;
                                 }
 
                                 // 수집된 레이어들을 CSS 절대 좌표(absolute)를 이용해 아래서부터 위로 차곡차곡 겹쳐서 렌더링
@@ -176,8 +188,8 @@ export function EditorFrameBar({
                                         className="absolute inset-0 w-full h-full object-contain"
                                         style={{
                                             // 픽셀 아트 깨짐(뭉개짐) 방지 및 레이어별 실제 투명도 실시간 반영!
-                                            imageRendering: 'pixelated', 
-                                            opacity: lp.opacity / 100, 
+                                            imageRendering: 'pixelated',
+                                            opacity: lp.opacity / 100,
                                         }}
                                         alt="layer-thumb"
                                         />
@@ -200,11 +212,11 @@ export function EditorFrameBar({
                     </button>
                 </div>
             </div>
-        )}
+            </div>
         <FrameDetailView
             key={detailFrameId ?? 'closed'}
             position={modalPos}
-            detailFrameId={detailFrameId}
+            detailFrameId={showFramePanel ? detailFrameId : null}
             animationTags={animationTags ?? []}
             frameViewData = {{
                 id: frames.find(frame => frame.id === detailFrameId)?.id ?? null,
