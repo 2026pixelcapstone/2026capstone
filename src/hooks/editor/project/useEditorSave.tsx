@@ -114,35 +114,7 @@ export const useEditorSave = ({
                 if (url) uploadedLayerUrlByKey.set(key, url);
             });
 
-            // 4. 프로젝트 생성(Create) 또는 갱신(Update) 분기 조율
-            let pid = projectId;
-            if (!pid) {
-                const res = await editorApi.createProject({
-                    title: nextTitle,
-                    width: state.width,
-                    height: state.height,
-                    isPublic: isNextPublic,
-                    thumbnailUrl: uploadedThumbUrl
-                });
-                pid = res.data.data.projectId;
-                nextTitle = res.data.data.title;
-                // 응답 필드가 누락된 서버 버전에서도 요청한 공개 설정을 보존합니다.
-                isNextPublic = res.data.data.isPublic ?? isNextPublic;
-                console.log(res.data.data.isPublic);
-            } else {
-                const res = await editorApi.updateProject(pid, {
-                    title: nextTitle,
-                    width: state.width,
-                    height: state.height,
-                    isPublic: isNextPublic,
-                    thumbnailUrl: uploadedThumbUrl,
-                });
-                nextTitle = res.data.data.title;
-                isNextPublic = res.data.data.isPublic ?? isNextPublic;
-                console.log(res.data.data.isPublic);
-            }
-
-            // 5. 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브
+            // 프레임 구조 내부 레이어 상세 메타데이터 스냅샷 세이브
             const frameToSave = state.frames.map((frame): FrameSaveRequest => {
                 return{
                     frameId: null, // 나중에 협업 시나리오에서 서버에서 발급된 frameId를 매핑할 수 있도록 null로 초기화
@@ -171,9 +143,33 @@ export const useEditorSave = ({
                 frameSaveRequests: frameToSave,
                 // 서버 형식(#RRGGBB·#RRGGBBAA)에 맞는 색만, 최대 256개 — 하나라도 어긋나면 저장 전체가 400이 되므로 미리 거름
                 ...(palette ? { palette: palette.filter(c => /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(c)).slice(0, 256) } : {}),
+                width: state.width,
+                height: state.height,
             }
-            
-            await editorApi.saveCanvasData(pid, canvasSaveRequest);
+
+            // 프로젝트 생성(Create) 또는 갱신(Update) 분기 조율
+            let pid = projectId;
+            if (!pid) {
+                const res = await editorApi.createProjectWithCanvas({
+                    title: nextTitle,
+                    isPublic: isNextPublic,
+                    thumbnailUrl: uploadedThumbUrl,
+                    canvasSaveRequest: canvasSaveRequest,
+                });
+                pid = res.data.data.projectId;
+                nextTitle = res.data.data.title;
+                // 응답 필드가 누락된 서버 버전에서도 요청한 공개 설정을 보존합니다.
+                isNextPublic = res.data.data.isPublic ?? isNextPublic;
+            } else {
+                const res = await editorApi.updateProject(pid, {
+                    title: nextTitle,
+                    isPublic: isNextPublic,
+                    thumbnailUrl: uploadedThumbUrl,
+                });
+                nextTitle = res.data.data.title;
+                isNextPublic = res.data.data.isPublic ?? isNextPublic;
+                await editorApi.saveCanvasData(pid, canvasSaveRequest);
+            }
             
             return {
                 projectId: pid,
