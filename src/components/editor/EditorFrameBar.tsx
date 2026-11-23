@@ -84,11 +84,7 @@ export function EditorFrameBar({
                 inert={!showFramePanel}
                 aria-hidden={!showFramePanel}
                 style={{
-                    opacity: showFramePanel ? 1 : 0,
                     visibility: showFramePanel ? 'visible' : 'hidden',
-                    transition: showFramePanel
-                        ? 'opacity 140ms ease-out 60ms, visibility 0s'
-                        : 'opacity 100ms ease-out, visibility 0s 200ms',
                 }}>
                 <div className="flex flex-col flex-1 min-h-0 flex-shrink-0" style={{ width: 159 }}>
                 <div className='px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between'
