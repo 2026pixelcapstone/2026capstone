@@ -1185,7 +1185,7 @@ export default function EditorPage() {
         </div>
         
         {/* 상태바 */}
-        <div className='min-w-0 flex-1 flex items-center gap-3 px-4 border-l ml-2 h-6 overflow-x-auto whitespace-nowrap'
+        <div className='min-w-0 flex-1 flex items-center gap-3 px-4 border-l ml-2 h-8 overflow-x-auto overflow-y-hidden whitespace-nowrap'
           style={{borderColor: 'var(--color-surface-container-highest)'}}
         >
           <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>캔버스 {state.width} × {state.height}</span>
@@ -1197,7 +1197,6 @@ export default function EditorPage() {
         
         {/* 우: 파일명 + 저장 */}
         <div className="ml-auto flex items-center h-full pr-2">
-
           <div className="flex items-center gap-1.5 px-3">
             <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>description</span>
             {editingTitle ? (

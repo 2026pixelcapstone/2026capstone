@@ -80,9 +80,11 @@ export function ImportSpritesheet({ current, initialWidth, initialHeight, initia
     const candidates = useMemo(() => cells.filter(cell => !skipEmpty || !cell.empty), [cells, skipEmpty]);
     const total = candidates.length;
     const usage = projectResources(current);
-    const finalArea = Math.max(current.width, width) * Math.max(current.height, height);
-    const available = Math.max(0, Math.min(MAX_FRAMES - usage.frames,
-        Math.floor(MAX_PROJECT_PIXELS / finalArea) - usage.layers));
+    const finalArea = validSize ? Math.max(current.width, width) * Math.max(current.height, height) : 0;
+    const available = Number.isFinite(finalArea) && finalArea > 0
+        ? Math.max(0, Math.min(MAX_FRAMES - usage.frames,
+            Math.floor(MAX_PROJECT_PIXELS / finalArea) - usage.layers))
+        : 0;
     const count = requestedCount ?? Math.min(total, available);
     const expectedPixels = finalArea * (usage.layers + Math.max(0, count));
     const selected = useMemo(() => candidates.slice(0, Math.max(0, count)), [candidates, count]);
