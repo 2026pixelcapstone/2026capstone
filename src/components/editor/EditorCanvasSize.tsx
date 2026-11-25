@@ -122,12 +122,12 @@ export function EditorCanvasSize({
 
             {/* 2. 커스텀 크기 설정 및 Apply 버튼 */}
             <div className="flex items-center gap-1.5 pt-1">
-                <input type="number" value={customW} min={1} max={512}
+                <input type="number" value={customW} min={1} max={MAX_CANVAS_SIZE}
                 onChange={e => setCustomW(Number(e.target.value))}
                 className="w-17 px-2 py-1 rounded text-xs outline-none text-center font-bold"
                 style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />
                 <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>×</span>
-                <input type="number" value={customH} min={1} max={512}
+                <input type="number" value={customH} min={1} max={MAX_CANVAS_SIZE}
                 onChange={e => setCustomH(Number(e.target.value))}
                 className="w-17 px-2 py-1 rounded text-xs outline-none text-center font-bold"
                 style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline)', color: 'var(--color-on-surface)' }} />

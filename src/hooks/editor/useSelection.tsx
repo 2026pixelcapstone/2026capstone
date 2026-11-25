@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CanvasState, EditorToolId, Point } from "../../type/editor";
-import { getCacheKey } from "../../utils/editorUtils";
+import { getCacheKey, hasOpenEditorDialog } from "../../utils/editorUtils";
 import { canvasToPixelData, makeCanvas } from "../../utils/pixelOps";
 import { colorRegion } from "../../utils/pixelBrush";
 import { toast } from "../../store/toastStore";
@@ -257,7 +257,7 @@ export function useSelection(p: UseSelection) {
     // ── 단축키: Ctrl+A·D·C·X, Delete, Esc / 붙여넣기는 paste 이벤트(시스템 이미지 포함) ──
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (isTyping(e.target) || document.querySelector('[role=dialog]')) return;
+            if (isTyping(e.target) || hasOpenEditorDialog()) return;
             if (e.altKey) return;   // Ctrl+Alt+C(크기 조절) 등 다른 단축키와 겹치지 않게(PR-F)
             const mod = e.ctrlKey || e.metaKey;
             if (mod && e.shiftKey && e.code === 'KeyI') { e.preventDefault(); invert(); return; }   // 선택 반전
@@ -269,7 +269,7 @@ export function useSelection(p: UseSelection) {
             if (e.code === 'Escape' && selectionRef.current) { deselect(); }
         };
         const onPaste = (e: ClipboardEvent) => {
-            if (isTyping(e.target) || document.querySelector('[role=dialog]')) return;
+            if (isTyping(e.target) || hasOpenEditorDialog()) return;
             const file = [...(e.clipboardData?.files ?? [])].find(f => f.type.startsWith('image/'));
             if (file) { e.preventDefault(); p.importImageFile(file); return; }
             if (pasteInternal()) e.preventDefault();

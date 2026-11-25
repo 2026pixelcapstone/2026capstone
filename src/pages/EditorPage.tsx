@@ -15,7 +15,7 @@ import {useFrame} from '../hooks/editor/useFrame'
 import { useHistory } from '../hooks/editor/useHistory'
 import { useLayers as useLayer } from '../hooks/editor/useLayer'
 import Konva from 'konva'
-import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
+import { getCacheKey, getLayerImageData, hasOpenEditorDialog } from '../utils/editorUtils'
 import { aiApi } from '../api/aiApi'
 import type { RelatedPost } from '../api/aiApi'
 import { extractUsedColors } from '../utils/colorExtract'
@@ -939,7 +939,7 @@ export default function EditorPage() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-      if (document.querySelector('[role=dialog]')) return;
+      if (hasOpenEditorDialog()) return;
       const run = (id: MenuActionId) => { e.preventDefault(); menuExtraRef.current[id]?.(); };
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.altKey && !e.shiftKey && e.code === 'KeyC') { e.preventDefault(); setCanvasSizeRequest(n => n + 1); return; }

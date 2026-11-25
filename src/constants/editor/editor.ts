@@ -73,10 +73,10 @@ export const BLEND_MODES: { value: BlendMode; label: string }[] = [
 ];
 
 // ── 캔버스 설정 상수 ──────────────────────────────────────────────
-export const ZOOM_LEVELS = [1, 2, 4, 8, 10, 16, 20, 32, 64];
-export const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128', '256×256', '512×512'];
+export const ZOOM_LEVELS = [0.5, 1, 2, 4, 8, 10, 16, 20, 32, 64];
+export const CANVAS_PRESETS = ['8×8','16×16','32×32','64×64','128×128', '256×256', '512×512', '1024×1024'];
 
-export const MAX_CANVAS_SIZE = 512; // 캔버스 최대 크기 제한
+export const MAX_CANVAS_SIZE = 1024; // 캔버스 최대 크기 제한
 export const MAX_HISTORY_SIZE = 50; // 최대 히스토리 스택 크기 제한
 
 export const MAX_DURATION = 10000; // 애니메이션 프레임 최대 지속 시간 제한
