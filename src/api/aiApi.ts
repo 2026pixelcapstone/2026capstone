@@ -20,14 +20,14 @@ export interface ConceptResult {
 }
 
 /** 명암 제안 재질 — base는 그 재질 칸의 원래 색, ramp는 단계(-2~2)별 색(#rrggbb). */
-/** 중간 동작 제안 결과 — 사이 프레임 t = 0.1 … 0.9(PNG base64, 캔버스 크기) + 작업물 해석(A의 부위 덩어리 색칠 PNG·관절) */
-export interface InbetweenResult {
-  frames: { t: number; image: string }[]
-  parts: string
-  joints: { x: number; y: number }[]
-  partCount: number
-  model: string
-  elapsedMs: number
+/** 가운데 프레임 생성 작업 — queued(ahead = 앞 작업 수) → running → done(image = PNG base64, 캔버스 크기) | failed */
+export interface InbetweenJob {
+  jobId: string
+  status: 'queued' | 'running' | 'done' | 'failed'
+  ahead: number | null
+  image: string | null
+  model: string | null
+  elapsedMs: number | null
 }
 
 export interface ShadeMaterial {
@@ -83,9 +83,13 @@ export const aiApi = {
     api.post<{ success: boolean; data: ShadeSuggestResult }>('/api/ai/shade-suggest', body, { timeout: AI_TIMEOUT_MS }),
 
   /**
-   * 중간 동작 제안(자체 모델 — 작업물 이해 + 규칙) — 키프레임 두 장(같은 캔버스, 128×128 이하) → 사이 프레임 9장.
-   * 같은 사람은 5초에 한 번(429).
+   * 가운데 프레임 만들기(자체 생성 모델) — 키프레임 두 장(같은 캔버스, 긴 변 124칸 이하) → 작업 번호.
+   * 결과는 getInbetweenJob으로 물어봄(1~2분). 같은 사람은 진행 중 1개(429 INBETWEEN_JOB_ACTIVE).
+   * candidate = 몇 번째 후보인지(0 v8 · 1 v7 · 2 v6 · 3 v8 …)
    */
-  suggestInbetween: (body: { imageA: string; imageC: string }) =>
-    api.post<{ success: boolean; data: InbetweenResult }>('/api/ai/inbetween', body, { timeout: AI_TIMEOUT_MS }),
+  createInbetweenJob: (body: { imageA: string; imageC: string; candidate: number }) =>
+    api.post<{ success: boolean; data: InbetweenJob }>('/api/ai/inbetween/jobs', body, { timeout: AI_TIMEOUT_MS }),
+
+  getInbetweenJob: (jobId: string) =>
+    api.get<{ success: boolean; data: InbetweenJob }>(`/api/ai/inbetween/jobs/${encodeURIComponent(jobId)}`),
 }

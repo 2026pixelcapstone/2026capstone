@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CanvasState } from '../../type/editor'
-import { aiApi, type InbetweenResult } from '../../api/aiApi'
+import { aiApi } from '../../api/aiApi'
 import { renderFrames } from '../../lib/editorExport'
 import { toast } from '../../store/toastStore'
 import { getErrorMessage } from '../../lib/errorUtils'
@@ -12,187 +12,209 @@ interface Props {
   onInsert: (afterId: string, items: { pixelData: string; name: string }[]) => number
 }
 
-interface Snapshot {
-  data: InbetweenResult
-  aId: string
-  cId: string
-  a: HTMLCanvasElement
-  c: HTMLCanvasElement
-  w: number
-  h: number
+interface Candidate {
+  image: string // PNG base64
+  model: string
+  elapsedMs: number
 }
 
-const BOX = 300
-const T_STEPS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-
-function loadImg(b64: string): Promise<HTMLImageElement> {
-  return new Promise((res, rej) => {
-    const im = new Image()
-    im.onload = () => res(im)
-    im.onerror = rej
-    im.src = `data:image/png;base64,${b64}`
-  })
-}
+const MAX_SIDE = 124 // 학습 데이터 상한(백엔드·ml과 같음)
+const MAX_CANDIDATES = 4
+const POLL_MS = 2000
+const MODEL_LABEL: Record<string, string> = { v8_14000: '뼈대 조건', v7_12000: '기본', v6_14000: '이전 판' }
 
 /**
- * 성능 업그레이드 중 일시 중지(true) — 안내만 보이고 요청은 보내지 않음. 다시 열 때 false로.
- * (프론트만 막음 — 백엔드 /api/ai/inbetween은 그대로)
+ * 에디터 AI 패널 — 가운데 프레임 만들기(자체 생성 모델).
+ * 앞·뒤 키프레임을 고르고 [가운데 프레임 만들기] → 작업 번호를 받아 2초마다 상태를 물음(1~2분) →
+ * 후보가 쌓임(누를 때마다 하나, 최대 4개, 모델은 v8·v7·v6 차례) → 하나 골라 [프레임으로 넣기](앞 프레임 바로 뒤).
+ * 넣은 뒤 작가가 고쳐 쓰는 '제안'. 앞·뒤를 바꾸면 후보는 비움(다른 두 장의 결과라서).
  */
-const INBETWEEN_PAUSED = false
-
-export default function InbetweenPanel(props: Props) {
-  if (INBETWEEN_PAUSED) {
-    return (
-      <div className="p-3 rounded-lg bg-surface-container-low border border-outline space-y-1" role="status">
-        <p className="text-xs font-bold text-on-surface">중간 동작 제안 — 성능 업그레이드 중</p>
-        <p className="text-[11px] text-on-surface-variant leading-relaxed">
-          더 자연스러운 중간 동작을 위해 AI를 개선하고 있어 잠시 쉬고 있습니다. 곧 더 나은 버전으로 돌아올게요.
-        </p>
-      </div>
-    )
-  }
-  return <InbetweenPanelActive {...props} />
-}
-
-/**
- * 에디터 AI 패널 — 중간 동작 제안(자체 모델: 작업물 이해 → 규칙으로 사이 프레임).
- * 1) 앞·뒤 키프레임을 골라 요청 → 2) '작업물 해석'(부위 덩어리·관절)을 겹쳐 확인 → 3) 타이밍 슬라이더로 고른 프레임을 넣음.
- * 칸마다 두 프레임을 섞지 않고 부위를 통째로 옮겨 원본 색만 씀. 넣은 뒤 작가가 고쳐 쓰는 '제안'.
- */
-function InbetweenPanelActive({ state, activeFrameId, onInsert }: Props) {
+export default function InbetweenPanel({ state, activeFrameId, onInsert }: Props) {
   const idx = Math.max(0, state.frames.findIndex((f) => f.id === activeFrameId))
   const [aIdx, setAIdx] = useState(idx)
   const [cIdx, setCIdx] = useState(Math.min(state.frames.length - 1, idx + 1))
-  const [loading, setLoading] = useState(false)
-  const [snap, setSnap] = useState<Snapshot | null>(null)
-  const [t, setT] = useState(0.5)
-  const [showParts, setShowParts] = useState(false)
-  const [imgs, setImgs] = useState<Record<string, HTMLImageElement>>({})
-  const reqRef = useRef(0)
+  const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<{ status: 'sending' | 'queued' | 'running'; ahead: number; since: number } | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+  const [cands, setCands] = useState<Candidate[]>([])
+  const [pick, setPick] = useState(0)
+  const [pairIds, setPairIds] = useState<[string, string] | null>(null)
+  const genRef = useRef(0) // 앞·뒤를 바꾸거나 패널이 사라지면 늘려서 진행 중 결과를 버림
   const viewRef = useRef<HTMLCanvasElement>(null)
+  const sideRef = useRef<{ a: HTMLCanvasElement; c: HTMLCanvasElement } | null>(null)
 
-  // 지금 프레임이 바뀌면 앞 = 지금, 뒤 = 다음으로 맞춤(결과는 유지)
+  // 지금 프레임이 바뀌면 앞 = 지금, 뒤 = 다음으로 맞춤(만드는 중이면 그대로)
   useEffect(() => {
+    if (busy) return
     setAIdx(idx)
     setCIdx(Math.min(state.frames.length - 1, idx + 1))
-  }, [idx, state.frames.length])
+  }, [idx, state.frames.length]) // busy는 일부러 뺌(끝날 때 다시 맞추면 고른 앞·뒤가 바뀜)
+
+  // 고른 앞·뒤가 후보를 만든 두 장과 다르면 후보를 비움
+  const fa = state.frames[aIdx]
+  const fc = state.frames[cIdx]
+  useEffect(() => {
+    if (!busy && pairIds && (pairIds[0] !== fa?.id || pairIds[1] !== fc?.id)) {
+      setCands([])
+      setPairIds(null)
+    }
+  }, [fa?.id, fc?.id, pairIds, busy])
+
+  useEffect(() => () => { genRef.current++ }, []) // 사라지면 기다리던 결과 버림
+
+  // 진행 중 경과 시간 표시
+  useEffect(() => {
+    if (!progress) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [progress])
+
+  const tooBig = state.width > MAX_SIDE || state.height > MAX_SIDE
 
   const run = async () => {
-    const fa = state.frames[aIdx]
-    const fc = state.frames[cIdx]
     if (!fa || !fc || aIdx === cIdx) {
       toast.error('서로 다른 앞·뒤 프레임을 골라 주세요.')
       return
     }
-    const id = ++reqRef.current
-    setLoading(true)
+    const gen = ++genRef.current
+    const alive = () => gen === genRef.current
+    const samePair = pairIds?.[0] === fa.id && pairIds?.[1] === fc.id
+    const prev = samePair ? cands : []
+    setBusy(true)
+    setProgress({ status: 'sending', ahead: 0, since: Date.now() })
+    setNow(Date.now())
     try {
       const [a, c] = await renderFrames({ ...state, frames: [fa, fc] })
       const b64 = (cv: HTMLCanvasElement) => cv.toDataURL('image/png').split(',')[1]
-      const res = await aiApi.suggestInbetween({ imageA: b64(a), imageC: b64(c) })
-      const data = res.data.data
-      if (!data || !Array.isArray(data.frames) || data.frames.length === 0) throw new Error('응답 형식')
-      const loaded: Record<string, HTMLImageElement> = {}
-      await Promise.all([...data.frames.map(async (f) => { loaded[f.t.toFixed(1)] = await loadImg(f.image) }),
-        loadImg(data.parts).then((im) => { loaded.parts = im })])
-      if (id !== reqRef.current) return
-      setImgs(loaded)
-      setSnap({ data, aId: fa.id, cId: fc.id, a, c, w: state.width, h: state.height })
-      setT(0.5)
+      const created = await aiApi.createInbetweenJob({ imageA: b64(a), imageC: b64(c), candidate: prev.length })
+      if (!alive()) return
+      const jobId = created.data.data.jobId
+      for (;;) {
+        await new Promise((r) => setTimeout(r, POLL_MS))
+        if (!alive()) return
+        const j = (await aiApi.getInbetweenJob(jobId)).data.data
+        if (!alive()) return
+        if (j.status === 'queued' || j.status === 'running') {
+          const st = j.status
+          setProgress((p) => ({ status: st, ahead: j.ahead ?? 0, since: p?.since ?? Date.now() }))
+          continue
+        }
+        if (j.status === 'done' && j.image) {
+          // 만드는 동안 앞·뒤 고르기는 잠겨 있으니 이 결과는 지금 고른 두 장의 것
+          sideRef.current = { a, c }
+          const next = [...prev, { image: j.image, model: j.model ?? '', elapsedMs: j.elapsedMs ?? 0 }].slice(-MAX_CANDIDATES)
+          setPairIds([fa.id, fc.id])
+          setCands(next)
+          setPick(next.length - 1)
+        } else {
+          toast.error('가운데 프레임을 만들지 못했습니다. 다시 시도해 주세요.')
+        }
+        break
+      }
     } catch (e) {
-      if (id === reqRef.current) toast.error(getErrorMessage(e, '중간 동작을 제안하지 못했습니다.'))
+      if (alive()) toast.error(getErrorMessage(e, '가운데 프레임을 만들지 못했습니다.'))
     } finally {
-      if (id === reqRef.current) setLoading(false)
+      if (alive()) {
+        setBusy(false)
+        setProgress(null)
+      }
     }
   }
 
-  // 미리보기: 앞 | 사이(t) | 뒤, 해석 보기면 사이 자리에 A 위로 덩어리 색·관절
-  const scale = useMemo(() => (snap ? Math.max(1, Math.floor(BOX / 3 / Math.max(snap.w, snap.h))) : 1), [snap])
+  // 미리보기: 앞 | 고른 후보 | 뒤
   useEffect(() => {
     const cv = viewRef.current
-    if (!cv || !snap) return
-    const { w, h } = snap
+    const side = sideRef.current
+    const cand = cands[pick]
+    if (!cv || !side || !cand) return
+    const { width: w, height: h } = side.a
+    const scale = Math.max(1, Math.floor(100 / Math.max(w, h)))
     cv.width = w * scale * 3 + 8
     cv.height = h * scale
     const ctx = cv.getContext('2d')!
     ctx.imageSmoothingEnabled = false
     ctx.clearRect(0, 0, cv.width, cv.height)
-    ctx.drawImage(snap.a, 0, 0, w * scale, h * scale)
-    const mid = w * scale + 4
-    if (showParts) {
-      ctx.drawImage(snap.a, mid, 0, w * scale, h * scale)
-      if (imgs.parts) {
-        ctx.globalAlpha = 0.65
-        ctx.drawImage(imgs.parts, mid, 0, w * scale, h * scale)
-        ctx.globalAlpha = 1
-      }
-      ctx.fillStyle = '#000'
-      for (const j of snap.data.joints) {
-        ctx.beginPath()
-        ctx.arc(mid + j.x * scale, j.y * scale, Math.max(2, scale * 0.6), 0, Math.PI * 2)
-        ctx.fill()
-      }
-    } else {
-      const im = imgs[t.toFixed(1)]
-      if (im) ctx.drawImage(im, mid, 0, w * scale, h * scale)
+    ctx.drawImage(side.a, 0, 0, w * scale, h * scale)
+    ctx.drawImage(side.c, w * scale * 2 + 8, 0, w * scale, h * scale)
+    let live = true
+    const im = new Image()
+    im.onload = () => {
+      if (!live) return
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(im, w * scale + 4, 0, w * scale, h * scale)
     }
-    ctx.drawImage(snap.c, w * scale * 2 + 8, 0, w * scale, h * scale)
-  }, [snap, imgs, t, showParts, scale])
+    im.src = `data:image/png;base64,${cand.image}`
+    return () => { live = false }
+  }, [cands, pick])
 
-  const insert = (ts: number[]) => {
-    if (!snap) return
-    if (!state.frames.some((f) => f.id === snap.aId)) {
-      toast.error('앞 프레임이 지워져 넣을 수 없습니다. 다시 제안받아 주세요.')
+  const insert = () => {
+    const cand = cands[pick]
+    if (!cand || !pairIds) return
+    if (!state.frames.some((f) => f.id === pairIds[0])) {
+      toast.error('앞 프레임이 지워져 넣을 수 없습니다. 다시 만들어 주세요.')
       return
     }
-    const items = ts.map((tt) => snap.data.frames.find((x) => Math.abs(x.t - tt) < 1e-6))
-      .filter((f): f is { t: number; image: string } => !!f)
-      .map((f) => ({ pixelData: `data:image/png;base64,${f.image}`, name: `중간 동작 제안 t=${f.t.toFixed(1)}` }))
-    const n = onInsert(snap.aId, items)
-    if (!n) return
-    toast.success(`${n}장을 앞 프레임 뒤에 넣었습니다. 고쳐서 쓰세요.`)
+    const n = onInsert(pairIds[0], [{ pixelData: `data:image/png;base64,${cand.image}`, name: '가운데 프레임(AI 제안)' }])
+    if (n) toast.success('앞 프레임 바로 뒤에 넣었습니다. 고쳐서 쓰세요.')
   }
 
   const frameOpts = state.frames.map((_, i) => <option key={i} value={i}>프레임 {i + 1}</option>)
+  const sec = progress ? Math.max(0, Math.round((now - progress.since) / 1000)) : 0
+  const hasCands = cands.length > 0 && pairIds?.[0] === fa?.id && pairIds?.[1] === fc?.id
+  const label = state.frames.length < 2 ? '프레임이 2장 이상 필요'
+    : tooBig ? `캔버스 긴 변 ${MAX_SIDE}칸 이하만`
+      : hasCands ? '다른 후보 만들기' : '가운데 프레임 만들기'
 
   return (
     <div className="p-3 rounded-lg bg-surface-container-low border border-outline space-y-3">
       <p className="text-[11px] text-on-surface-variant leading-relaxed">
-        두 키프레임 사이 동작을 <b>제안</b>합니다. AI가 먼저 그림을 <b>부위·관절로 해석</b>하고, 부위를 통째로 돌려 원본 색만 씁니다.
-        몸이 3D로 도는 동작·앞 프레임에 없던 부분은 지원하지 않습니다(그림 부분 60칸 이하).
+        두 키프레임 사이 <b>가운데 한 장</b>을 AI가 그려 <b>제안</b>합니다. 작은·중간 동작(특히 사람 몸)에 맞춰 학습했고,
+        큰 동작은 잘 안 됩니다. 한 장에 1~2분 걸리고, 누를 때마다 다른 후보가 나옵니다.
       </p>
       <div className="flex items-center gap-2 text-xs text-on-surface">
-        <select value={aIdx} onChange={(e) => setAIdx(Number(e.target.value))} aria-label="앞 키프레임"
+        <select value={aIdx} onChange={(e) => setAIdx(Number(e.target.value))} aria-label="앞 키프레임" disabled={busy}
           className="flex-1 p-1.5 rounded border bg-surface border-outline">{frameOpts}</select>
         <span>→</span>
-        <select value={cIdx} onChange={(e) => setCIdx(Number(e.target.value))} aria-label="뒤 키프레임"
+        <select value={cIdx} onChange={(e) => setCIdx(Number(e.target.value))} aria-label="뒤 키프레임" disabled={busy}
           className="flex-1 p-1.5 rounded border bg-surface border-outline">{frameOpts}</select>
       </div>
-      <button type="button" onClick={run} disabled={loading || state.frames.length < 2}
+      <button type="button" onClick={run} disabled={busy || state.frames.length < 2 || tooBig}
         className="w-full py-1.5 text-xs font-bold rounded-lg text-white bg-primary disabled:opacity-50">
-        {loading ? '해석하고 그리는 중…' : state.frames.length < 2 ? '프레임이 2장 이상 필요' : '중간 동작 제안'}
+        {busy ? '만드는 중…' : label}
       </button>
 
-      {snap && (
-        <div className="space-y-2" role="status">
-          <canvas ref={viewRef} className="w-full rounded border border-outline bg-[repeating-conic-gradient(#ddd_0_25%,#fff_0_50%)] bg-[length:8px_8px]" style={{ imageRendering: 'pixelated' }} />
-          <div className="flex justify-between text-[10px] text-on-surface-variant"><span>앞</span><span>{showParts ? '작업물 해석' : `사이 t=${t.toFixed(1)}`}</span><span>뒤</span></div>
-          <label className="flex items-center gap-2 text-[11px] text-on-surface">
-            <input type="checkbox" checked={showParts} onChange={(e) => setShowParts(e.target.checked)} />
-            작업물 해석 보기(부위 {snap.data.partCount}개 · 관절 {snap.data.joints.length}개)
-          </label>
-          <label className="block text-[11px] text-on-surface">
-            타이밍 {t <= 0.3 ? '(앞에 가깝게)' : t >= 0.7 ? '(뒤에 가깝게)' : '(가운데)'}
-            <input type="range" min={0} max={T_STEPS.length - 1} step={1} value={T_STEPS.indexOf(Number(t.toFixed(1)))}
-              onChange={(e) => { setT(T_STEPS[Number(e.target.value)]); setShowParts(false) }} className="w-full" aria-label="타이밍" />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => insert([t])}
-              className="py-1.5 text-xs font-bold rounded-lg border border-primary text-primary">이 프레임 넣기</button>
-            <button type="button" onClick={() => insert([0.3, 0.5, 0.7])}
-              className="py-1.5 text-xs font-bold rounded-lg border border-outline text-on-surface">3장 넣기(0.3·0.5·0.7)</button>
+      {progress && (
+        <div className="space-y-1" role="status" aria-live="polite">
+          <div className="h-1.5 rounded bg-surface overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(95, (sec / 120) * 100)}%` }} />
           </div>
-          <p className="text-[10px] text-on-surface-variant">계산 {Math.round(snap.data.elapsedMs)}ms · 모델 {snap.data.model}</p>
+          <p className="text-[11px] text-on-surface-variant">
+            {progress.status === 'sending' ? '보내는 중…'
+              : progress.status === 'queued' ? `차례를 기다리는 중(앞에 ${progress.ahead}개)…`
+                : '그리는 중…'} {sec}초 · 보통 1~2분
+          </p>
+        </div>
+      )}
+
+      {hasCands && (
+        <div className="space-y-2">
+          <canvas ref={viewRef} className="w-full rounded border border-outline bg-[repeating-conic-gradient(#ddd_0_25%,#fff_0_50%)] bg-[length:8px_8px]" style={{ imageRendering: 'pixelated' }} />
+          <div className="flex justify-between text-[10px] text-on-surface-variant"><span>앞</span><span>후보 {pick + 1}</span><span>뒤</span></div>
+          <div className="grid grid-cols-4 gap-1" role="radiogroup" aria-label="후보">
+            {cands.map((cd, i) => (
+              <button key={i} type="button" role="radio" aria-checked={i === pick} onClick={() => setPick(i)}
+                className={`p-1 rounded border text-[10px] ${i === pick ? 'border-primary text-primary' : 'border-outline text-on-surface-variant'}`}>
+                <img src={`data:image/png;base64,${cd.image}`} alt={`후보 ${i + 1}`} className="w-full aspect-square object-contain bg-surface" style={{ imageRendering: 'pixelated' }} />
+                {i + 1}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={insert} disabled={busy}
+            className="w-full py-1.5 text-xs font-bold rounded-lg border border-primary text-primary disabled:opacity-50">프레임으로 넣기</button>
+          <p className="text-[10px] text-on-surface-variant">
+            모델 {MODEL_LABEL[cands[pick]?.model] ?? cands[pick]?.model} · {Math.round((cands[pick]?.elapsedMs ?? 0) / 1000)}초
+            {cands.length >= MAX_CANDIDATES && ' · 후보는 최근 4개까지 보여요'}
+          </p>
         </div>
       )}
     </div>
