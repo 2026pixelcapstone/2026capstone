@@ -48,27 +48,31 @@ export interface ProjectResponse extends ProjectSummary {
   palette?: string[] | null
 }
 
+export interface ProjectUpdateResponse{
+  title?: string
+  thumbnailUrl?: string
+  isPublic?: boolean
+}
 export interface ProjectCreateRequest {
   title: string
-  width: number
-  height: number
   backgroundColor?: string
   isPublic?: boolean
   thumbnailUrl?: string
+  canvasSaveRequest: CanvasSaveRequest
 }
 
 export interface ProjectUpdateRequest {
   title?: string
-  width?: number
-  height?: number
   thumbnailUrl?: string
   isPublic?: boolean
 }
 
 export interface CanvasSaveRequest {
-  frameSaveRequests: FrameSaveRequest[]
+  frameSaveRequests: FrameSaveRequest[];
   /** 프로젝트 팔레트(#RRGGBB·#RRGGBBAA, 최대 256) — 안 보내면 서버가 기존 값 유지 */
-  palette?: string[]
+  palette?: string[];
+  width: number;
+  height: number;
 }
 
 export interface FrameSaveRequest {
@@ -96,7 +100,7 @@ export const editorApi = {
     api.get<{ success: boolean; data: PageResponse<ProjectSummary> }>('/api/editor/projects', { params }),
 
   // 프로젝트 생성
-  createProject: (data: ProjectCreateRequest) =>
+  createProjectWithCanvas: (data: ProjectCreateRequest) =>
     api.post<{ success: boolean; data: ProjectResponse }>('/api/editor/projects', data),
 
   // 프로젝트 상세 (캔버스 데이터 포함)

@@ -1,3 +1,5 @@
+import { resourceError } from '../../utils/editorResources';
+import { toast } from '../../store/toastStore';
 import React, { useCallback } from "react";
 import { CanvasState } from "../../type/editor";
 
@@ -27,6 +29,8 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
             id: `frame-${crypto.randomUUID()}`,
             layers: src.layers.map(l => ({ ...l, id: `layer-${crypto.randomUUID().slice(0, 8)}` })),
         };
+        const error = resourceError({ ...state, frames: [...state.frames, copy] }, state);
+        if (error) { toast.error(error); return; }
         setWithHistory(prev => {
             const at = prev.frames.findIndex(f => f.id === src.id);
             if (at < 0) return prev;
@@ -44,7 +48,7 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
         setActiveFrameId(copy.id);
         setActiveLayerId(copy.layers[layerIdx]?.id ?? copy.layers[0]?.id ?? null);
         setUnsaved(true);
-    }, [state.frames, activeFrameId, activeLayerId, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
+    }, [state, activeFrameId, activeLayerId, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
 
     /** 프레임 순서 뒤집기(PR-F) — 애니메이션 태그 범위도 거울처럼 뒤집음(0..n-1 → n-1..0). 되돌리기 한 번 */
     const reverseFrames = useCallback(() => {
@@ -81,6 +85,8 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
                 }],
             };
         });
+        const error = resourceError({ ...state, frames: [...state.frames, ...made] }, state);
+        if (error) { toast.error(error); return 0; }
         const k = made.length;
         setWithHistory(prev => {
             const at = prev.frames.findIndex(f => f.id === afterId);
@@ -100,7 +106,7 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
         setActiveLayerId(made[0].layers[0].id);
         setUnsaved(true);
         return k;
-    }, [state.frames, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
+    }, [state, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
 
     /**
      * 거의 같은 두 프레임 합치기(AI 타이밍 점검) — keep 길이 += drop 길이, drop 삭제. 되돌리기 한 번.
@@ -135,7 +141,7 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
         }
         setUnsaved(true);
         return true;
-    }, [state.frames, activeFrameId, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
+    }, [state, activeFrameId, setWithHistory, setActiveFrameId, setActiveLayerId, setUnsaved]);
 
     /** 이전·다음 프레임 id(끝에서는 반대쪽으로 돌아감) */
     const neighborFrameId = useCallback((dir: 1 | -1) => {
@@ -143,7 +149,7 @@ export function useFrameOps({ state, activeFrameId, activeLayerId, setActiveFram
         if (n < 2) return null;
         const idx = Math.max(0, state.frames.findIndex(f => f.id === activeFrameId));
         return state.frames[(idx + dir + n) % n].id;
-    }, [state.frames, activeFrameId]);
+    }, [state, activeFrameId]);
 
     return { duplicateFrame, reverseFrames, neighborFrameId, insertFramesAfter, mergeFrames };
 }

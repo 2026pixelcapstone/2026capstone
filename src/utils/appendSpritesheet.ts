@@ -1,3 +1,4 @@
+import { assertResources } from './editorResources';
 import type { CanvasState, FrameData } from '../type/editor';
 import { canvasToPixelData, loadPixelData, makeCanvas } from './pixelOps';
 
@@ -5,6 +6,7 @@ import { canvasToPixelData, loadPixelData, makeCanvas } from './pixelOps';
 export async function appendSpritesheet(current: CanvasState, imported: CanvasState): Promise<CanvasState> {
     const width = Math.max(current.width, imported.width);
     const height = Math.max(current.height, imported.height);
+    assertResources({ ...current, width, height, frames: [...current.frames, ...imported.frames] }, current);
     const padFrames = async (source: CanvasState, align: 'center' | 'bottom-center'): Promise<FrameData[]> => {
         if (source.width === width && source.height === height) return source.frames;
         return Promise.all(source.frames.map(async frame => ({

@@ -1,4 +1,5 @@
 import { appendSpritesheet } from '../utils/appendSpritesheet'
+import { EditorResourceGauge } from '../components/editor/EditorResourceGauge';
 import { ImportSpritesheet } from '../components/editor/ImportSpritesheet'
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -14,7 +15,7 @@ import {useFrame} from '../hooks/editor/useFrame'
 import { useHistory } from '../hooks/editor/useHistory'
 import { useLayers as useLayer } from '../hooks/editor/useLayer'
 import Konva from 'konva'
-import { getCacheKey, getLayerImageData } from '../utils/editorUtils'
+import { getCacheKey, getLayerImageData, hasOpenEditorDialog } from '../utils/editorUtils'
 import { aiApi } from '../api/aiApi'
 import type { RelatedPost } from '../api/aiApi'
 import { extractUsedColors } from '../utils/colorExtract'
@@ -72,6 +73,7 @@ import { SendToTabModal } from '../components/editor/SendToTabModal'
 import { ShortcutsModal } from '../components/editor/ShortcutsModal'
 import { useEditOps } from '../hooks/editor/useEditOps'
 import { MENU_ACTION, type MenuActionId } from '../type/editor'
+import { usePopoverPosition } from '../hooks/editor/usePopoverPosition';
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -139,6 +141,10 @@ export default function EditorPage() {
   const [recentColors, setRecentColors] = useState<string[]>([]);   // 최근 쓴 색(PR-G)
 
   // ── hook ──────────────────────────
+
+  // ── usePopoverPosition 훅 ──────────────
+  const {panelRef, position, setPosition} = usePopoverPosition();
+
   // ── useHistory 훅 ──────────────
   const {state, setWithHistory, setWithoutHistory, undo, redo, reset, getSnapshot, restore, canUndo, canRedo} = useHistory(initialCanvasData);
 
@@ -152,6 +158,7 @@ export default function EditorPage() {
 
   // ── useFrame 훅 ──────────────
   const{showFramePanel, setShowFramePanel, addFrame, deleteFrame, reorderFrames, updateAnimDurations, updateAllAnimDurations, updateFrameTag } = useFrame({
+    state,
 
     frames: state.frames,
     defaultDuration,
@@ -169,6 +176,7 @@ export default function EditorPage() {
 
   // ── useLayer 훅 ──────────────
   const {detailLayer, setDetailLayer, addLayer, updateLayer, deleteLayer, toggleVisibility, reorderLayers, resetLayerCounters} = useLayer({
+    state,
     frames: state.frames,
     setWithHistory, 
     setWithoutHistory,
@@ -936,7 +944,7 @@ export default function EditorPage() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-      if (document.querySelector('[role=dialog]')) return;
+      if (hasOpenEditorDialog()) return;
       const run = (id: MenuActionId) => { e.preventDefault(); menuExtraRef.current[id]?.(); };
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.altKey && !e.shiftKey && e.code === 'KeyC') { e.preventDefault(); setCanvasSizeRequest(n => n + 1); return; }
@@ -994,6 +1002,7 @@ export default function EditorPage() {
 
       {importSheetOpen && (
         <ImportSpritesheet
+          current={state}
           initialWidth={state.width}
           initialHeight={state.height}
           initialFps={fps}
@@ -1181,17 +1190,24 @@ export default function EditorPage() {
         </div>
         
         {/* 상태바 */}
-        <div className='flex-1 flex items-center gap-4 px-6 border-l ml-2 h-6'
+        <div className='min-w-0 flex-1 flex items-center gap-3 px-4 border-l ml-2 h-8 overflow-x-auto overflow-y-hidden whitespace-nowrap'
           style={{borderColor: 'var(--color-surface-container-highest)'}}
         >
           <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>캔버스 {state.width} × {state.height}</span>
           <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
           <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>레이어: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
+          <span className="w-px h-4 shrink-0" style={{ background: 'var(--color-surface-container-highest)' }} />
+          <EditorResourceGauge
+            panelRef={panelRef}
+            position={position}
+            activeFrameId={activeFrameId}
+            state={state}
+            setPosition={setPosition}
+          />
         </div>
         
         {/* 우: 파일명 + 저장 */}
         <div className="ml-auto flex items-center h-full pr-2">
-
           <div className="flex items-center gap-1.5 px-3">
             <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>description</span>
             {editingTitle ? (
@@ -1229,6 +1245,7 @@ export default function EditorPage() {
           </div>
         </div>
       </header>
+
 
       {/* ── EDITOR BODY ──────────────────────────────── */}
       <div className="flex flex-1 min-h-0">

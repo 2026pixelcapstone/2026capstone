@@ -1,12 +1,14 @@
+import { projectResources } from '../../utils/editorResources';
 import { detectSpriteRegions, type SpriteRegion } from '../../utils/spritesheet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import { createDefaultLayer, MAX_CANVAS_SIZE } from '../../constants/editor/editor';
+import { createDefaultLayer, MAX_CANVAS_SIZE, MAX_PROJECT_FRAMES, MAX_PROJECT_PIXELS } from '../../constants/editor/editor';
 import type { CanvasState } from '../../type/editor';
 import { canvasToPixelData, makeCanvas } from '../../utils/pixelOps';
 import { toast } from '../../store/toastStore';
 
 interface Props {
+    current: CanvasState;
     initialWidth: number;
     initialHeight: number;
     initialFps: number;
@@ -15,14 +17,15 @@ interface Props {
 }
 
 // PNG data URLs and history grow with the number of decoded pixels.
-const MAX_FRAMES = 256;
+const MAX_FRAMES = MAX_PROJECT_FRAMES;
 const MAX_PIXELS = 16 * 1024 * 1024;
 
-export function ImportSpritesheet({ initialWidth, initialHeight, initialFps, onClose, onImport }: Props) {
+export function ImportSpritesheet({ current, initialWidth, initialHeight, initialFps, onClose, onImport }: Props) {
     const dialogRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const previewRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef(0);
+    
     const [image, setImage] = useState<HTMLImageElement | null>(null);
     const [pixels, setPixels] = useState<ImageData | null>(null);
     const [detected, setDetected] = useState<SpriteRegion[]>([]);
@@ -37,6 +40,7 @@ export function ImportSpritesheet({ initialWidth, initialHeight, initialFps, onC
     const [loading, setLoading] = useState(false);
     const [working, setWorking] = useState(false);
     const [fileError, setFileError] = useState('');
+
     const close = () => { if (!working) onClose(); };
     useFocusTrap(true, dialogRef, close);
     useEffect(() => () => { requestRef.current += 1; }, []);
@@ -44,18 +48,27 @@ export function ImportSpritesheet({ initialWidth, initialHeight, initialFps, onC
     
     const validSize = Number.isInteger(width) && Number.isInteger(height)
         && width >= 1 && height >= 1 && width <= MAX_CANVAS_SIZE && height <= MAX_CANVAS_SIZE;
+    
     const bounds = useMemo(() => {
         if (!pixels) return { x: 0, y: 0, width: 0, height: 0 };
         if (!trim) return { x: 0, y: 0, width: pixels.width, height: pixels.height };
-        let left = pixels.width, top = pixels.height, right = -1, bottom = -1;
-        for (let y = 0; y < pixels.height; y++) for (let x = 0; x < pixels.width; x++) {
-            if (pixels.data[(y * pixels.width + x) * 4 + 3] === 0) continue;
-            left = Math.min(left, x); top = Math.min(top, y);
-            right = Math.max(right, x); bottom = Math.max(bottom, y);
+
+        let left = pixels.width
+        let top = pixels.height 
+        let right = -1
+        let bottom = -1;
+
+        for (let y = 0; y < pixels.height; y++){
+            for (let x = 0; x < pixels.width; x++) {
+                if (pixels.data[(y * pixels.width + x) * 4 + 3] === 0) continue;
+                left = Math.min(left, x); top = Math.min(top, y);
+                right = Math.max(right, x); bottom = Math.max(bottom, y);
+            }
         }
         return right < 0 ? { x: 0, y: 0, width: 0, height: 0 }
             : { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
     }, [pixels, trim]);
+
     const cols = validSize ? Math.ceil(bounds.width / width) : 0;
     const rows = validSize ? Math.ceil(bounds.height / height) : 0;
     const cells = useMemo(() => {
@@ -77,13 +90,21 @@ export function ImportSpritesheet({ initialWidth, initialHeight, initialFps, onC
     }, [pixels, validSize, rows, cols, bounds, width, height, autoSplit, detected]);
     const candidates = useMemo(() => cells.filter(cell => !skipEmpty || !cell.empty), [cells, skipEmpty]);
     const total = candidates.length;
-    const count = requestedCount ?? Math.min(total, MAX_FRAMES);
+    const usage = projectResources(current);
+    const finalArea = validSize ? Math.max(current.width, width) * Math.max(current.height, height) : 0;
+    const available = Number.isFinite(finalArea) && finalArea > 0
+        ? Math.max(0, Math.min(MAX_FRAMES - usage.frames,
+            Math.floor(MAX_PROJECT_PIXELS / finalArea) - usage.layers))
+        : 0;
+    const count = requestedCount ?? Math.min(total, available);
+    const expectedPixels = finalArea * (usage.layers + Math.max(0, count));
     const selected = useMemo(() => candidates.slice(0, Math.max(0, count)), [candidates, count]);
     const error = !image ? '' : !validSize ? `프레임 크기는 1~${MAX_CANVAS_SIZE}px 사이의 정수로 입력해 주세요.`
         : !autoSplit && cols * rows > 65536 ? '칸이 너무 많아요. 칸 너비나 높이를 늘려 주세요.'
         : !total ? '가져올 프레임이 없어요. 이미지와 공백 제외 설정을 확인해 주세요.'
-        : !Number.isInteger(count) || count < 1 || count > Math.min(total, MAX_FRAMES) ? `프레임 수는 1~${Math.min(total, MAX_FRAMES)} 사이로 입력해 주세요.`
-        : count * width * height > MAX_PIXELS ? '가져올 픽셀이 너무 많아요. 프레임 수를 줄여 주세요.'
+        : available < 1 ? '현재 프로젝트에 추가할 리소스가 부족해요. 프레임 수나 캔버스 크기를 줄여 주세요.'
+        : !Number.isInteger(count) || count < 1 || count > Math.min(total, available) ? `프레임 수는 1~${Math.min(total, available)} 사이로 입력해 주세요.`
+        : expectedPixels > MAX_PROJECT_PIXELS ? '가져올 픽셀이 너무 많아요. 프레임 수를 줄여 주세요.'
         : !Number.isInteger(fps) || fps < 1 || fps > 30 ? 'FPS는 1~30 사이의 정수로 입력해 주세요.' : '';
 
     useEffect(() => {
@@ -214,7 +235,7 @@ export function ImportSpritesheet({ initialWidth, initialHeight, initialFps, onC
                 <fieldset disabled={working} className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                     <label>칸 너비 (px)<input type="number" min={1} max={MAX_CANVAS_SIZE} step={1} value={Number.isFinite(width) ? width : ''} className={inputClass} onFocus={e => e.currentTarget.select()} onChange={e => { setWidth(e.target.valueAsNumber); setCount(null); }} /></label>
                     <label>칸 높이 (px)<input type="number" min={1} max={MAX_CANVAS_SIZE} step={1} value={Number.isFinite(height) ? height : ''} className={inputClass} onFocus={e => e.currentTarget.select()} onChange={e => { setHeight(e.target.valueAsNumber); setCount(null); }} /></label>
-                    <label>프레임 수<input type="number" min={1} max={Math.min(total, MAX_FRAMES)} step={1} value={Number.isFinite(count) ? requestedCount ?? (image ? count : '') : ''} className={inputClass} onFocus={e => e.currentTarget.select()} onChange={e => setCount(e.target.valueAsNumber)} /></label>
+                    <label>프레임 수<input type="number" min={1} max={Math.min(total, available)} step={1} value={Number.isFinite(count) ? requestedCount ?? (image ? count : '') : ''} className={inputClass} onFocus={e => e.currentTarget.select()} onChange={e => setCount(e.target.valueAsNumber)} /></label>
                     <label>FPS<input type="number" min={1} max={30} step={1} value={Number.isFinite(fps) ? fps : ''} className={inputClass} onFocus={e => e.currentTarget.select()} onChange={e => setFps(e.target.valueAsNumber)} /></label>
                 </fieldset>
                 <fieldset disabled={working} className="space-y-2 text-sm">
@@ -235,6 +256,7 @@ export function ImportSpritesheet({ initialWidth, initialHeight, initialFps, onC
                     <div className="flex justify-center overflow-auto rounded-lg border border-outline p-2" style={{ background: 'repeating-conic-gradient(#8882 0% 25%, transparent 0% 50%) 0 / 16px 16px' }}>
                         <canvas ref={previewRef} aria-label="스프라이트 시트 분할 미리보기" className="max-w-full object-contain" style={{ imageRendering: 'pixelated' }} />
                     </div>
+                    <p className="text-sm" role="status">가져온 뒤 프로젝트 리소스 {Number.isFinite(expectedPixels) ? Math.ceil(expectedPixels / MAX_PROJECT_PIXELS * 100) : '—'}% · 프레임 {usage.frames + selected.length}/{MAX_FRAMES}개 · 추가 가능 {Number.isFinite(available) ? available : 0}개</p>
                     <p className="text-xs">가져올 프레임 {selected.length}개 · 빈 칸 {skipEmpty ? cells.length - total : 0}개 제외 · 최대 {MAX_FRAMES}개.
                         작은 그림은 늘리지 않고 아래 중앙에 맞춰 투명 여백으로 채워요. 입력 크기보다 큰 그림은 잘릴 수 있어요. 흰색 등 불투명한 배경은 공백으로 처리하지 않아요.</p>
                 </>}

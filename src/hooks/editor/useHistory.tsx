@@ -1,9 +1,13 @@
-import { useCallback, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import {MAX_HISTORY_SIZE} from '../../constants/editor/editor'
 import { CanvasState } from "../../type/editor";
 
+import { resourceError } from '../../utils/editorResources';
+import { toast } from '../../store/toastStore';
+
 // 1. 상태 타입 정의 (탭 전환 때 통째로 꺼내 두었다 되살리므로 export)
 export interface HistoryState{
+    rejection?: { message: string };
     past: CanvasState[];
     present: CanvasState;
     future: CanvasState[];
@@ -30,6 +34,8 @@ function historyReducer(state: HistoryState, action: HistoryAction): HistoryStat
                 ? action.newPresent(present) : action.newPresent;
             // 현재 값과 동일하면 상태를 변경하지 않음
             if(resolvedPresent === present) return state;
+            const error = resourceError(resolvedPresent, present);
+            if (error) return { ...state, rejection: { message: error } };
 
             const newPast = [...past, present]; // 현재가 과거에 쌓인다
 
@@ -45,6 +51,8 @@ function historyReducer(state: HistoryState, action: HistoryAction): HistoryStat
                 ? action.newPresent(present) : action.newPresent;
 
             if(resolvedPresent === present) return state;
+            const error = resourceError(resolvedPresent, present);
+            if (error) return { ...state, rejection: { message: error } };
 
             return {
                 ...state,
@@ -96,6 +104,10 @@ export function useHistory(initialState: CanvasState){
         present: initialState,
         future: [],
     });
+
+    useEffect(() => {
+        if (history.rejection) toast.error(history.rejection.message);
+    }, [history.rejection]);
 
     // 객체와 함수를 매개변수로 받아서 매게변수로 받은 newPresent를 배열에 추가
     const setWithHistory = useCallback((value: CanvasState | ((prev : CanvasState) => CanvasState)) => {

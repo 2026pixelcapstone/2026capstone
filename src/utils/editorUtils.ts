@@ -1,5 +1,10 @@
 import { CURRENT_LANG, Lang, LocalizedText } from "../type/editor";
 
+// popover API를 쓰지 않은 일반 Dialog이거나 popover API를 썼다면 지금 열려있는 Dialog를 찾음
+export function hasOpenEditorDialog(): boolean {
+  return document.querySelector('[role="dialog"]:is(:not([popover]), :popover-open)') !== null;
+}
+
 export const getCacheKey = (frameId: string, layerId: string): string => {
   return `frame-${frameId}_${layerId}`;
 };
