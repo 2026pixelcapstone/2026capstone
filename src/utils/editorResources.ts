@@ -1,16 +1,18 @@
+import { MAX_FRAME_LAYERS, MAX_PROJECT_FRAMES, MAX_PROJECT_PIXELS } from '../constants/editor/editor';
 import type { CanvasState } from '../type/editor';
 
-export const MAX_PROJECT_PIXELS = 16 * 1024 * 1024;
-export const MAX_PROJECT_FRAMES = 100;
-export const MAX_FRAME_LAYERS = 20;
-
+// 받은 정보를 기반으로 리소스 상태를 리턴함
 export function projectResources(state: CanvasState) {
     const layers = state.frames.reduce((sum, frame) => sum + frame.layers.length, 0);
-    return { layers, pixels: state.width * state.height * layers,
-        frames: state.frames.length, maxLayers: Math.max(0, ...state.frames.map(f => f.layers.length)) };
+    return { 
+        layers, 
+        pixels: state.width * state.height * layers,
+        frames: state.frames.length, 
+        maxLayers: Math.max(0, ...state.frames.map(f => f.layers.length)) 
+    };
 }
 
-/** Existing oversized projects remain editable, but an exceeded resource cannot grow. */
+// 받은 정보를 기반으로 리소스 한도를 초과하였는지 체크함 
 export function resourceError(next: CanvasState, previous?: CanvasState): string | null {
     const n = projectResources(next);
     const p = previous ? projectResources(previous) : null;
@@ -24,6 +26,7 @@ export function resourceError(next: CanvasState, previous?: CanvasState): string
     return null;
 }
 
+// 리소스 한도를 초과하였는지 체크하고, 초과하였다면 에러를 발생시킴
 export function assertResources(next: CanvasState, previous?: CanvasState) {
     const error = resourceError(next, previous);
     if (error) throw new Error(error);

@@ -81,3 +81,8 @@ export const MAX_HISTORY_SIZE = 50; // 최대 히스토리 스택 크기 제한
 
 export const MAX_DURATION = 10000; // 애니메이션 프레임 최대 지속 시간 제한
 export const MIN_DURATION_30FPS = 33; // 애니메이션 재생 속도 제한
+
+// ── 리소스 한도 설정 상수 ──────────────────────────────────────────────
+export const MAX_PROJECT_PIXELS = 16 * 1024 * 1024;
+export const MAX_PROJECT_FRAMES = 100;
+export const MAX_FRAME_LAYERS = 20;

@@ -1,8 +1,8 @@
-import { MAX_PROJECT_FRAMES, MAX_PROJECT_PIXELS, projectResources } from '../../utils/editorResources';
+import { projectResources } from '../../utils/editorResources';
 import { detectSpriteRegions, type SpriteRegion } from '../../utils/spritesheet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import { createDefaultLayer, MAX_CANVAS_SIZE } from '../../constants/editor/editor';
+import { createDefaultLayer, MAX_CANVAS_SIZE, MAX_PROJECT_FRAMES, MAX_PROJECT_PIXELS } from '../../constants/editor/editor';
 import type { CanvasState } from '../../type/editor';
 import { canvasToPixelData, makeCanvas } from '../../utils/pixelOps';
 import { toast } from '../../store/toastStore';
@@ -25,6 +25,7 @@ export function ImportSpritesheet({ current, initialWidth, initialHeight, initia
     const fileInputRef = useRef<HTMLInputElement>(null);
     const previewRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef(0);
+    
     const [image, setImage] = useState<HTMLImageElement | null>(null);
     const [pixels, setPixels] = useState<ImageData | null>(null);
     const [detected, setDetected] = useState<SpriteRegion[]>([]);
@@ -39,6 +40,7 @@ export function ImportSpritesheet({ current, initialWidth, initialHeight, initia
     const [loading, setLoading] = useState(false);
     const [working, setWorking] = useState(false);
     const [fileError, setFileError] = useState('');
+
     const close = () => { if (!working) onClose(); };
     useFocusTrap(true, dialogRef, close);
     useEffect(() => () => { requestRef.current += 1; }, []);
@@ -46,18 +48,27 @@ export function ImportSpritesheet({ current, initialWidth, initialHeight, initia
     
     const validSize = Number.isInteger(width) && Number.isInteger(height)
         && width >= 1 && height >= 1 && width <= MAX_CANVAS_SIZE && height <= MAX_CANVAS_SIZE;
+    
     const bounds = useMemo(() => {
         if (!pixels) return { x: 0, y: 0, width: 0, height: 0 };
         if (!trim) return { x: 0, y: 0, width: pixels.width, height: pixels.height };
-        let left = pixels.width, top = pixels.height, right = -1, bottom = -1;
-        for (let y = 0; y < pixels.height; y++) for (let x = 0; x < pixels.width; x++) {
-            if (pixels.data[(y * pixels.width + x) * 4 + 3] === 0) continue;
-            left = Math.min(left, x); top = Math.min(top, y);
-            right = Math.max(right, x); bottom = Math.max(bottom, y);
+
+        let left = pixels.width
+        let top = pixels.height 
+        let right = -1
+        let bottom = -1;
+
+        for (let y = 0; y < pixels.height; y++){
+            for (let x = 0; x < pixels.width; x++) {
+                if (pixels.data[(y * pixels.width + x) * 4 + 3] === 0) continue;
+                left = Math.min(left, x); top = Math.min(top, y);
+                right = Math.max(right, x); bottom = Math.max(bottom, y);
+            }
         }
         return right < 0 ? { x: 0, y: 0, width: 0, height: 0 }
             : { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
     }, [pixels, trim]);
+
     const cols = validSize ? Math.ceil(bounds.width / width) : 0;
     const rows = validSize ? Math.ceil(bounds.height / height) : 0;
     const cells = useMemo(() => {

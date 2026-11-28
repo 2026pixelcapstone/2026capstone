@@ -73,6 +73,7 @@ import { SendToTabModal } from '../components/editor/SendToTabModal'
 import { ShortcutsModal } from '../components/editor/ShortcutsModal'
 import { useEditOps } from '../hooks/editor/useEditOps'
 import { MENU_ACTION, type MenuActionId } from '../type/editor'
+import { usePopoverPosition } from '../hooks/editor/usePopoverPosition';
 
 const initialCanvasData = createInitialCanvasData(); // 캔버스 데이터 초기화 
 
@@ -140,6 +141,10 @@ export default function EditorPage() {
   const [recentColors, setRecentColors] = useState<string[]>([]);   // 최근 쓴 색(PR-G)
 
   // ── hook ──────────────────────────
+
+  // ── usePopoverPosition 훅 ──────────────
+  const {panelRef, position, setPosition} = usePopoverPosition();
+
   // ── useHistory 훅 ──────────────
   const {state, setWithHistory, setWithoutHistory, undo, redo, reset, getSnapshot, restore, canUndo, canRedo} = useHistory(initialCanvasData);
 
@@ -1192,7 +1197,13 @@ export default function EditorPage() {
           <span className="w-px h-4" style={{ background: 'var(--color-surface-container-highest)' }} />
           <span className='font-bold text-[13px] tracking-wider text-on-surface-variant'>레이어: {currentFrame?.layers.find(l => String(l.id) === String(activeLayerId))?.name || '-'}</span>
           <span className="w-px h-4 shrink-0" style={{ background: 'var(--color-surface-container-highest)' }} />
-          <EditorResourceGauge state={state} activeFrameId={activeFrameId} />
+          <EditorResourceGauge
+            panelRef={panelRef}
+            position={position}
+            activeFrameId={activeFrameId}
+            state={state}
+            setPosition={setPosition}
+          />
         </div>
         
         {/* 우: 파일명 + 저장 */}

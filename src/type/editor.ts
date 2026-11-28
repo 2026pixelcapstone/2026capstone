@@ -1,3 +1,10 @@
+// ── 에디터 UI (팝오버 좌표) ──────────────────────────────────────────────
+export interface PopoverPosition{
+  left: number;
+  top: number; 
+  arrow: number;
+}
+
 // ── 프로젝트 로드 타입(useEditorLoad 훅에서 쓰임) ──────────────────────────────────────────────
 export interface LoadedEditorProject{
   projectId: number;
@@ -23,7 +30,7 @@ export interface LayerViewData{
   blendMode: string;
 }
 
-//  ── Canvas Object Type ──────────────────────────────────────────────
+//  ── Canvas Type ──────────────────────────────────────────────
 export interface AnimationTag {
     id: string;
     name: string;        // 예: "Walk", "Attack"
@@ -69,6 +76,12 @@ export interface CanvasSize{
 export interface SaveModelData{
     title: string;
     isPublic: boolean;
+}
+
+// 캔버스 좌표
+export interface Point {
+    x: number;
+    y: number;
 }
 
 // ── 번역(한글 | 영문) ──────────────────────────────────────────────
@@ -234,7 +247,4 @@ export type ColorToolId = 'color';
 // 도구 아이디를 하나로 묶은 타입 정의
 export type EditorToolId = DrawToolId | SelectToolId | ShapeToolId | ViewToolId | ColorToolId;
 
-export interface Point {
-    x: number;
-    y: number;
-}
+
